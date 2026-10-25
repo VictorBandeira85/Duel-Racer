@@ -1,6 +1,6 @@
 import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { drawCar } from './cars';
-import type { Race, TrafficCar } from './race';
+import type { Officer, Race, TrafficCar } from './race';
 import { SPRITES } from './sprites';
 import type { BgLayer } from './themes';
 import type { Point, Segment } from './track';
@@ -14,6 +14,51 @@ export interface Viewport {
   h: number;
   horizon: number; // y do horizonte
   K: number; // escala da projeção em pixels
+}
+
+const OFFICER_H = 1050; // altura do policial (unidades do mundo)
+
+// Policial visto de frente: quepe, óculos escuros, camisa azul. (x, y) = pés.
+function drawOfficer(c: CanvasRenderingContext2D, x: number, y: number, h: number, paper: boolean) {
+  if (h < 3) return;
+  const w = h * 0.36;
+  c.fillStyle = 'rgba(0,0,0,0.3)';
+  c.fillRect(x - w * 0.6, y - h * 0.02, w * 1.2, h * 0.03);
+  c.fillStyle = '#1c2440';
+  c.fillRect(x - w * 0.42, y - h * 0.46, w * 0.38, h * 0.44);
+  c.fillRect(x + w * 0.04, y - h * 0.46, w * 0.38, h * 0.44);
+  c.fillStyle = '#0c0c0c';
+  c.fillRect(x - w * 0.46, y - h * 0.03, w * 0.42, h * 0.03);
+  c.fillRect(x + w * 0.04, y - h * 0.03, w * 0.42, h * 0.03);
+  c.fillStyle = '#5a7ac8';
+  c.fillRect(x - w / 2, y - h * 0.82, w, h * 0.38);
+  c.fillRect(x - w * 0.72, y - h * 0.8, w * 0.24, h * 0.3);
+  c.fillRect(x + w * 0.48, y - h * 0.8, w * 0.24, h * 0.3);
+  c.fillStyle = '#e0b088';
+  c.fillRect(x - w * 0.7, y - h * 0.52, w * 0.2, h * 0.06);
+  c.fillStyle = '#141414';
+  c.fillRect(x - w / 2, y - h * 0.48, w, h * 0.04);
+  c.fillStyle = '#e8c018';
+  c.fillRect(x - w * 0.32, y - h * 0.76, w * 0.12, h * 0.05);
+  if (paper) {
+    c.fillStyle = '#f6f2e6';
+    c.fillRect(x + w * 0.3, y - h * 0.7, w * 0.5, h * 0.22);
+  } else {
+    c.fillStyle = '#e0b088';
+    c.fillRect(x + w * 0.5, y - h * 0.52, w * 0.2, h * 0.06);
+  }
+  c.fillStyle = '#e0b088';
+  c.fillRect(x - w * 0.1, y - h * 0.86, w * 0.2, h * 0.05);
+  c.beginPath();
+  c.arc(x, y - h * 0.9, w * 0.26, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = '#101010';
+  c.fillRect(x - w * 0.22, y - h * 0.92, w * 0.44, h * 0.03);
+  c.fillStyle = '#1c2440';
+  c.fillRect(x - w * 0.3, y - h * 1.0, w * 0.6, h * 0.07);
+  c.fillRect(x - w * 0.36, y - h * 0.95, w * 0.72, h * 0.025);
+  c.fillStyle = '#e8c018';
+  c.fillRect(x - w * 0.05, y - h * 0.985, w * 0.1, h * 0.035);
 }
 
 function project(p: Point, camX: number, camY: number, camZ: number, roadW: number, vp: Viewport) {
@@ -178,6 +223,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   for (let i = base.index; i < end; i++) segs[i].cars.length = 0;
   const entities: { z: number; x: number }[] = [...r.traffic, ...r.police.filter((p) => p.state !== 'done' || Math.abs(p.z - r.playerZ) < 100 * SEG_LEN)];
   if (r.rival) entities.push(r.rival);
+  if (r.officer) entities.push(r.officer);
   for (const e of entities) {
     const idx = Math.floor(e.z / SEG_LEN);
     if (idx >= base.index && idx < end) segs[idx].cars.push(e);
@@ -227,9 +273,12 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
       const cx = baseX + sc * ex * vp.K;
       if (e === r.rival) {
         drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: r.rival.recover > 0, night });
+      } else if ('phase' in e) {
+        drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, (e as Officer).phase === 'show');
       } else if ('spotZ' in e) {
         const p = e as Race['police'][number];
-        drawCar(c, cx, cy, POLICE_W * sc * vp.K, { color: '#fff', police: true, siren: p.state === 'chase', night });
+        const siren = p.state === 'chase' || p.state === 'pull' || p.state === 'stopped';
+        drawCar(c, cx, cy, POLICE_W * sc * vp.K, { color: '#fff', police: true, siren, night });
       } else {
         const t = e as TrafficCar;
         drawCar(c, cx, cy, (t.truck ? TRUCK_W : CAR_W) * sc * vp.K, { color: t.color, front: t.speed < 0, truck: t.truck, night });
@@ -278,7 +327,7 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
   const night = !!r.def.night;
   for (const t of r.traffic) behind.push({ z: t.z, x: t.x, w: t.truck ? TRUCK_W : CAR_W, look: { color: t.color, front: t.speed > 0, truck: t.truck, night } });
   if (r.rival) behind.push({ z: r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, front: true, night } });
-  for (const p of r.police) if (p.state === 'chase') behind.push({ z: p.z, x: p.x, w: POLICE_W, look: { color: '#fff', police: true, siren: true, front: true, night } });
+  for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') behind.push({ z: p.z, x: p.x, w: POLICE_W, look: { color: '#fff', police: true, siren: true, front: true, night } });
   behind.sort((a, b) => a.z - b.z);
   for (const b of behind) {
     const dz = r.position - b.z;

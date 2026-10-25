@@ -258,6 +258,7 @@ export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: numbe
     text(c, 'VAI!', w / 2, vp.y + 36, 16, '#30e060', 'center');
   }
   if (r.messageT > 0) text(c, r.message, w / 2, vp.y + 14, 8, '#ffd400', 'center');
+  if (r.officer?.phase === 'show' && r.fine) drawFine(c, r, vp);
 }
 
 function drawDashGeneric(c: CanvasRenderingContext2D, r: Race, dt: number) {
@@ -448,4 +449,45 @@ function drawDashF40(c: CanvasRenderingContext2D, r: Race, dt: number) {
   c.arc(0, -24, 9, 0, Math.PI * 2);
   c.stroke();
   c.restore();
+}
+
+// Papel da multa mostrado pelo policial
+function drawFine(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
+  const f = r.fine!;
+  const t = r.officer!.t;
+  const pw = 168, ph = 104;
+  const px = vp.x + vp.w / 2 - pw / 2 - 20;
+  const py = vp.y + 8 + (1 - Math.min(1, t * 3)) * 80;
+  c.save();
+  c.translate(px + pw / 2, py + ph / 2);
+  c.rotate(-0.04);
+  c.translate(-pw / 2, -ph / 2);
+  c.fillStyle = 'rgba(0,0,0,0.35)';
+  c.fillRect(3, 3, pw, ph);
+  c.fillStyle = '#f6f2e6';
+  c.fillRect(0, 0, pw, ph);
+  c.fillStyle = '#1c2a6a';
+  c.fillRect(0, 0, pw, 14);
+  text(c, 'POLÍCIA RODOVIÁRIA', pw / 2, 4, 5, '#fff', 'center', null);
+  text(c, 'AUTO DE INFRAÇÃO', pw / 2, 20, 8, '#1c1c1c', 'center', null);
+  c.fillStyle = '#c8c0a8';
+  c.fillRect(8, 31, pw - 16, 1);
+  text(c, `VELOCIDADE: ${f.kmh} KM/H`, 10, 38, 5, '#1c1c1c', 'left', null);
+  text(c, `LIMITE DA VIA: ${f.limit} KM/H`, 10, 48, 5, '#1c1c1c', 'left', null);
+  text(c, 'MULTA', 10, 64, 8, '#1c1c1c', 'left', null);
+  text(c, `$ ${f.value}`, pw - 10, 64, 8, '#c01818', 'right', null);
+  c.strokeStyle = '#1c2a6a';
+  c.lineWidth = 1;
+  c.beginPath();
+  for (let i = 0; i <= 20; i++) c.lineTo(pw - 70 + i * 3, 90 + Math.sin(i * 1.3) * 3);
+  c.stroke();
+  c.fillStyle = '#c8c0a8';
+  c.fillRect(pw - 72, 95, 62, 1);
+  // mão do policial
+  c.fillStyle = '#e0b088';
+  c.fillRect(-10, ph - 34, 18, 22);
+  c.fillStyle = '#5a7ac8';
+  c.fillRect(-26, ph - 30, 18, 30);
+  c.restore();
+  if (t > 1.2 && Math.floor(t * 2) % 2) text(c, 'ACELERE PARA SEGUIR', vp.x + vp.w * 0.8, vp.y + vp.h / 2, 5, '#ffd400', 'center');
 }

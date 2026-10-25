@@ -34,12 +34,28 @@ export interface Police {
   z: number;
   x: number;
   speed: number;
-  state: 'parked' | 'chase' | 'done';
+  // parado escondido → perseguindo → encostando o jogador → parado no acostamento → indo embora
+  state: 'parked' | 'chase' | 'pull' | 'stopped' | 'leaving' | 'done';
+  chaseT: number;
+}
+
+// Policial que desce da viatura e mostra a multa
+export interface Officer {
+  z: number;
+  x: number;
+  phase: 'walk' | 'show' | 'back';
+  t: number;
+}
+
+export interface Fine {
+  kmh: number;
+  limit: number;
+  value: number;
 }
 
 const HITBOX = 0.8;
 
-export type RaceState = 'countdown' | 'drive' | 'crash' | 'ticket' | 'arrived';
+export type RaceState = 'countdown' | 'drive' | 'crash' | 'pullover' | 'ticket' | 'arrived';
 
 export class Race {
   def: StageDef;
@@ -71,6 +87,9 @@ export class Race {
   rival: Rival | null = null;
   traffic: TrafficCar[] = [];
   police: Police[] = [];
+  officer: Officer | null = null;
+  fine: Fine | null = null;
+  private stopX = 0; // onde o jogador encosta
   radar = 0;
   rand: () => number;
 
@@ -103,7 +122,7 @@ export class Race {
       this.spawn(c, this.playerZ + (45 + (i / this.def.traffic) * 300) * SEG_LEN);
       this.traffic.push(c);
     }
-    this.police = t.policeSpots.map((z) => ({ spotZ: z, z, x: t.roadW + 1500, speed: 0, state: 'parked' as const }));
+    this.police = t.policeSpots.map((z) => ({ spotZ: z, z, x: t.roadW + 1500, speed: 0, state: 'parked' as const, chaseT: 0 }));
   }
 
   get playerZ() {
@@ -173,15 +192,18 @@ export class Race {
       takeShift('shiftDown');
     }
 
+    const pulling = this.state === 'pullover';
+    const cop = pulling ? this.police.find((p) => p.state === 'pull') : undefined;
+    const copAhead = !!cop && cop.z > this.playerZ + SEG_LEN * 1.2;
     this.throttle = driving && input.gas;
-    this.braking = driving ? input.brake : true;
+    this.braking = driving ? input.brake : pulling ? copAhead : this.state !== 'ticket' || this.speed > 0;
     this.steer = driving ? (input.left ? -1 : 0) + (input.right ? 1 : 0) : 0;
 
     const gearMax = max * GEARS[this.gear];
     if (this.throttle) this.speed += engineAccel(this.car, this.gear, this.speed) * dt;
     else this.speed -= max * 0.06 * dt;
     if (this.speed > gearMax) this.speed -= (this.speed - gearMax) * 2 * dt; // freio-motor
-    if (this.braking) this.speed -= max * (this.state === 'crash' ? 2 : 0.6) * dt;
+    if (this.braking) this.speed -= max * (this.state === 'crash' ? 2 : pulling ? 0.17 : 0.6) * dt;
     const slope = (pSeg.p2.world.y - pSeg.p1.world.y) / SEG_LEN;
     this.speed -= slope * max * 0.1 * dt;
     this.speed = clamp(this.speed, 0, max * 1.05);
@@ -193,6 +215,8 @@ export class Race {
     if (driving) {
       this.x += this.steer * dt * 2700 * this.car.handling * Math.sqrt(speedPct);
       this.x -= dt * speedPct * speedPct * pSeg.curve * 560;
+    } else if (pulling && copAhead) {
+      this.x += clamp(this.stopX - this.x, -dt * 1400, dt * 1400); // encosta no acostamento
     }
 
     // ---- fora da pista ----
@@ -223,13 +247,14 @@ export class Race {
     if (driving) this.checkCollisions();
 
     // ---- estados especiais ----
-    if (this.state === 'crash' || this.state === 'ticket') {
+    if (this.state === 'crash') {
       this.timer -= dt;
       if (this.timer <= 0) {
-        if (this.state === 'crash') this.onCrash?.();
+        this.onCrash?.();
         this.resume();
       }
     }
+    if (this.state === 'ticket') this.updateOfficer(dt);
 
     if (this.rival && this.rival.finishTime < 0 && this.rival.z >= t.finishZ) this.rival.finishTime = this.time;
     if (driving && this.playerZ >= t.finishZ) {
@@ -343,41 +368,117 @@ export class Race {
 
   private updatePolice(dt: number) {
     const pz = this.playerZ;
+    const max = this.car.maxSpeed;
     this.radar = 0;
-    let chasing = false;
+    let siren = false;
     for (const p of this.police) {
       if (p.state === 'parked') {
         const d = p.spotZ - pz;
         if (d > 0 && d < 80 * SEG_LEN) this.radar = Math.max(this.radar, 1 - d / (80 * SEG_LEN));
-        if (d <= 0) {
+        // a viatura sai do esconderijo logo depois que o jogador passa
+        if (d <= -3 * SEG_LEN) {
           if (this.speed * KMH > 150 && this.state === 'drive') {
             p.state = 'chase';
-            p.speed = this.speed * 0.4;
+            p.chaseT = 0;
+            p.speed = this.speed * 0.6;
             this.say('POLÍCIA!');
           } else p.state = 'done';
         }
       } else if (p.state === 'chase') {
-        chasing = true;
+        siren = true;
         this.radar = 1;
-        const target = this.car.maxSpeed * 0.985;
-        p.speed += (target - p.speed) * Math.min(1, dt * 0.9);
-        p.x += clamp(this.x - p.x, -dt * 3000, dt * 3000);
+        p.chaseT += dt;
+        // sai forte e depois só ganha terreno se o jogador estiver abaixo do máximo
+        const target = Math.min(max * 0.975, this.speed + 2500);
+        p.speed += clamp(target - p.speed, -4000 * dt, 3000 * dt);
+        const gapNow = pz - p.z;
+        if (gapNow < SEG_LEN * 1.5) p.speed = Math.min(p.speed, this.speed); // não ultrapassa antes da abordagem
         p.z += p.speed * dt;
-        if (this.state === 'drive' && p.z >= pz - SEG_LEN * 0.6) {
-          p.state = 'done';
-          this.state = 'ticket';
-          this.timer = 3;
-          this.tickets++;
-          this.time += 10;
-          this.clean = false;
-          this.say('MULTADO! +10s', 3);
-        } else if (pz - p.z > 90 * SEG_LEN) {
+        // atrás do jogador, pela faixa da esquerda (para ultrapassar)
+        p.x += clamp(this.x - CAR_W * 1.3 - p.x, -dt * 2500, dt * 2500);
+        const gap = pz - p.z;
+        if (this.state === 'drive' && p.chaseT > 2.5 && gap < SEG_LEN * 2.5) this.startPullover(p);
+        else if (gap > 60 * SEG_LEN || p.chaseT > 30) {
           p.state = 'done';
           this.say('ESCAPOU!');
         }
+      } else if (p.state === 'pull') {
+        siren = true;
+        this.radar = 1;
+        // ultrapassa e se mantém 8 segmentos à frente (visível no para-brisa), reduzindo junto
+        const err = pz + SEG_LEN * 8 - p.z;
+        p.speed = Math.max(0, this.speed + clamp(err * 1.5, -3000, 3500));
+        p.z += p.speed * dt;
+        const ahead = p.z > pz + SEG_LEN * 1.2;
+        p.x += clamp((ahead ? this.stopX : this.x - CAR_W * 1.3) - p.x, -dt * 2200, dt * 2200);
+        if (this.speed <= 0 && p.speed < 80 && Math.abs(err) < SEG_LEN * 0.6) {
+          p.state = 'stopped';
+          p.speed = 0;
+          this.state = 'ticket';
+          this.officer = { z: p.z - 300, x: p.x - 700, phase: 'walk', t: 0 };
+        }
+      } else if (p.state === 'stopped') {
+        this.radar = 1;
+      } else if (p.state === 'leaving') {
+        p.speed = Math.min(9000, p.speed + 2500 * dt);
+        p.z += p.speed * dt;
+        p.x += clamp(laneCenter(this.track, this.track.lanes - 1) - p.x, -dt * 1500, dt * 1500);
+        if (p.z - pz > 300 * SEG_LEN) p.state = 'done';
       }
     }
-    setSiren(chasing);
+    setSiren(siren);
+  }
+
+  private startPullover(p: Police) {
+    p.state = 'pull';
+    this.state = 'pullover';
+    this.clean = false;
+    this.tickets++;
+    const kmh = Math.round(this.speed * KMH);
+    const limit = this.track.lanes === 4 ? 120 : 100;
+    this.fine = { kmh, limit, value: Math.round((150 + (kmh - limit) * 3) / 10) * 10 };
+    this.stopX = this.track.roadW + 350;
+    this.ghost = 99;
+    this.say('ENCOSTE O CARRO!', 2.5);
+    for (const c of this.traffic) {
+      if (Math.abs(c.z - this.playerZ) < 30 * SEG_LEN) this.spawn(c, this.playerZ + (220 + this.rand() * 100) * SEG_LEN);
+    }
+  }
+
+  // policial caminha até o carro, mostra a multa e volta
+  private updateOfficer(dt: number) {
+    const o = this.officer;
+    if (!o) return;
+    o.t += dt;
+    const nearZ = this.position + 1150;
+    const nearX = this.x - 650;
+    if (o.phase === 'walk') {
+      o.z += clamp(nearZ - o.z, -dt * 500, dt * 500);
+      o.x += clamp(nearX - o.x, -dt * 350, dt * 350);
+      if (Math.abs(nearZ - o.z) < 10) {
+        o.phase = 'show';
+        o.t = 0;
+      }
+    } else if (o.phase === 'show') {
+      if (o.t > 4.5 || (o.t > 1.2 && (input.gas || input.brake))) {
+        o.phase = 'back';
+        o.t = 0;
+      }
+    } else {
+      const cop = this.police.find((p) => p.state === 'stopped');
+      const backZ = cop ? cop.z - 300 : o.z;
+      o.z += clamp(backZ - o.z, -dt * 700, dt * 700);
+      o.x += clamp((cop ? cop.x - 700 : o.x) - o.x, -dt * 600, dt * 600);
+      if (Math.abs(backZ - o.z) < 10) {
+        this.officer = null;
+        this.fine = null;
+        if (cop) cop.state = 'leaving';
+        this.state = 'drive';
+        this.speed = 0;
+        this.gear = 0;
+        this.ghost = 1.5;
+      }
+    }
   }
 
   private checkCollisions() {

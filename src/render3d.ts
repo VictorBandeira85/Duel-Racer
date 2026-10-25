@@ -218,7 +218,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
       def.draw(c, sx, s.p1.screen.y, sw, sh, sp.seed);
     }
     for (const e of s.cars) {
-      if (e.z - r.position < 1300) continue; // colado no para-brisa: some sob o painel
+      if (e.z - r.position < 450) continue; // colado no para-brisa: some sob o painel
       const pct = (e.z % SEG_LEN) / SEG_LEN;
       const sc = lerp(s.p1.screen.scale, s.p2.screen.scale, pct);
       const cy = lerp(s.p1.screen.y, s.p2.screen.y, pct);

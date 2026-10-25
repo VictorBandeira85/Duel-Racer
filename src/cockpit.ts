@@ -11,7 +11,7 @@ const drops: { x: number; y: number; v: number }[] = [];
 
 export function windshield(): Viewport {
   const h = DASH_Y - ROOF_H;
-  return { x: 0, y: ROOF_H, w: view.w, h, horizon: ROOF_H + Math.round(h * 0.44), K: 190 };
+  return { x: 0, y: ROOF_H, w: view.w, h, horizon: ROOF_H + Math.round(h * 0.44), K: 215 };
 }
 
 function gauge(

@@ -31,7 +31,7 @@ export const THEMES: Record<ThemeId, Theme> = {
   },
   city: {
     sky: ['#38b2f6', '#38b2f6'], ground: ['#0b5c10', '#147216'], shoulder: '#a8a8a8', road: '#474747',
-    bg: ['city', 'forest'], bgColors: ['#5a5a7a', '#1e5a28'], scenery: ['lamp', 'tree', 'bush'], density: 0.15, mapColor: '#8a8aa8',
+    bg: ['forest', 'city'], bgColors: ['#1e5a28', '#5a5a7a'], scenery: ['lamp', 'tree', 'bush'], density: 0.15, mapColor: '#8a8aa8',
   },
   mountain: {
     sky: ['#4a9ef0', '#4a9ef0'], ground: ['#0a5410', '#126a16'], shoulder: '#a0a0a0', road: '#474747',

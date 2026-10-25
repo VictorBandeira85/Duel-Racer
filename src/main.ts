@@ -33,6 +33,7 @@ function showControls(on: boolean) {
 const actions: Actions = {
   go(s: ScreenId) {
     state.screen = s;
+    resize();
     state.sel = s === 'title' ? 1 : 0;
     showControls(false);
     setEngine(0, false, false);
@@ -75,6 +76,7 @@ function startStage(i: number) {
   race = r;
   releaseAll();
   state.screen = 'race';
+  resize();
   showControls(true);
 }
 
@@ -88,12 +90,18 @@ function finishCourse() {
 }
 
 function resize() {
-  const aspect = window.innerWidth / window.innerHeight;
-  view.w = Math.round(Math.min(520, Math.max(320, view.h * aspect)));
+  // corrida: resolução nativa do Super Nintendo (224 linhas, pixel 8:7 como na TV);
+  // menus: 240 linhas com pixel quadrado
+  const race = state.screen === 'race';
+  view.h = race ? 224 : 240;
+  view.aspect = race ? 8 / 7 : 1;
+  const screenAspect = window.innerWidth / window.innerHeight;
+  view.w = Math.round(Math.min(race ? 460 : 520, Math.max(race ? 256 : 320, (view.h * screenAspect) / view.aspect)));
   canvas.width = view.w;
   canvas.height = view.h;
-  const scale = Math.min(window.innerWidth / view.w, window.innerHeight / view.h);
-  canvas.style.width = `${view.w * scale}px`;
+  ctx.imageSmoothingEnabled = false;
+  const scale = Math.min(window.innerWidth / (view.w * view.aspect), window.innerHeight / view.h);
+  canvas.style.width = `${view.w * view.aspect * scale}px`;
   canvas.style.height = `${view.h * scale}px`;
 }
 
@@ -155,7 +163,7 @@ function frame(now: number) {
     }
     if (state.screen === 'race') {
       const course = COURSES[state.courseIdx];
-      renderCockpit(ctx, race, state.lives, `T${race.stageIdx + 1}/${course.stages.length}`, totalTime(), paused ? 0 : dt);
+      renderCockpit(ctx, race, state.lives, `${race.stageIdx + 1}/${course.stages.length}`, totalTime(), paused ? 0 : dt);
     } else drawScreen(ctx, state);
   } else {
     acc = 0;

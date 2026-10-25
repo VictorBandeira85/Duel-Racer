@@ -42,16 +42,17 @@ function wave(x: number, parts: [number, number, number][]) {
 }
 
 function city(img: Img, rand: () => number, night: boolean) {
-  const pal = ['#8c8ca4', '#a4a4bc', '#c8b8a0', '#b48c96', '#7c7c94', '#d0c8b4', '#94a0b4', '#a89070'].map(hex);
+  const pal = ['#3a3a6a', '#56568a', '#6a4a7a', '#8a7aa0', '#2a2a4a', '#b0a080', '#7a8ab0', '#c8c8d8'].map(hex);
   let x = 0;
   while (x < PANO_W) {
-    if (rand() < 0.08) {
-      x += 3 + Math.floor(rand() * 8);
+    // trechos sem prédios, onde a mata de trás aparece (como no original)
+    if (rand() < 0.025) {
+      x += 30 + Math.floor(rand() * 70);
       continue;
     }
-    const bw = 5 + Math.floor(rand() * 13);
-    const tall = rand() < 0.15;
-    const bh = Math.min(PANO_H - 4, Math.floor(6 + Math.pow(rand(), 1.4) * (tall ? 52 : 34)));
+    const bw = 4 + Math.floor(rand() * 10);
+    const tall = rand() < 0.12;
+    const bh = Math.min(PANO_H - 4, Math.floor(5 + Math.pow(rand(), 1.3) * (tall ? 30 : 20)));
     let col = pal[Math.floor(rand() * pal.length)];
     if (night) col = dim(col, 0.35);
     const top = PANO_H - bh;
@@ -66,7 +67,7 @@ function city(img: Img, rand: () => number, night: boolean) {
     // janelas
     for (let yy = top + 2; yy < PANO_H - 2; yy += 3) {
       for (let xx = x + 1; xx < x + bw - 1; xx += 2) {
-        const lit = night ? (rand() < 0.45 ? hex('#ffd86b') : hex('#20203a')) : dim(col, 0.45);
+        const lit = night ? (rand() < 0.45 ? hex('#ffd86b') : hex('#20203a')) : rand() < 0.8 ? hex('#d4d4ec') : dim(col, 0.6);
         img.set(xx, yy, lit);
       }
     }
@@ -83,7 +84,7 @@ function city(img: Img, rand: () => number, night: boolean) {
       }
       x += 16;
     }
-    x += bw + (rand() < 0.3 ? 1 : 0);
+    x += bw - (rand() < 0.4 ? 1 : 0);
   }
 }
 

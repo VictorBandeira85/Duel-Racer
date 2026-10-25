@@ -52,3 +52,24 @@ Controles no computador: setas para acelerar, frear e virar; `Q`/`E` trocam a ma
 | `src/cars.ts` | Carros, ficha técnica e desenho |
 | `src/sprites.ts` | Objetos de cenário |
 | `src/input.ts` / `src/audio.ts` | Controles e som (motor, sirene, batida) |
+
+## Ferramentas de referência visual
+
+Para aproximar o visual do jogo original, as capturas de referência são medidas em vez de
+comparadas "no olho". As capturas do jogo original servem só como medida: nunca entram no jogo
+nem no repositório (a pasta `refs/` é ignorada pelo git).
+
+```bash
+# 1. mede uma captura: recorta a área do jogo, reconstrói os pixels nativos (256x224),
+#    extrai a paleta e gera uma ampliação com grade de coordenadas
+python3 tools/ref/measure.py refs/captura.png refs/medida-f40
+
+# 2. captura o quadro do jogo em 256x224 (com `npm run dev` rodando)
+node tools/ref/capture.cjs refs/jogo-f40.png <carro> <percurso> <trecho>
+
+# 3. compara: lado a lado, sobreposição e mapa de diferenças, com a diferença média por região
+cd tools/ref && python3 compare.py ../../refs/medida-f40/native.png ../../refs/jogo-f40.png ../../refs/comparacao.png
+```
+
+A corrida é desenhada em 256x224 (resolução do Super Nintendo) com pixel 8:7, como na TV; em
+telas largas, a área de 256 px fica no centro e teto/painel se estendem para os lados.

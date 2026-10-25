@@ -68,3 +68,35 @@ export function toggleMute() {
   muted = !muted;
   return muted;
 }
+
+// Sirene da polícia
+let siren: OscillatorNode | null = null;
+let sirenGain: GainNode | null = null;
+export function setSiren(on: boolean) {
+  if (!ctx) return;
+  if (!siren) {
+    siren = ctx.createOscillator();
+    siren.type = 'triangle';
+    sirenGain = ctx.createGain();
+    sirenGain.gain.value = 0;
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    lfo.frequency.value = 1.6;
+    lfoGain.gain.value = 180;
+    lfo.connect(lfoGain).connect(siren.frequency);
+    siren.frequency.value = 720;
+    siren.connect(sirenGain).connect(ctx.destination);
+    siren.start();
+    lfo.start();
+  }
+  sirenGain!.gain.setTargetAtTime(on && !muted ? 0.04 : 0, ctx.currentTime, 0.1);
+}
+
+export function isMuted() {
+  return muted;
+}
+
+export function setMuted(m: boolean) {
+  muted = m;
+  if (ctx && m) gain.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
+}

@@ -11,29 +11,11 @@
   <body>
     <canvas id="game"></canvas>
 
-    <div id="menu" class="overlay">
-      <h1>DUEL<span>RACER</span></h1>
-      <div class="picker">
-        <button data-act="stagePrev">◀</button>
-        <div class="pick"><small>PISTA</small><b id="stageName"></b><em id="stageBest"></em></div>
-        <button data-act="stageNext">▶</button>
-      </div>
-      <div class="picker">
-        <button data-act="carPrev">◀</button>
-        <div class="pick"><small>CARRO</small><b id="carName"></b><em id="carStats"></em></div>
-        <button data-act="carNext">▶</button>
-      </div>
-      <button data-act="trans" id="transBtn" class="flat"></button>
-      <button data-act="start" class="go">CORRER</button>
-    </div>
-
-    <div id="result" class="overlay hidden">
-      <h2 id="resultTitle"></h2>
-      <p id="resultText"></p>
-      <div class="row">
-        <button data-act="retry" class="go">REVANCHE</button>
-        <button data-act="menu" class="flat">MENU</button>
-      </div>
+    <button id="pauseBtn" class="hidden" aria-label="Pausar">II</button>
+    <div id="pause" class="hidden">
+      <b>PAUSA</b>
+      <button id="resume">CONTINUAR</button>
+      <button id="quit">ABANDONAR</button>
     </div>
 
     <div id="controls" class="hidden">
@@ -51,9 +33,7 @@
       </div>
     </div>
 
-    <button id="mute" aria-label="Som">♪</button>
     <div id="rotate">Gire o celular para jogar na horizontal ↻</div>
-
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

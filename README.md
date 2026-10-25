@@ -1,10 +1,10 @@
 # Duel Racer
 
-Jogo de corrida mobile (iOS primeiro) inspirado nos clássicos de duelo dos anos 90:
-você contra um rival, em estradas de mão dupla com trânsito, em visual pseudo-3D estilo 16 bits.
+Jogo de corrida mobile (iOS primeiro) inspirado em **Test Drive II: The Duel** (SNES):
+visão de dentro do carro, duelo contra um rival por estradas de mão dupla, polícia com radar
+e trechos que terminam em postos de gasolina.
 
-Todo o conteúdo (carros, pistas, gráficos e sons) é original e gerado por código: nenhuma marca,
-imagem ou som de jogos existentes.
+Carros, marcas, gráficos e sons são originais e gerados por código: nada é copiado do jogo original.
 
 ## Como rodar
 
@@ -14,36 +14,40 @@ npm run dev      # abre em http://localhost:5173 (também acessível pelo celula
 npm run build    # gera a versão final em dist/
 ```
 
-Controles no computador: setas (ou WASD) para acelerar, frear e virar; `Q`/`E` trocam a marcha no câmbio manual.
-No celular: botões na tela (jogue com o aparelho na horizontal).
+Controles no computador: setas para acelerar, frear e virar; `Q`/`E` trocam a marcha no câmbio manual;
+`Esc` pausa. Nos menus: setas + `Enter`. No celular: toque (jogue com o aparelho na horizontal).
 
-## O que já existe (v0.1)
+## O que já existe (v0.2)
 
-- Motor de estrada pseudo-3D com curvas, subidas e descidas
-- 4 pistas: Costa do Sol, Deserto Vermelho, Serra Nevada, Neon Noturno
-- 3 carros fictícios com velocidade, aceleração e controle diferentes
-- Câmbio automático ou manual (5 marchas)
-- Rival com IA que desvia do trânsito
-- Trânsito nos dois sentidos, batidas e perda de velocidade fora da pista
-- Som do motor sintetizado, recordes salvos no aparelho
+- Visão da cabine: volante, conta-giros, velocímetro, câmbio em H, detector de radar e retrovisor
+- Painel diferente conforme o carro
+- Menu com placas de rodovia, ficha técnica do carro com gráfico de aceleração,
+  escolha do adversário (3 carros ou contra o relógio) e mapa dos percursos
+- 4 percursos (Fácil, Médio, Difícil, Expert) com 5 trechos cada: floresta, fazenda, deserto,
+  cidade, serra, neve e litoral, com noite, chuva e neve
+- Posto de gasolina ao fim de cada trecho, vidas ("carros restantes") e carro bônus por trecho limpo
+- Polícia escondida que persegue quem passa rápido; se alcançar, multa (+10 s)
+- Batida trinca o para-brisa e custa um carro
+- 4 carros fictícios, câmbio automático ou manual, recordes salvos no aparelho
 
 ## Próximos passos
 
-- Polícia com radar e perseguição
-- Modo campeonato (sequência de pistas, dinheiro, garagem e melhorias)
-- Mais carros, pistas e rivais com personalidades diferentes
-- Clima (chuva, neblina) e ciclo dia/noite
-- Trilha sonora
+- Ajustar dificuldade e controles jogando no iPhone
+- Trilha sonora e mais efeitos sonoros
+- Mais carros, percursos e rivais
 - Empacotamento iOS com Capacitor e build na nuvem para TestFlight
 
 ## Estrutura
 
 | Arquivo | Função |
 |---|---|
-| `src/track.ts` | Gera as pistas (curvas, morros, cenário) a partir de uma semente |
-| `src/stages.ts` | Definição das pistas: cores, cenário, quantidade de trânsito |
-| `src/cars.ts` | Carros e como são desenhados |
-| `src/game.ts` | Física, câmbio, IA do rival, trânsito e colisões |
-| `src/render.ts` | Renderização pseudo-3D e painel (HUD) |
+| `src/main.ts` | Liga tudo: telas, corrida, laço principal |
+| `src/screens.ts` | Menus, posto de gasolina, resultados e recordes |
+| `src/race.ts` | Física, câmbio, rival, trânsito, polícia, batidas |
+| `src/cockpit.ts` | Painel, volante, retrovisor, para-brisa trincado, chuva/neve |
+| `src/render3d.ts` | Estrada pseudo-3D e retrovisor |
+| `src/track.ts` | Gera cada trecho (curvas, morros, cenário, polícia) |
+| `src/courses.ts` / `src/themes.ts` | Percursos, trechos e visual de cada ambiente |
+| `src/cars.ts` | Carros, ficha técnica e desenho |
 | `src/sprites.ts` | Objetos de cenário |
-| `src/input.ts` / `src/audio.ts` | Controles e som |
+| `src/input.ts` / `src/audio.ts` | Controles e som (motor, sirene, batida) |

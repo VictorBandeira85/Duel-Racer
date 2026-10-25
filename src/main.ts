@@ -1,37 +1,95 @@
+import '@fontsource/press-start-2p/400.css';
 import { view } from './config';
-import { Game } from './game';
-import { render } from './render';
+import { CARS, RIVALS } from './cars';
+import { COURSES } from './courses';
+import { Race } from './race';
+import { renderCockpit } from './cockpit';
+import { drawScreen, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { input, releaseAll, setupInput } from './input';
-import { initAudio, setEngine, toggleMute } from './audio';
-import { formatTime } from './util';
+import { initAudio, setEngine, setMuted, setSiren } from './audio';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
 const $ = (id: string) => document.getElementById(id)!;
 
-const game = new Game();
+const state: AppState = {
+  screen: 'title', t: 0, sel: 1, auto: true, sound: true,
+  carIdx: 0, oppIdx: 0, courseIdx: 0, scoreCourse: 0,
+  lives: 5, results: [], gameOver: false,
+};
+let race: Race | null = null;
+let paused = false;
 
-// recordes salvos no aparelho
-const bestKey = () => `duel-racer:best:${game.stage.id}:${game.car.id}`;
-const getBest = (): number | null => {
-  try {
-    const v = localStorage.getItem(bestKey());
-    return v ? Number(v) : null;
-  } catch {
-    return null;
-  }
+const totalTime = () => state.results.reduce((a, r) => a + r.time, 0);
+
+function showControls(on: boolean) {
+  $('controls').classList.toggle('hidden', !on);
+  $('pauseBtn').classList.toggle('hidden', !on);
+  $('gearBtns').classList.toggle('hidden', state.auto);
+  $('pause').classList.add('hidden');
+  paused = false;
+}
+
+const actions: Actions = {
+  go(s: ScreenId) {
+    state.screen = s;
+    state.sel = s === 'title' ? 1 : 0;
+    showControls(false);
+    setEngine(0, false, false);
+    setSiren(false);
+  },
+  startCourse() {
+    initAudio();
+    state.lives = 5;
+    state.results = [];
+    state.gameOver = false;
+    startStage(0);
+  },
+  nextStage() {
+    const course = COURSES[state.courseIdx];
+    if (state.results.length >= course.stages.length) finishCourse();
+    else startStage(state.results.length);
+  },
+  toggleSound() {
+    state.sound = !state.sound;
+    setMuted(!state.sound);
+  },
 };
-const setBest = (t: number) => {
-  try {
-    localStorage.setItem(bestKey(), String(t));
-  } catch {
-    /* sem armazenamento disponível */
-  }
-};
+
+function startStage(i: number) {
+  const course = COURSES[state.courseIdx];
+  const rivalCar = state.oppIdx < 3 ? CARS[RIVALS[state.oppIdx]] : null;
+  const r = new Race(course, i, CARS[state.carIdx], rivalCar, state.auto);
+  r.onArrive = () => {
+    state.results.push({ time: r.time, rival: r.rivalTime, clean: r.clean, crashes: r.crashes, tickets: r.tickets });
+    if (r.clean) state.lives++;
+    actions.go('gas');
+  };
+  r.onCrash = () => {
+    state.lives--;
+    if (state.lives <= 0) {
+      state.gameOver = true;
+      actions.go('end');
+    }
+  };
+  race = r;
+  releaseAll();
+  state.screen = 'race';
+  showControls(true);
+}
+
+function finishCourse() {
+  const course = COURSES[state.courseIdx];
+  const total = totalTime();
+  const rivalOk = state.results.every((r) => r.rival >= 0);
+  const rival = state.results.reduce((a, r) => a + r.rival, 0);
+  saveScore(course, { time: total, car: CARS[state.carIdx].name, won: !rivalOk || total <= rival });
+  actions.go('end');
+}
 
 function resize() {
   const aspect = window.innerWidth / window.innerHeight;
-  view.w = Math.round(Math.min(640, Math.max(400, view.h * aspect)));
+  view.w = Math.round(Math.min(520, Math.max(320, view.h * aspect)));
   canvas.width = view.w;
   canvas.height = view.h;
   const scale = Math.min(window.innerWidth / view.w, window.innerHeight / view.h);
@@ -39,91 +97,73 @@ function resize() {
   canvas.style.height = `${view.h * scale}px`;
 }
 
-const bar = (v: number) => '■'.repeat(v) + '□'.repeat(5 - v);
-
-function refreshMenu() {
-  $('stageName').textContent = game.stage.name;
-  const best = getBest();
-  $('stageBest').textContent = best ? `Recorde: ${formatTime(best)}` : '';
-  const car = game.car;
-  $('carName').textContent = car.name;
-  const vel = Math.round(((car.maxSpeed - 10800) / 2400) * 4) + 1;
-  const acc = Math.round(((car.accel - 0.8) / 0.4) * 4) + 1;
-  const ctl = Math.round(((car.handling - 0.8) / 0.4) * 4) + 1;
-  $('carStats').textContent = `VEL ${bar(vel)} ACEL ${bar(acc)} CONTR ${bar(ctl)}`;
-  $('transBtn').textContent = `CÂMBIO: ${game.auto ? 'AUTOMÁTICO' : 'MANUAL'}`;
-}
-
-function show(id: 'menu' | 'result' | 'controls') {
-  for (const el of ['menu', 'result', 'controls']) $(el).classList.toggle('hidden', el !== id);
-  $('mute').classList.toggle('hidden', id === 'controls');
-}
-
-function startRace() {
+canvas.addEventListener('pointerdown', (e) => {
   initAudio();
-  releaseAll();
-  game.startRace();
-  $('gearBtns').classList.toggle('hidden', game.auto);
-  show('controls');
-}
-
-game.onFinish = (won) => {
-  const best = getBest();
-  const isRecord = best === null || game.finishTime < best;
-  if (isRecord) setBest(game.finishTime);
-  $('resultTitle').textContent = won ? 'VITÓRIA!' : 'DERROTA';
-  ($('resultTitle') as HTMLElement).style.color = won ? '#ffd400' : '#ff5a5a';
-  const diff = game.rival.finishTime >= 0 ? game.finishTime - game.rival.finishTime : null;
-  $('resultText').innerHTML =
-    `Seu tempo: ${formatTime(game.finishTime)}${isRecord ? ' <b style="color:#30e060">NOVO RECORDE!</b>' : ''}<br>` +
-    (diff === null ? 'O rival nem chegou perto.' : `Rival: ${diff > 0 ? '-' : '+'}${Math.abs(diff).toFixed(2)}s`);
-  show('result');
-};
-
-document.querySelectorAll<HTMLElement>('[data-act]').forEach((el) =>
-  el.addEventListener('click', () => {
-    switch (el.dataset.act) {
-      case 'stagePrev': game.select(game.stageIdx - 1, game.carIdx); game.toMenu(); break;
-      case 'stageNext': game.select(game.stageIdx + 1, game.carIdx); game.toMenu(); break;
-      case 'carPrev': game.select(game.stageIdx, game.carIdx - 1); break;
-      case 'carNext': game.select(game.stageIdx, game.carIdx + 1); break;
-      case 'trans': game.auto = !game.auto; break;
-      case 'start':
-      case 'retry': startRace(); return;
-      case 'menu': game.toMenu(); setEngine(0, false, false); show('menu'); break;
-    }
-    refreshMenu();
-  }),
-);
-
-$('mute').addEventListener('click', () => {
-  initAudio();
-  $('mute').classList.toggle('off', toggleMute());
+  if (state.screen === 'race') return;
+  const rect = canvas.getBoundingClientRect();
+  tapScreen(state, actions, ((e.clientX - rect.left) / rect.width) * view.w, ((e.clientY - rect.top) / rect.height) * view.h);
 });
+
+const MENU_KEYS: Record<string, MenuKey> = {
+  ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
+  Enter: 'ok', Space: 'ok', Escape: 'back', Backspace: 'back',
+};
+window.addEventListener('keydown', (e) => {
+  if (state.screen === 'race') {
+    if (e.code === 'Escape') setPaused(!paused);
+    return;
+  }
+  const k = MENU_KEYS[e.code];
+  if (k) {
+    initAudio();
+    keyScreen(state, actions, k);
+  }
+});
+
+function setPaused(p: boolean) {
+  paused = p;
+  $('pause').classList.toggle('hidden', !p);
+  if (p) {
+    setEngine(0, false, false);
+    setSiren(false);
+    releaseAll();
+  }
+}
+$('pauseBtn').addEventListener('click', () => setPaused(true));
+$('resume').addEventListener('click', () => setPaused(false));
+$('quit').addEventListener('click', () => actions.go('title'));
 
 setupInput();
 window.addEventListener('resize', resize);
 resize();
-game.select(0, 0);
-game.toMenu();
-refreshMenu();
-show('menu');
 
-// laço principal com passo fixo de física (60 Hz)
+// laço principal com física em passo fixo (60 Hz)
 const STEP = 1 / 60;
 let last = performance.now();
 let acc = 0;
 function frame(now: number) {
-  acc += Math.min(0.25, (now - last) / 1000);
+  const dt = Math.min(0.25, (now - last) / 1000);
   last = now;
-  while (acc >= STEP) {
-    game.update(STEP);
-    acc -= STEP;
+  state.t += dt;
+  if (state.screen === 'race' && race) {
+    if (!paused) {
+      acc += dt;
+      while (acc >= STEP && state.screen === 'race') {
+        race.update(STEP);
+        acc -= STEP;
+      }
+    }
+    if (state.screen === 'race') {
+      const course = COURSES[state.courseIdx];
+      renderCockpit(ctx, race, state.lives, `T${race.stageIdx + 1}/${course.stages.length}`, totalTime(), paused ? 0 : dt);
+    } else drawScreen(ctx, state);
+  } else {
+    acc = 0;
+    drawScreen(ctx, state);
   }
-  render(ctx, game);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-// expõe para testes automatizados
-Object.assign(window, { game, input });
+// para testes automatizados
+Object.assign(window, { app: { state, actions, get race() { return race; } }, input });

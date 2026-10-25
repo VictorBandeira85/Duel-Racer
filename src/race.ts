@@ -309,7 +309,7 @@ export class Race {
     if (r.finishTime >= 0 || this.state === 'arrived') target = max * 0.25;
     else {
       const gap = (r.z - this.playerZ) / SEG_LEN;
-      target = max * this.course.rivalSkill * clamp(1 - gap * 0.0018, 0.92, 1.06);
+      target = max * this.course.rivalSkill * clamp(1 - gap * 0.0025, 0.85, 1.06);
     }
 
     r.think -= dt;

@@ -1,5 +1,5 @@
 import { KMH, SAFE_W, view } from './config';
-import { CARS, RIVALS, accelCurve, drawCar, drawCarSide, type CarSpec } from './cars';
+import { CARS, accelCurve, drawCar, drawCarSide, type CarSpec } from './cars';
 import { COURSES, type Course } from './courses';
 import { THEMES } from './themes';
 import { dither, inside, panel, text, type Rect } from './ui';
@@ -225,10 +225,10 @@ function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
   panel(c, { x: p.x + 8, y: p.y + 6, w: 130, h: 16 }, '#a8a0e0', '#2a2060');
   text(c, car.name, p.x + 73, p.y + 10, 8, '#1a1040', 'center', null);
   text(c, `${s.carIdx + 1}/${CARS.length}`, p.x + 150, p.y + 10, 8, '#2a2060', 'left', null);
-  const { pts, t100 } = accelCurve(car);
+  const { pts } = accelCurve(car);
   const rows: [string, string][] = [
     ['Preço', car.price], ['Motor', car.engine], ['Posição', car.position], ['Tração', car.drive],
-    ['Cilindr.', car.displacement], ['Potência', car.power], ['0-100', `${t100.toFixed(1).replace('.', ',')} s`],
+    ['Cilindr.', car.displacement], ['Potência', car.power], ['0-100', `${car.zeroTo100.toFixed(1).replace('.', ',')} s`],
     ['Máxima', `${Math.round(car.maxSpeed * KMH)} km/h`],
   ];
   rows.forEach(([k, v], i) => {
@@ -255,9 +255,10 @@ function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
 }
 
 // ---------- escolha do adversário ----------
+const OPP_N = CARS.length + 1; // carros + relógio
 const oppCells = () => {
-  const x = ox() + 52, y = 46;
-  return [0, 1, 2, 3].map((i): Rect => ({ x: x + (i % 2) * 110, y: y + Math.floor(i / 2) * 84, w: 106, h: 80 }));
+  const x = ox() + 26, y = 40;
+  return Array.from({ length: OPP_N }, (_, i): Rect => ({ x: x + (i % 3) * 90, y: y + Math.floor(i / 3) * 64, w: 88, h: 62 }));
 };
 
 function stopwatch(c: CanvasRenderingContext2D, x: number, y: number, r: number) {
@@ -295,8 +296,8 @@ function drawOpponent(c: CanvasRenderingContext2D, s: AppState) {
   c.bezierCurveTo(w * 0.3, 40, 0, 140, w * 0.62, h + 10);
   c.stroke();
   const x = ox();
-  panel(c, { x: x + 50, y: 24, w: 222, h: 194 }, '#4e4290', '#201850');
-  text(c, 'ESCOLHA O ADVERSÁRIO', x + 161, 30, 8, '#d8d0ff', 'center', null);
+  panel(c, { x: x + 20, y: 22, w: 280, h: 212 }, '#4e4290', '#201850');
+  text(c, 'ESCOLHA O ADVERSÁRIO', x + 160, 28, 8, '#d8d0ff', 'center', null);
   oppCells().forEach((r, i) => {
     const hot = s.sel === i;
     c.fillStyle = hot ? '#6a5ec0' : '#4e4290';
@@ -304,13 +305,13 @@ function drawOpponent(c: CanvasRenderingContext2D, s: AppState) {
     c.strokeStyle = hot ? '#fff' : '#2a2060';
     c.lineWidth = hot ? 2 : 1;
     c.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
-    if (i < 3) {
-      const car = CARS[RIVALS[i]];
-      drawCar(c, r.x + r.w / 2, r.y + 56, 70, { color: car.color, wing: car.wing });
-      text(c, car.name, r.x + r.w / 2, r.y + 64, 8, '#fff', 'center', '#1a1040');
+    if (i < CARS.length) {
+      const car = CARS[i];
+      drawCar(c, r.x + r.w / 2, r.y + 44, 58, { color: car.color, rear: car.rear });
+      text(c, car.name, r.x + r.w / 2, r.y + 50, 5, '#fff', 'center', '#1a1040');
     } else {
-      stopwatch(c, r.x + r.w / 2 + 10, r.y + 34, 16);
-      text(c, 'RELÓGIO', r.x + r.w / 2, r.y + 64, 8, '#fff', 'center', '#1a1040');
+      stopwatch(c, r.x + r.w / 2 + 8, r.y + 26, 13);
+      text(c, 'RELÓGIO', r.x + r.w / 2, r.y + 50, 5, '#fff', 'center', '#1a1040');
     }
   });
 }
@@ -578,7 +579,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 }
 
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
-  const counts: Partial<Record<ScreenId, number>> = { title: 3, options: 3, opponent: 4, course: 4 };
+  const counts: Partial<Record<ScreenId, number>> = { title: 3, options: 3, opponent: OPP_N, course: 4 };
   const n = counts[s.screen];
   if (s.screen === 'car') {
     if (k === 'left') s.carIdx = (s.carIdx + CARS.length - 1) % CARS.length;
@@ -599,7 +600,8 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   const grid = s.screen === 'opponent';
   if (k === 'left' || (k === 'up' && !grid)) s.sel = (s.sel + n - 1) % n;
   if (k === 'right' || (k === 'down' && !grid)) s.sel = (s.sel + 1) % n;
-  if (grid && (k === 'up' || k === 'down')) s.sel = (s.sel + 2) % 4;
+  if (grid && k === 'up') s.sel = (s.sel + n - 3) % n;
+  if (grid && k === 'down') s.sel = (s.sel + 3) % n;
   if (k === 'back') a.go(s.screen === 'course' ? 'opponent' : s.screen === 'opponent' ? 'car' : 'title');
   if (k === 'ok') {
     if (s.screen === 'title') activateTitle(s.sel, a);

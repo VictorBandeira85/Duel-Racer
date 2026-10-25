@@ -226,7 +226,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
       const ex = e.x;
       const cx = baseX + sc * ex * vp.K;
       if (e === r.rival) {
-        drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: r.rivalCar!.color, wing: r.rivalCar!.wing, brake: r.rival.recover > 0, night });
+        drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: r.rival.recover > 0, night });
       } else if ('spotZ' in e) {
         const p = e as Race['police'][number];
         drawCar(c, cx, cy, POLICE_W * sc * vp.K, { color: '#fff', police: true, siren: p.state === 'chase', night });

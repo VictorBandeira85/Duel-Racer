@@ -1,6 +1,6 @@
 import '@fontsource/press-start-2p/400.css';
 import { view } from './config';
-import { CARS, RIVALS } from './cars';
+import { CARS } from './cars';
 import { COURSES } from './courses';
 import { Race } from './race';
 import { renderCockpit } from './cockpit';
@@ -58,7 +58,7 @@ const actions: Actions = {
 
 function startStage(i: number) {
   const course = COURSES[state.courseIdx];
-  const rivalCar = state.oppIdx < 3 ? CARS[RIVALS[state.oppIdx]] : null;
+  const rivalCar = state.oppIdx < CARS.length ? CARS[state.oppIdx] : null;
   const r = new Race(course, i, CARS[state.carIdx], rivalCar, state.auto);
   r.onArrive = () => {
     state.results.push({ time: r.time, rival: r.rivalTime, clean: r.clean, crashes: r.crashes, tickets: r.tickets });

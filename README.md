@@ -28,7 +28,8 @@ Controles no computador: setas para acelerar, frear e virar; `Q`/`E` trocam a ma
 - Posto de gasolina ao fim de cada trecho, vidas ("carros restantes") e carro bônus por trecho limpo
 - Polícia escondida que persegue quem passa rápido; se alcançar, multa (+10 s)
 - Batida trinca o para-brisa e custa um carro
-- 4 carros fictícios, câmbio automático ou manual, recordes salvos no aparelho
+- 8 carros com marcas fictícias, baseados em superesportivos reais do começo dos anos 90
+  (silhueta, traseira e ficha técnica de cada modelo), câmbio automático ou manual, recordes salvos no aparelho
 
 ## Próximos passos
 

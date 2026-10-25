@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#000000" />
+    <title>Duel Racer</title>
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <div id="menu" class="overlay">
+      <h1>DUEL<span>RACER</span></h1>
+      <div class="picker">
+        <button data-act="stagePrev">◀</button>
+        <div class="pick"><small>PISTA</small><b id="stageName"></b><em id="stageBest"></em></div>
+        <button data-act="stageNext">▶</button>
+      </div>
+      <div class="picker">
+        <button data-act="carPrev">◀</button>
+        <div class="pick"><small>CARRO</small><b id="carName"></b><em id="carStats"></em></div>
+        <button data-act="carNext">▶</button>
+      </div>
+      <button data-act="trans" id="transBtn" class="flat"></button>
+      <button data-act="start" class="go">CORRER</button>
+    </div>
+
+    <div id="result" class="overlay hidden">
+      <h2 id="resultTitle"></h2>
+      <p id="resultText"></p>
+      <div class="row">
+        <button data-act="retry" class="go">REVANCHE</button>
+        <button data-act="menu" class="flat">MENU</button>
+      </div>
+    </div>
+
+    <div id="controls" class="hidden">
+      <div class="side">
+        <button data-key="left">◀</button>
+        <button data-key="right">▶</button>
+      </div>
+      <div class="side">
+        <div id="gearBtns">
+          <button data-key="shiftUp" class="small">▲</button>
+          <button data-key="shiftDown" class="small">▼</button>
+        </div>
+        <button data-key="brake" class="brake">FREIO</button>
+        <button data-key="gas" class="gas">ACEL</button>
+      </div>
+    </div>
+
+    <button id="mute" aria-label="Som">♪</button>
+    <div id="rotate">Gire o celular para jogar na horizontal ↻</div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

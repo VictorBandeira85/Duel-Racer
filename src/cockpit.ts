@@ -17,12 +17,14 @@ export function windshield(): Viewport {
 function gauge(
   c: CanvasRenderingContext2D, cx: number, cy: number, r: number,
   labels: string[], frac: number, redFrom: number, digital?: string, gear?: string,
+  style: { face?: string; ink?: string; ring?: string } = {},
 ) {
-  c.fillStyle = '#8a8a8a';
+  const ink = style.ink ?? '#f0f0f0';
+  c.fillStyle = style.ring ?? '#8a8a8a';
   c.beginPath();
   c.arc(cx, cy, r + 2, 0, Math.PI * 2);
   c.fill();
-  c.fillStyle = '#0c0c0c';
+  c.fillStyle = style.face ?? '#0c0c0c';
   c.beginPath();
   c.arc(cx, cy, r, 0, Math.PI * 2);
   c.fill();
@@ -32,7 +34,7 @@ function gauge(
     const f = i / ticks;
     const a = a0 + sweep * f;
     const r1 = i % 2 ? r * 0.86 : r * 0.78;
-    c.strokeStyle = f >= redFrom ? '#ff3030' : '#f0f0f0';
+    c.strokeStyle = f >= redFrom ? '#ff3030' : ink;
     c.lineWidth = 1;
     c.beginPath();
     c.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
@@ -45,7 +47,7 @@ function gauge(
   labels.forEach((l, i) => {
     const f = i / (labels.length - 1);
     const a = a0 + sweep * f;
-    c.fillStyle = f >= redFrom ? '#ff4040' : '#f0f0f0';
+    c.fillStyle = f >= redFrom ? '#ff4040' : ink;
     c.fillText(l, cx + Math.cos(a) * r * 0.62, cy + Math.sin(a) * r * 0.62);
   });
   if (digital) {
@@ -245,6 +247,21 @@ export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: numbe
   c.fillRect(px + pw - 1, py - 3, 6, 9);
 
   // ---- painel ----
+  if (r.car.dash === 'f40') drawDashF40(c, r, dt);
+  else drawDashGeneric(c, r, dt);
+
+  // ---- mensagens ----
+  if (r.state === 'countdown') {
+    const n = Math.ceil(r.timer);
+    text(c, n > 3 ? 'PRONTO?' : String(n), w / 2, vp.y + 36, 16, '#ffd400', 'center');
+  } else if (r.state === 'drive' && r.time < 1 && r.crashes === 0) {
+    text(c, 'VAI!', w / 2, vp.y + 36, 16, '#30e060', 'center');
+  }
+  if (r.messageT > 0) text(c, r.message, w / 2, vp.y + 14, 8, '#ffd400', 'center');
+}
+
+function drawDashGeneric(c: CanvasRenderingContext2D, r: Race, dt: number) {
+  const { w, h } = view;
   const car = r.car;
   c.fillStyle = car.dash === 'B' ? car.hood : '#c8c8cc';
   c.fillRect(0, DASH_Y, w, 6);
@@ -304,12 +321,131 @@ export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: numbe
   c.fill();
   c.restore();
 
-  // ---- mensagens ----
-  if (r.state === 'countdown') {
-    const n = Math.ceil(r.timer);
-    text(c, n > 3 ? 'PRONTO?' : String(n), w / 2, vp.y + 36, 16, '#ffd400', 'center');
-  } else if (r.state === 'drive' && r.time < 1 && r.crashes === 0) {
-    text(c, 'VAI!', w / 2, vp.y + 36, 16, '#30e060', 'center');
+}
+
+// Interior inspirado no F40 (fotos de referência): feltro cinza-azulado, volante de 3 raios,
+// velocímetro claro à esquerda, conta-giros avermelhado à direita, câmbio de grade cromada.
+function drawDashF40(c: CanvasRenderingContext2D, r: Race, dt: number) {
+  const { w, h } = view;
+  const car = r.car;
+  c.fillStyle = car.hood;
+  c.fillRect(0, DASH_Y, w, 5);
+  c.fillStyle = shade(car.hood, -0.35);
+  c.fillRect(0, DASH_Y + 5, w, 2);
+  c.fillStyle = dither(c, '#31333b', '#3a3c45');
+  c.fillRect(0, DASH_Y + 7, w, h - DASH_Y - 7);
+  c.fillStyle = '#4a4c57';
+  c.fillRect(0, DASH_Y + 7, w, 2);
+
+  const wcx = Math.round(w * 0.38), wcy = h + 4, R = 98;
+  // saída de ar no alto do painel
+  c.fillStyle = '#15161a';
+  c.beginPath();
+  c.ellipse(Math.round(w * 0.64), DASH_Y + 14, 14, 4, 0, 0, Math.PI * 2);
+  c.fill();
+  // porta-luvas
+  const gx = Math.round(w * 0.78);
+  c.strokeStyle = '#2a2c33';
+  c.lineWidth = 1;
+  c.strokeRect(gx + 0.5, DASH_Y + 18.5, w - gx - 14, 30);
+  c.fillStyle = '#5a5c66';
+  c.fillRect(gx + 4, DASH_Y + 22, 2, 2);
+  c.fillRect(w - 20, DASH_Y + 22, 2, 2);
+
+  // binóculo dos instrumentos
+  c.fillStyle = '#222329';
+  c.beginPath();
+  c.roundRect(wcx - 86, DASH_Y + 8, 172, 78, 14);
+  c.fill();
+  c.fillStyle = '#2c2d34';
+  c.fillRect(wcx - 80, DASH_Y + 9, 160, 3);
+  const kmh = Math.round(r.speed * KMH);
+  const rpmFrac = 0.1 + Math.min(1, r.rpm) * 0.8;
+  gauge(c, wcx - 37, DASH_Y + 44, 32, ['0', '', '120', '', '240', '', '360'], kmh / 360, 2, String(kmh), undefined,
+    { face: '#e6e2d4', ink: '#1c1c1c', ring: '#141416' });
+  gauge(c, wcx + 37, DASH_Y + 44, 32, ['0', '2', '4', '6', '8', '10'], rpmFrac, 0.78, undefined, String(r.gear + 1),
+    { face: '#7c2016', ink: '#f6d6a6', ring: '#141416' });
+  smallGauge(c, wcx - 74, DASH_Y + 70, 10, 0.55);
+  smallGauge(c, wcx + 74, DASH_Y + 70, 10, 0.3 + r.rpm * 0.25);
+
+  // três relógios pequenos no centro e a chave vermelha
+  for (let i = 0; i < 3; i++) smallGauge(c, wcx + 108 + i * 22, DASH_Y + 34, 8, [0.5, 0.62, 0.4][i]);
+  c.fillStyle = '#c81818';
+  c.fillRect(wcx + 104, DASH_Y + 54, 9, 3);
+  c.fillStyle = '#888';
+  c.fillRect(wcx + 101, DASH_Y + 53, 4, 5);
+
+  // detector de radar preso no alto do painel
+  const rx = Math.round(w * 0.8), ry = DASH_Y - 2;
+  c.fillStyle = '#0e0e10';
+  c.fillRect(rx, ry, 44, 12);
+  const level = r.radar;
+  const blink = level >= 1 && Math.floor(performance.now() / 150) % 2;
+  for (let i = 0; i < 5; i++) {
+    const col = i < 2 ? '#30e060' : i < 4 ? '#ffcc00' : '#ff3030';
+    c.fillStyle = level > i / 5 && !blink ? col : shade(col, -0.6);
+    c.fillRect(rx + 4 + i * 8, ry + 4, 6, 4);
   }
-  if (r.messageT > 0) text(c, r.message, w / 2, vp.y + 14, 8, '#ffd400', 'center');
+
+  // câmbio de grade cromada com bola preta
+  const sx = Math.round(w * 0.66), sy = h - 14;
+  c.fillStyle = '#9ea2aa';
+  c.fillRect(sx - 18, sy - 9, 36, 18);
+  c.fillStyle = '#c8ccd4';
+  c.fillRect(sx - 18, sy - 9, 36, 2);
+  c.fillStyle = '#22232a';
+  for (const gx2 of [-10, 0, 10]) c.fillRect(sx + gx2 - 1, sy - 6, 3, 12);
+  c.fillRect(sx - 10, sy - 1, 20, 3);
+  const pos = [[-10, -6], [-10, 6], [0, -6], [0, 6], [10, -6]][r.gear];
+  const kx = sx + pos[0], ky = sy + pos[1];
+  c.strokeStyle = '#d0d4dc';
+  c.lineWidth = 2;
+  c.beginPath();
+  c.moveTo(kx, ky);
+  c.lineTo(kx + pos[0] * 0.3, ky - 26);
+  c.stroke();
+  c.fillStyle = '#101012';
+  c.beginPath();
+  c.arc(kx + pos[0] * 0.3, ky - 30, 6, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.35)';
+  c.fillRect(kx + pos[0] * 0.3 - 3, ky - 34, 2, 2);
+
+  // volante de 3 raios, aro fino, centro amarelo
+  wheelAngle = lerp(wheelAngle, r.steer * 0.35, Math.min(1, dt * 10));
+  c.save();
+  c.translate(wcx, wcy);
+  c.rotate(wheelAngle);
+  c.strokeStyle = '#121214';
+  c.lineWidth = 11;
+  c.beginPath();
+  c.arc(0, 0, R, 0, Math.PI * 2);
+  c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,0.14)';
+  c.lineWidth = 2;
+  c.beginPath();
+  c.arc(0, 0, R + 3, Math.PI * 1.15, Math.PI * 1.85);
+  c.stroke();
+  c.strokeStyle = '#26272c';
+  c.lineWidth = 8;
+  c.beginPath();
+  c.moveTo(-R + 4, -14);
+  c.lineTo(-16, -24);
+  c.moveTo(R - 4, -14);
+  c.lineTo(16, -24);
+  c.stroke();
+  c.fillStyle = '#18191d';
+  c.beginPath();
+  c.arc(0, -24, 16, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = '#f0c814';
+  c.beginPath();
+  c.arc(0, -24, 9, 0, Math.PI * 2);
+  c.fill();
+  c.strokeStyle = '#101012';
+  c.lineWidth = 1;
+  c.beginPath();
+  c.arc(0, -24, 9, 0, Math.PI * 2);
+  c.stroke();
+  c.restore();
 }

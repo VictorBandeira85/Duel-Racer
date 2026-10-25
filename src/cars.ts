@@ -10,6 +10,7 @@ export interface SideDef {
   body: number[];
   glass: number[];
   wheels: [number, number];
+  wheelR?: number;
   shoulder: number; // altura do vinco de luz
   parts?: Part[];
   lines?: number[][]; // frisos [x1, y1, x2, y2]
@@ -23,6 +24,7 @@ export interface RearDef {
   wing: 0 | 1 | 2; // 1 = aerofólio baixo, 2 = asa alta
   roadster?: boolean;
   mesh?: boolean; // grade preta entre as lanternas
+  custom?: 'f40'; // traseira desenhada com detalhes próprios
 }
 
 export interface CarSpec {
@@ -40,7 +42,7 @@ export interface CarSpec {
   zeroTo100: number; // segundos, usado para calibrar a aceleração
   accel: number;
   handling: number;
-  dash: 'A' | 'B';
+  dash: 'A' | 'B' | 'f40';
   hood: string;
   side: SideDef;
   rear: RearDef;
@@ -54,21 +56,27 @@ export const CARS: CarSpec[] = [
     id: 'furia-f4', name: 'Furia F4', basedOn: 'Ferrari F40', color: '#c8161a',
     price: '$400.000', position: 'central', drive: 'traseira', engine: 'V8 biturbo',
     displacement: '2.936 cc', power: '478 cv', maxSpeed: kmh(324), zeroTo100: 4.1, accel: 1, handling: 1.0,
-    dash: 'B', hood: '#b01014',
+    dash: 'f40', hood: '#b01014',
+    // proporções tiradas de fotos de perfil do modelo real
     side: {
-      body: [0, 0.055, 0, 0.1, 0.02, 0.13, 0.12, 0.148, 0.25, 0.172, 0.36, 0.198, 0.48, 0.252, 0.6, 0.256, 0.65, 0.245, 0.86, 0.214, 0.97, 0.208, 1, 0.195, 1, 0.1, 0.985, 0.055],
-      glass: [0.385, 0.2, 0.48, 0.244, 0.585, 0.247, 0.6, 0.212],
-      wheels: [0.2, 0.8], shoulder: 0.165,
+      body: [0.005, 0.03, 0.004, 0.06, 0.02, 0.085, 0.17, 0.156, 0.3, 0.188, 0.338, 0.2, 0.468, 0.253, 0.636, 0.26, 0.69, 0.247, 0.86, 0.226, 0.895, 0.262, 1, 0.262, 1, 0.06, 0.99, 0.03],
+      glass: [0.37, 0.2, 0.468, 0.249, 0.584, 0.252, 0.584, 0.19, 0.42, 0.19],
+      wheels: [0.208, 0.805], wheelR: 0.076, shoulder: 0.142,
       parts: [
-        { fill: 'body', pts: [0.87, 0.212, 0.91, 0.272, 1, 0.272, 1, 0.198] },
-        { fill: 'shade', pts: [0.9, 0.262, 1, 0.262, 1, 0.272, 0.91, 0.272] },
-        { fill: 'dark', pts: [0.42, 0.15, 0.5, 0.165, 0.5, 0.155] },
-        { fill: 'dark', pts: [0.62, 0.135, 0.71, 0.14, 0.71, 0.175, 0.64, 0.172] },
-        { fill: 'dark', pts: [0.03, 0.115, 0.09, 0.12, 0.09, 0.128, 0.03, 0.124] },
+        { fill: 'glass', pts: [0.6, 0.252, 0.672, 0.246, 0.64, 0.214, 0.6, 0.21] },
+        { fill: 'dark', pts: [0.585, 0.168, 0.632, 0.165, 0.632, 0.14, 0.6, 0.146] },
+        { fill: 'dark', pts: [0.6, 0.07, 0.68, 0.07, 0.68, 0.085, 0.6, 0.08] },
+        { fill: 'dark', pts: [0.03, 0.07, 0.1, 0.09, 0.1, 0.098, 0.03, 0.078] },
+        { fill: 'shade', pts: [0.895, 0.254, 1, 0.254, 1, 0.262, 0.895, 0.262] },
+        { fill: 'black', pts: [0.335, 0.192, 0.36, 0.192, 0.36, 0.2, 0.34, 0.2] },
       ],
-      lines: [[0.7, 0.236, 0.86, 0.218], [0.72, 0.226, 0.86, 0.21]],
+      lines: [
+        [0.312, 0.16, 0.312, 0.03], [0.585, 0.19, 0.585, 0.03],
+        [0.935, 0.13, 0.935, 0.18], [0.947, 0.13, 0.947, 0.18], [0.959, 0.13, 0.959, 0.18], [0.971, 0.13, 0.971, 0.18],
+        [0.72, 0.241, 0.84, 0.228], [0.73, 0.235, 0.84, 0.222],
+      ],
     },
-    rear: { h: 0.5, roof: 0.52, lights: 'quadRound', wing: 2, mesh: true },
+    rear: { h: 0.53, roof: 0.52, lights: 'quadRound', wing: 2, mesh: true, custom: 'f40' },
   },
   {
     id: 'silber-95', name: 'Silber 95', basedOn: 'Porsche 959', color: '#c4c8cc',
@@ -260,6 +268,7 @@ function glow(c: CanvasRenderingContext2D, x: number, y: number, w: number, rgb:
 export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   if (w < 2) return;
   if (look.truck) return drawTruck(c, x, y, w, look);
+  if (look.rear?.custom === 'f40' && !look.front) return drawRearF40(c, x, y, w, look);
   const R = look.rear ?? GENERIC;
   const h = w * R.h;
   const L = x - w / 2;
@@ -404,6 +413,84 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
   if (look.night) glow(c, x, ly, w, '255,40,40');
 }
 
+// Traseira detalhada inspirada no F40 (medidas tiradas de foto traseira).
+// f = fração da altura a partir do topo da asa; u = fração da largura a partir da esquerda.
+function drawRearF40(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
+  const h = w * (look.rear?.h ?? 0.53);
+  const L = x - w / 2, T = y - h;
+  const X = (u: number) => L + u * w;
+  const Y = (f: number) => T + f * h;
+  const box = (u1: number, f1: number, u2: number, f2: number, color: string) => {
+    c.fillStyle = color;
+    c.fillRect(X(u1), Y(f1), (u2 - u1) * w, Math.max(1, (f2 - f1) * h));
+  };
+  const poly = (color: string, ...pts: number[]) => {
+    c.fillStyle = color;
+    c.beginPath();
+    for (let i = 0; i < pts.length; i += 2) c.lineTo(X(pts[i]), Y(pts[i + 1]));
+    c.closePath();
+    c.fill();
+  };
+  const body = look.color;
+  const lit = look.brake || look.night;
+
+  c.fillStyle = 'rgba(0,0,0,0.35)';
+  c.fillRect(L - w * 0.03, y - h * 0.05, w * 1.06, h * 0.08);
+  box(0.05, 0.86, 0.2, 1, '#111');
+  box(0.8, 0.86, 0.95, 1, '#111');
+  // vão escuro sob a asa (vidro traseiro e céu)
+  box(0.06, 0.03, 0.94, 0.27, '#0c0c10');
+  // tampa do motor com venezianas
+  poly('#c9ced3', 0.24, 0.08, 0.76, 0.08, 0.82, 0.25, 0.18, 0.25);
+  if (w > 24) {
+    for (let i = 0; i < 6; i++) {
+      const f = 0.1 + i * 0.024;
+      box(0.3 + i * 0.006, f, 0.485, f + 0.012, '#141414');
+      box(0.515, f, 0.7 - i * 0.006, f + 0.012, '#141414');
+    }
+  }
+  // carroceria: faixa superior, para-choque e saia
+  poly(body, 0.02, 0.25, 0.98, 0.25, 0.98, 0.88, 0.95, 0.9, 0.05, 0.9, 0.02, 0.88);
+  box(0.02, 0.25, 0.98, 0.27, shade(body, 0.12));
+  box(0.08, 0.86, 0.92, 0.9, '#1a1a1a');
+  // painel preto em tela com as lanternas
+  box(0.04, 0.33, 0.96, 0.6, '#141414');
+  if (w > 30) {
+    c.fillStyle = '#242424';
+    for (let yy = Y(0.34); yy < Y(0.6); yy += 2) for (let xx = X(0.05) + ((yy | 0) % 4 ? 0 : 1); xx < X(0.95); xx += 2) c.fillRect(xx, yy, 1, 1);
+  }
+  box(0.38, 0.4, 0.62, 0.53, '#0a0a0a');
+  const rr = Math.max(0.8, w * 0.046);
+  for (const [u, outer] of [[0.1, true], [0.2, false], [0.8, false], [0.9, true]] as [number, boolean][]) {
+    c.fillStyle = lit ? (outer ? '#ff7a30' : '#ff3a2a') : outer ? '#d8681c' : '#c01818';
+    c.beginPath();
+    c.arc(X(u), Y(0.465), rr, 0, Math.PI * 2);
+    c.fill();
+    if (w > 40) {
+      c.fillStyle = 'rgba(255,255,255,0.35)';
+      c.beginPath();
+      c.arc(X(u) - rr * 0.3, Y(0.465) - rr * 0.3, rr * 0.3, 0, Math.PI * 2);
+      c.fill();
+    }
+  }
+  // refletores e escape triplo
+  box(0.08, 0.7, 0.17, 0.75, lit ? '#e04020' : '#9a2a14');
+  box(0.83, 0.7, 0.92, 0.75, lit ? '#e04020' : '#9a2a14');
+  box(0.42, 0.77, 0.58, 0.84, '#161616');
+  if (w > 20) for (const u of [0.455, 0.5, 0.545]) {
+    c.fillStyle = '#8a8a8e';
+    c.beginPath();
+    c.ellipse(X(u), Y(0.805), w * 0.018, h * 0.025, 0, 0, Math.PI * 2);
+    c.fill();
+  }
+  // asa de ponta a ponta com as laterais descendo
+  poly(body, 0, 0, 0.07, 0, 0.11, 0.3, 0.04, 0.3);
+  poly(body, 1, 0, 0.93, 0, 0.89, 0.3, 0.96, 0.3);
+  box(0, 0, 1, 0.045, body);
+  box(0, 0.035, 1, 0.045, shade(body, -0.3));
+  if (look.night) glow(c, x, Y(0.465), w, '255,40,40');
+}
+
 function drawTruck(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   const h = w * 1.05;
   const L = x - w / 2;
@@ -494,8 +581,9 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
   c.fillStyle = '#e89020';
   c.fillRect(x + len * 0.005, y - len * 0.1, len * 0.02, len * 0.015);
 
+  const wr = S.wheelR ?? 0.07;
   for (const wx of S.wheels) {
-    const cx = x + wx * len, cy = y - len * 0.07, r = len * 0.07;
+    const cx = x + wx * len, cy = y - len * wr, r = len * wr;
     c.fillStyle = '#0c0c0c';
     c.beginPath();
     c.arc(cx, cy, r * 1.12, Math.PI, 0);

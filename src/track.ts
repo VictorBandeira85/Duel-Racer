@@ -66,7 +66,7 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
     for (let n = 0; n < hold; n++) addSegment(curve, easeInOut(startY, endY, (enter + n) / total));
     for (let n = 0; n < leave; n++) addSegment(easeInOut(curve, 0, n / leave), easeInOut(startY, endY, (enter + hold + n) / total));
     if (Math.abs(curve) >= 3) {
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 1; i++) {
         const s = segments[first + Math.max(0, enter - 24) + i * 7];
         const x = (roadW + 1400) * (curve > 0 ? -1 : 1);
         if (s) s.sprites.push({ kind: curve > 0 ? 'signR' : 'signL', x, seed: 0 });

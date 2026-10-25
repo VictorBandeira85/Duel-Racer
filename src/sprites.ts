@@ -1,3 +1,5 @@
+import { dither } from './ui';
+
 // Objetos de cenário desenhados por código. Cada função desenha numa caixa:
 // x = centro, y = base, w/h em pixels.
 
@@ -7,7 +9,7 @@ export type SpriteKind =
 
 type Draw = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, seed: number) => void;
 
-const poly = (c: CanvasRenderingContext2D, color: string, ...pts: number[]) => {
+const poly = (c: CanvasRenderingContext2D, color: string | CanvasPattern, ...pts: number[]) => {
   c.fillStyle = color;
   c.beginPath();
   c.moveTo(pts[0], pts[1]);
@@ -15,7 +17,7 @@ const poly = (c: CanvasRenderingContext2D, color: string, ...pts: number[]) => {
   c.closePath();
   c.fill();
 };
-const ell = (c: CanvasRenderingContext2D, color: string, x: number, y: number, rx: number, ry: number) => {
+const ell = (c: CanvasRenderingContext2D, color: string | CanvasPattern, x: number, y: number, rx: number, ry: number) => {
   c.fillStyle = color;
   c.beginPath();
   c.ellipse(x, y, Math.max(0.5, rx), Math.max(0.5, ry), 0, 0, Math.PI * 2);
@@ -23,10 +25,10 @@ const ell = (c: CanvasRenderingContext2D, color: string, x: number, y: number, r
 };
 
 const tree: Draw = (c, x, y, w, h) => {
-  c.fillStyle = '#5a3a1e';
+  c.fillStyle = '#3e2812';
   c.fillRect(x - w * 0.07, y - h * 0.45, w * 0.14, h * 0.45);
-  ell(c, '#1f6a24', x, y - h * 0.62, w * 0.5, h * 0.36);
-  ell(c, '#2f8a2f', x - w * 0.12, y - h * 0.7, w * 0.3, h * 0.22);
+  ell(c, dither(c, '#0c4412', '#145a18'), x, y - h * 0.62, w * 0.5, h * 0.36);
+  ell(c, dither(c, '#145a18', '#24782a'), x - w * 0.12, y - h * 0.7, w * 0.3, h * 0.22);
 };
 
 const pineDraw = (snow: boolean): Draw => (c, x, y, w, h) => {
@@ -35,14 +37,14 @@ const pineDraw = (snow: boolean): Draw => (c, x, y, w, h) => {
   for (let i = 0; i < 3; i++) {
     const by = y - h * (0.12 + i * 0.24);
     const bw = w * (0.5 - i * 0.12);
-    poly(c, '#17502c', x - bw, by, x + bw, by, x, by - h * 0.42);
+    poly(c, dither(c, '#0a3a18', '#145026'), x - bw, by, x + bw, by, x, by - h * 0.42);
     if (snow) poly(c, '#f4f8fc', x - bw * 0.45, by - h * 0.24, x + bw * 0.45, by - h * 0.24, x, by - h * 0.42);
   }
 };
 
 const bush: Draw = (c, x, y, w, h) => {
-  ell(c, '#2a6a2a', x, y - h * 0.45, w / 2, h * 0.5);
-  ell(c, '#3c8a38', x - w * 0.12, y - h * 0.6, w * 0.28, h * 0.28);
+  ell(c, dither(c, '#0e4a12', '#18601a'), x, y - h * 0.45, w / 2, h * 0.5);
+  ell(c, dither(c, '#18601a', '#287a26'), x - w * 0.12, y - h * 0.6, w * 0.28, h * 0.28);
 };
 
 const cactus: Draw = (c, x, y, w, h) => {
@@ -72,10 +74,10 @@ const palm: Draw = (c, x, y, w, h) => {
 };
 
 const post: Draw = (c, x, y, w, h) => {
-  c.fillStyle = '#f2f2f2';
+  c.fillStyle = '#f0f0f0';
   c.fillRect(x - w / 2, y - h, Math.max(1, w), h);
-  c.fillStyle = '#d02020';
-  c.fillRect(x - w / 2, y - h, Math.max(1, w), Math.max(1, h * 0.15));
+  c.fillStyle = '#9a9a9a';
+  c.fillRect(x + w / 2 - Math.max(0.5, w * 0.3), y - h, Math.max(0.5, w * 0.3), h);
 };
 
 const building: Draw = (c, x, y, w, h, seed) => {
@@ -166,13 +168,13 @@ export const SPRITES: Record<SpriteKind, { w: number; h: number; draw: Draw; sol
   cactus: { w: 650, h: 1400, draw: cactus, solid: true },
   rock: { w: 1500, h: 900, draw: rock, solid: true },
   palm: { w: 1400, h: 2800, draw: palm, solid: true },
-  post: { w: 120, h: 480, draw: post, solid: false },
+  post: { w: 90, h: 380, draw: post, solid: false },
   building: { w: 3200, h: 6500, draw: building, solid: true },
   house: { w: 2800, h: 2200, draw: house, solid: true },
   fence: { w: 2200, h: 450, draw: fence, solid: false },
   lamp: { w: 300, h: 2800, draw: lamp, solid: true },
-  signL: { w: 900, h: 1100, draw: sign(-1), solid: true },
-  signR: { w: 900, h: 1100, draw: sign(1), solid: true },
+  signL: { w: 650, h: 850, draw: sign(-1), solid: true },
+  signR: { w: 650, h: 850, draw: sign(1), solid: true },
   gasSign: { w: 1600, h: 2600, draw: gasSign, solid: true },
   station: { w: 6500, h: 3200, draw: station, solid: true },
 };

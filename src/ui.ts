@@ -47,3 +47,36 @@ export function dither(c: CanvasRenderingContext2D, a: string, b: string): Canva
   }
   return p;
 }
+
+// Textura pontilhada aleatória (painel, volante, teto), no estilo dos 16 bits
+const speckles = new Map<string, CanvasPattern>();
+export function speckle(c: CanvasRenderingContext2D, base: string, dots: [string, number][], seed = 1): CanvasPattern {
+  const key = base + JSON.stringify(dots) + seed;
+  let p = speckles.get(key);
+  if (!p) {
+    const size = 48;
+    const t = document.createElement('canvas');
+    t.width = t.height = size;
+    const x = t.getContext('2d')!;
+    x.fillStyle = base;
+    x.fillRect(0, 0, size, size);
+    let s = seed * 9301 + 49297;
+    const rand = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+    for (let yy = 0; yy < size; yy++)
+      for (let xx = 0; xx < size; xx++) {
+        const r = rand();
+        let acc = 0;
+        for (const [col, prob] of dots) {
+          acc += prob;
+          if (r < acc) {
+            x.fillStyle = col;
+            x.fillRect(xx, yy, 1, 1);
+            break;
+          }
+        }
+      }
+    p = c.createPattern(t, 'repeat')!;
+    speckles.set(key, p);
+  }
+  return p;
+}

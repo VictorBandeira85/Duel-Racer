@@ -5,6 +5,7 @@ import { SPRITES } from './sprites';
 import type { BgLayer } from './themes';
 import type { Point, Segment } from './track';
 import { dither } from './ui';
+import { PANO_H, PANO_W, panorama } from './bgart';
 import { lerp, shade } from './util';
 
 export interface Viewport {
@@ -119,83 +120,34 @@ function hash(n: number) {
   return Math.abs(Math.sin(n * 12.9898) * 43758.5453) % 1;
 }
 
-function drawLayer(c: CanvasRenderingContext2D, kind: BgLayer, color: string, off: number, vp: Viewport, base: number, amp: number, night: boolean) {
-  const step = 2;
-  for (let x = 0; x < vp.w; x += step) {
-    const wx = x + off;
-    let top: number;
-    switch (kind) {
-      case 'city': {
-        const col = Math.floor(wx / 12);
-        const hgt = hash(col) < 0.2 ? 0 : 0.25 + hash(col + 7) * 0.75;
-        top = base - amp * 1.4 * hgt;
-        if (hgt > 0) {
-          c.fillStyle = shade(color, (hash(col + 3) - 0.5) * 0.3);
-          c.fillRect(vp.x + x, top, step, base - top + 1);
-          // janelas
-          if ((Math.floor(wx) % 4) < 2) {
-            c.fillStyle = night ? (hash(col * 3) > 0.4 ? '#ffd86b' : '#2a2a40') : '#dfe8f4';
-            for (let yy = top + 3; yy < base - 2; yy += 4) if (hash(col * 31 + yy) > 0.35) c.fillRect(vp.x + x, yy, 1, 2);
-          }
-          continue;
-        }
-        top = base;
-        break;
-      }
-      case 'forest':
-        top = base - amp * (0.35 + 0.12 * Math.sin(wx * 0.9) * Math.sin(wx * 0.23) + 0.18 * hash(Math.floor(wx / 3)));
-        break;
-      case 'mesa': {
-        const m = Math.sin(wx * 0.012) * 0.5 + Math.sin(wx * 0.031 + 1) * 0.3;
-        top = base - amp * (m > 0.05 ? 0.75 + 0.08 * Math.sin(wx * 0.4) + 0.06 * hash(Math.floor(wx)) : 0.2 + m);
-        break;
-      }
-      case 'hills':
-        top = base - amp * (0.4 + 0.25 * Math.sin(wx * 0.015) + 0.15 * Math.sin(wx * 0.041 + 2));
-        break;
-      case 'snowpeaks': {
-        const p = Math.abs(((wx * 0.02) % 2) - 1);
-        top = base - amp * (0.3 + 0.7 * (1 - p) * (0.6 + 0.4 * hash(Math.floor(wx * 0.02))));
-        c.fillStyle = color;
-        c.fillRect(vp.x + x, top, step, base - top + 1);
-        c.fillStyle = night ? '#8a96aa' : '#f4f8fc';
-        c.fillRect(vp.x + x, top, step, Math.max(0, (base - top) * 0.25));
-        continue;
-      }
-      case 'dunes':
-        top = base - amp * (0.2 + 0.1 * Math.sin(wx * 0.02));
-        break;
-      case 'sea':
-        top = base - amp * 0.12;
-        break;
-    }
-    c.fillStyle = color;
-    c.fillRect(vp.x + x, top, step, base - top + 1);
-  }
-}
-
 function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   const th = r.theme;
-  const grad = c.createLinearGradient(0, vp.y, 0, vp.horizon);
-  grad.addColorStop(0, th.sky[0]);
-  grad.addColorStop(1, th.sky[1]);
-  c.fillStyle = grad;
+  const night = !!r.def.night;
+  // céu chapado, como no original
+  c.fillStyle = th.sky[0];
   c.fillRect(vp.x, vp.y, vp.w, vp.horizon - vp.y + 2);
-  if (r.def.night) {
+  if (night) {
     c.fillStyle = '#fff';
     for (let i = 0; i < 40; i++) {
       const sx = ((hash(i) * 900 - r.bgOffset * 0.1) % vp.w + vp.w) % vp.w;
-      c.fillRect(vp.x + sx, vp.y + hash(i + 50) * (vp.horizon - vp.y) * 0.8, 1, 1);
+      c.fillRect(vp.x + Math.floor(sx), vp.y + Math.floor(hash(i + 50) * (vp.horizon - vp.y) * 0.7), 1, 1);
     }
     c.fillStyle = '#fff4c8';
     c.beginPath();
-    c.arc(vp.x + vp.w * 0.78, vp.y + 14, 6, 0, Math.PI * 2);
+    c.arc(vp.x + vp.w * 0.78, vp.y + 12, 5, 0, Math.PI * 2);
     c.fill();
   }
+  const seed = r.course.id.length * 31 + r.stageIdx;
   const [far, near] = th.bg;
-  const amp = (vp.horizon - vp.y) * 0.75;
-  drawLayer(c, far, th.bgColors[0], r.bgOffset * 0.3, vp, vp.horizon, amp, !!r.def.night);
-  drawLayer(c, near, th.bgColors[1], r.bgOffset * 0.6, vp, vp.horizon, amp * 0.4, !!r.def.night);
+  const layer = (kind: BgLayer, isNear: boolean, speed: number) => {
+    const img = panorama(kind, isNear, night, seed);
+    const off = ((Math.floor(r.bgOffset * speed) % PANO_W) + PANO_W) % PANO_W;
+    const y = vp.horizon - PANO_H + 1;
+    c.drawImage(img, vp.x - off, y);
+    if (PANO_W - off < vp.w) c.drawImage(img, vp.x - off + PANO_W, y);
+  };
+  layer(far, false, 0.3);
+  layer(near, true, 0.6);
 }
 
 export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {

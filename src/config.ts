@@ -7,7 +7,7 @@ export const LANE_W = 2200; // largura de uma faixa (unidades do mundo)
 export const DRAW_DIST = 260;
 export const FOV = 100;
 export const CAM_DEPTH = 1 / Math.tan(((FOV / 2) * Math.PI) / 180);
-export const CAM_H = 680; // altura dos olhos do motorista (~55% da largura de um carro)
+export const CAM_H = 780; // altura dos olhos do motorista
 export const PLAYER_Z = 400; // frente do carro, à frente da câmera
 export const CAR_W = 1100;
 export const TRUCK_W = 1300;
@@ -17,4 +17,4 @@ export const KMH = 0.025; // unidades/s -> km/h
 
 // Cabine: teto, para-brisa e painel (em pixels internos)
 export const ROOF_H = 22;
-export const DASH_Y = 140;
+export const DASH_Y = 128; // o painel começa perto da metade da tela, como no original

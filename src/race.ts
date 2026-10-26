@@ -8,6 +8,8 @@ import { input, takeShift } from './input';
 import { beep, crashSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
 
+export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck';
+const CAR_MODELS: TrafficModel[] = ['sedan', 'sedan', 'hatch', 'hatch', 'pickup', 'van'];
 export const TRAFFIC_COLORS = ['#2a6fdb', '#e8e8e8', '#3d9b47', '#c9a227', '#7a3db8', '#d9542b', '#555566', '#80c0e0', '#8a2a2a'];
 
 export interface TrafficCar {
@@ -16,6 +18,7 @@ export interface TrafficCar {
   speed: number; // negativo = contramão
   color: string;
   truck: boolean;
+  model: TrafficModel;
   hit: boolean;
 }
 
@@ -137,7 +140,7 @@ export class Race {
         style: this.rivalStyleOverride ?? RIVAL_STYLE[this.rivalCar!.id] ?? 'cauteloso', mistake: 0, boost: 0 };
     }
     for (let i = 0; i < this.def.traffic; i++) {
-      const c: TrafficCar = { z: 0, x: 0, speed: 0, color: '', truck: false, hit: false };
+      const c: TrafficCar = { z: 0, x: 0, speed: 0, color: '', truck: false, model: 'sedan', hit: false };
       this.spawn(c, this.playerZ + (45 + (i / this.def.traffic) * 300) * SEG_LEN);
       this.traffic.push(c);
     }
@@ -173,6 +176,7 @@ export class Race {
     c.speed = (oncoming ? -1 : 1) * (0.2 + r() * 0.16) * 12000;
     c.color = TRAFFIC_COLORS[Math.floor(r() * TRAFFIC_COLORS.length)];
     c.truck = r() < 0.18;
+    c.model = c.truck ? 'truck' : CAR_MODELS[Math.floor(r() * CAR_MODELS.length)];
     c.hit = false;
   }
 

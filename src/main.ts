@@ -1,6 +1,6 @@
 import '@fontsource/press-start-2p/400.css';
 import { RES, view } from './config';
-import { CARS } from './cars';
+import { CARS, TRAFFIC_IMAGES } from './cars';
 import { COURSES, type Course } from './courses';
 import { ui as careerUi } from './careerScreens';
 import { REGIONS, carById, eventCourse, levels, loadCareer, settleEvent, tunedCar } from './career';
@@ -13,7 +13,7 @@ import { initAudio, playMusic, setEngine, setMusicOn, setMuted, setSiren, setTir
 import { preloadSvg } from './svgsprites';
 import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
 
-preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.sideMask, c.rear.img, c.rear.imgMask, c.rear.frontImg, c.rear.frontMask]).filter((s): s is string => !!s), ...COCKPIT_IMAGES);
+preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.sideMask, c.rear.img, c.rear.imgMask, c.rear.frontImg, c.rear.frontMask]).filter((s): s is string => !!s), ...COCKPIT_IMAGES, ...TRAFFIC_IMAGES);
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;

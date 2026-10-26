@@ -299,6 +299,7 @@ export interface CarLook {
   brake?: boolean;
   night?: boolean;
   paint?: string; // cor escolhida (troca a carroceria do sprite pela máscara)
+  model?: string; // trânsito: sedan, hatch, pickup, van, truck (sprites de assets/traffic)
 }
 
 const GENERIC: RearDef = { h: 0.5, roof: 0.56, lights: 'rect', wing: 0 };
@@ -313,8 +314,54 @@ function glow(c: CanvasRenderingContext2D, x: number, y: number, w: number, rgb:
 }
 
 // Carro visto de trás (ou de frente, se vier na contramão). (x, y) = centro da base.
+// Trânsito e viatura em pixel art (tools/art/traffic.py); a cor de cada carro vem da máscara
+const TPNG = import.meta.glob('./assets/traffic/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+const tpng = (n: string) => TPNG[`./assets/traffic/${n}.png`];
+export const TRAFFIC_IMAGES = Object.values(TPNG);
+
+function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook, model: string): boolean {
+  const view = look.front ? 'front' : 'rear';
+  const img = tpng(`${model}-${view}`);
+  const aspect = img && spriteAspect(img);
+  if (!img || !aspect) return false;
+  const h = w * aspect;
+  const mask = tpng(`${model}-${view}-mask`);
+  const spr = svgSprite(img, w, h, model !== 'police' && mask ? { mask, color: look.color } : undefined);
+  if (!spr) return false;
+  c.fillStyle = 'rgba(0,0,0,0.35)';
+  c.fillRect(Math.round(x - w * 0.53), Math.round(y - h * 0.04), Math.round(w * 1.06), Math.max(1, Math.round(h * 0.06)));
+  const L = Math.round(x - w / 2), T = Math.round(y - h);
+  c.drawImage(spr, L, T, Math.round(w), Math.round(h));
+  // luzes acesas: lanternas (noite/freio) e giroflex piscando
+  if (!look.front && (look.night || look.brake)) {
+    c.fillStyle = 'rgba(255,60,40,0.55)';
+    for (const [u, f] of TRAFFIC_GLOW[model]?.dots ?? []) c.fillRect(Math.round(L + u * w - w * 0.07), Math.round(T + f * h - h * 0.05), Math.max(1, Math.round(w * 0.14)), Math.max(1, Math.round(h * 0.1)));
+  }
+  if (look.front && look.night) glow(c, x, y - h * 0.4, w, '255,246,192');
+  if (model === 'police' && look.siren) {
+    const on = Math.floor(performance.now() / 120) % 2 === 0;
+    const bar = TRAFFIC_GLOW.police.siren!;
+    const lamp = (i: number, col: string) => {
+      const [u0, f0, u1, f1] = bar[i];
+      c.fillStyle = col;
+      c.fillRect(Math.round(L + u0 * w), Math.round(T + f0 * h), Math.max(1, Math.round((u1 - u0) * w)), Math.max(1, Math.round((f1 - f0) * h)));
+    };
+    lamp(0, on ? '#ff3a3a' : '#6a1414');
+    lamp(1, on ? '#18287a' : '#4a7aff');
+  }
+  return true;
+}
+const TRAFFIC_GLOW: Record<string, { dots?: number[][]; siren?: number[][] }> = {
+  sedan: { dots: [[0.15, 0.6], [0.85, 0.6]] }, hatch: { dots: [[0.11, 0.62], [0.89, 0.62]] },
+  pickup: { dots: [[0.06, 0.6], [0.94, 0.6]] }, van: { dots: [[0.06, 0.71], [0.94, 0.71]] },
+  truck: { dots: [[0.08, 0.79], [0.92, 0.79]] },
+  police: { dots: [[0.15, 0.6], [0.85, 0.6]], siren: [[0.34, 0.07, 0.49, 0.11], [0.51, 0.07, 0.66, 0.11]] },
+};
+
 export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   if (w < 2) return;
+  // trânsito e polícia: sprites em pixel art (o desenho por código fica de reserva)
+  if (!look.rear && (look.police || look.model) && drawTrafficSprite(c, x, y, w, look, look.police ? 'police' : look.model!)) return;
   const tint = (mask?: string) => (look.paint && mask ? { mask, color: look.paint } : undefined);
   if (look.front && look.rear?.frontImg) {
     const h = w * (spriteAspect(look.rear.frontImg) ?? look.rear.h);

@@ -65,6 +65,12 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
     for (let n = 0; n < enter; n++) addSegment(easeIn(0, curve, n / enter), easeInOut(startY, endY, n / total));
     for (let n = 0; n < hold; n++) addSegment(curve, easeInOut(startY, endY, (enter + n) / total));
     for (let n = 0; n < leave; n++) addSegment(easeInOut(curve, 0, n / leave), easeInOut(startY, endY, (enter + hold + n) / total));
+    // guarda-corpo do lado de fora das curvas mais fechadas
+    if (Math.abs(curve) >= 2.5) {
+      const side = curve > 0 ? -1 : 1;
+      for (let n = first + Math.floor(enter / 2); n < first + total - Math.floor(leave / 2); n += 2)
+        segments[n].sprites.push({ kind: 'rail', x: side * (roadW + 700), seed: 0 });
+    }
     if (Math.abs(curve) >= 3) {
       for (let i = 0; i < 1; i++) {
         const s = segments[first + Math.max(0, enter - 24) + i * 7];
@@ -117,6 +123,14 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
       const x = side * (roadW + 1600 + half + rand() * (rand() < 0.2 ? 9000 : 3000));
       s.sprites.push({ kind, x, seed: Math.floor(rand() * 1e6) });
     }
+  }
+
+  // viadutos sobre a pista, em trechos retos
+  for (let b = 0, tries = 0; b < (theme.bridges ?? 0) && tries < 200; tries++) {
+    const i = Math.floor(segments.length * (0.2 + rand() * 0.55));
+    if (segments[i].curve !== 0 || segments[i - 10]?.curve !== 0 || segments[i].sprites.some((sp) => sp.kind === 'bridge')) continue;
+    segments[i].sprites.push({ kind: 'bridge', x: 0, seed: 0 });
+    b++;
   }
 
   // pontos onde a polícia fica escondida

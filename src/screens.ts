@@ -1,3 +1,4 @@
+import { RIVAL_STYLE } from './race';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
 import { CARS, accelCurve, drawCar, drawCarSide, type CarSpec } from './cars';
@@ -17,6 +18,7 @@ export interface AppState {
   sel: number;
   auto: boolean;
   sound: boolean;
+  music: boolean;
   carIdx: number;
   oppIdx: number; // 0..2 = carro rival, 3 = contra o relógio
   courseIdx: number;
@@ -31,6 +33,7 @@ export interface Actions {
   startCourse: () => void;
   nextStage: () => void;
   toggleSound: () => void;
+  toggleMusic: () => void;
 }
 
 const ox = () => Math.floor((view.w - SAFE_W) / 2);
@@ -170,16 +173,17 @@ function tapTitle(s: AppState, a: Actions, x: number, y: number) {
 const activateTitle = (i: number, a: Actions) => a.go((['options', 'car', 'scores'] as ScreenId[])[i]);
 
 // ---------- opções ----------
-const optionRects = () => [0, 1, 2].map((i): Rect => ({ x: ox() + 40, y: 70 + i * 50, w: 240, h: 36 }));
+const optionRects = () => [0, 1, 2, 3].map((i): Rect => ({ x: ox() + 40, y: 58 + i * 42, w: 240, h: 34 }));
 function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
   drawRoadScene(c, s.t);
   text(c, 'OPÇÕES', view.w / 2, 30, 16, '#ffd400', 'center', '#3a1060');
-  const labels = [`CÂMBIO: ${s.auto ? 'AUTOMÁTICO' : 'MANUAL'}`, `SOM: ${s.sound ? 'LIGADO' : 'DESLIGADO'}`, 'VOLTAR'];
+  const labels = [`CÂMBIO: ${s.auto ? 'AUTOMÁTICO' : 'MANUAL'}`, `SOM: ${s.sound ? 'LIGADO' : 'DESLIGADO'}`, `MÚSICA: ${s.music ? 'LIGADA' : 'DESLIGADA'}`, 'VOLTAR'];
   optionRects().forEach((r, i) => sign(c, r, [labels[i]], s.sel === i));
 }
 function activateOption(s: AppState, a: Actions, i: number) {
   if (i === 0) s.auto = !s.auto;
   else if (i === 1) a.toggleSound();
+  else if (i === 2) a.toggleMusic();
   else a.go('title');
 }
 
@@ -340,7 +344,10 @@ function drawOpponent(c: CanvasRenderingContext2D, s: AppState) {
     if (i < CARS.length) {
       const car = CARS[i];
       drawCar(c, r.x + r.w / 2, r.y + 44, 58, { color: car.color, rear: car.rear });
-      text(c, car.name, r.x + r.w / 2, r.y + 50, 5, '#fff', 'center', '#1a1040');
+      text(c, car.name, r.x + r.w / 2, r.y + 48, 5, '#fff', 'center', '#1a1040');
+      const st = RIVAL_STYLE[car.id] ?? 'cauteloso';
+      const [label, col] = st === 'agressivo' ? ['AGRESSIVO', '#ff7a6a'] : st === 'cauteloso' ? ['CAUTELOSO', '#8aff8a'] : ['IMPREVISÍVEL', '#ffe060'];
+      text(c, label, r.x + r.w / 2, r.y + 55, 5, col, 'center', '#1a1040');
     } else {
       stopwatch(c, r.x + r.w / 2 + 8, r.y + 26, 13);
       text(c, 'RELÓGIO', r.x + r.w / 2, r.y + 50, 5, '#fff', 'center', '#1a1040');
@@ -617,7 +624,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 }
 
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
-  const counts: Partial<Record<ScreenId, number>> = { title: 3, options: 3, opponent: OPP_N, course: 4 };
+  const counts: Partial<Record<ScreenId, number>> = { title: 3, options: 4, opponent: OPP_N, course: 4 };
   const n = counts[s.screen];
   if (s.screen === 'car') {
     if (k === 'left') s.carIdx = (s.carIdx + CARS.length - 1) % CARS.length;

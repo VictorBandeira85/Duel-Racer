@@ -124,9 +124,18 @@ function hash(n: number) {
 function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   const th = r.theme;
   const night = !!r.def.night;
-  // céu chapado, como no original
-  c.fillStyle = th.sky[0];
-  c.fillRect(vp.x, vp.y, vp.w, vp.horizon - vp.y + 2);
+  // céu em faixas, do tom de cima até o do horizonte (com uma linha pontilhada em cada emenda)
+  const top = vp.y, hz = vp.horizon + 2, bands = 6;
+  for (let i = 0; i < bands; i++) {
+    const y0 = Math.round(top + ((hz - top) * i) / bands), y1 = Math.round(top + ((hz - top) * (i + 1)) / bands);
+    const col = mix(th.sky[0], th.sky[1], i / (bands - 1));
+    c.fillStyle = col;
+    c.fillRect(vp.x, y0, vp.w, y1 - y0);
+    if (i > 0) {
+      c.fillStyle = dither(c, col, mix(th.sky[0], th.sky[1], (i - 1) / (bands - 1)));
+      c.fillRect(vp.x, y0, vp.w, 1);
+    }
+  }
   if (night) {
     c.fillStyle = '#fff';
     for (let i = 0; i < 40; i++) {
@@ -151,6 +160,16 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   layer(near, true, 0.6);
 }
 
+// mistura de duas cores #rrggbb
+function mix(a: string, b: string, t: number) {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const ch = (sh: number) => Math.round(((pa >> sh) & 255) * (1 - t) + ((pb >> sh) & 255) * t);
+  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
+}
+
+// objetos grandes, que aparecem de longe
+const FAR_KINDS = ['building', 'station', 'bridge', 'billboard', 'barn'];
+
 export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   const segs = r.track.segments;
   const roadW = r.track.roadW;
@@ -160,6 +179,8 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   c.rect(vp.x, vp.y, vp.w, vp.h);
   c.clip();
   if (r.shake) c.translate(Math.round((Math.random() - 0.5) * 2), Math.round((Math.random() - 0.5) * 2));
+  // sensação de velocidade: perto da máxima a imagem trepida de leve (1 px, de vez em quando)
+  else if (r.speed > r.car.maxSpeed * 0.8 && Math.random() < (r.speed / r.car.maxSpeed - 0.8) * 2.5) c.translate(0, Math.random() < 0.5 ? 1 : -1);
   drawBackground(c, r, vp);
 
   const base = r.findSegment(r.position);
@@ -207,7 +228,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
     const dist = i - base.index;
     for (const sp of s.sprites) {
       // objetos pequenos e distantes só poluem o horizonte
-      if (dist > (sp.kind === 'post' ? 90 : sp.kind === 'building' || sp.kind === 'station' ? 400 : 170)) continue;
+      if (dist > (sp.kind === 'post' || sp.kind === 'rail' ? 90 : FAR_KINDS.includes(sp.kind) ? 400 : 170)) continue;
       const def = SPRITES[sp.kind];
       const sc = s.p1.screen.scale;
       const sw = def.w * sc * vp.K;
@@ -216,7 +237,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
       if (sx + sw / 2 < vp.x || sx - sw / 2 > vp.x + vp.w || sw < 1.2) continue;
       // desenhado como pixel art nítida (sem antialias, com contorno); a caixa é um pouco
       // mais larga que o objeto para caber o que passa da largura (braço do poste etc.)
-      const seed = sp.kind === 'building' ? sp.seed % 45 : sp.kind === 'house' ? sp.seed % 6 : 0;
+      const seed = sp.kind === 'building' ? sp.seed % 45 : sp.kind === 'house' ? sp.seed % 6 : sp.kind === 'billboard' ? sp.seed % 6 : 0;
       const bw = sw * (sp.kind === 'lamp' ? 3.4 : 1.1);
       drawCrisp(c, `${sp.kind}${seed}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed));
     }

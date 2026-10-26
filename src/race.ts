@@ -1,11 +1,11 @@
-import { CAR_W, KMH, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
+import { CAR_W, KMH, LANE_W, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { autoGear, engineAccel, GEARS, type CarSpec } from './cars';
 import type { Course, StageDef } from './courses';
 import { THEMES, nightTheme, rainTheme, type Theme } from './themes';
 import { SPRITES } from './sprites';
 import { buildTrack, laneCenter, type Segment, type Track } from './track';
 import { input, takeShift } from './input';
-import { beep, crashSound, setEngine, setSiren } from './audio';
+import { beep, crashSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
 
 export const TRAFFIC_COLORS = ['#2a6fdb', '#e8e8e8', '#3d9b47', '#c9a227', '#7a3db8', '#d9542b', '#555566', '#80c0e0', '#8a2a2a'];
@@ -27,7 +27,17 @@ export interface Rival {
   recover: number;
   think: number;
   finishTime: number;
+  style: RivalStyle;
+  mistake: number; // tempo restante de um erro (imprevisível)
+  boost: number; // tempo restante de uma arrancada (imprevisível)
 }
+
+// Jeito de pilotar de cada adversário
+export type RivalStyle = 'agressivo' | 'cauteloso' | 'imprevisivel';
+export const RIVAL_STYLE: Record<string, RivalStyle> = {
+  'furia-f4': 'agressivo', 'silber-95': 'cauteloso', 'toro-v12': 'agressivo', 'vortex-zr': 'imprevisivel',
+  'furia-tr': 'cauteloso', 'toro-lp5': 'imprevisivel', 'kaze-nx': 'cauteloso', 'serpe-v10': 'agressivo',
+};
 
 export interface Police {
   spotZ: number;
@@ -74,6 +84,7 @@ export class Race {
   braking = false;
   ghost = 0;
   shake = 0;
+  scrapeT = 0; // tremida curta depois de um raspão
   bgOffset = 0;
 
   time = 0; // tempo do trecho (inclui multas)
@@ -103,6 +114,7 @@ export class Race {
     public rivalCar: CarSpec | null,
     public auto: boolean,
   ) {
+    setEngineProfile(car.engine);
     this.def = course.stages[stageIdx];
     const base = THEMES[this.def.theme];
     this.theme = this.def.night ? nightTheme(base) : this.def.weather === 'rain' ? rainTheme(base) : base;
@@ -115,7 +127,8 @@ export class Race {
     const myLane = t.lanes - 1;
     this.x = laneCenter(t, myLane);
     if (rivalCar) {
-      this.rival = { z: this.playerZ, x: laneCenter(t, myLane - 1), targetX: laneCenter(t, myLane - 1), speed: 0, recover: 0, think: 0, finishTime: -1 };
+      this.rival = { z: this.playerZ, x: laneCenter(t, myLane - 1), targetX: laneCenter(t, myLane - 1), speed: 0, recover: 0, think: 0, finishTime: -1,
+        style: RIVAL_STYLE[this.rivalCar!.id] ?? 'cauteloso', mistake: 0, boost: 0 };
     }
     for (let i = 0; i < this.def.traffic; i++) {
       const c: TrafficCar = { z: 0, x: 0, speed: 0, color: '', truck: false, hit: false };
@@ -221,6 +234,10 @@ export class Race {
 
     // ---- fora da pista ----
     this.shake = 0;
+    if (this.scrapeT > 0) {
+      this.scrapeT -= dt;
+      this.shake = 1;
+    }
     if (Math.abs(this.x) > t.roadW + 700) {
       const limit = max * 0.28;
       if (this.speed > limit) this.speed = Math.max(limit, this.speed - max * 0.6 * dt);
@@ -276,9 +293,17 @@ export class Race {
       }
     }
 
+    // som: troca de marcha, pneus cantando (curva forte ou freada em alta) e trepidação fora da pista
+    if (this.gear !== this.lastGear && this.speed > 200) shiftSound();
+    this.lastGear = this.gear;
+    const offRoad = Math.abs(this.x) > t.roadW + 700;
+    const cornering = Math.abs(this.steer) * speedPct * speedPct + Math.abs(pSeg.curve) * speedPct * speedPct * 0.18;
+    const screech = driving && !offRoad ? Math.max((cornering - 0.42) * 2.5, this.braking && speedPct > 0.3 ? 0.6 : 0) : 0;
+    setTires(screech, offRoad && this.speed > 100 ? 0.4 + speedPct * 0.6 : 0);
     setEngine(Math.max(0.1, this.rpm), this.throttle, true);
   }
 
+  private lastGear = 0;
   crashPoint = { x: 0.5, y: 0.5 };
 
   private crash() {
@@ -330,25 +355,46 @@ export class Race {
     const r = this.rival;
     if (!r || !this.rivalCar) return;
     const max = this.rivalCar.maxSpeed;
+    const rSeg = this.findSegment(r.z);
+    const sharp = Math.abs(rSeg.curve) >= 3;
+    const gap = (r.z - this.playerZ) / SEG_LEN; // > 0: rival na frente
     let target = 0;
     if (r.finishTime >= 0 || this.state === 'arrived') target = max * 0.25;
     else {
-      const gap = (r.z - this.playerZ) / SEG_LEN;
       target = max * this.course.rivalSkill * clamp(1 - gap * 0.0025, 0.85, 1.06);
+      // personalidade: o cauteloso alivia nas curvas fechadas, o agressivo arrisca mais
+      if (r.style === 'cauteloso' && sharp) target *= 0.93;
+      if (r.style === 'agressivo') target *= sharp ? 1 : 1.015;
+      if (r.style === 'imprevisivel') {
+        if (r.mistake <= 0 && r.boost <= 0 && this.rand() < dt * (sharp ? 0.12 : 0.05)) {
+          if (this.rand() < 0.6) {
+            r.mistake = 1.3; // errou: sai de traço e perde velocidade
+            r.targetX = clamp(r.x + (this.rand() < 0.5 ? -1 : 1) * LANE_W, -this.track.roadW + CAR_W / 2, this.track.roadW - CAR_W / 2);
+          } else r.boost = 2.5;
+        }
+        if (r.mistake > 0) target *= 0.72;
+        if (r.boost > 0) target *= 1.06;
+      }
     }
+    r.mistake = Math.max(0, r.mistake - dt);
+    r.boost = Math.max(0, r.boost - dt);
 
     r.think -= dt;
-    if (r.think <= 0) {
-      r.think = 0.25;
+    if (r.think <= 0 && r.mistake <= 0) {
+      r.think = r.style === 'cauteloso' ? 0.2 : 0.25;
       const lanes = this.track.lanes;
+      // o cauteloso troca de faixa mais cedo (precisa de mais folga à frente)
+      const margin = r.style === 'cauteloso' ? 0.6 : r.style === 'agressivo' ? 0.2 : 0.4;
       let bestX = r.targetX;
-      let bestScore = this.laneTTC(r.targetX) + 0.4; // prefere ficar onde está
+      let bestScore = this.laneTTC(r.targetX) + margin; // prefere ficar onde está
       for (let i = 0; i < lanes; i++) {
         const lx = laneCenter(this.track, i);
         if (lx === r.targetX) continue;
         const beside = Math.abs(this.playerZ - r.z) < SEG_LEN * 3 && Math.abs(this.x - lx) < CAR_W;
         if (beside) continue;
-        const score = this.laneTTC(lx) * (i < lanes / 2 ? 0.85 : 1);
+        let score = this.laneTTC(lx) * (i < lanes / 2 ? 0.85 : 1);
+        // o agressivo fecha a faixa do jogador quando ele vem colado atrás
+        if (r.style === 'agressivo' && gap > 0.5 && gap < 7 && Math.abs(this.x - lx) < LANE_W / 2) score += 1.5;
         if (score > bestScore) {
           bestScore = score;
           bestX = lx;
@@ -362,7 +408,7 @@ export class Race {
       target = Math.min(target, max * 0.2);
     }
     r.speed += (target - r.speed) * Math.min(1, dt * (target > r.speed ? 0.22 : 1.5));
-    r.x += clamp(r.targetX - r.x, -dt * 2600, dt * 2600);
+    r.x += clamp(r.targetX - r.x, -dt * (r.style === 'agressivo' ? 3000 : 2600), dt * (r.style === 'agressivo' ? 3000 : 2600));
     r.z += r.speed * dt;
   }
 
@@ -493,6 +539,17 @@ export class Race {
       const dz = c.z - pz;
       const near = c.speed < 0 ? Math.abs(dz) < SEG_LEN : dz > -SEG_LEN * 0.3 && dz < SEG_LEN && this.speed > c.speed;
       if (this.ghost <= 0 && near && overlap(this.x, myHalf, c.x, half)) {
+        // raspão: só a lateral encostou (sobreposição pequena) e não é de frente
+        const depth = myHalf + half - Math.abs(this.x - c.x);
+        if (depth < CAR_W * 0.22 && c.speed > 0) {
+          const side = this.x < c.x ? -1 : 1;
+          this.x += side * (depth + 60);
+          this.speed *= 0.82;
+          this.ghost = 0.35;
+          this.scrapeT = 0.3;
+          scrapeSound();
+          continue;
+        }
         if (c.speed < 0 || this.speed - c.speed > max * 0.3) {
           c.hit = true;
           this.crash();

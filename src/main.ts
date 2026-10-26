@@ -6,7 +6,7 @@ import { Race } from './race';
 import { COCKPIT_IMAGES, renderCockpit } from './cockpit';
 import { drawScreen, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { input, releaseAll, setupInput } from './input';
-import { initAudio, setEngine, setMuted, setSiren } from './audio';
+import { initAudio, playMusic, setEngine, setMusicOn, setMuted, setSiren, setTires } from './audio';
 import { preloadSvg } from './svgsprites';
 import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
 
@@ -17,7 +17,7 @@ const ctx = canvas.getContext('2d')!;
 const $ = (id: string) => document.getElementById(id)!;
 
 const state: AppState = {
-  screen: 'title', t: 0, sel: 1, auto: true, sound: true,
+  screen: 'title', t: 0, sel: 1, auto: true, sound: true, music: true,
   carIdx: 0, oppIdx: 0, courseIdx: 0, scoreCourse: 0,
   lives: 5, results: [], gameOver: false,
 };
@@ -42,6 +42,8 @@ const actions: Actions = {
     showControls(false);
     setEngine(0, false, false);
     setSiren(false);
+    setTires(0, 0);
+    playMusic('menu');
   },
   startCourse() {
     initAudio();
@@ -58,6 +60,10 @@ const actions: Actions = {
   toggleSound() {
     state.sound = !state.sound;
     setMuted(!state.sound);
+  },
+  toggleMusic() {
+    state.music = !state.music;
+    setMusicOn(state.music);
   },
 };
 
@@ -82,6 +88,7 @@ function startStage(i: number) {
   state.screen = 'race';
   resize();
   showControls(true);
+  playMusic(`r${state.courseIdx % 4}`);
 }
 
 function finishCourse() {

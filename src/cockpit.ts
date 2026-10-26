@@ -16,20 +16,31 @@ interface CockpitArt {
   dash: string;
   wheel: string;
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
-  tach: [number, number, number]; // x, y, raio
-  speed: [number, number, number];
+  tach: Dial;
+  speed: Dial;
   speedMax: number;
   needle: string;
   hub: string;
 }
+
+// Mostrador redesenhado em pixels (os números da arte ficam ilegíveis em 256 px):
+// centro inteiro medido na arte, raio horizontal (o vertical é 8/7 maior), rótulos e
+// fração da escala onde começa a faixa vermelha
+interface Dial { x: number; y: number; r: number; max: number; labels: number[]; tick: number; red: number }
 
 // a arte cobre da linha 100 da tela até o fim (124 linhas); o topo transparente mostra a estrada
 const ART_TOP = 100;
 const DASH_PAD = 102; // colunas extras de cada lado do painel (telas largas), ver import_cockpit.py
 const DASH_W = 256 + 2 * DASH_PAD;
 const COCKPIT_ART: Record<string, CockpitArt> = {
-  f40: { dash: dashF40Png, wheel: wheelF40Png, pivot: [127.4, 80], tach: [109, 42.9, 17.5], speed: [149, 42.9, 17.5], speedMax: 360, needle: '#ff2a1a', hub: '#ff2a1a' },
-  '959': { dash: dash959Png, wheel: wheel959Png, pivot: [127.8, 104], tach: [127.4, 61.1, 23.5], speed: [177.8, 66.6, 20.2], speedMax: 300, needle: '#ff6a1a', hub: '#1a1a1a' },
+  f40: { dash: dashF40Png, wheel: wheelF40Png, pivot: [127.4, 80], 
+    tach: { x: 109, y: 46, r: 17, max: 10, labels: [0, 2, 4, 6, 8, 10], tick: 1, red: 7.75 },
+    speed: { x: 149, y: 46, r: 17, max: 360, labels: [0, 100, 200, 300], tick: 20, red: 999 },
+    speedMax: 360, needle: '#ff2a1a', hub: '#ff2a1a' },
+  '959': { dash: dash959Png, wheel: wheel959Png, pivot: [127.8, 104], 
+    tach: { x: 129, y: 66, r: 23, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6.5 },
+    speed: { x: 180, y: 68, r: 19, max: 300, labels: [0, 100, 200, 300], tick: 25, red: 999 },
+    speedMax: 300, needle: '#ff6a1a', hub: '#1a1a1a' },
 };
 
 export const COCKPIT_IMAGES = Object.values(COCKPIT_ART).flatMap((a) => [a.dash, a.wheel]);
@@ -48,25 +59,62 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     c.drawImage(dash, DASH_W - 2, 0, 2, 124, dx + DASH_W, ART_TOP, w - dx - DASH_W, 124);
   }
   c.drawImage(dash, dx, ART_TOP);
-  const needle = (g: [number, number, number], frac: number) => {
-    const [gx, gy, gr] = g;
-    const cx = ox + gx, cy = ART_TOP + gy;
-    const a = Math.PI * 0.75 + Math.PI * 1.5 * Math.max(0, Math.min(1.02, frac));
-    c.strokeStyle = art.needle;
-    c.lineWidth = 2;
-    c.beginPath();
-    c.moveTo(cx, cy);
-    c.lineTo(cx + Math.cos(a) * (gr - 4), cy + Math.sin(a) * (gr - 4) * (8 / 7));
-    c.stroke();
-    disc(c, cx, cy, 2, art.hub);
-  };
-  needle(art.tach, 0.06 + Math.min(1, r.rpm) * 0.82);
-  needle(art.speed, (r.speed * KMH) / art.speedMax);
+  artDial(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, art);
+  artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
   rect(c, ox + 206, ART_TOP + 22, 30, 6, '#0c0c0e');
   radarLeds(c, ox + 208, ART_TOP + 23, 26, r.radar);
   const px = ox + art.pivot[0], py = ART_TOP + art.pivot[1];
   withRotation(c, px, py, steerAngle(r, dt), () => c.drawImage(wheelImg, ox, ART_TOP));
   return true;
+}
+
+// pixel nítido em (x, y) arredondado
+const dot = (c: CanvasRenderingContext2D, x: number, y: number) => c.fillRect(Math.round(x), Math.round(y), 1, 1);
+const PIX_Y = 8 / 7; // o pixel é mais largo que alto: no eixo vertical tudo é 8/7 maior
+
+function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number, art: CockpitArt) {
+  const cx = ox + d.x, cy = ART_TOP + d.y, r = d.r, ry = r * PIX_Y;
+  // fundo preto (por linhas, sem antialias), por cima do mostrador da arte
+  c.fillStyle = '#050506';
+  for (let dy = -Math.floor(ry); dy <= Math.floor(ry); dy++) {
+    const hw = Math.round(r * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
+    c.fillRect(cx - hw, cy + dy, hw * 2 + 1, 1);
+  }
+  const a0 = Math.PI * 0.75, sweep = Math.PI * 1.5;
+  const at = (a: number, rr: number): [number, number] => [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * PIX_Y];
+  const fr = (v: number) => a0 + (sweep * v) / d.max;
+  // faixa vermelha
+  if (d.red < d.max) {
+    c.fillStyle = '#d81818';
+    for (let a = fr(d.red); a <= a0 + sweep + 0.001; a += 0.02)
+      for (const rr of [r - 1, r - 2]) dot(c, ...at(a, rr));
+  }
+  // marcações: traço de 2 px nos números, 1 px no meio
+  for (let v = 0; v <= d.max + 1e-6; v += d.tick) {
+    const major = d.labels.some((l) => Math.abs(l - v) < 1e-6);
+    c.fillStyle = v >= d.red ? '#ffd0d0' : '#ececec';
+    dot(c, ...at(fr(v), r - 1));
+    if (major) dot(c, ...at(fr(v), r - 2));
+  }
+  for (const v of d.labels) {
+    const l = String(v);
+    const [lx, ly] = at(fr(v), r - 4.5 - pixWidth(l) * 0.4);
+    pix(c, l, lx, ly, v >= d.red ? '#ff5a4a' : '#f2f2f2');
+  }
+  // ponteiro: 2 px de espessura, do centro exato
+  const a = a0 + sweep * Math.max(0, Math.min(1.02, frac));
+  const len = r - 3;
+  const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y;
+  const thickX = Math.abs(ca) < Math.abs(sa); // mais vertical: engrossa na horizontal
+  c.fillStyle = art.needle;
+  for (let t = 0; t <= len; t += 0.25) {
+    const x = Math.round(cx + ca * t), y = Math.round(cy + sa * t);
+    c.fillRect(x, y, thickX ? 2 : 1, thickX ? 1 : 2);
+  }
+  c.fillStyle = art.hub;
+  c.fillRect(cx - 1, cy - 1, 3, 3);
+  c.fillStyle = '#000';
+  c.fillRect(cx, cy, 1, 1);
 }
 
 // Cabine desenhada em pixels nativos do Super Nintendo (256x224), com as posições

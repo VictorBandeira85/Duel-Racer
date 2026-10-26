@@ -24,12 +24,18 @@ interface CockpitArt {
   speedMax: number;
   needle: string;
   hub: string;
+  aux: Aux[];
 }
 
 // Mostrador redesenhado em pixels (os números da arte ficam ilegíveis em 256 px):
 // centro inteiro medido na arte, raio horizontal (o vertical é 8/7 maior), rótulos e
 // fração da escala onde começa a faixa vermelha
 interface Dial { x: number; y: number; r: number; max: number; labels: number[]; tick: number; red: number }
+
+// Mostradores auxiliares, também redesenhados: 'single' (um ponteiro), 'dual' (dois
+// ponteiros no mesmo eixo, em V), 'twin' (dois eixos lado a lado) e 'clock' (relógio)
+type Gauge = 'oil' | 'water' | 'oiltemp' | 'fuel' | 'press';
+interface Aux { x: number; y: number; r: number; kind: 'single' | 'dual' | 'twin' | 'clock'; show?: Gauge[]; icon?: keyof typeof ICONS }
 
 // a arte cobre da linha 100 da tela até o fim (124 linhas); o topo transparente mostra a estrada
 const ART_TOP = 100;
@@ -40,11 +46,22 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
   f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, pivot: [127.4, 80], 
     tach: { x: 109, y: 46, r: 17, max: 10, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], tick: 0.5, red: 7.75 },
     speed: { x: 149, y: 46, r: 17, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], tick: 20, red: 999 },
-    speedMax: 360, needle: '#ff2a1a', hub: '#ff2a1a' },
+    speedMax: 360, needle: '#ff2a1a', hub: '#ff2a1a',
+    aux: [
+      { x: 79, y: 45, r: 6.5, kind: 'single', show: ['oil'], icon: 'temp' },
+      { x: 79, y: 65, r: 8, kind: 'dual', show: ['water', 'press'], icon: 'temp' },
+      { x: 176, y: 45, r: 6.5, kind: 'single', show: ['oiltemp'], icon: 'oil' },
+      { x: 176, y: 65, r: 8, kind: 'dual', show: ['fuel', 'oil'], icon: 'fuel' },
+    ] },
   '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [127.8, 104], 
     tach: { x: 129, y: 66, r: 23, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6.5 },
     speed: { x: 180, y: 68, r: 19, max: 300, labels: [0, 50, 100, 150, 200, 250, 300], tick: 10, red: 999 },
-    speedMax: 300, needle: '#ff6a1a', hub: '#1a1a1a' },
+    speedMax: 300, needle: '#ff6a1a', hub: '#1a1a1a',
+    aux: [
+      { x: 36, y: 70, r: 16.5, kind: 'twin', show: ['oil', 'oiltemp'], icon: 'oil' },
+      { x: 80, y: 70, r: 16.5, kind: 'twin', show: ['press', 'fuel'], icon: 'oil' },
+      { x: 227, y: 70, r: 17, kind: 'clock' },
+    ] },
 };
 
 export const COCKPIT_IMAGES = Object.values(COCKPIT_ART).flatMap((a) => [a.dash, a.top, a.wheel]);
@@ -70,6 +87,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   }
   artDial(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, art);
   artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
+  for (const g of art.aux) auxDial(c, g, ox, r, art);
   rect(c, ox + 206, ART_TOP + 22, 30, 6, '#0c0c0e');
   radarLeds(c, ox + 208, ART_TOP + 23, 26, r.radar);
   const px = ox + art.pivot[0], py = ART_TOP + art.pivot[1];
@@ -126,6 +144,104 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
   c.fillRect(cx - 1, cy - 1, 3, 3);
   c.fillStyle = '#000';
   c.fillRect(cx, cy, 1, 1);
+}
+
+// ícones de 7x4 em meio pixel (óleo, temperatura, combustível)
+const ICONS = {
+  oil: ['1......', '1111.1.', '.11111.', '.1111..'],
+  temp: ['...1...', '...11..', '...1...', '1111111'],
+  fuel: ['1111.1.', '1..1.1.', '1111.1.', '1111...'],
+};
+
+// fundo preto do mostrador, por linhas (centro no meio do pixel cx, cy)
+function face(c: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  const ry = r * PIX_Y;
+  c.fillStyle = '#050506';
+  for (let dy = -Math.floor(ry); dy <= Math.floor(ry); dy++) {
+    const hw = Math.round(r * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
+    c.fillRect(cx - hw, cy + dy, hw * 2 + 1, 1);
+  }
+}
+const half = (c: CanvasRenderingContext2D, x: number, y: number) => c.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, 0.5, 0.5);
+// ponteiro em meio pixel a partir de (x0, y0), ângulo a, comprimento len (horizontal)
+function hand(c: CanvasRenderingContext2D, x0: number, y0: number, a: number, len: number, color: string, w = 1) {
+  const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y;
+  c.fillStyle = color;
+  for (let t = 0; t <= len; t += 0.25) {
+    const x = Math.round((x0 + ca * t) * 2) / 2, y = Math.round((y0 + sa * t) * 2) / 2;
+    c.fillRect(x - w / 2, y - w / 2, w, w);
+  }
+}
+
+function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, r: Race, art: CockpitArt) {
+  const cx = ox + g.x, cy = ART_TOP + g.y, R = g.r;
+  const mx = cx + 0.5, my = cy + 0.5; // centro real
+  face(c, cx, cy, R);
+  const at = (x: number, y: number, a: number, rr: number): [number, number] => [x + Math.cos(a) * rr, y + Math.sin(a) * rr * PIX_Y];
+  const ticks = (x: number, y: number, rr: number, a0: number, a1: number, n: number) => {
+    c.fillStyle = '#e8e8e8';
+    for (let i = 0; i <= n; i++) {
+      const a = a0 + ((a1 - a0) * i) / n;
+      half(c, ...at(x, y, a, rr));
+      half(c, ...at(x, y, a, rr - 0.5));
+      if (i === 0 || i === n || i * 2 === n) half(c, ...at(x, y, a, rr - 1));
+    }
+  };
+  const val = (k: Gauge) => {
+    switch (k) {
+      case 'oil': return 0.35 + 0.45 * Math.min(1, r.rpm);
+      case 'press': return 0.3 + 0.55 * Math.min(1, r.rpm);
+      case 'water': return 0.55;
+      case 'oiltemp': return 0.45 + 0.15 * Math.min(1, r.time / 90);
+      case 'fuel': return 0.8;
+    }
+  };
+  const PI = Math.PI;
+  if (g.kind === 'clock') {
+    ticks(mx, my, R - 0.75, -PI / 2, PI * 1.5, 12);
+    for (const [l, a] of [['12', -PI / 2], ['3', 0], ['6', PI / 2], ['9', PI]] as [string, number][])
+      pix(c, l, ...at(mx, my, a, R - 3.6), '#f2f2f2', 0.5);
+    const now = new Date();
+    const m = now.getMinutes() + now.getSeconds() / 60, h = (now.getHours() % 12) + m / 60;
+    hand(c, mx, my, -PI / 2 + (h / 12) * PI * 2, R * 0.5, art.needle);
+    hand(c, mx, my, -PI / 2 + (m / 60) * PI * 2, R * 0.78, art.needle);
+    c.fillStyle = art.needle;
+    c.fillRect(cx - 0.5, cy - 0.5, 2, 2);
+    return;
+  }
+  const [k1, k2] = g.show ?? ['oil'];
+  if (g.kind === 'single') {
+    // arco de cima, da esquerda (frio/baixo) para a direita
+    const a0 = PI * 0.95, a1 = PI * 2.05;
+    ticks(mx, my, R - 0.75, a0, a1, 4);
+    hand(c, mx, my, a0 + (a1 - a0) * val(k1), R - 1.5, art.needle);
+  } else if (g.kind === 'dual') {
+    // dois ponteiros no mesmo eixo: o da esquerda sobe pela esquerda, o da direita pela direita
+    ticks(mx, my, R - 0.75, PI * 0.8, PI * 1.4, 3);
+    ticks(mx, my, R - 0.75, PI * 1.6, PI * 2.2, 3);
+    hand(c, mx, my, PI * 0.8 + PI * 0.6 * val(k1), R - 1.5, art.needle);
+    hand(c, mx, my, PI * 2.2 - PI * 0.6 * val(k2), R - 1.5, art.needle);
+  } else {
+    // dois eixos lado a lado, cada um com sua escala do lado de fora
+    const d = R * 0.3;
+    const lx = mx - d, rx = mx + d;
+    ticks(lx, my, R * 0.64, PI * 0.7, PI * 1.3, 4);
+    ticks(rx, my, R * 0.64, PI * -0.3, PI * 0.3, 4);
+    hand(c, lx, my, PI * 0.7 + PI * 0.6 * val(k1), R * 0.58, art.needle);
+    hand(c, rx, my, PI * 0.3 - PI * 0.6 * val(k2), R * 0.58, art.needle);
+    c.fillStyle = '#2a2a2e';
+    c.fillRect(Math.round(lx) - 1, cy - 0.5, 2, 2);
+    c.fillRect(Math.round(rx) - 1, cy - 0.5, 2, 2);
+  }
+  if (g.kind !== 'twin') {
+    c.fillStyle = art.needle;
+    c.fillRect(cx - 0.5, cy - 0.5, 2, 2);
+  }
+  // ícone embaixo do eixo
+  const ic = ICONS[g.icon ?? 'oil'];
+  c.fillStyle = '#e8e8e8';
+  const ix = mx - 1.75, iy = my + R * PIX_Y * (g.kind === 'twin' ? 0.5 : 0.42);
+  ic.forEach((row, j) => [...row].forEach((ch, i) => ch === '1' && c.fillRect(ix + i * 0.5, iy + j * 0.5, 0.5, 0.5)));
 }
 
 // Cabine desenhada em pixels nativos do Super Nintendo (256x224), com as posições

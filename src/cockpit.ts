@@ -181,8 +181,11 @@ export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: numbe
     }
   }
   drawRoof(c, r, stageLabel, totalTime);
-  if (r.car.dash === 'A') drawDash959(c, r, dt);
-  else drawDashF40(c, r, dt);
+  const dash = r.car.dash;
+  if (dash === 'f40') drawDashF40(c, r, dt);
+  else if (dash === '959') drawDash959(c, r, dt);
+  else if (dash === 'A') drawDashTD2Black(c, r, dt);
+  else drawDashTD2Grey(c, r, dt);
 
   if (r.state === 'countdown') {
     const n = Math.ceil(r.timer);
@@ -240,168 +243,348 @@ function drawRoof(c: CanvasRenderingContext2D, r: Race, stageLabel: string, tota
   renderMirror(c, r, ox + 178, 6, 60, 14);
 }
 
-// Volante: aro grosso texturizado, marcador amarelo no topo
-function rim(c: CanvasRenderingContext2D, cx: number, cy: number, R: number, thick: number, base: [string, string], hi: string) {
-  const mid = R - thick / 2;
-  c.strokeStyle = dither(c, base[0], base[1]);
-  c.lineWidth = thick;
-  c.beginPath();
-  c.arc(cx, cy, mid, 0, Math.PI * 2);
-  c.stroke();
-  // brilho no alto do aro: faixa pontilhada suave e filete claro na borda
-  c.strokeStyle = dither(c, base[1], shade(base[1], 0.12));
-  c.lineWidth = thick * 0.4;
-  c.beginPath();
-  c.arc(cx, cy, mid + thick * 0.22, Math.PI * 1.08, Math.PI * 1.72);
-  c.stroke();
-  c.strokeStyle = hi;
-  c.lineWidth = 1;
-  c.beginPath();
-  c.arc(cx, cy, R - 0.5, Math.PI * 1.12, Math.PI * 1.68);
-  c.stroke();
-  c.strokeStyle = '#0a0a0c';
-  c.lineWidth = 1;
-  c.beginPath();
-  c.arc(cx, cy, R - thick, 0, Math.PI * 2);
-  c.stroke();
-  disc(c, cx, cy - R + thick * 0.4, 3, '#f0d020');
-}
+// ---------- utilidades de desenho do interior ----------
+const rect = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string | CanvasPattern) => {
+  c.fillStyle = color;
+  c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+};
 
-// Painel do F40 no original: faixa vermelha, painel cinza em degradê pontilhado,
-// volante com ponte de raios e centro amarelo, câmbio em H cromado.
-function drawDashF40(c: CanvasRenderingContext2D, r: Race, dt: number) {
-  const { w, h } = view;
-  const ox = coreX();
-  const band = r.car.dash === 'f40' ? '#69140c' : shade(r.car.hood, -0.35);
-  c.fillStyle = shade(band, 0.35);
-  c.fillRect(0, 120, w, 1);
-  c.fillStyle = dither(c, band, shade(band, 0.08));
-  c.fillRect(0, 121, w, 9);
-  c.fillStyle = shade(band, -0.2);
-  c.fillRect(0, 130, w, 2);
-  c.fillStyle = '#141210';
-  c.fillRect(0, 132, w, 5);
-  // painel cinza: degradê claro → escuro em faixas pontilhadas
-  const greys = ['#b4b4b4', '#a6a6a6', '#989898', '#8a8a8a', '#7c7c7c', '#6e6e6e', '#606060'];
-  for (let i = 0; i < greys.length - 1; i++) {
-    const y0 = 137 + i * 13;
-    c.fillStyle = dither(c, greys[i], greys[i + 1]);
-    c.fillRect(0, y0, w, i === greys.length - 2 ? h - y0 : 13);
-  }
-  c.fillStyle = speckle(c, 'rgba(0,0,0,0)', [['#d4d4d4', 0.06], ['#7a7a7a', 0.05]], 13);
-  c.fillRect(0, 137, w, 16);
-  // saídas de ar
-  for (const vx of [178, 245]) {
-    c.fillStyle = '#5a5a5a';
-    c.beginPath();
-    c.ellipse(ox + vx, 146, 13, 4, 0, 0, Math.PI * 2);
-    c.fill();
-    c.fillStyle = '#7a7a7a';
-    c.beginPath();
-    c.ellipse(ox + vx, 147, 10, 2, 0, 0, Math.PI * 2);
-    c.fill();
-    c.fillStyle = '#c8c8c8';
-    c.fillRect(ox + vx - 9, 142, 18, 1);
-  }
-  // detector de radar no alto do painel
-  c.fillStyle = '#0c0c0c';
-  c.fillRect(ox + 200, 131, 32, 7);
-  radarLeds(c, ox + 202, 133, 28, r.radar);
-  // câmbio em H
-  smallGauge(c, ox + 190, 198, 11, 0.5);
-  smallGauge(c, ox + 250, 198, 11, 0.62);
-  c.fillStyle = '#1e1e1e';
-  c.fillRect(ox + 206, 173, 32, 42);
-  c.fillStyle = dither(c, '#c4c4c4', '#d2d2d2');
-  c.fillRect(ox + 209, 176, 26, 36);
-  c.fillStyle = '#e8e8e8';
-  c.fillRect(ox + 209, 176, 26, 1);
-  c.fillStyle = '#3a3a3a';
-  for (const gx of [214, 221, 228]) c.fillRect(ox + gx, 184, 2, 24);
-  c.fillRect(ox + 214, 195, 16, 2);
-  const pos = [[215, 186], [215, 206], [222, 186], [222, 206], [229, 186]][r.gear];
-  const kx = ox + pos[0], ky = pos[1] - 3;
-  const kg = c.createRadialGradient(kx - 2, ky - 2, 0.5, kx, ky, 6);
-  kg.addColorStop(0, '#ffffff');
-  kg.addColorStop(0.45, '#a0a0a8');
-  kg.addColorStop(1, '#2a2a30');
-  disc(c, kx, ky, 6, kg);
-
-  // volante (gira com a direção)
-  wheelAngle = lerp(wheelAngle, r.steer * 0.3, Math.min(1, dt * 10));
-  const cx = ox + 85, cy = 198, R = 77;
+// Sombra suave (projetada pelo volante, sob a capota dos instrumentos etc.)
+function shadow(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, alpha: number) {
+  const g = c.createRadialGradient(x, y, 0, x, y, Math.max(rx, ry));
+  g.addColorStop(0, `rgba(0,0,0,${alpha})`);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
   c.save();
-  c.translate(cx, cy);
-  c.rotate(wheelAngle);
-  c.translate(-cx, -cy);
-  // volante em "D" (topo achatado, laterais retas), medido na referência
-  const wx = ox + 10, wy = 121, ww = 150, wh = 140, wr = 60, th = 15;
-  c.fillStyle = dither(c, '#4a4a4a', '#585858');
+  c.translate(x, y);
+  c.scale(1, ry / rx);
+  c.translate(-x, -y);
+  c.fillStyle = g;
   c.beginPath();
-  c.roundRect(wx, wy, ww, wh, wr);
+  c.arc(x, y, rx, 0, Math.PI * 2);
   c.fill();
-  c.fillStyle = dither(c, '#2a2a2a', '#343434');
-  c.beginPath();
-  c.roundRect(wx + 3, wy + 3, ww - 6, wh - 6, wr - 3);
-  c.fill();
-  c.fillStyle = dither(c, '#343434', '#404040');
-  c.beginPath();
-  c.roundRect(wx + 3, wy + 2, ww - 6, 8, [wr - 6, wr - 6, 0, 0]);
-  c.fill();
-  c.strokeStyle = '#8e8e8e';
-  c.lineWidth = 1;
-  c.beginPath();
-  c.moveTo(wx + wr - 8, wy + 0.5);
-  c.lineTo(wx + ww - wr + 8, wy + 0.5);
-  c.stroke();
-  c.fillStyle = '#080808';
-  c.beginPath();
-  c.roundRect(wx + th, wy + th, ww - th * 2, wh - th * 2, wr - th);
-  c.fill();
-  disc(c, cx, wy + 6, 3, '#f0d020');
-  const kmh = Math.round(r.speed * KMH);
-  gauge(c, cx - 21, 160, 22, ['0', '80', '160', '240', '320'], kmh / 360, 2, { digital: String(kmh), ring: '#3a3a3a' });
-  gauge(c, cx + 23, 160, 22, ['0', '20', '40', '60', '80', '100'], 0.1 + Math.min(1, r.rpm) * 0.8, 0.78, { gear: String(r.gear + 1), ring: '#3a3a3a' });
-  smallGauge(c, cx - 47, 182, 9, 0.55);
-  smallGauge(c, cx + 45, 182, 9, 0.3 + r.rpm * 0.25);
-  // ponte dos raios e cubo
-  c.strokeStyle = dither(c, '#202020', '#2c2c2c');
-  c.lineWidth = 7;
-  c.beginPath();
-  c.moveTo(cx - R + 10, 192);
-  c.quadraticCurveTo(cx, 180, cx + R - 10, 192);
-  c.stroke();
-  c.fillStyle = '#121212';
-  c.beginPath();
-  c.ellipse(cx, 207, 17, 14, 0, 0, Math.PI * 2);
-  c.fill();
-  for (const [bx, by] of [[-17, -7], [17, -7], [-17, 9], [17, 9]]) disc(c, cx + bx, 207 + by, 2, '#3c3c3c');
-  c.fillStyle = '#b8960e';
-  c.beginPath();
-  c.ellipse(cx, 208, 10, 8, 0, 0, Math.PI * 2);
-  c.fill();
-  c.fillStyle = '#f0d018';
-  c.beginPath();
-  c.ellipse(cx, 207, 9, 7, 0, 0, Math.PI * 2);
-  c.fill();
-  c.fillStyle = '#fff4a0';
-  c.fillRect(cx - 5, 202, 4, 2);
   c.restore();
 }
 
-// Painel do 959 no original: faixa cinza, painel preto com o alto cintilante,
-// volante com almofada inferior, mostradores dentro do aro e radar emoldurado.
+// Escurece a parte de baixo do painel (luz vem do para-brisa)
+function vignette(c: CanvasRenderingContext2D, y0: number) {
+  const { w, h } = view;
+  const g = c.createLinearGradient(0, y0, 0, h);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(0,0,0,0.55)');
+  c.fillStyle = g;
+  c.fillRect(0, y0, w, h - y0);
+}
+
+// Reflexo no vidro do mostrador
+function glint(c: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  c.strokeStyle = 'rgba(255,255,255,0.35)';
+  c.lineWidth = 1;
+  c.beginPath();
+  c.arc(cx, cy, r - 2, Math.PI * 1.1, Math.PI * 1.45);
+  c.stroke();
+}
+
+// Mostrador realista: aro cromado, mostrador colorido, ponteiro, reflexo
+function dial(
+  c: CanvasRenderingContext2D, cx: number, cy: number, r: number, labels: string[], frac: number,
+  o: { face: string; ink: string; needle: string; red?: number; gear?: string; digital?: string; bezel?: string },
+) {
+  disc(c, cx, cy, r + 2, '#0a0a0c');
+  disc(c, cx, cy, r + 1, o.bezel ?? '#8c8e94');
+  disc(c, cx, cy, r, o.face);
+  shadow(c, cx, cy - r * 0.6, r, r * 0.5, 0.35); // sombra da borda superior
+  const a0 = Math.PI * 0.75, sweep = Math.PI * 1.5;
+  const ticks = (labels.length - 1) * 2;
+  for (let i = 0; i <= ticks; i++) {
+    const f = i / ticks;
+    const a = a0 + sweep * f;
+    c.fillStyle = o.red !== undefined && f >= o.red ? '#ff3020' : o.ink;
+    const rr = r - 2;
+    c.fillRect(Math.round(cx + Math.cos(a) * rr), Math.round(cy + Math.sin(a) * rr), 1, 1);
+  }
+  labels.forEach((l, i) => {
+    if (!l) return;
+    const f = i / (labels.length - 1);
+    const a = a0 + sweep * f;
+    pix(c, l, cx + Math.cos(a) * (r - 7), cy + Math.sin(a) * (r - 7), o.red !== undefined && f >= o.red ? '#ff3020' : o.ink);
+  });
+  if (o.digital) pix(c, o.digital, cx, cy + r - 5, '#ff5a2a');
+  if (o.gear) pix(c, o.gear, cx + r * 0.42, cy + r * 0.4, '#ff2a1a', 2);
+  const a = a0 + sweep * Math.max(0, Math.min(1.02, frac));
+  c.strokeStyle = o.needle;
+  c.lineWidth = 1.5;
+  c.beginPath();
+  c.moveTo(cx, cy);
+  c.lineTo(cx + Math.cos(a) * (r - 2), cy + Math.sin(a) * (r - 2));
+  c.stroke();
+  disc(c, cx, cy, 1.5, '#1a1a1a');
+  glint(c, cx, cy, r);
+}
+
+// Raio de volante afunilado (do cubo ao aro)
+function spoke(c: CanvasRenderingContext2D, cx: number, cy: number, ang: number, r0: number, r1: number, w0: number, w1: number, fill: string, edge: string) {
+  const ca = Math.cos(ang), sa = Math.sin(ang), px = -sa, py = ca;
+  const pts = [
+    cx + ca * r0 + px * w0, cy + sa * r0 + py * w0,
+    cx + ca * r1 + px * w1, cy + sa * r1 + py * w1,
+    cx + ca * r1 - px * w1, cy + sa * r1 - py * w1,
+    cx + ca * r0 - px * w0, cy + sa * r0 - py * w0,
+  ];
+  c.fillStyle = fill;
+  c.beginPath();
+  for (let i = 0; i < 8; i += 2) c.lineTo(pts[i], pts[i + 1]);
+  c.closePath();
+  c.fill();
+  c.strokeStyle = edge;
+  c.lineWidth = 1;
+  c.beginPath();
+  c.moveTo(pts[0], pts[1]);
+  c.lineTo(pts[2], pts[3]);
+  c.stroke();
+}
+
+// Aro redondo de couro com reflexo da luz do para-brisa
+function leatherRim(c: CanvasRenderingContext2D, cx: number, cy: number, R: number, th: number) {
+  const mid = R - th / 2;
+  c.strokeStyle = dither(c, '#141416', '#1c1c20');
+  c.lineWidth = th;
+  c.beginPath();
+  c.arc(cx, cy, mid, 0, Math.PI * 2);
+  c.stroke();
+  c.strokeStyle = 'rgba(160,165,180,0.55)';
+  c.lineWidth = Math.max(1, th * 0.28);
+  c.beginPath();
+  c.arc(cx, cy, mid + th * 0.18, Math.PI * 1.08, Math.PI * 1.6);
+  c.stroke();
+  c.strokeStyle = 'rgba(230,232,240,0.7)';
+  c.lineWidth = 1;
+  c.beginPath();
+  c.arc(cx, cy, mid + th * 0.22, Math.PI * 1.22, Math.PI * 1.4);
+  c.stroke();
+  c.strokeStyle = 'rgba(120,125,140,0.35)';
+  c.lineWidth = 1;
+  c.beginPath();
+  c.arc(cx, cy, mid - th * 0.3, Math.PI * 0.15, Math.PI * 0.55);
+  c.stroke();
+}
+
+function steerAngle(r: Race, dt: number) {
+  wheelAngle = lerp(wheelAngle, r.steer * 0.3, Math.min(1, dt * 10));
+  return wheelAngle;
+}
+
+function withRotation(c: CanvasRenderingContext2D, cx: number, cy: number, ang: number, draw: () => void) {
+  c.save();
+  c.translate(cx, cy);
+  c.rotate(ang);
+  c.translate(-cx, -cy);
+  draw();
+  c.restore();
+}
+
+// ---------- F40 (fotos do carro real) ----------
+// Painel de feltro azul-acinzentado, capota dos instrumentos à esquerda,
+// velocímetro claro e conta-giros avermelhado, volante Momo de 3 raios,
+// saída de ar redonda, 3 relógios no centro, chave vermelha, porta-luvas,
+// câmbio de bola preta e assoalho de kevlar.
+function drawDashF40(c: CanvasRenderingContext2D, r: Race, dt: number) {
+  const { w, h } = view;
+  const ox = coreX();
+  // bico vermelho visto pelo para-brisa
+  rect(c, 0, 120, w, 1, '#e04030');
+  rect(c, 0, 121, w, 3, dither(c, '#b01818', '#c02020'));
+  rect(c, 0, 124, w, 1, '#600808');
+  // feltro: face superior iluminada → frente mais escura
+  const felt = [['#5e6270', '#666a78'], ['#525664', '#5a5e6c'], ['#464a58', '#4e5260'], ['#3c404c', '#424654']];
+  felt.forEach(([a, b], i) => rect(c, 0, 125 + i * 4, w, 4, dither(c, a, b)));
+  rect(c, 0, 141, w, h - 141, speckle(c, '#3a3d48', [['#43465a', 0.3], ['#32353f', 0.25]], 21));
+  rect(c, 0, 140, w, 1, '#2a2c34');
+  // assoalho de kevlar e túnel (canto inferior direito)
+  rect(c, ox + 170, 196, w - ox - 170, h - 196, dither(c, '#2a2a22', '#36362c'));
+  for (let x = ox + 170; x < w; x += 4) for (let y = 196; y < h; y += 4) rect(c, x + ((y / 4) % 2) * 2, y, 2, 2, '#40402f');
+  rect(c, ox + 170, 194, w - ox - 170, 2, '#1c1d22');
+  shadow(c, ox + 210, 196, 60, 10, 0.6);
+  // porta-luvas
+  c.fillStyle = dither(c, '#454956', '#4c505e');
+  c.beginPath();
+  c.roundRect(ox + 194, 144, 58, 34, 3);
+  c.fill();
+  rect(c, ox + 194, 144, 58, 1, '#646878');
+  rect(c, ox + 194, 177, 58, 1, '#24262c');
+  for (const [sx, sy] of [[197, 147], [248, 147], [197, 174], [248, 174]]) rect(c, ox + sx, sy, 1, 1, '#9a9ca6');
+  // saída de ar redonda no alto do painel
+  disc(c, ox + 168, 130, 7, '#24262e');
+  disc(c, ox + 168, 130, 6, '#101116');
+  for (const dy of [-3, -1, 1, 3]) rect(c, ox + 163, 130 + dy, 10, 1, '#3e4250');
+  rect(c, ox + 162, 125, 12, 1, '#7a7e8e');
+  // três relógios pequenos no centro
+  [0.5, 0.62, 0.4].forEach((f, i) => dial(c, ox + 148 + i * 15, 156, 6, ['', '', ''], f, { face: '#16161a', ink: '#e8e8e8', needle: '#ff4020', bezel: '#a8aab2' }));
+  // chave de ignição vermelha
+  disc(c, ox + 140, 178, 3, '#8a8c94');
+  disc(c, ox + 140, 178, 2, '#3a3a40');
+  c.strokeStyle = '#e02818';
+  c.lineWidth = 3;
+  c.beginPath();
+  c.moveTo(ox + 141, 178);
+  c.lineTo(ox + 150, 182);
+  c.stroke();
+  rect(c, ox + 146, 180, 4, 1, '#ff7a60');
+  // alavanca de luzes à esquerda
+  rect(c, ox + 2, 184, 18, 6, '#1a1b20');
+  rect(c, ox + 4, 186, 3, 2, '#c8c8c8');
+  rect(c, ox + 10, 186, 7, 2, '#5a5c64');
+  // capota dos instrumentos (feltro) com nicho escuro
+  c.fillStyle = dither(c, '#4a4e5c', '#525664');
+  c.beginPath();
+  c.roundRect(ox + 22, 126, 108, 50, [14, 14, 4, 4]);
+  c.fill();
+  rect(c, ox + 30, 126, 92, 1, '#6e7282');
+  c.fillStyle = '#0c0d10';
+  c.beginPath();
+  c.roundRect(ox + 28, 134, 96, 40, [10, 10, 3, 3]);
+  c.fill();
+  shadow(c, ox + 76, 136, 50, 8, 0.8);
+  // instrumentos
+  const kmh = Math.round(r.speed * KMH);
+  dial(c, ox + 54, 154, 15, ['', '', '120', '', '240', '', ''], kmh / 360, { face: '#dcd6c2', ink: '#1a1a1a', needle: '#e03010', digital: String(kmh) });
+  dial(c, ox + 94, 152, 15, ['0', '', '40', '', '80', '', ''], 0.08 + Math.min(1, r.rpm) * 0.8, { face: '#a8301c', ink: '#f4dcb4', needle: '#f0f0f0', red: 0.75, gear: String(r.gear + 1) });
+  dial(c, ox + 36, 168, 7, ['', '', ''], 0.55, { face: '#101012', ink: '#e8e8e8', needle: '#ff4020' });
+  dial(c, ox + 116, 166, 6, ['', '', ''], 0.3 + r.rpm * 0.3, { face: '#101012', ink: '#e8e8e8', needle: '#ff4020' });
+  // detector de radar preso no painel
+  rect(c, ox + 200, 132, 30, 7, '#0c0c0e');
+  radarLeds(c, ox + 202, 134, 26, r.radar);
+  // câmbio: haste cromada e bola preta
+  c.strokeStyle = '#c8ccd4';
+  c.lineWidth = 2;
+  c.beginPath();
+  c.moveTo(ox + 214, h);
+  c.lineTo(ox + 210, 194);
+  c.stroke();
+  rect(c, ox + 211, 196, 1, 28, '#ffffff');
+  disc(c, ox + 210, 191, 6, '#0e0e10');
+  disc(c, ox + 208, 189, 2, '#6a6a72');
+  rect(c, ox + 207, 188, 1, 1, '#ffffff');
+  // volante Momo: sombra no painel, 3 raios, cubo com emblema amarelo
+  const cx = ox + 78, cy = 200, R = 60;
+  shadow(c, cx + 8, cy - 6, R, R * 0.8, 0.35);
+  vignette(c, 176);
+  withRotation(c, cx, cy, steerAngle(r, dt), () => {
+    for (const ang of [Math.PI * 1.03, -Math.PI * 0.04, Math.PI * 0.46]) spoke(c, cx, cy, ang, 10, R - 4, 5, 3.5, '#4a4b52', '#8a8c96');
+    disc(c, cx, cy, 13, '#121216');
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2 + 0.5;
+      rect(c, cx + Math.cos(a) * 10, cy + Math.sin(a) * 10, 1, 1, '#7a7c86');
+    }
+    disc(c, cx, cy, 8, '#8a6c08');
+    disc(c, cx, cy, 7, '#f0c814');
+    rect(c, cx - 1, cy - 3, 2, 6, '#1a1a1a');
+    rect(c, cx - 4, cy - 5, 3, 1, '#fff6a8');
+    leatherRim(c, cx, cy, R, 7);
+  });
+}
+
+// ---------- 959 (fotos do carro real) ----------
+// Painel de couro escuro, capota sobre 5 mostradores redondos (conta-giros no
+// centro), ponteiros laranja, volante de aro grosso com almofada retangular,
+// difusor horizontal, botões, rádio e coifa do câmbio.
 function drawDash959(c: CanvasRenderingContext2D, r: Race, dt: number) {
   const { w, h } = view;
   const ox = coreX();
-  c.fillStyle = '#b4b4c4';
-  c.fillRect(0, 120, w, 5);
-  c.fillStyle = '#9595a4';
-  c.fillRect(0, 125, w, 1);
-  c.fillStyle = '#7b7b8b';
-  c.fillRect(0, 126, w, 1);
-  c.fillStyle = dither(c, '#121118', '#18171f');
-  c.fillRect(0, 127, w, h - 127);
+  // capô prateado
+  rect(c, 0, 120, w, 1, '#e8ecf0');
+  rect(c, 0, 121, w, 2, '#a8acb4');
+  // face superior do painel refletindo o céu → couro escuro
+  const top = [['#6a6e78', '#727680'], ['#5a5e68', '#62666e'], ['#4a4d56', '#52555e'], ['#3c3f46', '#43464e']];
+  top.forEach(([a, b], i) => rect(c, 0, 123 + i * 3, w, 3, dither(c, a, b)));
+  rect(c, 0, 135, w, h - 135, speckle(c, '#2e3036', [['#34363d', 0.3], ['#26282d', 0.25]], 22));
+  rect(c, 0, 135, w, 1, '#1a1b1f');
+  // console central: difusor, botões e rádio
+  rect(c, ox + 172, 138, 56, 16, '#16171b');
+  for (let i = 0; i < 4; i++) rect(c, ox + 174, 140 + i * 3, 52, 1, '#5a5d66');
+  rect(c, ox + 198, 138, 2, 16, '#26272c');
+  rect(c, ox + 172, 138, 56, 1, '#7a7d86');
+  for (let i = 0; i < 5; i++) {
+    disc(c, ox + 176 + i * 11, 162, 3, '#202126');
+    disc(c, ox + 176 + i * 11, 162, 2, i === 3 ? '#40c050' : '#4a4c54');
+  }
+  rect(c, ox + 172, 169, 52, 14, '#141518');
+  rect(c, ox + 172, 169, 52, 1, '#8a8d96');
+  rect(c, ox + 176, 172, 18, 4, '#3a2a10');
+  rect(c, ox + 177, 173, 10, 2, '#e09030');
+  for (let i = 0; i < 5; i++) rect(c, ox + 198 + i * 5, 173, 3, 6, '#3c3e46');
+  rect(c, ox + 228, 135, w - ox - 228, 48, dither(c, '#34363c', '#3a3c42'));
+  // coifa do câmbio
+  c.fillStyle = '#1a1b1e';
+  c.beginPath();
+  c.moveTo(ox + 196, h);
+  c.lineTo(ox + 202, 202);
+  c.lineTo(ox + 218, 202);
+  c.lineTo(ox + 224, h);
+  c.closePath();
+  c.fill();
+  for (const fy of [208, 214, 220]) rect(c, ox + 200, fy, 22, 1, '#2c2d32');
+  disc(c, ox + 210, 199, 5, '#101012');
+  rect(c, ox + 208, 197, 2, 1, '#8a8a92');
+  // capota sobre os mostradores
+  c.fillStyle = dither(c, '#2a2c32', '#30323a');
+  c.beginPath();
+  c.roundRect(ox + 8, 128, 154, 42, [18, 18, 4, 4]);
+  c.fill();
+  rect(c, ox + 18, 128, 134, 1, '#5e616c');
+  c.fillStyle = '#0b0b0e';
+  c.beginPath();
+  c.roundRect(ox + 12, 136, 146, 32, [12, 12, 3, 3]);
+  c.fill();
+  shadow(c, ox + 85, 138, 76, 7, 0.85);
+  // 5 mostradores (estilo 911): conta-giros grande no centro
+  const kmh = Math.round(r.speed * KMH);
+  const o = { face: '#0e0e10', ink: '#ececec', needle: '#ff7a1a', bezel: '#5a5c62' };
+  dial(c, ox + 28, 154, 11, ['', '', '', ''], 0.5, o);
+  dial(c, ox + 55, 153, 12, ['', '', '', ''], 0.35 + r.rpm * 0.2, o);
+  dial(c, ox + 85, 152, 15, ['', '', '2', '', '4', '', '6', '', '8'], 0.08 + Math.min(1, r.rpm) * 0.8, { ...o, red: 0.85, gear: String(r.gear + 1) });
+  dial(c, ox + 116, 153, 13, ['', '', '100', '', '200', '', '300', ''], kmh / 340, { ...o, digital: String(kmh) });
+  dial(c, ox + 144, 154, 11, ['', '', '', ''], 0.6, o);
+  // detector de radar sobre o painel
+  rect(c, ox + 172, 128, 30, 7, '#0c0c0e');
+  radarLeds(c, ox + 174, 130, 26, r.radar);
+  // volante: aro grosso, almofada retangular e braços laterais
+  const cx = ox + 85, cy = 202, R = 66;
+  shadow(c, cx + 8, cy - 8, R, R * 0.8, 0.4);
+  vignette(c, 172);
+  withRotation(c, cx, cy, steerAngle(r, dt), () => {
+    // braços que ligam a almofada ao aro
+    c.fillStyle = dither(c, '#202126', '#26272c');
+    c.fillRect(cx - R + 4, cy - 14, 20, 14);
+    c.fillRect(cx + R - 24, cy - 14, 20, 14);
+    rect(c, cx - R + 4, cy - 14, 20, 1, '#5a5c66');
+    rect(c, cx + R - 24, cy - 14, 20, 1, '#5a5c66');
+    rect(c, cx + R - 22, cy - 11, 6, 4, '#0c0c0e');
+    rect(c, cx + R - 21, cy - 10, 2, 1, '#d8d8d8');
+    // almofada central
+    c.fillStyle = '#16171a';
+    c.beginPath();
+    c.roundRect(cx - 42, cy - 22, 84, 30, 5);
+    c.fill();
+    c.fillStyle = dither(c, '#50535a', '#585b62');
+    c.beginPath();
+    c.roundRect(cx - 40, cy - 21, 80, 27, 4);
+    c.fill();
+    rect(c, cx - 36, cy - 21, 72, 1, '#8a8d96');
+    rect(c, cx - 38, cy + 4, 76, 1, '#2a2b30');
+    for (let i = 0; i < 7; i++) rect(c, cx - 21 + i * 6, cy - 9, 4, 3, '#5e6168');
+    leatherRim(c, cx, cy, R, 10);
+  });
+}
+
+// ---------- outros carros: painéis no estilo do jogo original ----------
+// Preto com o alto cintilante (carros 'A') e cinza com faixa colorida (carros 'B').
+function drawDashTD2Black(c: CanvasRenderingContext2D, r: Race, dt: number) {
+  const { w, h } = view;
+  const ox = coreX();
+  rect(c, 0, 120, w, 5, '#b4b4c4');
+  rect(c, 0, 125, w, 1, '#9595a4');
+  rect(c, 0, 126, w, 1, '#7b7b8b');
+  rect(c, 0, 127, w, h - 127, dither(c, '#121118', '#18171f'));
   c.fillStyle = speckle(c, '#16151c', [['#30303c', 0.22], ['#55556a', 0.08], ['#9a9aae', 0.015]], 14);
   c.beginPath();
   c.moveTo(0, 127);
@@ -410,18 +593,12 @@ function drawDash959(c: CanvasRenderingContext2D, r: Race, dt: number) {
   c.quadraticCurveTo(w / 2, 156, 0, 146);
   c.closePath();
   c.fill();
-  c.fillStyle = '#0c0b10';
-  c.fillRect(0, 179, w, 2);
-  c.fillStyle = dither(c, '#1a1a28', '#20202e');
-  c.fillRect(0, 181, w, h - 181);
-  c.fillStyle = '#3a3a4a';
-  c.fillRect(ox + 238, 140, w - ox - 238, 6);
-
+  rect(c, 0, 179, w, 2, '#0c0b10');
+  rect(c, 0, 181, w, h - 181, dither(c, '#1a1a28', '#20202e'));
   const kmh = Math.round(r.speed * KMH);
   smallGauge(c, ox + 16, 166, 18, 0.55);
   smallGauge(c, ox + 52, 165, 16, 0.4 + r.rpm * 0.2);
   smallGauge(c, ox + 171, 163, 15, 0.6);
-  // radar emoldurado com tela texturizada
   c.fillStyle = '#c8c8d2';
   c.beginPath();
   c.roundRect(ox + 187, 131, 52, 51, 5);
@@ -432,13 +609,8 @@ function drawDash959(c: CanvasRenderingContext2D, r: Race, dt: number) {
   c.fill();
   text(c, 'RADAR', ox + 213, 137, 5, '#8a8a96', 'center', null);
   radarLeds(c, ox + 193, 172, 40, r.radar);
-
-  wheelAngle = lerp(wheelAngle, r.steer * 0.3, Math.min(1, dt * 10));
   const cx = ox + 100, cy = 203, R = 78;
-  c.save();
-  c.translate(cx, cy);
-  c.rotate(wheelAngle);
-  c.translate(-cx, -cy);
+  // nicho preto e mostradores fixos (só o volante gira)
   c.save();
   c.beginPath();
   c.rect(cx - R, 120, R * 2, 61);
@@ -447,17 +619,97 @@ function drawDash959(c: CanvasRenderingContext2D, r: Race, dt: number) {
   c.restore();
   gauge(c, cx - 11, 162, 19, ['', '1', '2', '3', '4', '5', '6', '7', '8'], 0.1 + Math.min(1, r.rpm) * 0.8, 0.88, { gear: String(r.gear + 1) });
   gauge(c, cx + 26, 163, 19, ['0', '60', '120', '180', '240', '300', '360'], kmh / 360, 2, { digital: String(kmh) });
-  // almofada inferior
-  c.fillStyle = speckle(c, '#1c1c26', [['#34344a', 0.25], ['#5a5a70', 0.06]], 16);
+  withRotation(c, cx, cy, steerAngle(r, dt), () => {
+    c.fillStyle = speckle(c, '#1c1c26', [['#34344a', 0.25], ['#5a5a70', 0.06]], 16);
+    c.beginPath();
+    c.roundRect(cx - 43, 205, 91, 24, 6);
+    c.fill();
+    rect(c, cx - 40, 208, 85, 9, '#0e0e16');
+    rim(c, cx, cy, R, 13, ['#24242e', '#2e2e3a'], '#8a8a9c');
+  });
+}
+
+function drawDashTD2Grey(c: CanvasRenderingContext2D, r: Race, dt: number) {
+  const { w, h } = view;
+  const ox = coreX();
+  const band = shade(r.car.hood, -0.35);
+  rect(c, 0, 120, w, 1, shade(band, 0.35));
+  rect(c, 0, 121, w, 9, dither(c, band, shade(band, 0.08)));
+  rect(c, 0, 130, w, 2, shade(band, -0.2));
+  rect(c, 0, 132, w, 5, '#141210');
+  const greys = ['#b4b4b4', '#a6a6a6', '#989898', '#8a8a8a', '#7c7c7c', '#6e6e6e', '#606060'];
+  for (let i = 0; i < greys.length - 1; i++) {
+    const y0 = 137 + i * 13;
+    rect(c, 0, y0, w, i === greys.length - 2 ? h - y0 : 13, dither(c, greys[i], greys[i + 1]));
+  }
+  for (const vx of [178, 245]) {
+    c.fillStyle = '#5a5a5a';
+    c.beginPath();
+    c.ellipse(ox + vx, 146, 13, 4, 0, 0, Math.PI * 2);
+    c.fill();
+    rect(c, ox + vx - 9, 142, 18, 1, '#c8c8c8');
+  }
+  rect(c, ox + 200, 131, 32, 7, '#0c0c0c');
+  radarLeds(c, ox + 202, 133, 28, r.radar);
+  smallGauge(c, ox + 190, 198, 11, 0.5);
+  smallGauge(c, ox + 250, 198, 11, 0.62);
+  rect(c, ox + 206, 173, 32, 42, '#1e1e1e');
+  rect(c, ox + 209, 176, 26, 36, dither(c, '#c4c4c4', '#d2d2d2'));
+  for (const gx of [214, 221, 228]) rect(c, ox + gx, 184, 2, 24, '#3a3a3a');
+  rect(c, ox + 214, 195, 16, 2, '#3a3a3a');
+  const pos = [[215, 186], [215, 206], [222, 186], [222, 206], [229, 186]][r.gear];
+  disc(c, ox + pos[0], pos[1] - 3, 6, '#9a9aa2');
+  disc(c, ox + pos[0] - 2, pos[1] - 5, 2, '#ffffff');
+  // nicho preto e mostradores fixos
+  const wx = ox + 10, wy = 121, ww = 150, wh = 140, wr = 60, th = 15;
+  c.fillStyle = '#080808';
   c.beginPath();
-  c.roundRect(cx - 43, 205, 91, 24, 6);
+  c.roundRect(wx + th, wy + th, ww - th * 2, wh - th * 2, wr - th);
   c.fill();
-  c.fillStyle = '#0e0e16';
+  const cx = ox + 85;
+  const kmh = Math.round(r.speed * KMH);
+  gauge(c, cx - 21, 160, 22, ['0', '80', '160', '240', '320'], kmh / 360, 2, { digital: String(kmh), ring: '#3a3a3a' });
+  gauge(c, cx + 23, 160, 22, ['0', '20', '40', '60', '80', '100'], 0.1 + Math.min(1, r.rpm) * 0.8, 0.78, { gear: String(r.gear + 1), ring: '#3a3a3a' });
+  withRotation(c, cx, 198, steerAngle(r, dt), () => {
+    // aro em "D" (anel: contorno externo menos o interno)
+    c.fillStyle = dither(c, '#2a2a2a', '#343434');
+    c.beginPath();
+    c.roundRect(wx, wy, ww, wh, wr);
+    c.roundRect(wx + th, wy + th, ww - th * 2, wh - th * 2, wr - th);
+    c.fill('evenodd');
+    rect(c, wx + wr - 8, wy, ww - 2 * (wr - 8), 1, '#8e8e8e');
+    c.strokeStyle = dither(c, '#202020', '#2c2c2c');
+    c.lineWidth = 7;
+    c.beginPath();
+    c.moveTo(cx - 67, 192);
+    c.quadraticCurveTo(cx, 180, cx + 67, 192);
+    c.stroke();
+    c.fillStyle = '#121212';
+    c.beginPath();
+    c.ellipse(cx, 207, 17, 14, 0, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = '#f0d018';
+    c.beginPath();
+    c.ellipse(cx, 207, 9, 7, 0, 0, Math.PI * 2);
+    c.fill();
+    disc(c, cx, wy + 6, 3, '#f0d020');
+  });
+}
+
+// Aro com textura no estilo do jogo original
+function rim(c: CanvasRenderingContext2D, cx: number, cy: number, R: number, thick: number, base: [string, string], hi: string) {
+  const mid = R - thick / 2;
+  c.strokeStyle = dither(c, base[0], base[1]);
+  c.lineWidth = thick;
   c.beginPath();
-  c.roundRect(cx - 40, 208, 85, 9, 3);
-  c.fill();
-  rim(c, cx, cy, R, 13, ['#24242e', '#2e2e3a'], '#8a8a9c');
-  c.restore();
+  c.arc(cx, cy, mid, 0, Math.PI * 2);
+  c.stroke();
+  c.strokeStyle = hi;
+  c.lineWidth = 1;
+  c.beginPath();
+  c.arc(cx, cy, R - 0.5, Math.PI * 1.12, Math.PI * 1.68);
+  c.stroke();
+  disc(c, cx, cy - R + thick * 0.4, 3, '#f0d020');
 }
 
 // Papel da multa mostrado pelo policial

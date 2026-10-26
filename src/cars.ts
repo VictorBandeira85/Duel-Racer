@@ -24,7 +24,7 @@ export interface RearDef {
   wing: 0 | 1 | 2; // 1 = aerofólio baixo, 2 = asa alta
   roadster?: boolean;
   mesh?: boolean; // grade preta entre as lanternas
-  custom?: 'f40'; // traseira desenhada com detalhes próprios
+  custom?: 'f40' | '959'; // traseira desenhada com detalhes próprios
 }
 
 export interface CarSpec {
@@ -42,7 +42,7 @@ export interface CarSpec {
   zeroTo100: number; // segundos, usado para calibrar a aceleração
   accel: number;
   handling: number;
-  dash: 'A' | 'B' | 'f40';
+  dash: 'A' | 'B' | 'f40' | '959';
   hood: string;
   side: SideDef;
   rear: RearDef;
@@ -59,21 +59,21 @@ export const CARS: CarSpec[] = [
     dash: 'f40', hood: '#b01014',
     // proporções tiradas de fotos de perfil do modelo real
     side: {
-      body: [0.005, 0.03, 0.004, 0.06, 0.02, 0.085, 0.17, 0.156, 0.3, 0.188, 0.338, 0.2, 0.468, 0.253, 0.636, 0.26, 0.69, 0.247, 0.86, 0.226, 0.895, 0.262, 1, 0.262, 1, 0.06, 0.99, 0.03],
-      glass: [0.37, 0.2, 0.468, 0.249, 0.584, 0.252, 0.584, 0.19, 0.42, 0.19],
-      wheels: [0.208, 0.805], wheelR: 0.076, shoulder: 0.142,
+      body: [0.003, 0.03, 0, 0.05, 0.012, 0.09, 0.03, 0.11, 0.1, 0.147, 0.2, 0.175, 0.27, 0.188, 0.32, 0.196, 0.45, 0.266, 0.55, 0.274, 0.65, 0.266, 0.7, 0.254, 0.8, 0.221, 0.86, 0.213, 0.875, 0.268, 0.975, 0.27, 0.985, 0.255, 0.99, 0.22, 1, 0.2, 1, 0.06, 0.99, 0.03],
+      glass: [0.36, 0.195, 0.45, 0.258, 0.594, 0.266, 0.594, 0.186, 0.4, 0.186],
+      wheels: [0.204, 0.8], wheelR: 0.074, shoulder: 0.142,
       parts: [
-        { fill: 'glass', pts: [0.6, 0.252, 0.672, 0.246, 0.64, 0.214, 0.6, 0.21] },
-        { fill: 'dark', pts: [0.585, 0.168, 0.632, 0.165, 0.632, 0.14, 0.6, 0.146] },
-        { fill: 'dark', pts: [0.6, 0.07, 0.68, 0.07, 0.68, 0.085, 0.6, 0.08] },
+        { fill: 'glass', pts: [0.605, 0.265, 0.67, 0.258, 0.706, 0.225, 0.68, 0.19, 0.605, 0.19] },
+        { fill: 'dark', pts: [0.59, 0.186, 0.632, 0.183, 0.632, 0.15, 0.6, 0.155] },
+        { fill: 'dark', pts: [0.6, 0.1, 0.67, 0.1, 0.67, 0.072, 0.62, 0.075] },
         { fill: 'dark', pts: [0.03, 0.07, 0.1, 0.09, 0.1, 0.098, 0.03, 0.078] },
-        { fill: 'shade', pts: [0.895, 0.254, 1, 0.254, 1, 0.262, 0.895, 0.262] },
-        { fill: 'black', pts: [0.335, 0.192, 0.36, 0.192, 0.36, 0.2, 0.34, 0.2] },
+        { fill: 'shade', pts: [0.875, 0.26, 0.975, 0.262, 0.975, 0.27, 0.875, 0.268] },
+        { fill: 'black', pts: [0.33, 0.2, 0.355, 0.2, 0.355, 0.212, 0.335, 0.212] },
       ],
       lines: [
-        [0.312, 0.16, 0.312, 0.03], [0.585, 0.19, 0.585, 0.03],
+        [0.314, 0.17, 0.314, 0.03], [0.588, 0.186, 0.588, 0.03],
         [0.935, 0.13, 0.935, 0.18], [0.947, 0.13, 0.947, 0.18], [0.959, 0.13, 0.959, 0.18], [0.971, 0.13, 0.971, 0.18],
-        [0.72, 0.241, 0.84, 0.228], [0.73, 0.235, 0.84, 0.222],
+        [0.72, 0.248, 0.84, 0.222], [0.73, 0.242, 0.84, 0.216],
       ],
     },
     rear: { h: 0.53, roof: 0.52, lights: 'quadRound', wing: 2, mesh: true, custom: 'f40' },
@@ -82,19 +82,29 @@ export const CARS: CarSpec[] = [
     id: 'silber-95', name: 'Silber 95', basedOn: 'Porsche 959', color: '#c4c8cc',
     price: '$300.000', position: 'traseira', drive: 'integral', engine: 'Boxer 6 biturbo',
     displacement: '2.849 cc', power: '450 cv', maxSpeed: kmh(317), zeroTo100: 3.7, accel: 1, handling: 1.1,
-    dash: 'A', hood: '#a8acb2',
+    dash: '959', hood: '#a8acb2',
+    // proporções tiradas da foto de perfil do modelo real
     side: {
-      body: [0, 0.065, 0, 0.12, 0.03, 0.15, 0.17, 0.168, 0.3, 0.188, 0.4, 0.268, 0.54, 0.3, 0.62, 0.296, 0.8, 0.222, 0.92, 0.205, 0.97, 0.2, 1, 0.16, 1, 0.075, 0.985, 0.06],
-      glass: [0.42, 0.262, 0.54, 0.29, 0.62, 0.287, 0.72, 0.232, 0.43, 0.232],
-      wheels: [0.2, 0.78], shoulder: 0.175,
+      body: [0.01, 0.025, 0, 0.085, 0.03, 0.12, 0.196, 0.165, 0.348, 0.2, 0.465, 0.29, 0.587, 0.296, 0.683, 0.278, 0.804, 0.209, 0.83, 0.22, 0.9, 0.206, 0.957, 0.2, 1, 0.19, 1, 0.15, 0.995, 0.035, 0.97, 0.018, 0.03, 0.018],
+      glass: [0.38, 0.205, 0.465, 0.282, 0.6, 0.288, 0.6, 0.205],
+      wheels: [0.204, 0.761], wheelR: 0.075, shoulder: 0.16,
       parts: [
-        { fill: 'body', pts: [0.82, 0.215, 0.86, 0.238, 1, 0.236, 1, 0.2] },
-        { fill: 'shade', pts: [0.86, 0.232, 1, 0.23, 1, 0.236, 0.86, 0.238] },
-        { fill: 'dark', pts: [0.67, 0.13, 0.72, 0.13, 0.72, 0.17, 0.68, 0.168] },
-        { fill: 'shade', pts: [0.555, 0.288, 0.565, 0.288, 0.565, 0.232, 0.555, 0.232] },
+        { fill: 'glass', pts: [0.625, 0.287, 0.68, 0.272, 0.76, 0.212, 0.625, 0.205] },
+        { fill: 'shade', pts: [0.6, 0.29, 0.625, 0.29, 0.625, 0.205, 0.6, 0.205] },
+        { fill: 'dark', pts: [0.625, 0.18, 0.665, 0.175, 0.67, 0.1, 0.64, 0.12] },
+        { fill: 'shade', pts: [0.83, 0.214, 0.957, 0.195, 1, 0.186, 1, 0.19, 0.957, 0.2, 0.83, 0.22] },
+        { fill: 'amber', pts: [0.94, 0.14, 0.995, 0.14, 0.995, 0.155, 0.94, 0.155] },
+        { fill: 'amber', pts: [0.01, 0.088, 0.03, 0.088, 0.03, 0.098, 0.01, 0.098] },
+        { fill: 'black', pts: [0.395, 0.222, 0.42, 0.222, 0.42, 0.236, 0.4, 0.236] },
+        { fill: 'black', pts: [0.57, 0.163, 0.6, 0.163, 0.6, 0.168, 0.57, 0.168] },
+      ],
+      lines: [
+        [0.335, 0.2, 0.335, 0.03], [0.62, 0.2, 0.635, 0.05],
+        [0.03, 0.05, 0.1, 0.05], [0.03, 0.06, 0.1, 0.06], [0.03, 0.07, 0.1, 0.07],
+        [0.93, 0.07, 0.99, 0.07], [0.93, 0.085, 0.99, 0.085], [0.93, 0.1, 0.99, 0.1], [0.93, 0.115, 0.99, 0.115],
       ],
     },
-    rear: { h: 0.55, roof: 0.56, lights: 'bar', wing: 1 },
+    rear: { h: 0.7, roof: 0.56, lights: 'bar', wing: 1, custom: '959' },
   },
   {
     id: 'toro-v12', name: 'Toro V12', basedOn: 'Lamborghini Diablo', color: '#f0c010',
@@ -269,6 +279,7 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
   if (w < 2) return;
   if (look.truck) return drawTruck(c, x, y, w, look);
   if (look.rear?.custom === 'f40' && !look.front) return drawRearF40(c, x, y, w, look);
+  if (look.rear?.custom === '959' && !look.front) return drawRear959(c, x, y, w, look);
   const R = look.rear ?? GENERIC;
   const h = w * R.h;
   const L = x - w / 2;
@@ -491,6 +502,63 @@ function drawRearF40(c: CanvasRenderingContext2D, x: number, y: number, w: numbe
   if (look.night) glow(c, x, Y(0.465), w, '255,40,40');
 }
 
+// Traseira detalhada inspirada no 959 (medidas tiradas de foto traseira).
+function drawRear959(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
+  const h = w * (look.rear?.h ?? 0.7);
+  const L = x - w / 2, T = y - h;
+  const X = (u: number) => L + u * w;
+  const Y = (f: number) => T + f * h;
+  const box = (u1: number, f1: number, u2: number, f2: number, color: string) => {
+    c.fillStyle = color;
+    c.fillRect(X(u1), Y(f1), (u2 - u1) * w, Math.max(1, (f2 - f1) * h));
+  };
+  const poly = (color: string, ...pts: number[]) => {
+    c.fillStyle = color;
+    c.beginPath();
+    for (let i = 0; i < pts.length; i += 2) c.lineTo(X(pts[i]), Y(pts[i + 1]));
+    c.closePath();
+    c.fill();
+  };
+  const body = look.color;
+  const lit = look.brake || look.night;
+  c.fillStyle = 'rgba(0,0,0,0.35)';
+  c.fillRect(L - w * 0.03, y - h * 0.04, w * 1.06, h * 0.06);
+  box(0.04, 0.84, 0.2, 1, '#101010');
+  box(0.8, 0.84, 0.96, 1, '#101010');
+  // cabine (teto estreito do 911) e vidro traseiro
+  poly(shade(body, -0.06), 0.24, 0, 0.76, 0, 0.9, 0.3, 0.1, 0.3);
+  poly('#1c2632', 0.28, 0.04, 0.72, 0.04, 0.8, 0.24, 0.2, 0.24);
+  if (w > 30) poly('#2c3a48', 0.34, 0.06, 0.5, 0.06, 0.46, 0.22, 0.26, 0.22);
+  // aerofólio em arco com fenda escura
+  poly(body, 0.07, 0.43, 0.06, 0.32, 0.14, 0.27, 0.86, 0.27, 0.94, 0.32, 0.93, 0.43);
+  box(0.12, 0.28, 0.88, 0.3, shade(body, 0.14));
+  box(0.23, 0.31, 0.77, 0.35, '#202024');
+  box(0.07, 0.42, 0.93, 0.44, shade(body, -0.3));
+  // carroceria, faixa de lanterna contínua (âmbar nas pontas)
+  poly(body, 0.02, 0.44, 0.98, 0.44, 1, 0.56, 1, 0.84, 0, 0.84, 0, 0.56);
+  box(0.03, 0.47, 0.97, 0.56, '#3a0a0a');
+  box(0.12, 0.48, 0.88, 0.55, lit ? '#ff2a20' : '#b01410');
+  if (w > 40) for (const u of [0.2, 0.4, 0.6, 0.8]) box(u, 0.49, u + 0.08, 0.54, lit ? '#ff6a50' : '#d02a20');
+  box(0.03, 0.48, 0.12, 0.55, '#e08a14');
+  box(0.88, 0.48, 0.97, 0.55, '#e08a14');
+  // grelhas laterais, placa, grade inferior com escapes e saia preta
+  for (const f of [0.6, 0.64, 0.68, 0.72]) {
+    box(0.01, f, 0.05, f + 0.02, '#141414');
+    box(0.95, f, 0.99, f + 0.02, '#141414');
+  }
+  box(0.4, 0.58, 0.6, 0.76, '#121214');
+  if (w > 40) box(0.43, 0.65, 0.57, 0.68, '#c8c8c8');
+  box(0.06, 0.77, 0.94, 0.84, '#161618');
+  if (w > 20) for (const u of [0.3, 0.7]) {
+    c.fillStyle = '#5a5a5e';
+    c.beginPath();
+    c.ellipse(X(u), Y(0.805), w * 0.035, h * 0.03, 0, 0, Math.PI * 2);
+    c.fill();
+  }
+  box(0.04, 0.84, 0.96, 0.92, '#0c0c0e');
+  if (look.night) glow(c, x, Y(0.515), w, '255,40,40');
+}
+
 function drawTruck(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   const h = w * 1.05;
   const L = x - w / 2;
@@ -541,7 +609,15 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
   c.ellipse(x + len / 2, y, len * 0.52, len * 0.025, 0, 0, Math.PI * 2);
   c.fill();
 
-  c.fillStyle = car.color;
+  // carroceria com volume: superfícies de cima claras, laterais mais escuras embaixo
+  const topV = Math.max(...S.body.filter((_, i) => i % 2 === 1));
+  const g = c.createLinearGradient(0, y - topV * len, 0, y);
+  g.addColorStop(0, shade(car.color, 0.2));
+  g.addColorStop(0.35, shade(car.color, 0.05));
+  g.addColorStop(0.6, car.color);
+  g.addColorStop(0.85, shade(car.color, -0.14));
+  g.addColorStop(1, shade(car.color, -0.32));
+  c.fillStyle = g;
   path(S.body);
   c.fill();
   // faixas de luz e sombra dentro da carroceria
@@ -556,7 +632,11 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
   c.fillRect(x, y - len * 0.065, len, len * 0.012);
   c.restore();
 
-  c.fillStyle = fills.glass;
+  const gg = c.createLinearGradient(0, y - topV * len, 0, y - 0.18 * len);
+  gg.addColorStop(0, '#5a6a7c');
+  gg.addColorStop(0.5, '#2a3644');
+  gg.addColorStop(1, '#141c26');
+  c.fillStyle = gg;
   path(S.glass);
   c.fill();
   c.fillStyle = 'rgba(255,255,255,0.3)';
@@ -592,22 +672,37 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
     c.beginPath();
     c.arc(cx, cy, r, 0, Math.PI * 2);
     c.fill();
-    c.fillStyle = '#b8b8bc';
+    // roda em estrela de 5 raios largos com porca central
+    const rg = c.createRadialGradient(cx - r * 0.2, cy - r * 0.2, r * 0.1, cx, cy, r * 0.68);
+    rg.addColorStop(0, '#f0f0f2');
+    rg.addColorStop(1, '#9a9ca2');
+    c.fillStyle = rg;
     c.beginPath();
-    c.arc(cx, cy, r * 0.62, 0, Math.PI * 2);
+    c.arc(cx, cy, r * 0.68, 0, Math.PI * 2);
     c.fill();
-    c.strokeStyle = '#6a6a6e';
-    c.lineWidth = Math.max(1, r * 0.12);
+    c.fillStyle = '#2a2c30';
     for (let k = 0; k < 5; k++) {
-      const a = (k / 5) * Math.PI * 2;
+      const a = (k / 5) * Math.PI * 2 - Math.PI / 2 + Math.PI / 5;
+      const a1 = a - 0.38, a2 = a + 0.38;
       c.beginPath();
-      c.moveTo(cx, cy);
-      c.lineTo(cx + Math.cos(a) * r * 0.6, cy + Math.sin(a) * r * 0.6);
-      c.stroke();
+      c.moveTo(cx + Math.cos(a) * r * 0.24, cy + Math.sin(a) * r * 0.24);
+      c.lineTo(cx + Math.cos(a1) * r * 0.58, cy + Math.sin(a1) * r * 0.58);
+      c.arc(cx, cy, r * 0.58, a1, a2);
+      c.closePath();
+      c.fill();
     }
-    c.fillStyle = '#4a4a4e';
+    c.strokeStyle = '#d8dade';
+    c.lineWidth = Math.max(1, r * 0.06);
     c.beginPath();
-    c.arc(cx, cy, r * 0.14, 0, Math.PI * 2);
+    c.arc(cx, cy, r * 0.66, Math.PI * 1.1, Math.PI * 1.7);
+    c.stroke();
+    c.fillStyle = '#5a5c62';
+    c.beginPath();
+    c.arc(cx, cy, r * 0.16, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = '#c8cacf';
+    c.beginPath();
+    c.arc(cx, cy, r * 0.08, 0, Math.PI * 2);
     c.fill();
   }
 }

@@ -62,3 +62,38 @@ export function releaseAll() {
   input.left = input.right = input.gas = input.brake = false;
   queue.shiftUp = queue.shiftDown = 0;
 }
+
+// ---------- controle (gamepad Bluetooth: PlayStation, Xbox, MFi) ----------
+// Direcional ou alavanca: direção; A/X ou gatilho direito: acelerar; B/O ou gatilho
+// esquerdo: frear; ombros: trocar marcha; Start: pausa. Nos menus, o direcional navega.
+export type PadKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back' | 'start';
+const padPrev: Record<string, boolean> = {};
+const padHeld = { left: false, right: false, gas: false, brake: false };
+
+export function pollGamepad(): PadKey[] {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  const gp = Array.from(pads).find((p) => p && p.connected);
+  if (!gp) return [];
+  const btn = (i: number) => !!gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.4);
+  const ax = gp.axes[0] ?? 0, ay = gp.axes[1] ?? 0;
+  const now: Record<string, boolean> = {
+    left: btn(14) || ax < -0.45, right: btn(15) || ax > 0.45, up: btn(12) || ay < -0.6, down: btn(13) || ay > 0.6,
+    gas: btn(0) || btn(7), brake: btn(1) || btn(6), shiftUp: btn(5), shiftDown: btn(4), start: btn(9),
+  };
+  // direção/pedais seguem o botão enquanto ele estiver apertado
+  for (const k of ['left', 'right', 'gas', 'brake'] as const) {
+    if (now[k] !== padHeld[k]) {
+      padHeld[k] = now[k];
+      input[k] = now[k];
+    }
+  }
+  const edges: PadKey[] = [];
+  const edge = (k: string) => now[k] && !padPrev[k];
+  if (edge('shiftUp')) queue.shiftUp++;
+  if (edge('shiftDown')) queue.shiftDown++;
+  for (const k of ['left', 'right', 'up', 'down', 'start'] as const) if (edge(k)) edges.push(k);
+  if (edge('gas')) edges.push('ok');
+  if (edge('brake')) edges.push('back');
+  Object.assign(padPrev, now);
+  return edges;
+}

@@ -8,7 +8,7 @@ import type { CarSpec } from './cars';
 import { Race } from './race';
 import { COCKPIT_IMAGES, renderCockpit } from './cockpit';
 import { drawScreen, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
-import { input, releaseAll, setupInput } from './input';
+import { input, pollGamepad, releaseAll, setupInput } from './input';
 import { initAudio, playMusic, setEngine, setMusicOn, setMuted, setSiren, setTires } from './audio';
 import { preloadSvg } from './svgsprites';
 import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
@@ -150,13 +150,23 @@ function finishCourse() {
   actions.go('end');
 }
 
+// elemento invisível com as margens da área segura (env() só vira número no CSS)
+const safeProbe = document.createElement('div');
+safeProbe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;inset:0;padding:var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l)';
+document.body.appendChild(safeProbe);
+
 function resize() {
   // corrida: resolução nativa do Super Nintendo (224 linhas, pixel 8:7 como na TV);
   // menus: 240 linhas com pixel quadrado
   const race = state.screen === 'race';
   view.h = race ? 224 : 240;
   view.aspect = race ? 8 / 7 : 1;
-  const screenAspect = window.innerWidth / window.innerHeight;
+  // área segura (entalhe do iPhone na horizontal): o jogo não entra embaixo dele
+  const safe = getComputedStyle(safeProbe);
+  const px = (v: string) => parseFloat(v) || 0;
+  const availW = window.innerWidth - px(safe.paddingLeft) - px(safe.paddingRight);
+  const availH = window.innerHeight - px(safe.paddingTop) - px(safe.paddingBottom);
+  const screenAspect = availW / availH;
   view.w = Math.round(Math.min(race ? 460 : 520, Math.max(race ? 256 : 320, (view.h * screenAspect) / view.aspect)));
   // resolução interna 2x: tudo continua desenhado em pixels nativos (e ampliado sem
   // suavizar), mas os detalhes finos (números dos mostradores) podem usar meio pixel
@@ -164,7 +174,7 @@ function resize() {
   canvas.height = view.h * RES;
   ctx.setTransform(RES, 0, 0, RES, 0, 0);
   ctx.imageSmoothingEnabled = false;
-  const scale = Math.min(window.innerWidth / (view.w * view.aspect), window.innerHeight / view.h);
+  const scale = Math.min(availW / (view.w * view.aspect), availH / view.h);
   canvas.style.width = `${view.w * view.aspect * scale}px`;
   canvas.style.height = `${view.h * scale}px`;
 }
@@ -217,6 +227,17 @@ function frame(now: number) {
   const dt = Math.min(0.25, (now - last) / 1000);
   last = now;
   state.t += dt;
+  // controle Bluetooth: na corrida mexe direto nos comandos; nos menus vira navegação
+  for (const k of pollGamepad()) {
+    if (state.screen === 'race') {
+      if (k === 'start') setPaused(!paused);
+      else if (paused && k === 'ok') setPaused(false);
+      else if (paused && k === 'back') actions.go('title');
+    } else if (k !== 'start') {
+      initAudio();
+      keyScreen(state, actions, k);
+    } else keyScreen(state, actions, 'ok');
+  }
   if (state.screen === 'race' && race) {
     if (!paused) {
       acc += dt;
@@ -238,3 +259,8 @@ requestAnimationFrame(frame);
 
 // para testes automatizados
 Object.assign(window, { app: { state, actions, get race() { return race; } }, input });
+
+// app instalável: funciona sem internet (não no arquivo único usado para testes)
+if ('serviceWorker' in navigator && import.meta.env.MODE !== 'single' && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+}

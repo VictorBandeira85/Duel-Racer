@@ -75,10 +75,10 @@ const actions: Actions = {
     state.mode = 'career';
     state.carIdx = CARS.findIndex((c) => c.id === cs.car);
     run = {
-      course: eventCourse(ev), car: tunedCar(carById(cs.car), levels(cs, cs.car)), rival: carById(ev.driver.car),
+      course: eventCourse(ev, cs.races), car: tunedCar(carById(cs.car), levels(cs, cs.car)), rival: carById(ev.driver.car),
       opts: { rivalStyle: ev.driver.style, rivalPaint: ev.driver.paint }, event: { region, event },
     };
-    begin(3);
+    begin(4);
   },
   nextStage() {
     if (state.results.length >= run.course.stages.length) finishCourse();

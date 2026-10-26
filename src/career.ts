@@ -39,31 +39,31 @@ export const REGIONS: Region[] = [
   {
     id: 'deserto', name: 'Rota do Deserto', desc: 'Retas longas, calor e polícia.', color: '#d0a860',
     events: [
-      { id: 'd1', name: 'Miragem', prize: 26000, driver: drv('Sol Escaldante', 'toro-lp5', 'agressivo', 0.95, '#f0c000', 'O asfalto derrete, eu não.'), stages: [st('desert', 4, { police: 2 })] },
-      { id: 'd2', name: 'Cânion', prize: 32000, driver: drv('Kiko Poeira', 'furia-tr', 'imprevisivel', 0.96, '#d8c49a', 'Cuidado com a poeira!'), stages: [st('desert', 2, { curviness: 1.2, hilliness: 0.8 }), st('desert', 2, { police: 2 })] },
-      { id: 'd3', name: 'Oásis Noturno', prize: 38000, driver: drv('Vera Lua', 'furia-tr', 'cauteloso', 0.97, '#7a3ac8', 'A noite é minha aliada.'), stages: [st('desert', 4, { night: true }), st('desert', 2, { night: true, curviness: 1.1 })] },
+      { id: 'd1', name: 'Miragem', prize: 26000, driver: drv('Sol Escaldante', 'toro-lp5', 'agressivo', 0.94, '#f0c000', 'O asfalto derrete, eu não.'), stages: [st('desert', 4, { police: 2 })] },
+      { id: 'd2', name: 'Cânion', prize: 32000, driver: drv('Kiko Poeira', 'furia-tr', 'imprevisivel', 0.94, '#d8c49a', 'Cuidado com a poeira!'), stages: [st('desert', 2, { curviness: 1.2, hilliness: 0.8 }), st('desert', 2, { police: 2 })] },
+      { id: 'd3', name: 'Oásis Noturno', prize: 38000, driver: drv('Vera Lua', 'furia-tr', 'cauteloso', 0.95, '#7a3ac8', 'A noite é minha aliada.'), stages: [st('desert', 4, { night: true }), st('desert', 2, { night: true, curviness: 1.1 })] },
       { id: 'd4', name: 'Tempestade de Areia', prize: 45000, driver: drv('Gil Cascavel', 'toro-v12', 'agressivo', 0.95, '#1a9a3a', 'Morde e não solta.'), stages: [st('desert', 2, { curviness: 1.3 }), st('desert', 4, { police: 2 })] },
-      { id: 'd5', name: 'O Escorpião', prize: 90000, boss: true, driver: drv('Escorpião', 'toro-v12', 'agressivo', 0.98, '#1c1c20', 'Ninguém atravessa o deserto na minha frente.'), stages: [st('desert', 4, { police: 2 }), st('desert', 2, { curviness: 1.3, hilliness: 0.9 }), st('desert', 2, { night: true, curviness: 1.2 })] },
+      { id: 'd5', name: 'O Escorpião', prize: 90000, boss: true, driver: drv('Escorpião', 'toro-v12', 'agressivo', 0.96, '#1c1c20', 'Ninguém atravessa o deserto na minha frente.'), stages: [st('desert', 4, { police: 2 }), st('desert', 2, { curviness: 1.3, hilliness: 0.9 }), st('desert', 2, { night: true, curviness: 1.2 })] },
     ],
   },
   {
     id: 'metropole', name: 'Metrópole', desc: 'Avenidas cheias, viadutos e noite.', color: '#8a8aa8',
     events: [
-      { id: 'm1', name: 'Hora do Rush', prize: 42000, driver: drv('Táxi Veloz', 'furia-tr', 'imprevisivel', 0.97, '#f0c000', 'Corrida até o aeroporto?'), stages: [st('city', 4, { traffic: 8, police: 2 })] },
-      { id: 'm2', name: 'Avenida Neon', prize: 50000, driver: drv('Dani Neon', 'silber-95', 'cauteloso', 0.97, '#18b8d0', 'Luzes, câmera, aceleração.'), stages: [st('city', 4, { night: true, traffic: 7 }), st('city', 4, { night: true, police: 2 })] },
-      { id: 'm3', name: 'Túnel do Centro', prize: 58000, driver: drv('Rato de Garagem', 'toro-v12', 'agressivo', 0.98, '#8a8c92', 'Conheço cada atalho.'), stages: [st('city', 4, { traffic: 8 }), st('forest', 4, { night: true })] },
-      { id: 'm4', name: 'Chuva no Asfalto', prize: 66000, driver: drv('Iara Tormenta', 'silber-95', 'imprevisivel', 0.98, '#1f4fd0', 'Chuva é meu clima favorito.'), stages: [st('city', 4, { weather: 'rain', traffic: 7 }), st('city', 4, { weather: 'rain', night: true, police: 2 })] },
-      { id: 'm5', name: 'Dama da Noite', prize: 140000, boss: true, driver: drv('Dama da Noite', 'silber-95', 'cauteloso', 1, '#d01818', 'A cidade dorme. Eu não.'), stages: [st('city', 4, { night: true, traffic: 8, police: 2 }), st('city', 4, { weather: 'rain', night: true }), st('city', 4, { night: true, police: 3 })] },
+      { id: 'm1', name: 'Hora do Rush', prize: 42000, driver: drv('Táxi Veloz', 'furia-tr', 'imprevisivel', 0.95, '#f0c000', 'Corrida até o aeroporto?'), stages: [st('city', 4, { traffic: 8, police: 2 })] },
+      { id: 'm2', name: 'Avenida Neon', prize: 50000, driver: drv('Dani Neon', 'silber-95', 'cauteloso', 0.96, '#18b8d0', 'Luzes, câmera, aceleração.'), stages: [st('city', 4, { night: true, traffic: 7 }), st('city', 4, { night: true, police: 2 })] },
+      { id: 'm3', name: 'Túnel do Centro', prize: 58000, driver: drv('Rato de Garagem', 'toro-v12', 'agressivo', 0.96, '#8a8c92', 'Conheço cada atalho.'), stages: [st('city', 4, { traffic: 8 }), st('forest', 4, { night: true })] },
+      { id: 'm4', name: 'Chuva no Asfalto', prize: 66000, driver: drv('Iara Tormenta', 'silber-95', 'imprevisivel', 0.97, '#1f4fd0', 'Chuva é meu clima favorito.'), stages: [st('city', 4, { weather: 'rain', traffic: 7 }), st('city', 4, { weather: 'rain', night: true, police: 2 })] },
+      { id: 'm5', name: 'Dama da Noite', prize: 140000, boss: true, driver: drv('Dama da Noite', 'silber-95', 'cauteloso', 0.965, '#d01818', 'A cidade dorme. Eu não.'), stages: [st('city', 4, { night: true, traffic: 8, police: 2 }), st('city', 4, { weather: 'rain', night: true }), st('city', 4, { night: true, police: 3 })] },
     ],
   },
   {
     id: 'cume', name: 'Cume Gelado', desc: 'Serra, neve e o lendário Rei da Serra.', color: '#e0e8f0',
     events: [
-      { id: 'g1', name: 'Primeira Neve', prize: 70000, driver: drv('Ulf Gelo', 'toro-v12', 'cauteloso', 0.99, '#ececec', 'Na neve, quem corre muito, para.'), stages: [st('snow', 2, { weather: 'snow', curviness: 1.2, hilliness: 0.9 })] },
-      { id: 'g2', name: 'Curva do Abismo', prize: 80000, driver: drv('Paulo Penhasco', 'silber-95', 'agressivo', 0.99, '#d81a12', 'Olha pra frente, não pra baixo.'), stages: [st('mountain', 2, { curviness: 1.5, hilliness: 1 }), st('snow', 2, { weather: 'snow' })] },
+      { id: 'g1', name: 'Primeira Neve', prize: 70000, driver: drv('Ulf Gelo', 'toro-v12', 'cauteloso', 0.97, '#ececec', 'Na neve, quem corre muito, para.'), stages: [st('snow', 2, { weather: 'snow', curviness: 1.2, hilliness: 0.9 })] },
+      { id: 'g2', name: 'Curva do Abismo', prize: 80000, driver: drv('Paulo Penhasco', 'silber-95', 'agressivo', 0.98, '#d81a12', 'Olha pra frente, não pra baixo.'), stages: [st('mountain', 2, { curviness: 1.5, hilliness: 1 }), st('snow', 2, { weather: 'snow' })] },
       { id: 'g3', name: 'Tempestade Branca', prize: 90000, driver: drv('Yuki Nevasca', 'furia-f4', 'imprevisivel', 0.98, '#18b8d0', 'Você não vai me ver chegar.'), stages: [st('snow', 2, { weather: 'snow', curviness: 1.3 }), st('mountain', 2, { weather: 'rain', curviness: 1.4 })] },
-      { id: 'g4', name: 'Noite na Serra', prize: 100000, driver: drv('Lobo Solitário', 'furia-f4', 'agressivo', 1, '#1c1c20', 'Uuuuuu.'), stages: [st('mountain', 2, { night: true, curviness: 1.5 }), st('snow', 2, { night: true, weather: 'snow' })] },
-      { id: 'g5', name: 'Rei da Serra', prize: 250000, boss: true, driver: drv('Rei da Serra', 'furia-f4', 'agressivo', 1.02, '#f0c000', 'Chegou longe. Mas aqui termina.'), stages: [st('snow', 2, { weather: 'snow', curviness: 1.4, hilliness: 1 }), st('mountain', 2, { curviness: 1.6, hilliness: 1, weather: 'rain' }), st('mountain', 2, { night: true, curviness: 1.5 })] },
+      { id: 'g4', name: 'Noite na Serra', prize: 100000, driver: drv('Lobo Solitário', 'furia-f4', 'agressivo', 0.985, '#1c1c20', 'Uuuuuu.'), stages: [st('mountain', 2, { night: true, curviness: 1.5 }), st('snow', 2, { night: true, weather: 'snow' })] },
+      { id: 'g5', name: 'Rei da Serra', prize: 250000, boss: true, driver: drv('Rei da Serra', 'furia-f4', 'agressivo', 0.995, '#f0c000', 'Chegou longe. Mas aqui termina.'), stages: [st('snow', 2, { weather: 'snow', curviness: 1.4, hilliness: 1 }), st('mountain', 2, { curviness: 1.6, hilliness: 1, weather: 'rain' }), st('mountain', 2, { night: true, curviness: 1.5 })] },
     ],
   },
 ];
@@ -139,9 +139,10 @@ export function eventUnlocked(s: CareerSave, ri: number, ei: number) {
 }
 
 // percurso de corrida para um evento (semente própria para cada evento)
-export function eventCourse(ev: CareerEvent): Course {
+export function eventCourse(ev: CareerEvent, attempt = 0): Course {
   let seed = 0;
   for (const ch of ev.id) seed = seed * 31 + ch.charCodeAt(0);
+  seed += attempt * 7919; // trânsito e polícia mudam a cada tentativa (as pistas também)
   return { id: `car-${ev.id}`, name: ev.name, level: ev.boss ? 'Chefão' : 'Evento', rivalSkill: ev.driver.skill, stages: ev.stages, seed };
 }
 
@@ -159,9 +160,11 @@ export interface EventResult {
 
 export function settleEvent(s: CareerSave, ev: CareerEvent, won: boolean, gameOver: boolean, cleanStages: number, fines: number, crashes: number): EventResult {
   const firstWin = won && !s.done.includes(ev.id);
-  const prize = won ? (firstWin ? ev.prize : Math.round(ev.prize / 2 / 500) * 500) : 0;
+  // vitória: prêmio (metade na repetição); derrota terminando a prova: 15% de participação
+  const prize = won ? (firstWin ? ev.prize : Math.round(ev.prize / 2 / 500) * 500) : gameOver ? 0 : Math.round((ev.prize * 0.15) / 100) * 100;
   const clean = won ? Math.round((ev.prize * 0.1 * cleanStages) / 100) * 100 : 0;
-  const repairs = Math.round((priceOf(carById(s.car)) * 0.015 * crashes) / 100) * 100;
+  const repairs = Math.round((priceOf(carById(s.car)) * 0.01 * crashes) / 100) * 100;
+  fines = Math.max(0, fines);
   const total = prize + clean - fines - repairs;
   s.money = Math.max(0, s.money + total);
   s.races++;

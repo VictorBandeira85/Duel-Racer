@@ -102,6 +102,7 @@ export class Race {
   rivalPaint?: string; // cor do rival (piloto da carreira)
   private rivalStyleOverride?: RivalStyle;
   fines = 0; // soma das multas do trecho
+  private caughtKmh = 0;
   traffic: TrafficCar[] = [];
   police: Police[] = [];
   officer: Officer | null = null;
@@ -371,7 +372,11 @@ export class Race {
     let target = 0;
     if (r.finishTime >= 0 || this.state === 'arrived') target = max * 0.25;
     else {
-      target = max * this.course.rivalSkill * clamp(1 - gap * 0.0025, 0.85, 1.06);
+      // elástico: na frente, o rival alivia (os mais fracos aliviam mais, dando chance de
+      // recuperar depois de uma batida); atrás, acelera um pouco
+      const skill = this.course.rivalSkill;
+      const floor = clamp(0.85 - (1 - skill) * 1.6, 0.62, 0.85);
+      target = max * skill * clamp(1 - gap * 0.0025, floor, 1.06);
       // personalidade: o cauteloso alivia nas curvas fechadas, o agressivo arrisca mais
       if (r.style === 'cauteloso' && sharp) target *= 0.93;
       if (r.style === 'agressivo') target *= sharp ? 1 : 1.015;
@@ -434,6 +439,7 @@ export class Race {
         // a viatura sai do esconderijo logo depois que o jogador passa
         if (d <= -3 * SEG_LEN) {
           if (this.speed * KMH > 150 && this.state === 'drive') {
+            this.caughtKmh = Math.round(this.speed * KMH); // velocidade da infração (vale para a multa)
             p.state = 'chase';
             p.chaseT = 0;
             p.speed = this.speed * 0.6;
@@ -490,7 +496,7 @@ export class Race {
     this.state = 'pullover';
     this.clean = false;
     this.tickets++;
-    const kmh = Math.round(this.speed * KMH);
+    const kmh = Math.max(this.caughtKmh, Math.round(this.speed * KMH));
     const limit = this.track.lanes === 4 ? 120 : 100;
     this.fine = { kmh, limit, value: Math.round((150 + (kmh - limit) * 3) / 10) * 10 };
     this.fines += this.fine.value;

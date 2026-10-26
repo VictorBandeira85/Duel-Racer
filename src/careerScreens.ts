@@ -332,7 +332,7 @@ export function drawCareerEnd(c: CanvasRenderingContext2D, s: AppState) {
   const total = s.results.reduce((a2, r) => a2 + r.time, 0);
   const rival = s.results.reduce((a2, r) => a2 + Math.max(0, r.rival), 0);
   if (!res.gameOver) text(c, `Você ${formatTime(total)}   Rival ${formatTime(rival)}`, view.w / 2, 64, 5, '#fff', 'center', null);
-  const lines: [string, number][] = [['Prêmio', res.prize], ['Bônus trecho limpo', res.clean], ['Multas', -res.fines], ['Conserto', -res.repairs]];
+  const lines: [string, number][] = [[res.won ? 'Prêmio' : 'Participação', res.prize], ['Bônus trecho limpo', res.clean], ['Multas', -res.fines], ['Conserto', -res.repairs]];
   lines.forEach(([k, v], i) => {
     text(c, k, x + 44, 82 + i * 14, 8, '#d8d0ff', 'left', null);
     text(c, (v < 0 ? '-' : '') + money(Math.abs(v)), x + SAFE_W - 44, 82 + i * 14, 8, v < 0 ? '#ff8a7a' : '#8aff8a', 'right', null);

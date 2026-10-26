@@ -33,6 +33,14 @@ CARS = {
         'pillar': (-50, 0.0),                # BGR do pilar, onde a arte acaba          # hodômetro (não é velocímetro digital)
         'gauges': {'tach': (696, 211, 84), 'speed': (876, 228, 72)},
     },
+    # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
+    'zr1': {
+        'scale': 0.35, 'x0': 153, 'y0': 175,
+        'gauges': {},
+        'lcd': [((38, 40, 38), (350, 252, 472, 364)), ((38, 40, 38), (698, 262, 792, 364)),
+                ((38, 40, 38), (480, 244, 658, 362))],
+        'top_art': [(690, 0, 990, 100), (0, -40, 1680, 14)],  # colunas da arte; sem retrovisor interno nem a borda do teto
+    },
 }
 
 
@@ -54,7 +62,11 @@ def main():
     x0 = int(round(xc0 - PAD * px_w))
     x1, y1 = int(round(xc0 + (256 + PAD) * px_w)), int(y0 + ROWS * px_h)
     pad_x0, pad_x1 = max(0, -x0), max(0, x1 - full.shape[1])
-    canvas = cv2.copyMakeBorder(full, 0, max(0, y1 - full.shape[0]), 0, 0, cv2.BORDER_REPLICATE)
+    ty0 = int(round(y0 - EXT * px_h))  # topo das colunas, se vierem da arte
+    tpad = max(0, -ty0)
+    canvas = cv2.copyMakeBorder(full, tpad, max(0, y1 - full.shape[0]), 0, 0, cv2.BORDER_REPLICATE)
+    y0 += tpad
+    ty0 += tpad
     # onde a arte acaba nas laterais, espelha (fica natural; repetir a coluna vira listras)
     canvas = cv2.copyMakeBorder(canvas, 0, 0, pad_x0, pad_x1, cv2.BORDER_REFLECT)
     if 'fill_left' in cfg:  # espelhar daria um "bico" (pilar dobrado): faz uma coluna lisa
@@ -64,16 +76,18 @@ def main():
     yy, xx = np.mgrid[0:h, 0:w]
 
     def to_crop(x, y):
-        return x - x0, y - y0
+        return x - x0, y - (y0 - tpad)
 
     # volante: contornos medidos na arte (tools/ref/wheels/<carro>.json, gerados por
     # wheel_edges.py = bordas do aro, e wheel_spokes.py = polígono dos raios e do cubo)
     geo = json.load(open(os.path.join(os.path.dirname(__file__), 'wheels', f'{car}.json')))
-    shift = lambda pts: (np.array(pts, np.float32) - [x0, y0]).round().astype(np.int32)
+    shift = lambda pts: (np.array(pts, np.float32) - [x0, y0 - tpad]).round().astype(np.int32)
     m_out, m_in, m_sp = (np.zeros((h, w), np.uint8) for _ in range(3))
     cv2.fillPoly(m_out, [shift(geo['outer'])], 1)
     cv2.fillPoly(m_in, [shift(geo['inner'])], 1)
-    cv2.fillPoly(m_sp, [shift(geo['spokes'])], 1)
+    sp = geo['spokes']
+    for q in (sp if isinstance(sp[0][0], list) else [sp]):  # um por vez (sobrepostos não se anulam)
+        cv2.fillPoly(m_sp, [shift(q)], 1)
     wheel = (m_out > 0) & ((m_in == 0) | (m_sp > 0))
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
@@ -111,6 +125,10 @@ def main():
     near = cv2.dilate(hole, np.ones((41, 41), np.uint8)) > 0
     fill = cv2.inpaint(img, ((~known) | (hot & near)).astype(np.uint8) * 255, 7, cv2.INPAINT_TELEA)
     dash = np.where(known[..., None], img, fill)
+    # visores de LCD: fundo liso (o conteúdo é desenhado pelo jogo, funcionando)
+    for color, (a, b, c, d) in cfg.get('lcd', []):
+        (a, b), (c, d) = to_crop(a, b), to_crop(c, d)
+        dash[max(0, b):max(0, d), max(0, a):max(0, c)] = color[::-1]
 
     nw, nh = 256 + 2 * PAD, ROWS
     d_rgb = sample(cv2.cvtColor(dash, cv2.COLOR_BGR2RGB), nw, nh)
@@ -118,6 +136,22 @@ def main():
     Image.fromarray(np.dstack([d_rgb, d_a]), 'RGBA').save(f'{outdir}/{car}-dash.png')
     # a arte acaba antes do teto: a coluna da porta é prolongada para cima (linha 0 do
     # painel repetida e deslocada pela inclinação da coluna) até a linha 24 da tela
+    if 'top_art' in cfg:
+        timg = canvas[ty0:y0, x0 + pad_x0:x1 + pad_x0].copy()
+        th_, tw_ = timg.shape[:2]
+        tsky = (timg.min(axis=2) > 225).astype(np.uint8)
+        tm = np.zeros((th_ + 2, tw_ + 2), np.uint8)
+        for x in range(0, tw_, 8):
+            for yy_ in (0, th_ - 1):
+                if tsky[yy_, x] == 1:
+                    cv2.floodFill(tsky, tm, (x, yy_), 2)
+        talpha = tsky != 2
+        for (a, b, c, d) in cfg['top_art']:
+            a, c = a - x0 + pad_x0 - pad_x0, c - x0
+            talpha[max(0, b - (ty0 - tpad)):max(0, d - (ty0 - tpad)), max(0, a):max(0, c)] = False
+        t_rgb = sample(cv2.cvtColor(timg, cv2.COLOR_BGR2RGB), nw, EXT)
+        t_a = sample(talpha.astype(np.uint8) * 255, nw, EXT)
+        Image.fromarray(np.dstack([t_rgb, t_a]), 'RGBA').save(f'{outdir}/{car}-top.png')
     if 'pillar' in cfg:
         xmax, k = cfg['pillar']
         row = np.dstack([d_rgb, d_a])[0].copy()
@@ -133,7 +167,7 @@ def main():
     w_a = sample((wheel & ~sky0).astype(np.uint8) * 255, nw, nh)
     Image.fromarray(np.dstack([w_rgb, w_a])[:, PAD:PAD + 256], 'RGBA').save(f'{outdir}/{car}-wheel.png')
 
-    nat = lambda x, y: [round((x - xc0) / px_w, 1), round((y - y0) / px_h, 1)]
+    nat = lambda x, y: [round((x - xc0) / px_w, 1), round((y - (y0 - tpad)) / px_h, 1)]
     meta = {'pivot': nat(*geo['center']), 'rows': ROWS, 'pad': PAD}
     for k, (gx, gy, gr) in cfg['gauges'].items():
         meta[k] = nat(gx, gy) + [round(gr / px_w, 1)]

@@ -147,10 +147,10 @@ export const CARS: CarSpec[] = [
     rear: { h: 0.52, roof: 0.5, lights: 'rect', wing: 1, mesh: true, glow: { dots: [[0.14, 0.587], [0.86, 0.587]] } },
   },
   {
-    id: 'vortex-zr', name: 'Vortex ZR', basedOn: 'Corvette ZR-1 (C4)', color: '#1d4fbf',
+    id: 'vortex-zr', name: 'Vortex ZR', basedOn: 'Corvette ZR-1 (C4)', color: '#d81a12',
     price: '$60.000', position: 'dianteira', drive: 'traseira', engine: 'V8 32v',
     displacement: '5.733 cc', power: '380 cv', maxSpeed: kmh(290), zeroTo100: 4.7, accel: 1, handling: 0.98,
-    dash: 'zr1', hood: '#1a44a4', art: 'zr1',
+    dash: 'zr1', hood: '#b01410', art: 'zr1',
     side: {
       body: [0, 0.065, 0, 0.11, 0.02, 0.13, 0.3, 0.165, 0.42, 0.176, 0.52, 0.252, 0.64, 0.258, 0.7, 0.25, 0.86, 0.205, 0.97, 0.19, 1, 0.17, 1, 0.07, 0.985, 0.06],
       glass: [0.53, 0.246, 0.64, 0.25, 0.7, 0.242, 0.82, 0.208, 0.54, 0.205],
@@ -158,7 +158,7 @@ export const CARS: CarSpec[] = [
       lines: [[0.3, 0.12, 0.35, 0.15], [0.32, 0.118, 0.37, 0.148], [0.34, 0.116, 0.39, 0.146]],
       parts: [{ fill: 'shade', pts: [0.64, 0.255, 0.66, 0.255, 0.66, 0.205, 0.64, 0.205] }],
     },
-    rear: { h: 0.54, roof: 0.6, lights: 'quadSquare', wing: 0, glow: { dots: [[0.135, 0.6], [0.295, 0.6], [0.705, 0.6], [0.865, 0.6]] } },
+    rear: { h: 0.62, roof: 0.6, lights: 'quadSquare', wing: 0, glow: { dots: [[0.14, 0.392], [0.265, 0.392], [0.73, 0.392], [0.86, 0.392]] } },
   },
   {
     id: 'furia-tr', name: 'Furia TR', basedOn: 'Ferrari Testarossa', color: '#d01c1c',

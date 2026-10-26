@@ -171,7 +171,7 @@ def viper(color):
     return p
 
 
-CARS = {'diablo': (diablo, '#f0c010'), 'zr1': (zr1, '#1d4fbf'), 'testarossa': (testarossa, '#d01c1c'),
+CARS = {'diablo': (diablo, '#f0c010'), 'testarossa': (testarossa, '#d01c1c'),
         'countach': (countach, '#e8e8e2'), 'nsx': (nsx, '#1a1a1e'), 'viper': (viper, '#c81e24')}
 
 if __name__ == '__main__':

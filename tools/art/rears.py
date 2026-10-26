@@ -290,7 +290,7 @@ def viper_front(c):
 
 
 CARS = {
-    'diablo': (diablo_rear, diablo_front, '#f0c010'), 'zr1': (zr1_rear, zr1_front, '#1d4fbf'),
+    'diablo': (diablo_rear, diablo_front, '#f0c010'), 
     'testarossa': (testarossa_rear, testarossa_front, '#d01c1c'), 'countach': (countach_rear, countach_front, '#e8e8e2'),
     'nsx': (nsx_rear, nsx_front, '#1a1a1e'), 'viper': (viper_rear, viper_front, '#c81e24'),
 }

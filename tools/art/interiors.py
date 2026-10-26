@@ -220,17 +220,6 @@ CARS = {
                 {'x': 187, 'y': 58, 'r': 7, 'kind': 'single', 'show': ['fuel'], 'icon': 'fuel'}],
         'speedMax': 340,
     },
-    'zr1': {
-        'color': '#1d4fbf', 'trim': '#26262c', 'panel': '#3a3a42', 'door': (52, 52, 60), 'hood': 16,
-        'hood_lines': [[40, 16, 70, 8], [216, 16, 186, 8]],
-        'binnacle': (56, 200, 16, 70), 'console': 204, 'wheel': 'four', 'hub': 20, 'badge': (200, 30, 30),
-        'dials': [d(100, 44, 18, 300, [0, 50, 100, 150, 200, 250, 300], 10, 999), d(156, 44, 18, 7, [0, 1, 2, 3, 4, 5, 6, 7], 0.5, 6.5)],
-        'aux': [{'x': 128, 'y': 30, 'r': 6, 'kind': 'single', 'show': ['oil'], 'icon': 'oil'},
-                {'x': 128, 'y': 58, 'r': 6, 'kind': 'single', 'show': ['water'], 'icon': 'temp'},
-                {'x': 70, 'y': 60, 'r': 6, 'kind': 'single', 'show': ['fuel'], 'icon': 'fuel'},
-                {'x': 186, 'y': 60, 'r': 6, 'kind': 'single', 'show': ['oiltemp'], 'icon': 'oil'}],
-        'speedMax': 300, 'speedFirst': True,
-    },
     'testarossa': {
         'color': '#d01c1c', 'trim': '#1c1c20', 'panel': '#2a2a2e', 'door': (176, 146, 104), 'hood': 7,
         'binnacle': (58, 198, 14, 70), 'console': 204, 'wheel': 'three', 'marker': (230, 200, 40), 'badge': (240, 200, 30),

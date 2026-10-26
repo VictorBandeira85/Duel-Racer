@@ -24,8 +24,9 @@ interface CockpitArt {
   dashMask?: string; // partes na cor do carro (capô, porta, colunas), para a repintura
   topMask?: string;
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
-  tach: Dial;
-  speed: Dial;
+  tach?: Dial;
+  speed?: Dial;
+  lcd?: boolean; // painel digital (Corvette C4): visores desenhados por lcdPanel
   speedMax: number;
   needle: string;
   hub: string;
@@ -73,6 +74,12 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
     ] },
 };
 
+// Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
+COCKPIT_ART.zr1 = {
+  dash: cp('zr1-dash'), top: cp('zr1-top'), wheel: cp('zr1-wheel'),
+  pivot: [128, 86], lcd: true, speedMax: 300, needle: '#ff3a1a', hub: '#26262a', aux: [],
+};
+
 for (const [k, v] of Object.entries(INTERIORS)) {
   const dials = v.dials as Dial[];
   COCKPIT_ART[k] = {
@@ -107,8 +114,9 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     if (dx > 0) c.drawImage(top, 0, 0, 2, TOP_EXT, 0, ART_TOP - TOP_EXT, dx, TOP_EXT);
     c.drawImage(top, dx, ART_TOP - TOP_EXT);
   }
-  artDial(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, art);
-  artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
+  if (art.lcd) lcdPanel(c, ox, r, art);
+  if (art.tach) artDial(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, art);
+  if (art.speed) artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
   for (const g of art.aux) auxDial(c, g, ox, r, art);
   rect(c, ox + 206, ART_TOP + 22, 30, 6, '#0c0c0e');
   radarLeds(c, ox + 208, ART_TOP + 23, 26, r.radar);
@@ -264,6 +272,124 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, r: Race, art: 
   c.fillStyle = '#e8e8e8';
   const ix = mx - 1.75, iy = my + R * PIX_Y * (g.kind === 'twin' ? 0.5 : 0.42);
   ic.forEach((row, j) => [...row].forEach((ch, i) => ch === '1' && c.fillRect(ix + i * 0.5, iy + j * 0.5, 0.5, 0.5)));
+}
+
+// ---------- painel digital (LCD) do Corvette C4 ----------
+// Posições em pixels nativos da área central (medidas na arte, ver import_cockpit.py)
+const LCD = {
+  bg: '#262826',
+  green: '#3ae432', greenOff: '#203c20', yellow: '#f6d42a', yellowOff: '#3a3620', red: '#ff3a24', redOff: '#3c2020',
+};
+
+// arco de segmentos: pixels de meio pixel de cada segmento, calculados uma vez
+const arcCache = new Map<string, [number, number][][]>();
+function arcSegments(cx: number, cy: number, r0: number, r1: number, a0: number, a1: number, n: number) {
+  const key = [cx, cy, r0, r1, a0, a1, n].join();
+  let segs = arcCache.get(key);
+  if (segs) return segs;
+  segs = [];
+  const span = (a1 - a0) / n;
+  for (let i = 0; i < n; i++) {
+    const set = new Set<string>();
+    const pts: [number, number][] = [];
+    // segmento ocupa 70% do passo (o resto é o vão escuro entre eles)
+    for (let a = a0 + span * i + span * 0.15; a <= a0 + span * (i + 0.85); a += span / 8)
+      for (let rr = r0; rr <= r1; rr += 0.4) {
+        const x = Math.round((cx + Math.cos(a) * rr) * 2) / 2, y = Math.round((cy + Math.sin(a) * rr * PIX_Y) * 2) / 2;
+        const k = x + ',' + y;
+        if (!set.has(k)) { set.add(k); pts.push([x, y]); }
+      }
+    segs.push(pts);
+  }
+  arcCache.set(key, segs);
+  return segs;
+}
+
+function drawArc(c: CanvasRenderingContext2D, ox: number, g: { x: number; y: number; r0: number; r1: number; a0: number; a1: number; n: number },
+  frac: number, color: (f: number) => [string, string]) {
+  const segs = arcSegments(ox + g.x, ART_TOP + g.y, g.r0, g.r1, g.a0, g.a1, g.n);
+  const lit = Math.round(Math.max(0, Math.min(1, frac)) * g.n);
+  segs.forEach((pts, i) => {
+    const [on, off] = color(i / g.n);
+    c.fillStyle = i < lit ? on : off;
+    for (const [x, y] of pts) c.fillRect(x, y, 0.5, 0.5);
+  });
+}
+
+// dígito de 7 segmentos (7 x 12 px, traços de 2 px); os segmentos apagados ficam levemente
+// visíveis, como no LCD
+const SEG7 = ['abcdef', 'bc', 'abdeg', 'abcdg', 'bcfg', 'acdfg', 'acdefg', 'abc', 'abcdefg', 'abcdfg'];
+const SEG_PARTS: Record<string, [number, number, number, number]> = {
+  a: [1.5, 0, 4, 1.5], b: [5.5, 1, 1.5, 4.5], c: [5.5, 6.5, 1.5, 4.5], d: [1.5, 10.5, 4, 1.5],
+  e: [0, 6.5, 1.5, 4.5], f: [0, 1, 1.5, 4.5], g: [1.5, 5.25, 4, 1.5],
+};
+function seg7(c: CanvasRenderingContext2D, x: number, y: number, digit: number | null, on: string, off: string) {
+  const lit = digit === null ? '' : SEG7[digit];
+  for (const [k, [dx, dy, w, h]] of Object.entries(SEG_PARTS)) {
+    c.fillStyle = lit.includes(k) ? on : off;
+    c.fillRect(x + dx, y + dy, w, h);
+  }
+}
+
+function seg7Number(c: CanvasRenderingContext2D, xr: number, y: number, v: number, digits: number, on: string, off: string) {
+  const s = String(Math.max(0, Math.round(v)));
+  for (let i = 0; i < digits; i++) {
+    const ch = s[s.length - 1 - i];
+    seg7(c, xr - (i + 1) * 8.5 + 1.5, y, ch === undefined ? null : Number(ch), on, off);
+  }
+}
+
+// barra vertical segmentada dentro de moldura amarela (pressão, temperatura etc.)
+function lcdBars(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, n: number, frac: number, on: string) {
+  c.fillStyle = LCD.yellow;
+  c.fillRect(x, y, w, 0.5);
+  c.fillRect(x, y + h - 0.5, w, 0.5);
+  c.fillRect(x, y, 0.5, h);
+  c.fillRect(x + w - 0.5, y, 0.5, h);
+  const bw = (w - 1.5) / n;
+  for (let i = 0; i < n; i++) {
+    const bh = ((h - 2) * (i + 1)) / n;
+    c.fillStyle = i < Math.round(frac * n) ? on : LCD.greenOff;
+    c.fillRect(x + 1 + i * bw, y + h - 1 - bh, Math.max(0.5, bw - 0.5), bh);
+  }
+}
+
+function lcdPanel(c: CanvasRenderingContext2D, ox: number, r: Race, art: CockpitArt) {
+  const kmh = r.speed * KMH;
+  const rpm = Math.min(1, Math.max(0, r.rpm));
+  // velocímetro: arco verde e número de 3 dígitos
+  const speedArc = { x: 116, y: 80, r0: 32, r1: 38, a0: Math.PI * 1.06, a1: Math.PI * 1.46, n: 22 };
+  drawArc(c, ox, speedArc, kmh / art.speedMax, () => [LCD.green, LCD.greenOff]);
+  for (let v = 0; v <= 300; v += 50) {
+    const a = speedArc.a0 + ((speedArc.a1 - speedArc.a0) * v) / 300;
+    const rl = 41 + pixWidth(String(v), 0.5) * 0.5 * Math.abs(Math.cos(a));
+    pix(c, String(v), ox + 116 + 0.5 + Math.cos(a) * rl, ART_TOP + 80 + Math.sin(a) * rl * PIX_Y, LCD.yellow, 0.5);
+  }
+  seg7Number(c, ox + 110, ART_TOP + 59, kmh, 3, LCD.yellow, LCD.yellowOff);
+  // conta-giros: arco verde/amarelo/vermelho e giro em centenas (46 = 4.600 rpm)
+  const tachArc = { x: 226, y: 86, r0: 31, r1: 37, a0: Math.PI * 1.2, a1: Math.PI * 1.49, n: 18 };
+  drawArc(c, ox, tachArc, rpm, (f) => (f < 0.7 ? [LCD.green, LCD.greenOff] : f < 0.85 ? [LCD.yellow, LCD.yellowOff] : [LCD.red, LCD.redOff]));
+  seg7Number(c, ox + 218, ART_TOP + 59, rpm * 70, 2, LCD.yellow, LCD.yellowOff);
+  // centro: pressão do óleo, combustível, temperatura, voltímetro e luzes
+  const oil = 0.35 + 0.5 * rpm, temp = 0.45 + 0.15 * Math.min(1, r.time / 90), fuel = 0.8 - 0.3 * Math.min(1, r.time / 600);
+  lcdBars(c, ox + 116, ART_TOP + 30, 24, 10, 8, oil, LCD.green);
+  // combustível: bloco vertical que esvazia de cima para baixo
+  c.fillStyle = LCD.greenOff;
+  c.fillRect(ox + 143, ART_TOP + 29, 12, 13);
+  const fh = 13 * fuel;
+  c.fillStyle = fuel > 0.25 ? LCD.green : LCD.yellow;
+  c.fillRect(ox + 143, ART_TOP + 29 + 13 - fh, 12, fh);
+  c.fillStyle = LCD.yellow;
+  c.fillRect(ox + 143, ART_TOP + 38, 12, 4);
+  lcdBars(c, ox + 158, ART_TOP + 30, 18, 10, 6, temp, temp > 0.85 ? LCD.red : LCD.green);
+  lcdBars(c, ox + 116, ART_TOP + 44, 16, 6, 6, 0.6 + 0.05 * Math.sin(r.time), LCD.yellow);
+  lcdBars(c, ox + 160, ART_TOP + 44, 16, 6, 6, 0.5, LCD.yellow);
+  // luzes de aviso (acesas quando faz sentido)
+  const lights: [number, boolean, string][] = [[136, r.state === 'crash', LCD.red], [142, rpm > 0.9, LCD.yellow], [148, false, LCD.green], [154, r.speed < 100, LCD.green]];
+  for (const [x, on, col] of lights) {
+    c.fillStyle = on ? col : LCD.greenOff;
+    c.fillRect(ox + x, ART_TOP + 45, 4, 3);
+  }
 }
 
 // Cabine desenhada em pixels nativos do Super Nintendo (256x224), com as posições

@@ -39,6 +39,8 @@ export interface RearDef {
   img?: string; // sprite da traseira (pixel art)
   frontImg?: string; // sprite da frente (retrovisor)
   glow?: { dots?: number[][]; bar?: number[] }; // onde acendem as luzes de freio (frações u, f)
+  imgMask?: string; // máscaras da carroceria (onde a cor pode ser trocada)
+  frontMask?: string;
 }
 
 export interface CarSpec {
@@ -56,12 +58,14 @@ export interface CarSpec {
   zeroTo100: number; // segundos, usado para calibrar a aceleração
   accel: number;
   handling: number;
-  dash: 'A' | 'B' | 'f40' | '959';
+  dash: string; // cabine: 'A'/'B' (desenhadas por código) ou a chave da arte em COCKPIT_ART
   hood: string;
   side: SideDef;
   rear: RearDef;
   svgSide?: string; // arte vetorial do perfil (viewBox com chão na base)
-  imgSide?: string; // sprite do perfil gerado de foto
+  imgSide?: string; // sprite do perfil (pixel art)
+  sideMask?: string;
+  art?: string; // prefixo dos sprites em assets/cars (<art>-side/-rear/-front.png e máscaras)
 }
 
 const kmh = (v: number) => v / KMH;
@@ -72,7 +76,7 @@ export const CARS: CarSpec[] = [
     id: 'furia-f4', name: 'Furia F4', basedOn: 'Ferrari F40', color: '#c8161a',
     price: '$400.000', position: 'central', drive: 'traseira', engine: 'V8 biturbo',
     displacement: '2.936 cc', power: '478 cv', maxSpeed: kmh(324), zeroTo100: 4.1, accel: 1, handling: 1.0,
-    dash: 'f40', hood: '#b01014',
+    dash: 'f40', hood: '#b01014', art: 'f40',
     // proporções tiradas de fotos de perfil do modelo real
     side: {
       body: [0.003, 0.03, 0, 0.05, 0.012, 0.09, 0.03, 0.11, 0.1, 0.147, 0.2, 0.175, 0.27, 0.188, 0.32, 0.196, 0.45, 0.266, 0.55, 0.274, 0.65, 0.266, 0.7, 0.254, 0.8, 0.221, 0.86, 0.213, 0.875, 0.268, 0.975, 0.27, 0.985, 0.255, 0.99, 0.22, 1, 0.2, 1, 0.06, 0.99, 0.03],
@@ -100,7 +104,7 @@ export const CARS: CarSpec[] = [
     id: 'silber-95', name: 'Silber 95', basedOn: 'Porsche 959', color: '#f0b400',
     price: '$300.000', position: 'traseira', drive: 'integral', engine: 'Boxer 6 biturbo',
     displacement: '2.849 cc', power: '450 cv', maxSpeed: kmh(317), zeroTo100: 3.7, accel: 1, handling: 1.1,
-    dash: '959', hood: '#d89c00',
+    dash: '959', hood: '#d89c00', art: '959',
     // proporções tiradas da foto de perfil do modelo real
     side: {
       body: [0.01, 0.025, 0, 0.085, 0.03, 0.12, 0.196, 0.165, 0.348, 0.2, 0.465, 0.29, 0.587, 0.296, 0.683, 0.278, 0.804, 0.209, 0.83, 0.22, 0.9, 0.206, 0.957, 0.2, 1, 0.19, 1, 0.15, 0.995, 0.035, 0.97, 0.018, 0.03, 0.018],
@@ -129,7 +133,7 @@ export const CARS: CarSpec[] = [
     id: 'toro-v12', name: 'Toro V12', basedOn: 'Lamborghini Diablo', color: '#f0c010',
     price: '$240.000', position: 'central', drive: 'traseira', engine: 'V12 48v',
     displacement: '5.707 cc', power: '492 cv', maxSpeed: kmh(325), zeroTo100: 4.5, accel: 1, handling: 0.9,
-    dash: 'B', hood: '#d8a808',
+    dash: 'diablo', hood: '#d8a808', art: 'diablo',
     side: {
       body: [0, 0.055, 0, 0.085, 0.03, 0.115, 0.2, 0.145, 0.3, 0.162, 0.47, 0.246, 0.58, 0.25, 0.64, 0.236, 0.85, 0.198, 0.96, 0.19, 1, 0.17, 1, 0.08, 0.985, 0.055],
       glass: [0.33, 0.168, 0.47, 0.24, 0.575, 0.243, 0.615, 0.2],
@@ -140,13 +144,13 @@ export const CARS: CarSpec[] = [
         { fill: 'shade', pts: [0.9, 0.193, 1, 0.188, 1, 0.198, 0.92, 0.2] },
       ],
     },
-    rear: { h: 0.46, roof: 0.5, lights: 'rect', wing: 1, mesh: true },
+    rear: { h: 0.52, roof: 0.5, lights: 'rect', wing: 1, mesh: true, glow: { dots: [[0.14, 0.587], [0.86, 0.587]] } },
   },
   {
     id: 'vortex-zr', name: 'Vortex ZR', basedOn: 'Corvette ZR-1 (C4)', color: '#1d4fbf',
     price: '$60.000', position: 'dianteira', drive: 'traseira', engine: 'V8 32v',
     displacement: '5.733 cc', power: '380 cv', maxSpeed: kmh(290), zeroTo100: 4.7, accel: 1, handling: 0.98,
-    dash: 'A', hood: '#1a44a4',
+    dash: 'zr1', hood: '#1a44a4', art: 'zr1',
     side: {
       body: [0, 0.065, 0, 0.11, 0.02, 0.13, 0.3, 0.165, 0.42, 0.176, 0.52, 0.252, 0.64, 0.258, 0.7, 0.25, 0.86, 0.205, 0.97, 0.19, 1, 0.17, 1, 0.07, 0.985, 0.06],
       glass: [0.53, 0.246, 0.64, 0.25, 0.7, 0.242, 0.82, 0.208, 0.54, 0.205],
@@ -154,26 +158,26 @@ export const CARS: CarSpec[] = [
       lines: [[0.3, 0.12, 0.35, 0.15], [0.32, 0.118, 0.37, 0.148], [0.34, 0.116, 0.39, 0.146]],
       parts: [{ fill: 'shade', pts: [0.64, 0.255, 0.66, 0.255, 0.66, 0.205, 0.64, 0.205] }],
     },
-    rear: { h: 0.5, roof: 0.6, lights: 'quadSquare', wing: 0 },
+    rear: { h: 0.54, roof: 0.6, lights: 'quadSquare', wing: 0, glow: { dots: [[0.135, 0.6], [0.295, 0.6], [0.705, 0.6], [0.865, 0.6]] } },
   },
   {
     id: 'furia-tr', name: 'Furia TR', basedOn: 'Ferrari Testarossa', color: '#d01c1c',
     price: '$180.000', position: 'central', drive: 'traseira', engine: '12 cil. boxer',
     displacement: '4.943 cc', power: '390 cv', maxSpeed: kmh(290), zeroTo100: 5.3, accel: 1, handling: 0.92,
-    dash: 'B', hood: '#b01818',
+    dash: 'testarossa', hood: '#b01818', art: 'testarossa',
     side: {
       body: [0, 0.06, 0, 0.1, 0.02, 0.128, 0.2, 0.148, 0.34, 0.168, 0.46, 0.244, 0.58, 0.25, 0.65, 0.234, 0.84, 0.212, 0.98, 0.205, 1, 0.18, 1, 0.08, 0.985, 0.06],
       glass: [0.36, 0.172, 0.46, 0.238, 0.57, 0.242, 0.6, 0.182],
       wheels: [0.2, 0.8], shoulder: 0.19,
       lines: [[0.5, 0.165, 0.79, 0.17], [0.5, 0.152, 0.8, 0.156], [0.5, 0.139, 0.8, 0.142], [0.5, 0.126, 0.8, 0.128], [0.5, 0.113, 0.79, 0.114]],
     },
-    rear: { h: 0.47, roof: 0.5, lights: 'slats', wing: 0 },
+    rear: { h: 0.52, roof: 0.5, lights: 'slats', wing: 0, glow: { dots: [[0.155, 0.587], [0.845, 0.587]] } },
   },
   {
-    id: 'toro-lp5', name: 'Toro LP5', basedOn: 'Lamborghini Countach', color: '#f4f4f0',
+    id: 'toro-lp5', name: 'Toro LP5', basedOn: 'Lamborghini Countach', color: '#e8e8e2',
     price: '$150.000', position: 'central', drive: 'traseira', engine: 'V12 48v',
     displacement: '5.167 cc', power: '455 cv', maxSpeed: kmh(295), zeroTo100: 4.9, accel: 1, handling: 0.88,
-    dash: 'B', hood: '#dcdcd6',
+    dash: 'countach', hood: '#dcdcd6', art: 'countach',
     side: {
       body: [0, 0.055, 0, 0.085, 0.03, 0.11, 0.35, 0.172, 0.48, 0.248, 0.6, 0.254, 0.64, 0.25, 0.67, 0.27, 0.75, 0.27, 0.77, 0.24, 0.92, 0.205, 1, 0.19, 1, 0.08, 0.985, 0.055],
       glass: [0.4, 0.18, 0.485, 0.242, 0.595, 0.246, 0.6, 0.182],
@@ -185,13 +189,13 @@ export const CARS: CarSpec[] = [
         { fill: 'dark', pts: [0.68, 0.258, 0.74, 0.258, 0.74, 0.266, 0.68, 0.266] },
       ],
     },
-    rear: { h: 0.48, roof: 0.48, lights: 'rect', wing: 2 },
+    rear: { h: 0.59, roof: 0.48, lights: 'rect', wing: 2, glow: { dots: [[0.085, 0.627], [0.235, 0.627], [0.765, 0.627], [0.915, 0.627]] } },
   },
   {
     id: 'kaze-nx', name: 'Kaze NX', basedOn: 'Honda NSX', color: '#1a1a1e',
     price: '$65.000', position: 'central', drive: 'traseira', engine: 'V6 24v',
     displacement: '2.977 cc', power: '274 cv', maxSpeed: kmh(270), zeroTo100: 5.7, accel: 1, handling: 1.18,
-    dash: 'A', hood: '#2a2a30',
+    dash: 'nsx', hood: '#2a2a30', art: 'nsx',
     side: {
       body: [0, 0.065, 0, 0.1, 0.03, 0.128, 0.22, 0.152, 0.33, 0.168, 0.45, 0.252, 0.58, 0.262, 0.66, 0.248, 0.8, 0.214, 0.92, 0.2, 0.975, 0.216, 1, 0.21, 1, 0.09, 0.985, 0.065],
       glass: [0.35, 0.172, 0.45, 0.246, 0.58, 0.255, 0.66, 0.238, 0.7, 0.205, 0.37, 0.172],
@@ -201,13 +205,13 @@ export const CARS: CarSpec[] = [
         { fill: 'shade', pts: [0.92, 0.2, 0.975, 0.216, 1, 0.21, 0.94, 0.198] },
       ],
     },
-    rear: { h: 0.5, roof: 0.56, lights: 'bar', wing: 1 },
+    rear: { h: 0.56, roof: 0.56, lights: 'bar', wing: 1, glow: { bar: [0.04, 0.536, 0.96, 0.625] } },
   },
   {
     id: 'serpe-v10', name: 'Serpe V10', basedOn: 'Dodge Viper RT/10', color: '#c81e24',
     price: '$55.000', position: 'dianteira', drive: 'traseira', engine: 'V10 20v',
     displacement: '7.990 cc', power: '400 cv', maxSpeed: kmh(266), zeroTo100: 4.6, accel: 1, handling: 0.92,
-    dash: 'A', hood: '#a8161a',
+    dash: 'viper', hood: '#a8161a', art: 'viper',
     side: {
       body: [0, 0.065, 0, 0.12, 0.03, 0.148, 0.2, 0.165, 0.38, 0.178, 0.46, 0.182, 0.56, 0.186, 0.7, 0.19, 0.92, 0.186, 1, 0.16, 1, 0.07, 0.985, 0.065],
       glass: [0.465, 0.182, 0.52, 0.248, 0.535, 0.248, 0.495, 0.182],
@@ -221,9 +225,23 @@ export const CARS: CarSpec[] = [
         { fill: 'dark', pts: [0.28, 0.13, 0.33, 0.13, 0.33, 0.16, 0.29, 0.158] },
       ],
     },
-    rear: { h: 0.45, roof: 0.5, lights: 'roundPair', wing: 0, roadster: true },
+    rear: { h: 0.48, roof: 0.5, lights: 'roundPair', wing: 0, roadster: true, glow: { dots: [[0.17, 0.5625], [0.83, 0.5625]] } },
   },
 ];
+
+// Sprites de cada carro pela chave `art`: <art>-side/-rear/-front.png e as máscaras
+const PNG = import.meta.glob('./assets/cars/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+const png = (n: string) => PNG[`./assets/cars/${n}.png`];
+for (const car of CARS) {
+  const k = car.art;
+  if (!k) continue;
+  car.imgSide = png(`${k}-side`) ?? car.imgSide;
+  car.sideMask = png(`${k}-side-mask`);
+  car.rear.img = png(`${k}-rear`) ?? car.rear.img;
+  car.rear.imgMask = png(`${k}-rear-mask`);
+  car.rear.frontImg = png(`${k}-front`) ?? car.rear.frontImg;
+  car.rear.frontMask = png(`${k}-front-mask`);
+}
 
 // ---------- física compartilhada (corrida e gráfico de aceleração) ----------
 export const GEARS = [0.22, 0.4, 0.58, 0.78, 1];
@@ -280,6 +298,7 @@ export interface CarLook {
   siren?: boolean;
   brake?: boolean;
   night?: boolean;
+  paint?: string; // cor escolhida (troca a carroceria do sprite pela máscara)
 }
 
 const GENERIC: RearDef = { h: 0.5, roof: 0.56, lights: 'rect', wing: 0 };
@@ -296,9 +315,10 @@ function glow(c: CanvasRenderingContext2D, x: number, y: number, w: number, rgb:
 // Carro visto de trás (ou de frente, se vier na contramão). (x, y) = centro da base.
 export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   if (w < 2) return;
+  const tint = (mask?: string) => (look.paint && mask ? { mask, color: look.paint } : undefined);
   if (look.front && look.rear?.frontImg) {
-    const h = w * look.rear.h;
-    const spr = svgSprite(look.rear.frontImg, w, h);
+    const h = w * (spriteAspect(look.rear.frontImg) ?? look.rear.h);
+    const spr = svgSprite(look.rear.frontImg, w, h, tint(look.rear.frontMask));
     if (spr) {
       c.drawImage(spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
       return;
@@ -306,8 +326,8 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
   }
   const art = look.rear?.img ?? look.rear?.svg;
   if (art && look.rear && !look.front) {
-    const h = w * look.rear.h;
-    const spr = svgSprite(art, w, h) ?? (look.rear.svg ? svgSprite(look.rear.svg, w, h) : null);
+    const h = w * ((look.rear.img && spriteAspect(look.rear.img)) || look.rear.h);
+    const spr = svgSprite(art, w, h, tint(look.rear.img ? look.rear.imgMask : undefined)) ?? (look.rear.svg ? svgSprite(look.rear.svg, w, h) : null);
     if (spr) {
       c.fillStyle = 'rgba(0,0,0,0.35)';
       c.fillRect(x - w * 0.53, y - h * 0.05, w * 1.06, h * 0.08);
@@ -665,10 +685,11 @@ function drawTruck(c: CanvasRenderingContext2D, x: number, y: number, w: number,
 }
 
 // Vista lateral (escolha do carro e posto). x = frente do carro, y = chão.
-export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec) {
+export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string) {
   if (car.imgSide) {
     const aspect = spriteAspect(car.imgSide);
-    const spr = aspect ? svgSprite(car.imgSide, len, len * aspect) : null;
+    const tint = paint && car.sideMask ? { mask: car.sideMask, color: paint } : undefined;
+    const spr = aspect ? svgSprite(car.imgSide, len, len * aspect, tint) : null;
     if (spr && aspect) {
       c.fillStyle = 'rgba(0,0,0,0.45)';
       c.beginPath();

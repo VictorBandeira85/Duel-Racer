@@ -1,0 +1,489 @@
+{
+ "diablo": {
+  "pivot": [
+   128,
+   86
+  ],
+  "dials": [
+   {
+    "x": 103,
+    "y": 44,
+    "r": 19,
+    "max": 8,
+    "labels": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "tick": 0.5,
+    "red": 7
+   },
+   {
+    "x": 153,
+    "y": 44,
+    "r": 19,
+    "max": 340,
+    "labels": [
+     0,
+     40,
+     80,
+     120,
+     160,
+     200,
+     240,
+     280,
+     320
+    ],
+    "tick": 20,
+    "red": 999
+   }
+  ],
+  "aux": [
+   {
+    "x": 69,
+    "y": 36,
+    "r": 7,
+    "kind": "single",
+    "show": [
+     "oil"
+    ],
+    "icon": "oil"
+   },
+   {
+    "x": 69,
+    "y": 58,
+    "r": 7,
+    "kind": "single",
+    "show": [
+     "water"
+    ],
+    "icon": "temp"
+   },
+   {
+    "x": 187,
+    "y": 36,
+    "r": 7,
+    "kind": "single",
+    "show": [
+     "oiltemp"
+    ],
+    "icon": "oil"
+   },
+   {
+    "x": 187,
+    "y": 58,
+    "r": 7,
+    "kind": "single",
+    "show": [
+     "fuel"
+    ],
+    "icon": "fuel"
+   }
+  ],
+  "speedMax": 340,
+  "speedFirst": false
+ },
+ "zr1": {
+  "pivot": [
+   128,
+   86
+  ],
+  "dials": [
+   {
+    "x": 100,
+    "y": 44,
+    "r": 18,
+    "max": 300,
+    "labels": [
+     0,
+     50,
+     100,
+     150,
+     200,
+     250,
+     300
+    ],
+    "tick": 10,
+    "red": 999
+   },
+   {
+    "x": 156,
+    "y": 44,
+    "r": 18,
+    "max": 7,
+    "labels": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "tick": 0.5,
+    "red": 6.5
+   }
+  ],
+  "aux": [
+   {
+    "x": 128,
+    "y": 30,
+    "r": 6,
+    "kind": "single",
+    "show": [
+     "oil"
+    ],
+    "icon": "oil"
+   },
+   {
+    "x": 128,
+    "y": 58,
+    "r": 6,
+    "kind": "single",
+    "show": [
+     "water"
+    ],
+    "icon": "temp"
+   },
+   {
+    "x": 70,
+    "y": 60,
+    "r": 6,
+    "kind": "single",
+    "show": [
+     "fuel"
+    ],
+    "icon": "fuel"
+   },
+   {
+    "x": 186,
+    "y": 60,
+    "r": 6,
+    "kind": "single",
+    "show": [
+     "oiltemp"
+    ],
+    "icon": "oil"
+   }
+  ],
+  "speedMax": 300,
+  "speedFirst": true
+ },
+ "testarossa": {
+  "pivot": [
+   128,
+   86
+  ],
+  "dials": [
+   {
+    "x": 102,
+    "y": 44,
+    "r": 18,
+    "max": 320,
+    "labels": [
+     0,
+     40,
+     80,
+     120,
+     160,
+     200,
+     240,
+     280,
+     320
+    ],
+    "tick": 20,
+    "red": 999
+   },
+   {
+    "x": 154,
+    "y": 44,
+    "r": 18,
+    "max": 10,
+    "labels": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10
+    ],
+    "tick": 0.5,
+    "red": 6.8
+   }
+  ],
+  "aux": [
+   {
+    "x": 128,
+    "y": 30,
+    "r": 6,
+    "kind": "single",
+    "show": [
+     "oil"
+    ],
+    "icon": "oil"
+   },
+   {
+    "x": 128,
+    "y": 56,
+    "r": 6,
+    "kind": "single",
+    "show": [
+     "water"
+    ],
+    "icon": "temp"
+   }
+  ],
+  "speedMax": 320,
+  "speedFirst": true
+ },
+ "countach": {
+  "pivot": [
+   128,
+   86
+  ],
+  "dials": [
+   {
+    "x": 100,
+    "y": 44,
+    "r": 18,
+    "max": 320,
+    "labels": [
+     0,
+     40,
+     80,
+     120,
+     160,
+     200,
+     240,
+     280,
+     320
+    ],
+    "tick": 20,
+    "red": 999
+   },
+   {
+    "x": 156,
+    "y": 44,
+    "r": 18,
+    "max": 8,
+    "labels": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "tick": 0.5,
+    "red": 7
+   }
+  ],
+  "aux": [
+   {
+    "x": 66,
+    "y": 30,
+    "r": 7,
+    "kind": "single",
+    "show": [
+     "oil"
+    ],
+    "icon": "oil"
+   },
+   {
+    "x": 66,
+    "y": 56,
+    "r": 7,
+    "kind": "single",
+    "show": [
+     "water"
+    ],
+    "icon": "temp"
+   },
+   {
+    "x": 190,
+    "y": 30,
+    "r": 7,
+    "kind": "single",
+    "show": [
+     "oiltemp"
+    ],
+    "icon": "oil"
+   },
+   {
+    "x": 190,
+    "y": 56,
+    "r": 7,
+    "kind": "single",
+    "show": [
+     "fuel"
+    ],
+    "icon": "fuel"
+   }
+  ],
+  "speedMax": 320,
+  "speedFirst": true
+ },
+ "nsx": {
+  "pivot": [
+   128,
+   86
+  ],
+  "dials": [
+   {
+    "x": 104,
+    "y": 44,
+    "r": 19,
+    "max": 300,
+    "labels": [
+     0,
+     40,
+     80,
+     120,
+     160,
+     200,
+     240,
+     280
+    ],
+    "tick": 20,
+    "red": 999
+   },
+   {
+    "x": 152,
+    "y": 44,
+    "r": 19,
+    "max": 9,
+    "labels": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9
+    ],
+    "tick": 0.5,
+    "red": 8
+   }
+  ],
+  "aux": [
+   {
+    "x": 68,
+    "y": 50,
+    "r": 7,
+    "kind": "single",
+    "show": [
+     "fuel"
+    ],
+    "icon": "fuel"
+   },
+   {
+    "x": 188,
+    "y": 50,
+    "r": 7,
+    "kind": "single",
+    "show": [
+     "water"
+    ],
+    "icon": "temp"
+   }
+  ],
+  "speedMax": 300,
+  "speedFirst": true
+ },
+ "viper": {
+  "pivot": [
+   128,
+   86
+  ],
+  "dials": [
+   {
+    "x": 104,
+    "y": 44,
+    "r": 18,
+    "max": 7,
+    "labels": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "tick": 0.5,
+    "red": 6
+   },
+   {
+    "x": 152,
+    "y": 44,
+    "r": 18,
+    "max": 280,
+    "labels": [
+     0,
+     40,
+     80,
+     120,
+     160,
+     200,
+     240,
+     280
+    ],
+    "tick": 20,
+    "red": 999
+   }
+  ],
+  "aux": [
+   {
+    "x": 214,
+    "y": 48,
+    "r": 6,
+    "kind": "single",
+    "show": [
+     "oil"
+    ],
+    "icon": "oil"
+   },
+   {
+    "x": 230,
+    "y": 48,
+    "r": 6,
+    "kind": "single",
+    "show": [
+     "water"
+    ],
+    "icon": "temp"
+   },
+   {
+    "x": 246,
+    "y": 48,
+    "r": 6,
+    "kind": "single",
+    "show": [
+     "fuel"
+    ],
+    "icon": "fuel"
+   }
+  ],
+  "speedMax": 280,
+  "speedFirst": false
+ }
+}

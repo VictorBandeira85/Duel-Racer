@@ -1,3 +1,4 @@
+import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
 import { CARS, accelCurve, drawCar, drawCarSide, type CarSpec } from './cars';
 import { COURSES, type Course } from './courses';
@@ -217,7 +218,7 @@ function purpleBg(c: CanvasRenderingContext2D, label: string) {
   c.fillStyle = '#4e4290';
   c.fillRect(0, 0, w, h);
   const mark = watermark(label);
-  for (let row = 0; row < 12; row++) for (let col = -1; col < w / 70 + 1; col++) c.drawImage(mark, col * 70 + (row % 2) * 35 - 1, 2 + row * 15);
+  for (let row = 0; row < 12; row++) for (let col = -1; col < w / 86 + 1; col++) c.drawImage(mark, col * 86 + (row % 2) * 43 - 1, 2 + row * 15);
 }
 
 function smallButton(c: CanvasRenderingContext2D, r: Rect, label: string, hot = false) {
@@ -225,11 +226,14 @@ function smallButton(c: CanvasRenderingContext2D, r: Rect, label: string, hot = 
   text(c, label, r.x + r.w / 2, r.y + r.h / 2 - 4, 8, hot ? '#200' : '#fff', 'center', null);
 }
 
+// quadradinhos de cor, à direita do nome do carro
+const swatches = (): Rect[] => PAINTS.map((_, i) => ({ x: ox() + 4 + 180 + i * 12, y: 116 + 8, w: 9, h: 11 }));
+
 function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
   const car = CARS[s.carIdx];
   const x = ox();
   purpleBg(c, 'Duel Racer');
-  drawCarSide(c, x + 30, 108, 260, car);
+  drawCarSide(c, x + 30, 108, 260, car, paintHex(car.id));
   const b = carButtons();
   smallButton(c, b.prev, '◀');
   smallButton(c, b.next, '▶');
@@ -241,6 +245,18 @@ function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
   panel(c, { x: p.x + 8, y: p.y + 6, w: 130, h: 16 }, '#a8a0e0', '#2a2060');
   text(c, car.name, p.x + 73, p.y + 10, 8, '#1a1040', 'center', null);
   text(c, `${s.carIdx + 1}/${CARS.length}`, p.x + 150, p.y + 10, 8, '#2a2060', 'left', null);
+  // cores da carroceria (sem escolha, fica marcada a mais parecida com a original)
+  const cur = paintIdx(car.id) ?? nearestPaint(car.color);
+  swatches().forEach((r, i) => {
+    c.fillStyle = i === cur ? '#ffffff' : '#1a1040';
+    c.fillRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
+    c.fillStyle = PAINTS[i].hex;
+    c.fillRect(r.x, r.y, r.w, r.h);
+    if (i === cur) {
+      c.fillStyle = '#1a1040';
+      c.fillRect(r.x - 1, r.y + r.h + 2, r.w + 2, 1);
+    }
+  });
   const { pts } = accelCurve(car);
   const rows: [string, string][] = [
     ['Preço', car.price], ['Motor', car.engine], ['Posição', car.position], ['Tração', car.drive],
@@ -480,7 +496,7 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   c.textBaseline = 'top';
   'REFRI'.split('').forEach((ch, i) => c.fillText(ch, 0, i * 11));
   c.restore();
-  drawCarSide(c, x + 80, 176, 170, car);
+  drawCarSide(c, x + 80, 176, 170, car, paintHex(car.id));
 
   c.fillStyle = '#3a3a3e';
   c.fillRect(0, 186, w, h - 186);
@@ -564,6 +580,12 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
       else if (inside(x, y, b.next)) s.carIdx = (s.carIdx + 1) % CARS.length;
       else if (inside(x, y, b.ok)) a.go('opponent');
       else if (inside(x, y, b.back)) a.go('title');
+      else {
+        // toque com folga em volta de cada cor (dedos maiores que os quadradinhos)
+        swatches().forEach((r, i) => {
+          if (inside(x, y, { x: r.x - 1.5, y: r.y - 8, w: r.w + 3, h: r.h + 16 })) setPaint(CARS[s.carIdx].id, i);
+        });
+      }
       return;
     }
     case 'opponent':

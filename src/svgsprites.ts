@@ -28,13 +28,74 @@ export function preloadSvg(...svgs: string[]) {
   for (const s of svgs) image(s);
 }
 
+// Repintura: cada pixel marcado na máscara recebe a cor nova, mantendo a diferença de
+// luminosidade em relação ao tom médio da carroceria (o sombreado continua o mesmo)
+const tinted = new Map<string, HTMLCanvasElement>();
+
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  if (mx === mn) return [0, 0, l];
+  const d = mx - mn;
+  const s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+  const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h / 6, s, l];
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  if (s === 0) return [l * 255, l * 255, l * 255];
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const f = (t: number) => {
+    t = (t + 1) % 1;
+    return t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p;
+  };
+  return [f(h + 1 / 3) * 255, f(h) * 255, f(h - 1 / 3) * 255];
+}
+
+export interface Paint { mask: string; color: string }
+
+function paintImage(src: string, paint: Paint): HTMLCanvasElement | null {
+  const key = `${src.length}:${src.slice(-40)}:${paint.color}`;
+  const hit = tinted.get(key);
+  if (hit) return hit;
+  const img = image(src), mask = image(paint.mask);
+  if (!img || !mask) return null;
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const cv = document.createElement('canvas');
+  cv.width = w;
+  cv.height = h;
+  const c = cv.getContext('2d')!;
+  c.drawImage(mask, 0, 0, w, h);
+  const m = c.getImageData(0, 0, w, h).data;
+  c.clearRect(0, 0, w, h);
+  c.drawImage(img, 0, 0);
+  const data = c.getImageData(0, 0, w, h);
+  const d = data.data;
+  // tom médio (mediana da luminosidade) da carroceria original
+  const ls: number[] = [];
+  for (let i = 0; i < d.length; i += 4) if (m[i] > 127 && d[i + 3]) ls.push(rgbToHsl(d[i], d[i + 1], d[i + 2])[2]);
+  ls.sort((a, b) => a - b);
+  const base = ls.length ? ls[ls.length >> 1] : 0.5;
+  const t = parseInt(paint.color.slice(1), 16);
+  const [th, ts, tl] = rgbToHsl(t >> 16, (t >> 8) & 255, t & 255);
+  for (let i = 0; i < d.length; i += 4) {
+    if (m[i] <= 127 || !d[i + 3]) continue;
+    const l = rgbToHsl(d[i], d[i + 1], d[i + 2])[2];
+    const [r, g, b] = hslToRgb(th, ts, Math.min(0.96, Math.max(0.04, tl + (l - base))));
+    d[i] = r; d[i + 1] = g; d[i + 2] = b;
+  }
+  c.putImageData(data, 0, 0);
+  tinted.set(key, cv);
+  return cv;
+}
+
 // Sprite do SVG no tamanho pedido (null enquanto a imagem ainda carrega)
-export function svgSprite(svg: string, w: number, h: number): HTMLCanvasElement | null {
-  const img = image(svg);
+export function svgSprite(svg: string, w: number, h: number, paint?: Paint): HTMLCanvasElement | null {
+  const img: CanvasImageSource | null = paint ? paintImage(svg, paint) : image(svg);
   if (!img) return null;
   // tamanhos agrupados de 2 em 2 px para não gerar um sprite por quadro
   const bw = Math.max(2, Math.round(w / 2) * 2), bh = Math.max(2, Math.round(h / 2) * 2);
-  const key = `${svg.length}:${svg.slice(-40)}:${bw}x${bh}`;
+  const key = `${svg.length}:${svg.slice(-40)}:${bw}x${bh}:${paint?.color ?? ''}`;
   let cv = rasters.get(key);
   if (cv) return cv;
   cv = document.createElement('canvas');
@@ -44,7 +105,7 @@ export function svgSprite(svg: string, w: number, h: number): HTMLCanvasElement 
   // pixel art: redução por vizinho mais próximo (um pixel da arte por pixel da tela, sem
   // misturar cores); SVG é rasterizado em 4x e reduzido do mesmo jeito, para não ter antialias
   c.imageSmoothingEnabled = false;
-  if (svg.trimStart().startsWith('<svg')) {
+  if (!paint && svg.trimStart().startsWith('<svg')) {
     const big = document.createElement('canvas');
     big.width = bw * 4;
     big.height = bh * 4;

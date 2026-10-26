@@ -6,3 +6,8 @@ enviada pelo Victor, importada por `tools/ref/import_art.py` (carros) e
 
 A pixel art foi feita a partir de fotos de terceiros; antes de publicar o jogo,
 confirmar que o resultado é arte própria o bastante (ou refazer).
+
+Os outros seis carros (Diablo, ZR-1, Testarossa, Countach, NSX e Viper) são desenhados
+por código em `tools/art/` (`sides.py`, `rears.py`, `interiors.py`; rodar `tools/art/build.sh`).
+Os arquivos `*-mask.png` marcam a carroceria, usada pela troca de cor no jogo; as do
+F40 e do 959 saem de `tools/ref/body_mask.py`.

@@ -13,11 +13,16 @@ import dash959Png from './assets/cockpit/959-dash.png';
 import top959Png from './assets/cockpit/959-top.png';
 import topF40Png from './assets/cockpit/f40-top.png';
 import wheel959Png from './assets/cockpit/959-wheel.png';
+// cabines desenhadas por código (tools/art/interiors.py)
+import INTERIORS from './assets/cockpit/interiors.json';
+import { paintHex } from './paint';
 
 interface CockpitArt {
   dash: string;
   top: string; // coluna da porta prolongada até o teto (76 linhas acima da arte)
   wheel: string;
+  dashMask?: string; // partes na cor do carro (capô, porta, colunas), para a repintura
+  topMask?: string;
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
   tach: Dial;
   speed: Dial;
@@ -42,8 +47,12 @@ const ART_TOP = 100;
 const DASH_PAD = 102; // colunas extras de cada lado do painel (telas largas), ver import_cockpit.py
 const DASH_W = 256 + 2 * DASH_PAD;
 const TOP_EXT = 76; // linhas do teto (24) até o topo da arte
+const CPNG = import.meta.glob('./assets/cockpit/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+function cp(n: string) {
+  return CPNG[`./assets/cockpit/${n}.png`];
+}
 const COCKPIT_ART: Record<string, CockpitArt> = {
-  f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, pivot: [127.4, 80], 
+  f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, dashMask: cp('f40-dash-mask'), topMask: cp('f40-top-mask'), pivot: [127.4, 80], 
     tach: { x: 109, y: 46, r: 17, max: 10, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], tick: 0.5, red: 7.75 },
     speed: { x: 149, y: 46, r: 17, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], tick: 20, red: 999 },
     speedMax: 360, needle: '#ff2a1a', hub: '#ff2a1a',
@@ -64,13 +73,26 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
     ] },
 };
 
-export const COCKPIT_IMAGES = Object.values(COCKPIT_ART).flatMap((a) => [a.dash, a.top, a.wheel]);
+for (const [k, v] of Object.entries(INTERIORS)) {
+  const dials = v.dials as Dial[];
+  COCKPIT_ART[k] = {
+    dash: cp(`${k}-dash`), top: cp(`${k}-top`), wheel: cp(`${k}-wheel`),
+    dashMask: cp(`${k}-dash-mask`), topMask: cp(`${k}-top-mask`),
+    pivot: v.pivot as [number, number],
+    tach: dials.find((d) => d.max <= 10)!, speed: dials.find((d) => d.max > 10)!,
+    speedMax: v.speedMax, needle: '#ff3a1a', hub: '#26262a', aux: v.aux as Aux[],
+  };
+}
+
+export const COCKPIT_IMAGES = Object.values(COCKPIT_ART).flatMap((a) => [a.dash, a.top, a.wheel, a.dashMask, a.topMask]).filter((s): s is string => !!s);
 
 // Cabine a partir da arte: painel, ponteiros dinâmicos, radar e volante girando.
 function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: CockpitArt): boolean {
   const { w } = view;
   const ox = coreX();
-  const dash = svgSprite(art.dash, DASH_W, 124);
+  const color = paintHex(r.car.id);
+  const tint = (mask?: string) => (color && mask ? { mask, color } : undefined);
+  const dash = svgSprite(art.dash, DASH_W, 124, tint(art.dashMask));
   const wheelImg = svgSprite(art.wheel, CORE_W, 124);
   if (!dash || !wheelImg) return false;
   // o painel tem DASH_PAD colunas a mais de cada lado; só além disso a borda é esticada
@@ -80,7 +102,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     c.drawImage(dash, DASH_W - 2, 0, 2, 124, dx + DASH_W, ART_TOP, w - dx - DASH_W, 124);
   }
   c.drawImage(dash, dx, ART_TOP);
-  const top = svgSprite(art.top, DASH_W, TOP_EXT);
+  const top = svgSprite(art.top, DASH_W, TOP_EXT, tint(art.topMask));
   if (top) {
     if (dx > 0) c.drawImage(top, 0, 0, 2, TOP_EXT, 0, ART_TOP - TOP_EXT, dx, TOP_EXT);
     c.drawImage(top, dx, ART_TOP - TOP_EXT);

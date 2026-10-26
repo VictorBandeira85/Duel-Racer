@@ -20,13 +20,14 @@ interface CockpitArt {
   speed: [number, number, number];
   speedMax: number;
   needle: string;
+  hub: string;
 }
 
 // a arte cobre da linha 100 da tela até o fim (124 linhas); o topo transparente mostra a estrada
 const ART_TOP = 100;
 const COCKPIT_ART: Record<string, CockpitArt> = {
-  f40: { dash: dashF40Png, wheel: wheelF40Png, pivot: [128, 81.4], tach: [109, 42.9, 17.5], speed: [149, 42.9, 17.5], speedMax: 360, needle: '#ff2a1a' },
-  '959': { dash: dash959Png, wheel: wheel959Png, pivot: [128, 99.5], tach: [127.4, 61.1, 23.5], speed: [177.8, 66.6, 20.2], speedMax: 300, needle: '#ff6a1a' },
+  f40: { dash: dashF40Png, wheel: wheelF40Png, pivot: [127.4, 80], tach: [109, 42.9, 17.5], speed: [149, 42.9, 17.5], speedMax: 360, needle: '#ff2a1a', hub: '#ff2a1a' },
+  '959': { dash: dash959Png, wheel: wheel959Png, pivot: [127.8, 104], tach: [127.4, 61.1, 23.5], speed: [177.8, 66.6, 20.2], speedMax: 300, needle: '#ff6a1a', hub: '#1a1a1a' },
 };
 
 export const COCKPIT_IMAGES = Object.values(COCKPIT_ART).flatMap((a) => [a.dash, a.wheel]);
@@ -48,16 +49,15 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     const cx = ox + gx, cy = ART_TOP + gy;
     const a = Math.PI * 0.75 + Math.PI * 1.5 * Math.max(0, Math.min(1.02, frac));
     c.strokeStyle = art.needle;
-    c.lineWidth = 1.5;
+    c.lineWidth = 2;
     c.beginPath();
     c.moveTo(cx, cy);
-    c.lineTo(cx + Math.cos(a) * (gr - 3), cy + Math.sin(a) * (gr - 3) * (8 / 7));
+    c.lineTo(cx + Math.cos(a) * (gr - 4), cy + Math.sin(a) * (gr - 4) * (8 / 7));
     c.stroke();
-    disc(c, cx, cy, 1.5, '#1a1a1a');
+    disc(c, cx, cy, 2, art.hub);
   };
   needle(art.tach, 0.06 + Math.min(1, r.rpm) * 0.82);
   needle(art.speed, (r.speed * KMH) / art.speedMax);
-  pix(c, String(r.gear + 1), ox + art.tach[0], ART_TOP + art.tach[1] + art.tach[2] * 0.55, '#ff2a1a');
   rect(c, ox + 206, ART_TOP + 22, 30, 6, '#0c0c0e');
   radarLeds(c, ox + 208, ART_TOP + 23, 26, r.radar);
   const px = ox + art.pivot[0], py = ART_TOP + art.pivot[1];

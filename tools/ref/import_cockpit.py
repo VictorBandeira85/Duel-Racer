@@ -9,6 +9,7 @@ e imprime as posições (em pixels nativos) do pivô do volante e dos mostradore
 Uso: python3 tools/ref/import_cockpit.py <imagem> <pasta> <carro>   (configurações abaixo)
 """
 import json
+import os
 import sys
 
 import cv2
@@ -20,14 +21,11 @@ ROWS = 124  # linhas nativas (a cabine começa na linha 100 da tela e vai até a
 CARS = {
     'f40': {
         'scale': 0.25, 'x0': 338, 'y0': 50,
-        'rim': (850, 335, 300, 255, 46),           # centro x, y, raio x, raio y, espessura
-        'parts': [(560, 290, 1150, 395), (820, 380, 885, 590), (790, 285, 910, 400)],
         'gauges': {'tach': (774, 200, 70), 'speed': (934, 200, 70)},
     },
     '959': {
         'scale': 0.28, 'x0': 241, 'y0': 20,
-        'rim': (698, 331, 268, 268, 40),
-        'parts': [(492, 322, 912, 386), (668, 400, 732, 610), (622, 305, 778, 446)],
+        'erase': [(852, 276, 912, 298)],          # hodômetro (não é velocímetro digital)
         'gauges': {'tach': (696, 211, 84), 'speed': (876, 228, 72)},
     },
 }
@@ -57,26 +55,16 @@ def main():
     def to_crop(x, y):
         return x - x0, y - y0
 
-    # volante: anel elíptico + raios/cubo (dentro deles, só o que não é fundo claro)
-    rx_, ry_ = to_crop(cfg['rim'][0], cfg['rim'][1])
-    ax, ay, th = cfg['rim'][2], cfg['rim'][3], cfg['rim'][4]
-    e_out = ((xx - rx_) / ax) ** 2 + ((yy - ry_) / ay) ** 2 <= 1
-    e_in = ((xx - rx_) / (ax - th)) ** 2 + ((yy - ry_) / (ay - th)) ** 2 <= 1
-    wheel = e_out & ~e_in
+    # volante: contornos medidos na arte (tools/ref/wheels/<carro>.json, gerados por
+    # wheel_edges.py = bordas do aro, e wheel_spokes.py = polígono dos raios e do cubo)
+    geo = json.load(open(os.path.join(os.path.dirname(__file__), 'wheels', f'{car}.json')))
+    shift = lambda pts: (np.array(pts, np.float32) - [x0, y0]).round().astype(np.int32)
+    m_out, m_in, m_sp = (np.zeros((h, w), np.uint8) for _ in range(3))
+    cv2.fillPoly(m_out, [shift(geo['outer'])], 1)
+    cv2.fillPoly(m_in, [shift(geo['inner'])], 1)
+    cv2.fillPoly(m_sp, [shift(geo['spokes'])], 1)
+    wheel = (m_out > 0) & ((m_in == 0) | (m_sp > 0))
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    yellow = (hsv[..., 0] >= 18) & (hsv[..., 0] <= 35) & (hsv[..., 1] > 120) & (hsv[..., 2] > 120)
-    # no aro, texto e ponteiros dos mostradores que aparecem por dentro ficam de fora
-    wheel &= ~((img.min(axis=2) > 110) | ((hsv[..., 1] > 110) & (hsv[..., 2] > 90) & ~yellow))
-    parts = np.zeros((h, w), bool)
-    for (a, b, c, d) in cfg['parts']:
-        (a, b), (c, d) = to_crop(a, b), to_crop(c, d)
-        parts[max(0, b):max(0, d), max(0, a):max(0, c)] = True
-    # nos raios/cubo, só o metal cinza (e o amarelo), mais o contorno preto em volta;
-    # as caixas pretas dos mostradores atrás dos raios ficam no painel
-    metal = (parts & (((hsv[..., 2] > 42) & (hsv[..., 1] < 90)) | yellow)).astype(np.uint8)
-    metal = cv2.morphologyEx(metal, cv2.MORPH_OPEN, np.ones((9, 9), np.uint8))
-    metal = cv2.morphologyEx(metal, cv2.MORPH_CLOSE, np.ones((15, 15), np.uint8))
-    wheel |= parts & (cv2.dilate(metal, np.ones((7, 7), np.uint8)) > 0)
 
     # ponteiros vermelhos/laranja dentro dos mostradores principais
     hot = ((hsv[..., 0] <= 18) | (hsv[..., 0] >= 170)) & (hsv[..., 1] > 120) & (hsv[..., 2] > 120)
@@ -88,7 +76,9 @@ def main():
 
     # fundo do painel: apaga volante e ponteiros
     hole = cv2.dilate(wheel.astype(np.uint8), np.ones((7, 7), np.uint8)) | needles
-    dash = cv2.inpaint(img, hole * 255, 7, cv2.INPAINT_TELEA)
+    for (a, b, c, d) in cfg.get('erase', []):
+        (a, b), (c, d) = to_crop(a, b), to_crop(c, d)
+        hole[max(0, b):max(0, d), max(0, a):max(0, c)] = 1
     # para-brisa: branco ligado à borda de cima fica transparente
     near_white = (img.min(axis=2) > 225).astype(np.uint8)
     ff = near_white.copy()
@@ -97,17 +87,30 @@ def main():
         if ff[0, x] == 1:
             cv2.floodFill(ff, msk, (x, 0), 2)
     sky = ff == 2
+    # atrás do aro: a parte cujo vizinho visível mais próximo é o para-brisa também fica
+    # transparente; o resto é reconstruído só a partir do painel (sem o branco escorrer)
+    known = (hole == 0) & ~sky
+    _, lab = cv2.distanceTransformWithLabels((hole == 0).astype(np.uint8) ^ 1, cv2.DIST_L2, 5,
+                                             labelType=cv2.DIST_LABEL_PIXEL)
+    seeds = np.zeros(lab.max() + 1, bool)
+    seeds[lab[hole == 0]] = sky[hole == 0]
+    sky0 = sky
+    sky = sky | ((hole > 0) & seeds[lab])
+    # ponteiros e lataria vermelhos perto do aro não entram na reconstrução (viram manchas)
+    near = cv2.dilate(hole, np.ones((41, 41), np.uint8)) > 0
+    fill = cv2.inpaint(img, ((~known) | (hot & near)).astype(np.uint8) * 255, 7, cv2.INPAINT_TELEA)
+    dash = np.where(known[..., None], img, fill)
 
     nw, nh = 256, ROWS
     d_rgb = sample(cv2.cvtColor(dash, cv2.COLOR_BGR2RGB), nw, nh)
     d_a = sample((~sky).astype(np.uint8) * 255, nw, nh)
     Image.fromarray(np.dstack([d_rgb, d_a]), 'RGBA').save(f'{outdir}/{car}-dash.png')
     w_rgb = sample(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), nw, nh)
-    w_a = sample((wheel & ~sky).astype(np.uint8) * 255, nw, nh)
+    w_a = sample((wheel & ~sky0).astype(np.uint8) * 255, nw, nh)
     Image.fromarray(np.dstack([w_rgb, w_a]), 'RGBA').save(f'{outdir}/{car}-wheel.png')
 
     nat = lambda x, y: [round((x - x0) / px_w, 1), round((y - y0) / px_h, 1)]
-    meta = {'pivot': nat(cfg['rim'][0], cfg['rim'][1]), 'rows': ROWS}
+    meta = {'pivot': nat(*geo['center']), 'rows': ROWS}
     for k, (gx, gy, gr) in cfg['gauges'].items():
         meta[k] = nat(gx, gy) + [round(gr / px_w, 1)]
     print(json.dumps(meta))

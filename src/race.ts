@@ -1,5 +1,5 @@
 import { CAR_W, KMH, LANE_W, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
-import { autoGear, engineAccel, GEARS, type CarSpec } from './cars';
+import { autoGear, driveAcc, G, GEARS, resistAcc, toGame, toMs, type CarSpec } from './cars';
 import type { Course, StageDef } from './courses';
 import { THEMES, nightTheme, rainTheme, type Theme } from './themes';
 import { SPRITES } from './sprites';
@@ -7,6 +7,9 @@ import { buildTrack, laneCenter, type Segment, type Track } from './track';
 import { input, takeShift } from './input';
 import { beep, crashSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
+
+// curvatura da pista por unidade de curva (1/m): curva 4 = fechada (~175 km/h a 1 g)
+const CURVE_K = 0.00105;
 
 export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck';
 const CAR_MODELS: TrafficModel[] = ['sedan', 'sedan', 'hatch', 'hatch', 'pickup', 'van'];
@@ -243,14 +246,11 @@ export class Race {
     this.steer = driving ? (input.left ? -1 : 0) + (input.right ? 1 : 0) : 0;
 
     const gearMax = max * GEARS[this.gear];
-    if (this.throttle) this.speed += engineAccel(this.car, this.gear, this.speed) * dt;
-    else this.speed -= max * 0.06 * dt;
-    // ---- relevo: gravidade na subida/descida e "flutuação" no topo das lombadas ----
+    // ---- relevo: inclinação e "flutuação" no topo das lombadas ----
     const slope = clamp((pSeg.p2.world.y - pSeg.p1.world.y) / SEG_LEN, -0.6, 0.6);
     const ahead = this.track.segments[(pSeg.index + 7) % this.track.segments.length];
     const slopeAhead = clamp((ahead.p2.world.y - ahead.p1.world.y) / SEG_LEN, -0.6, 0.6);
     const pct0 = this.speed / max;
-    // topo de lombada: a inclinação vai diminuindo rápido (sobe e depois desce) -> o carro alivia
     const lift = clamp(((slope - slopeAhead) * pct0 * pct0 - 0.015) * 12, 0, 1);
     this.air = lerp(this.air, lift, Math.min(1, dt * 8));
     if (this.air > 0.55) this.airborne = true;
@@ -258,30 +258,43 @@ export class Race {
       this.airborne = false;
       this.landT = 0.18; // pancada da aterrissagem
     }
-    // freio-motor menor na descida (deixa embalar um pouco acima da máxima)
-    if (this.speed > gearMax) this.speed -= (this.speed - gearMax) * (slope < -0.05 ? 0.5 : 2) * dt;
-    if (this.braking) this.speed -= max * (this.state === 'crash' ? 2 : pulling ? 0.17 : 0.6) * (1 - this.air * 0.5) * dt;
-    this.speed -= slope * max * 0.3 * dt;
-    // vácuo: colado atrás de outro carro, menos arrasto (passa um pouco da máxima)
+    // ---- forças (m/s²): motor, ar + pneus, freio, gravidade ----
     this.draft = lerp(this.draft, driving ? this.draftAhead(this.playerZ, this.x, this.speed) : 0, Math.min(1, dt * 3));
-    if (this.draft > 0.05 && this.throttle) this.speed += max * 0.05 * this.draft * dt;
-    this.speed = clamp(this.speed, 0, max * (1.04 + 0.04 * this.draft + (slope < -0.05 ? 0.05 : 0)));
+    const aDrive = this.throttle ? driveAcc(this.car, this.gear, this.speed) : 0;
+    const rpmNow = this.speed / gearMax;
+    // vácuo tira até 35% do arrasto; sem acelerar, o freio-motor segura conforme o giro
+    const aResist = resistAcc(this.car, this.speed, 1 - 0.35 * this.draft) + (this.throttle ? 0 : 0.6 + 1.2 * clamp(rpmNow, 0, 1));
+    const aGrav = (G * slope) / Math.sqrt(1 + slope * slope);
+    this.speed += toGame(aDrive - aResist - aGrav) * dt;
+    // freio: ~1,1 g no seco (menos na chuva/neve e no topo das lombadas)
+    if (this.braking) {
+      if (this.state === 'crash') this.speed -= max * 2 * dt;
+      else if (pulling) this.speed -= max * 0.17 * dt;
+      else this.speed -= toGame(G * 1.1 * this.surface() * (1 - this.air * 0.5)) * dt;
+    }
+    // acima do corte de giro (reduziu marcha ou embalou na descida): o motor segura
+    if (this.speed > gearMax) this.speed -= (this.speed - gearMax) * (slope < -0.05 ? 0.4 : 1.5) * dt;
+    this.speed = clamp(this.speed, 0, max * 1.12);
     if (this.auto) this.gear = autoGear(this.car, this.gear, this.speed, this.throttle);
     this.rpm = this.speed / (max * GEARS[this.gear]);
 
     // ---- direção e aderência ----
-    // A curva empurra o carro para fora (centrífuga). Os pneus seguram até um limite que
-    // depende do carro (e das melhorias), do piso, da freada e das lombadas; acima dele o
-    // carro derrapa: escorrega para fora, perde velocidade e a direção fica mais leve.
+    // Na curva, a força lateral é v² × curvatura (em g, independe do carro). Os pneus seguram
+    // até ~1 g (carro, melhorias, piso, freada, lombada). Perto do limite é preciso virar
+    // quase tudo para manter a linha; acima dele o carro derrapa: escorrega para fora,
+    // perde velocidade e a direção fica mais leve.
     const speedPct = this.speed / max;
-    const push = speedPct * speedPct * pSeg.curve * 560;
-    const grip = this.gripLimit() * (this.braking && speedPct > 0.3 ? 0.78 : 1) * (1 - this.air * 0.6) * (Math.abs(this.x) > t.roadW + 700 ? 0.6 : 1);
-    const excess = Math.max(0, Math.abs(push) - grip);
-    this.slip = lerp(this.slip, driving ? clamp(excess / (grip * 0.6), 0, 1) : 0, Math.min(1, dt * 6));
+    const vms = toMs(this.speed);
+    const latG = (vms * vms * Math.abs(pSeg.curve) * CURVE_K) / G;
+    const grip = this.gripG() * (this.braking && speedPct > 0.3 ? 0.8 : 1) * (1 - this.air * 0.6) * (Math.abs(this.x) > t.roadW + 700 ? 0.6 : 1);
+    const demand = latG / grip;
+    const excess = Math.max(0, demand - 1);
+    this.slip = lerp(this.slip, driving ? clamp(excess / 0.35, 0, 1) : 0, Math.min(1, dt * 6));
+    const steerMax = 2700 * this.car.handling * Math.sqrt(speedPct);
     if (driving) {
-      this.x += this.steer * dt * 2700 * this.car.handling * Math.sqrt(speedPct) * (1 - this.slip * 0.45);
-      this.x -= dt * (push + Math.sign(push) * excess * 0.9);
-      this.speed -= max * 0.28 * this.slip * dt; // pneus arrastando
+      this.x += this.steer * dt * steerMax * (1 - this.slip * 0.45);
+      this.x -= Math.sign(pSeg.curve) * dt * (Math.min(demand, 1) * steerMax * 0.72 + excess * steerMax * 1.1);
+      this.speed -= toGame(G * 0.35 * this.slip) * dt; // pneus arrastando
     } else if (pulling && copAhead) {
       this.x += clamp(this.stopX - this.x, -dt * 1400, dt * 1400); // encosta no acostamento
     }
@@ -447,10 +460,19 @@ export class Race {
     c.signalT = 1.1;
   }
 
-  // limite de aderência lateral (mesma escala da força da curva): carro, pneus e piso
-  gripLimit(car: CarSpec = this.car) {
-    const surface = this.def.weather === 'snow' ? 0.72 : this.def.weather === 'rain' ? 0.84 : 1;
-    return 1500 * car.handling * surface;
+  // piso: seco, chuva ou neve (multiplica aderência e freio)
+  surface() {
+    return this.def.weather === 'snow' ? 0.72 : this.def.weather === 'rain' ? 0.84 : 1;
+  }
+
+  // aderência lateral máxima (em g) de um carro neste piso
+  gripG(car: CarSpec = this.car) {
+    return 0.92 * car.handling * this.surface();
+  }
+
+  // velocidade máxima (unidades do jogo) para fazer uma curva sem derrapar
+  cornerSpeed(curve: number, car: CarSpec = this.car, margin = 1) {
+    return (Math.sqrt((this.gripG(car) * margin * G) / Math.max(1e-6, Math.abs(curve) * CURVE_K)) * 3.6) / KMH;
   }
 
   // vácuo: há um carro logo à frente na mesma faixa, no mesmo sentido?
@@ -502,9 +524,9 @@ export class Race {
       const segs = this.track.segments;
       let curveAhead = 0;
       for (let k = 0; k < 10; k++) curveAhead = Math.max(curveAhead, Math.abs(segs[(rSeg.index + k) % segs.length].curve));
-      const nerve = r.style === 'agressivo' ? 1.06 : r.style === 'cauteloso' ? 0.88 : 0.98;
-      const limit = Math.sqrt((this.gripLimit(this.rivalCar) * nerve) / Math.max(0.05, curveAhead * 560));
-      target = Math.min(target, max * limit * (0.92 + 0.08 * skill));
+      // nunca acima do limite físico (o rival não derrapa); os mais fracos contornam mais devagar
+      const nerve = r.style === 'agressivo' ? 1 : r.style === 'cauteloso' ? 0.9 : 0.96;
+      target = Math.min(target, this.cornerSpeed(curveAhead, this.rivalCar, nerve) * (0.86 + 0.14 * skill));
       if (r.style === 'agressivo') target *= sharp ? 1 : 1.015;
       // vácuo atrás de outro carro
       target *= 1 + 0.04 * this.draftAhead(r.z, r.x, r.speed);
@@ -562,7 +584,13 @@ export class Race {
       r.recover -= dt;
       target = Math.min(target, max * 0.2);
     }
-    r.speed += (target - r.speed) * Math.min(1, dt * (target > r.speed ? 0.22 : 1.5));
+    // acelera no máximo o que o carro dele consegue (com arrasto) e freia ~1,1 g
+    if (target > r.speed) {
+      let gear = 0;
+      while (gear < 4 && r.speed >= max * GEARS[gear] * 0.97) gear++;
+      const acc = toGame(driveAcc(this.rivalCar, gear, r.speed) - resistAcc(this.rivalCar, r.speed, 1 - 0.35 * this.draftAhead(r.z, r.x, r.speed)));
+      r.speed = Math.min(target, r.speed + Math.max(0, acc) * dt);
+    } else r.speed = Math.max(target, r.speed - toGame(G * 1.1 * this.surface()) * dt);
     r.x += clamp(r.targetX - r.x, -dt * (r.style === 'agressivo' ? 3000 : 2600), dt * (r.style === 'agressivo' ? 3000 : 2600));
     r.z += r.speed * dt;
   }

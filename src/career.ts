@@ -1,6 +1,6 @@
 // Modo Carreira: regiões com eventos contra pilotos com nome, dinheiro, concessionária,
 // garagem (pintura e melhorias) e progresso salvo no aparelho.
-import { CARS, type CarSpec } from './cars';
+import { CARS, prepareCar, type CarSpec } from './cars';
 import type { Course, StageDef } from './courses';
 import type { RivalStyle } from './race';
 import type { ThemeId } from './themes';
@@ -83,12 +83,15 @@ export const START_MONEY = 65000;
 
 // carro com as melhorias aplicadas (mesmo id: pintura, cabine e sprites continuam os mesmos)
 export function tunedCar(car: CarSpec, lv: Record<Upgrade, number>): CarSpec {
-  return {
+  // motor: mais potência e máxima; câmbio: mais força nas retomadas; pneus: aderência
+  const tuned: CarSpec = {
     ...car,
-    maxSpeed: car.maxSpeed * (1 + 0.035 * lv.motor),
-    accel: car.accel * (1 + 0.03 * lv.motor + 0.05 * lv.cambio),
-    handling: car.handling * (1 + 0.07 * lv.pneus),
+    maxSpeed: car.maxSpeed * (1 + 0.03 * lv.motor),
+    accel: car.accel * (1 + 0.06 * lv.motor + 0.05 * lv.cambio),
+    handling: car.handling * (1 + 0.06 * lv.pneus),
+    traction: (car.traction ?? 1) * (1 + 0.04 * lv.pneus),
   };
+  return prepareCar(tuned);
 }
 
 // ---------- save ----------

@@ -6,14 +6,21 @@ const images = new Map<string, HTMLImageElement>();
 const rasters = new Map<string, HTMLCanvasElement>();
 const MAX_RASTERS = 160;
 
-function image(svg: string): HTMLImageElement | null {
-  let img = images.get(svg);
+// aceita o texto de um SVG ou o endereço de uma imagem (PNG gerado de foto)
+function image(src: string): HTMLImageElement | null {
+  let img = images.get(src);
   if (!img) {
     img = new Image();
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-    images.set(svg, img);
+    img.src = src.trimStart().startsWith('<svg') ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(src) : src;
+    images.set(src, img);
   }
   return img.complete && img.naturalWidth > 0 ? img : null;
+}
+
+// proporção altura/largura da imagem (null enquanto carrega)
+export function spriteAspect(src: string): number | null {
+  const img = image(src);
+  return img ? img.naturalHeight / img.naturalWidth : null;
 }
 
 // Carrega antecipadamente (para não piscar na primeira vez que aparece)

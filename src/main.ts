@@ -3,14 +3,14 @@ import { view } from './config';
 import { CARS } from './cars';
 import { COURSES } from './courses';
 import { Race } from './race';
-import { renderCockpit } from './cockpit';
+import { COCKPIT_IMAGES, renderCockpit } from './cockpit';
 import { drawScreen, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { input, releaseAll, setupInput } from './input';
 import { initAudio, setEngine, setMuted, setSiren } from './audio';
 import { preloadSvg } from './svgsprites';
 import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
 
-preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL);
+preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.rear.img]).filter((s): s is string => !!s), ...COCKPIT_IMAGES);
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;

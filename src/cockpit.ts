@@ -6,6 +6,11 @@ import { dither, speckle, text } from './ui';
 import { formatTime, lerp, rng, shade } from './util';
 import { F40_WHEEL } from './svg/f40';
 import { svgSprite } from './svgsprites';
+// painel e volante do 959 convertidos de foto (ver assets/cars/LEIA-ME.md)
+import dash959Png from './assets/cockpit/959-dash.png';
+import wheel959Png from './assets/cockpit/959-wheel.png';
+
+export const COCKPIT_IMAGES = [dash959Png, wheel959Png];
 
 // Cabine desenhada em pixels nativos do Super Nintendo (256x224), com as posições
 // medidas nas capturas de referência (tools/ref/measure.py). Em telas largas, a área
@@ -494,7 +499,50 @@ function drawDashF40(c: CanvasRenderingContext2D, r: Race, dt: number) {
 // Painel de couro escuro, capota sobre 5 mostradores redondos (conta-giros no
 // centro), ponteiros laranja, volante de aro grosso com almofada retangular,
 // difusor horizontal, botões, rádio e coifa do câmbio.
+// Painel do 959 a partir da foto convertida em pixel art: fundo (sem volante e sem
+// ponteiros), ponteiros laranja dinâmicos nos mostradores da foto e volante da foto.
+const P959 = {
+  wheel: { sx: 60.5, sy: 69.2, x: 69.1, y: 52.6 }, // centro no sprite e no painel
+  tach: [82, 25.4, 12.7], speed: [112.1, 27.2, 11.9], // x, y, raio (pixels nativos)
+};
+
+function photoNeedle(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, frac: number) {
+  const a = Math.PI * 0.75 + Math.PI * 1.5 * Math.max(0, Math.min(1.02, frac));
+  c.strokeStyle = '#ff7a1a';
+  c.lineWidth = 1.5;
+  c.beginPath();
+  c.moveTo(cx, cy);
+  c.lineTo(cx + Math.cos(a) * (r - 2), cy + Math.sin(a) * (r - 2) * (8 / 7));
+  c.stroke();
+  disc(c, cx, cy, 1.5, '#202020');
+}
+
+function drawDash959Photo(c: CanvasRenderingContext2D, r: Race, dt: number): boolean {
+  const { w } = view;
+  const ox = coreX();
+  const dash = svgSprite(dash959Png, CORE_W, 104);
+  const wheelImg = svgSprite(wheel959Png, 121, 138);
+  if (!dash || !wheelImg) return false;
+  // laterais em telas largas: estica as bordas do painel
+  if (ox > 0) {
+    c.drawImage(dash, 0, 0, 12, 104, 0, 120, ox, 104);
+    c.drawImage(dash, CORE_W - 12, 0, 12, 104, ox + CORE_W, 120, w - ox - CORE_W, 104);
+  }
+  c.drawImage(dash, ox, 120);
+  const kmh = r.speed * KMH;
+  const [tx, ty, tr] = P959.tach, [vx, vy, vr] = P959.speed;
+  photoNeedle(c, ox + tx, 120 + ty, tr, 0.08 + Math.min(1, r.rpm) * 0.8);
+  photoNeedle(c, ox + vx, 120 + vy, vr, kmh / 340);
+  pix(c, String(r.gear + 1), ox + tx + 5, 120 + ty + 8, '#ff2a1a');
+  rect(c, ox + 160, 121, 30, 6, '#0c0c0e');
+  radarLeds(c, ox + 162, 122, 26, r.radar);
+  const cx = ox + P959.wheel.x, cy = 120 + P959.wheel.y;
+  withRotation(c, cx, cy, steerAngle(r, dt), () => c.drawImage(wheelImg, Math.round(cx - P959.wheel.sx), Math.round(cy - P959.wheel.sy)));
+  return true;
+}
+
 function drawDash959(c: CanvasRenderingContext2D, r: Race, dt: number) {
+  if (drawDash959Photo(c, r, dt)) return;
   const { w, h } = view;
   const ox = coreX();
   // capô prateado

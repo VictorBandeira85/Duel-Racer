@@ -1,7 +1,12 @@
 import { KMH } from './config';
 import { clamp, shade } from './util';
 import { F40_REAR, F40_SIDE } from './svg/f40';
-import { svgSprite } from './svgsprites';
+import { spriteAspect, svgSprite } from './svgsprites';
+// sprites derivados de fotos (ver assets/cars/LEIA-ME.md)
+import f40SidePng from './assets/cars/f40-side.png';
+import f40RearPng from './assets/cars/f40-rear.png';
+import s959SidePng from './assets/cars/959-side.png';
+import s959RearPng from './assets/cars/959-rear.png';
 
 // ---------- definição visual ----------
 type Fill = 'body' | 'shade' | 'dark' | 'glass' | 'chrome' | 'black' | 'red' | 'amber';
@@ -28,6 +33,8 @@ export interface RearDef {
   mesh?: boolean; // grade preta entre as lanternas
   custom?: 'f40' | '959'; // traseira desenhada com detalhes próprios
   svg?: string; // arte vetorial da traseira
+  img?: string; // sprite da traseira gerado de foto
+  glow?: { dots?: number[][]; bar?: number[] }; // onde acendem as luzes de freio (frações u, f)
 }
 
 export interface CarSpec {
@@ -50,6 +57,7 @@ export interface CarSpec {
   side: SideDef;
   rear: RearDef;
   svgSide?: string; // arte vetorial do perfil (viewBox com chão na base)
+  imgSide?: string; // sprite do perfil gerado de foto
 }
 
 const kmh = (v: number) => v / KMH;
@@ -80,8 +88,9 @@ export const CARS: CarSpec[] = [
         [0.72, 0.248, 0.84, 0.222], [0.73, 0.242, 0.84, 0.216],
       ],
     },
-    rear: { h: 0.53, roof: 0.52, lights: 'quadRound', wing: 2, mesh: true, custom: 'f40', svg: F40_REAR },
+    rear: { h: 0.49, roof: 0.52, lights: 'quadRound', wing: 2, mesh: true, custom: 'f40', svg: F40_REAR, img: f40RearPng, glow: { dots: [[0.115, 0.47], [0.21, 0.47], [0.79, 0.47], [0.885, 0.47]] } },
     svgSide: F40_SIDE,
+    imgSide: f40SidePng,
   },
   {
     id: 'silber-95', name: 'Silber 95', basedOn: 'Porsche 959', color: '#c4c8cc',
@@ -109,7 +118,8 @@ export const CARS: CarSpec[] = [
         [0.93, 0.07, 0.99, 0.07], [0.93, 0.085, 0.99, 0.085], [0.93, 0.1, 0.99, 0.1], [0.93, 0.115, 0.99, 0.115],
       ],
     },
-    rear: { h: 0.7, roof: 0.56, lights: 'bar', wing: 1, custom: '959' },
+    rear: { h: 0.56, roof: 0.56, lights: 'bar', wing: 1, custom: '959', img: s959RearPng, glow: { bar: [0.04, 0.58, 0.96, 0.64] } },
+    imgSide: s959SidePng,
   },
   {
     id: 'toro-v12', name: 'Toro V12', basedOn: 'Lamborghini Diablo', color: '#f0c010',
@@ -283,20 +293,23 @@ function glow(c: CanvasRenderingContext2D, x: number, y: number, w: number, rgb:
 export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   if (w < 2) return;
   if (look.truck) return drawTruck(c, x, y, w, look);
-  if (look.rear?.svg && !look.front) {
+  const art = look.rear?.img ?? look.rear?.svg;
+  if (art && look.rear && !look.front) {
     const h = w * look.rear.h;
-    const spr = svgSprite(look.rear.svg, w, h);
+    const spr = svgSprite(art, w, h) ?? (look.rear.svg ? svgSprite(look.rear.svg, w, h) : null);
     if (spr) {
       c.fillStyle = 'rgba(0,0,0,0.35)';
       c.fillRect(x - w * 0.53, y - h * 0.05, w * 1.06, h * 0.08);
       c.drawImage(spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
-      if (look.brake || look.night) {
-        for (const u of [0.1, 0.205, 0.795, 0.9]) {
-          c.fillStyle = 'rgba(255,60,40,0.45)';
+      const gl = look.rear.glow;
+      if ((look.brake || look.night) && gl) {
+        c.fillStyle = 'rgba(255,50,30,0.5)';
+        for (const [u, f] of gl.dots ?? []) {
           c.beginPath();
-          c.arc(x - w / 2 + u * w, y - h + 0.465 * h, w * 0.06, 0, Math.PI * 2);
+          c.arc(x - w / 2 + u * w, y - h + f * h, w * 0.06, 0, Math.PI * 2);
           c.fill();
         }
+        if (gl.bar) c.fillRect(x - w / 2 + gl.bar[0] * w, y - h + gl.bar[1] * h, (gl.bar[2] - gl.bar[0]) * w, (gl.bar[3] - gl.bar[1]) * h);
       }
       return;
     }
@@ -616,6 +629,18 @@ function drawTruck(c: CanvasRenderingContext2D, x: number, y: number, w: number,
 
 // Vista lateral (escolha do carro e posto). x = frente do carro, y = chão.
 export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec) {
+  if (car.imgSide) {
+    const aspect = spriteAspect(car.imgSide);
+    const spr = aspect ? svgSprite(car.imgSide, len, len * aspect) : null;
+    if (spr && aspect) {
+      c.fillStyle = 'rgba(0,0,0,0.45)';
+      c.beginPath();
+      c.ellipse(x + len / 2, y, len * 0.5, len * 0.022, 0, 0, Math.PI * 2);
+      c.fill();
+      c.drawImage(spr, Math.round(x), Math.round(y - len * aspect), Math.round(len), Math.round(len * aspect));
+      return;
+    }
+  }
   if (car.svgSide) {
     // viewBox 1071 x 300 com o chão em y = 294
     const h = (len * 300) / 1071;

@@ -213,7 +213,7 @@ function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
   const car = CARS[s.carIdx];
   const x = ox();
   purpleBg(c, 'Duel Racer');
-  drawCarSide(c, x + 50, 104, 220, car);
+  drawCarSide(c, x + 30, 108, 260, car);
   const b = carButtons();
   smallButton(c, b.prev, '◀');
   smallButton(c, b.next, '▶');

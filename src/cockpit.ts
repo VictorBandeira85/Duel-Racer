@@ -25,6 +25,8 @@ interface CockpitArt {
 
 // a arte cobre da linha 100 da tela até o fim (124 linhas); o topo transparente mostra a estrada
 const ART_TOP = 100;
+const DASH_PAD = 102; // colunas extras de cada lado do painel (telas largas), ver import_cockpit.py
+const DASH_W = 256 + 2 * DASH_PAD;
 const COCKPIT_ART: Record<string, CockpitArt> = {
   f40: { dash: dashF40Png, wheel: wheelF40Png, pivot: [127.4, 80], tach: [109, 42.9, 17.5], speed: [149, 42.9, 17.5], speedMax: 360, needle: '#ff2a1a', hub: '#ff2a1a' },
   '959': { dash: dash959Png, wheel: wheel959Png, pivot: [127.8, 104], tach: [127.4, 61.1, 23.5], speed: [177.8, 66.6, 20.2], speedMax: 300, needle: '#ff6a1a', hub: '#1a1a1a' },
@@ -36,14 +38,16 @@ export const COCKPIT_IMAGES = Object.values(COCKPIT_ART).flatMap((a) => [a.dash,
 function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: CockpitArt): boolean {
   const { w } = view;
   const ox = coreX();
-  const dash = svgSprite(art.dash, CORE_W, 124);
+  const dash = svgSprite(art.dash, DASH_W, 124);
   const wheelImg = svgSprite(art.wheel, CORE_W, 124);
   if (!dash || !wheelImg) return false;
-  if (ox > 0) {
-    c.drawImage(dash, 0, 0, 8, 124, 0, ART_TOP, ox, 124);
-    c.drawImage(dash, CORE_W - 8, 0, 8, 124, ox + CORE_W, ART_TOP, w - ox - CORE_W, 124);
+  // o painel tem DASH_PAD colunas a mais de cada lado; só além disso a borda é esticada
+  const dx = ox - DASH_PAD;
+  if (dx > 0) {
+    c.drawImage(dash, 0, 0, 2, 124, 0, ART_TOP, dx, 124);
+    c.drawImage(dash, DASH_W - 2, 0, 2, 124, dx + DASH_W, ART_TOP, w - dx - DASH_W, 124);
   }
-  c.drawImage(dash, ox, ART_TOP);
+  c.drawImage(dash, dx, ART_TOP);
   const needle = (g: [number, number, number], frac: number) => {
     const [gx, gy, gr] = g;
     const cx = ox + gx, cy = ART_TOP + gy;
@@ -228,7 +232,9 @@ function weather(c: CanvasRenderingContext2D, r: Race, vp: Viewport, dt: number)
 export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: number, stageLabel: string, totalTime: number, dt: number) {
   const { w } = view;
   const vp = windshield();
-  renderRoad(c, r, vp);
+  const art = COCKPIT_ART[r.car.dash];
+  // nas cabines desenhadas, os vidros laterais vão abaixo do painel: a estrada desce até o fim
+  renderRoad(c, r, art ? { ...vp, h: view.h - vp.y } : vp);
   weather(c, r, vp, dt);
   if (r.state === 'crash') {
     const t = 2.6 - r.timer;
@@ -242,7 +248,6 @@ export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: numbe
   }
   drawRoof(c, r, stageLabel, totalTime);
   const dash = r.car.dash;
-  const art = COCKPIT_ART[dash];
   if (art && drawCockpitArt(c, r, dt, art)) {
     // cabine desenhada a partir da arte
   } else if (dash === 'f40') drawDashF40(c, r, dt);

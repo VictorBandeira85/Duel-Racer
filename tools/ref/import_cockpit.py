@@ -17,6 +17,7 @@ import numpy as np
 from PIL import Image
 
 ROWS = 124  # linhas nativas (a cabine começa na linha 100 da tela e vai até a 224)
+PAD = 102   # colunas extras de cada lado do painel, para telas largas (até 460 px)
 
 CARS = {
     'f40': {
@@ -25,7 +26,8 @@ CARS = {
     },
     '959': {
         'scale': 0.28, 'x0': 241, 'y0': 20,
-        'erase': [(852, 276, 912, 298)],          # hodômetro (não é velocímetro digital)
+        'erase': [(852, 276, 912, 298)],
+        'fill_left': (24, 22, 22),                # BGR do pilar, onde a arte acaba          # hodômetro (não é velocímetro digital)
         'gauges': {'tach': (696, 211, 84), 'speed': (876, 228, 72)},
     },
 }
@@ -44,10 +46,16 @@ def main():
     full = cv2.imread(src)
     s = cfg['scale']
     px_w, px_h = 1 / s, (1 / s) / (8 / 7)  # px da imagem por pixel nativo
-    x0, y0 = cfg['x0'], cfg['y0']
-    x1, y1 = int(x0 + 256 * px_w), int(y0 + ROWS * px_h)
+    # área central de 256 colunas começa em xc0; o painel inclui PAD colunas de cada lado
+    xc0, y0 = cfg['x0'], cfg['y0']
+    x0 = int(round(xc0 - PAD * px_w))
+    x1, y1 = int(round(xc0 + (256 + PAD) * px_w)), int(y0 + ROWS * px_h)
     pad_x0, pad_x1 = max(0, -x0), max(0, x1 - full.shape[1])
-    canvas = cv2.copyMakeBorder(full, 0, max(0, y1 - full.shape[0]), pad_x0, pad_x1, cv2.BORDER_REPLICATE)
+    canvas = cv2.copyMakeBorder(full, 0, max(0, y1 - full.shape[0]), 0, 0, cv2.BORDER_REPLICATE)
+    # onde a arte acaba nas laterais, espelha (fica natural; repetir a coluna vira listras)
+    canvas = cv2.copyMakeBorder(canvas, 0, 0, pad_x0, pad_x1, cv2.BORDER_REFLECT)
+    if 'fill_left' in cfg:  # espelhar daria um "bico" (pilar dobrado): faz uma coluna lisa
+        canvas[:, :pad_x0] = cfg['fill_left']
     img = canvas[y0:y1, x0 + pad_x0:x1 + pad_x0].copy()
     h, w = img.shape[:2]
     yy, xx = np.mgrid[0:h, 0:w]
@@ -101,16 +109,16 @@ def main():
     fill = cv2.inpaint(img, ((~known) | (hot & near)).astype(np.uint8) * 255, 7, cv2.INPAINT_TELEA)
     dash = np.where(known[..., None], img, fill)
 
-    nw, nh = 256, ROWS
+    nw, nh = 256 + 2 * PAD, ROWS
     d_rgb = sample(cv2.cvtColor(dash, cv2.COLOR_BGR2RGB), nw, nh)
     d_a = sample((~sky).astype(np.uint8) * 255, nw, nh)
     Image.fromarray(np.dstack([d_rgb, d_a]), 'RGBA').save(f'{outdir}/{car}-dash.png')
     w_rgb = sample(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), nw, nh)
     w_a = sample((wheel & ~sky0).astype(np.uint8) * 255, nw, nh)
-    Image.fromarray(np.dstack([w_rgb, w_a]), 'RGBA').save(f'{outdir}/{car}-wheel.png')
+    Image.fromarray(np.dstack([w_rgb, w_a])[:, PAD:PAD + 256], 'RGBA').save(f'{outdir}/{car}-wheel.png')
 
-    nat = lambda x, y: [round((x - x0) / px_w, 1), round((y - y0) / px_h, 1)]
-    meta = {'pivot': nat(*geo['center']), 'rows': ROWS}
+    nat = lambda x, y: [round((x - xc0) / px_w, 1), round((y - y0) / px_h, 1)]
+    meta = {'pivot': nat(*geo['center']), 'rows': ROWS, 'pad': PAD}
     for k, (gx, gy, gr) in cfg['gauges'].items():
         meta[k] = nat(gx, gy) + [round(gr / px_w, 1)]
     print(json.dumps(meta))

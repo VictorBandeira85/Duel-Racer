@@ -1,6 +1,6 @@
 // Telas do modo Carreira: central (regiões e eventos), evento, garagem, concessionária e resultado.
 import { SAFE_W, view, KMH } from './config';
-import { CARS, drawCarSide } from './cars';
+import { CARS, drawCarSide, layout } from './cars';
 import {
   MAX_LEVEL, REGIONS, UPGRADES, carById, eventUnlocked, levels, newCareer, priceOf, regionUnlocked, saveCareer,
   sellValue, upgradeCost, type CareerSave, type EventResult,
@@ -264,12 +264,13 @@ export function drawDealer(c: CanvasRenderingContext2D, s: AppState) {
   smallButton(c, b.next, '▶');
   panel(c, { x: x + 6, y: 112, w: SAFE_W - 12, h: 88 }, '#8c84c8', '#2a2060');
   const rows: [string, string][] = [
-    ['Preço', car.price], ['Motor', car.engine], ['Potência', car.power],
+    ['Preço', car.price], ['Motor', `${car.engine}, ${car.power}`], ['Layout', layout(car)],
+    ['Peso', `${car.mass.toLocaleString('pt-BR')} kg`], ['Câmbio', `${car.gears.length} marchas`],
     ['0-100', `${car.zeroTo100.toFixed(1).replace('.', ',')} s`], ['Máxima', `${Math.round(car.maxSpeed * KMH)} km/h`],
   ];
   rows.forEach(([k, v], i) => {
-    text(c, k + ':', x + 100, 120 + i * 13, 8, '#2a2060', 'right', null);
-    text(c, v, x + 106, 120 + i * 13, 8, '#100830', 'left', null);
+    text(c, k + ':', x + 100, 118 + i * 11, 8, '#2a2060', 'right', null);
+    text(c, v, x + 106, 118 + i * 11, 8, '#100830', 'left', null);
   });
   const price = priceOf(car);
   smallButton(c, b.back, first ? '◀ SAIR' : '◀ VOLTAR');

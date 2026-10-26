@@ -58,6 +58,10 @@ export interface CarSpec {
   zeroTo100: number; // segundos, usado para calibrar a tração na largada
   accel: number; // multiplicador da potência (melhorias de motor/câmbio)
   mass: number; // kg
+  gears: number[]; // velocidade máxima de cada marcha, em fração da máxima do carro
+  curve: PowerCurve; // como o motor entrega a potência ao longo do giro
+  lateralG: number; // aderência em curva (g)
+  brakeG: number; // força de frenagem (g)
   traction?: number; // aderência na largada (em g), calibrada pelo 0-100
   drag?: number; // arrasto aerodinâmico (por m), calibrado pela velocidade máxima
   handling: number;
@@ -72,13 +76,19 @@ export interface CarSpec {
 }
 
 const kmh = (v: number) => v / KMH;
+const G5 = [0.28, 0.45, 0.62, 0.8, 1]; // câmbio de 5 marchas típico
+
+// turbo: fraco embaixo e "explode" no meio; seqturbo: turbos em sequência, mais linear;
+// v12/flat12: aspirados que crescem até o alto; vtec: acorda no giro alto; torque: V8/V10
+// grandes, com muita força desde baixo e fôlego menor no fim
+export type PowerCurve = 'turbo' | 'seqturbo' | 'v12' | 'flat12' | 'vtec' | 'torque';
 
 // Carros com marcas fictícias, baseados em modelos reais do começo dos anos 90.
 export const CARS: CarSpec[] = [
   {
     id: 'furia-f4', name: 'Furia F4', basedOn: 'Ferrari F40', color: '#c8161a',
     price: '$400.000', position: 'central', drive: 'traseira', engine: 'V8 biturbo',
-    displacement: '2.936 cc', power: '478 cv', maxSpeed: kmh(324), zeroTo100: 4.1, accel: 1, mass: 1100, handling: 1.0,
+    displacement: '2.936 cc', power: '478 cv', maxSpeed: kmh(324), zeroTo100: 4.1, accel: 1, mass: 1100, gears: G5, curve: 'turbo', lateralG: 1.0, brakeG: 1.05, handling: 1.0,
     dash: 'f40', hood: '#b01014', art: 'f40',
     // proporções tiradas de fotos de perfil do modelo real
     side: {
@@ -106,7 +116,7 @@ export const CARS: CarSpec[] = [
   {
     id: 'silber-95', name: 'Silber 95', basedOn: 'Porsche 959', color: '#f0b400',
     price: '$300.000', position: 'traseira', drive: 'integral', engine: 'Boxer 6 biturbo',
-    displacement: '2.849 cc', power: '450 cv', maxSpeed: kmh(317), zeroTo100: 3.7, accel: 1, mass: 1450, handling: 1.1,
+    displacement: '2.849 cc', power: '450 cv', maxSpeed: kmh(317), zeroTo100: 3.7, accel: 1, mass: 1450, gears: [0.22, 0.36, 0.5, 0.65, 0.82, 1], curve: 'seqturbo', lateralG: 0.96, brakeG: 1.12, handling: 1.1,
     dash: '959', hood: '#d89c00', art: '959',
     // proporções tiradas da foto de perfil do modelo real
     side: {
@@ -135,7 +145,7 @@ export const CARS: CarSpec[] = [
   {
     id: 'toro-v12', name: 'Toro V12', basedOn: 'Lamborghini Diablo', color: '#f0c010',
     price: '$240.000', position: 'central', drive: 'traseira', engine: 'V12 48v',
-    displacement: '5.707 cc', power: '492 cv', maxSpeed: kmh(325), zeroTo100: 4.5, accel: 1, mass: 1576, handling: 0.9,
+    displacement: '5.707 cc', power: '492 cv', maxSpeed: kmh(325), zeroTo100: 4.5, accel: 1, mass: 1576, gears: G5, curve: 'v12', lateralG: 0.92, brakeG: 1.0, handling: 0.9,
     dash: 'diablo', hood: '#d8a808', art: 'diablo',
     side: {
       body: [0, 0.055, 0, 0.085, 0.03, 0.115, 0.2, 0.145, 0.3, 0.162, 0.47, 0.246, 0.58, 0.25, 0.64, 0.236, 0.85, 0.198, 0.96, 0.19, 1, 0.17, 1, 0.08, 0.985, 0.055],
@@ -152,7 +162,7 @@ export const CARS: CarSpec[] = [
   {
     id: 'vortex-zr', name: 'Vortex ZR', basedOn: 'Corvette ZR-1 (C4)', color: '#d81a12',
     price: '$60.000', position: 'dianteira', drive: 'traseira', engine: 'V8 32v',
-    displacement: '5.733 cc', power: '380 cv', maxSpeed: kmh(290), zeroTo100: 4.7, accel: 1, mass: 1590, handling: 0.98,
+    displacement: '5.733 cc', power: '380 cv', maxSpeed: kmh(290), zeroTo100: 4.7, accel: 1, mass: 1590, gears: [0.25, 0.38, 0.52, 0.66, 0.82, 1], curve: 'torque', lateralG: 0.95, brakeG: 1.12, handling: 0.98,
     dash: 'zr1', hood: '#b01410', art: 'zr1',
     side: {
       body: [0, 0.065, 0, 0.11, 0.02, 0.13, 0.3, 0.165, 0.42, 0.176, 0.52, 0.252, 0.64, 0.258, 0.7, 0.25, 0.86, 0.205, 0.97, 0.19, 1, 0.17, 1, 0.07, 0.985, 0.06],
@@ -166,7 +176,7 @@ export const CARS: CarSpec[] = [
   {
     id: 'furia-tr', name: 'Furia TR', basedOn: 'Ferrari Testarossa', color: '#d01c1c',
     price: '$180.000', position: 'central', drive: 'traseira', engine: '12 cil. boxer',
-    displacement: '4.943 cc', power: '390 cv', maxSpeed: kmh(290), zeroTo100: 5.3, accel: 1, mass: 1506, handling: 0.92,
+    displacement: '4.943 cc', power: '390 cv', maxSpeed: kmh(290), zeroTo100: 5.3, accel: 1, mass: 1506, gears: G5, curve: 'flat12', lateralG: 0.88, brakeG: 0.98, handling: 0.92,
     dash: 'testarossa', hood: '#b01818', art: 'testarossa',
     side: {
       body: [0, 0.06, 0, 0.1, 0.02, 0.128, 0.2, 0.148, 0.34, 0.168, 0.46, 0.244, 0.58, 0.25, 0.65, 0.234, 0.84, 0.212, 0.98, 0.205, 1, 0.18, 1, 0.08, 0.985, 0.06],
@@ -179,7 +189,7 @@ export const CARS: CarSpec[] = [
   {
     id: 'toro-lp5', name: 'Toro LP5', basedOn: 'Lamborghini Countach', color: '#e8e8e2',
     price: '$150.000', position: 'central', drive: 'traseira', engine: 'V12 48v',
-    displacement: '5.167 cc', power: '455 cv', maxSpeed: kmh(295), zeroTo100: 4.9, accel: 1, mass: 1490, handling: 0.88,
+    displacement: '5.167 cc', power: '455 cv', maxSpeed: kmh(295), zeroTo100: 4.9, accel: 1, mass: 1490, gears: G5, curve: 'v12', lateralG: 0.92, brakeG: 1.0, handling: 0.88,
     dash: 'countach', hood: '#dcdcd6', art: 'countach',
     side: {
       body: [0, 0.055, 0, 0.085, 0.03, 0.11, 0.35, 0.172, 0.48, 0.248, 0.6, 0.254, 0.64, 0.25, 0.67, 0.27, 0.75, 0.27, 0.77, 0.24, 0.92, 0.205, 1, 0.19, 1, 0.08, 0.985, 0.055],
@@ -197,7 +207,7 @@ export const CARS: CarSpec[] = [
   {
     id: 'kaze-nx', name: 'Kaze NX', basedOn: 'Honda NSX', color: '#1a1a1e',
     price: '$65.000', position: 'central', drive: 'traseira', engine: 'V6 24v',
-    displacement: '2.977 cc', power: '274 cv', maxSpeed: kmh(270), zeroTo100: 5.7, accel: 1, mass: 1370, handling: 1.18,
+    displacement: '2.977 cc', power: '274 cv', maxSpeed: kmh(270), zeroTo100: 5.7, accel: 1, mass: 1370, gears: G5, curve: 'vtec', lateralG: 0.97, brakeG: 1.1, handling: 1.18,
     dash: 'nsx', hood: '#2a2a30', art: 'nsx',
     side: {
       body: [0, 0.065, 0, 0.1, 0.03, 0.128, 0.22, 0.152, 0.33, 0.168, 0.45, 0.252, 0.58, 0.262, 0.66, 0.248, 0.8, 0.214, 0.92, 0.2, 0.975, 0.216, 1, 0.21, 1, 0.09, 0.985, 0.065],
@@ -213,7 +223,7 @@ export const CARS: CarSpec[] = [
   {
     id: 'serpe-v10', name: 'Serpe V10', basedOn: 'Dodge Viper RT/10', color: '#c81e24',
     price: '$55.000', position: 'dianteira', drive: 'traseira', engine: 'V10 20v',
-    displacement: '7.990 cc', power: '400 cv', maxSpeed: kmh(266), zeroTo100: 4.6, accel: 1, mass: 1490, handling: 0.92,
+    displacement: '7.990 cc', power: '400 cv', maxSpeed: kmh(266), zeroTo100: 4.6, accel: 1, mass: 1490, gears: [0.3, 0.45, 0.6, 0.74, 0.87, 1], curve: 'torque', lateralG: 0.96, brakeG: 1.0, handling: 0.92,
     dash: 'viper', hood: '#a8161a', art: 'viper',
     side: {
       body: [0, 0.065, 0, 0.12, 0.03, 0.148, 0.2, 0.165, 0.38, 0.178, 0.46, 0.182, 0.56, 0.186, 0.7, 0.19, 0.92, 0.186, 1, 0.16, 1, 0.07, 0.985, 0.065],
@@ -251,7 +261,6 @@ for (const car of CARS) {
 // limitada pela tração; menos arrasto do ar (cresce com v²) e resistência dos pneus.
 // A velocidade máxima aparece onde o motor empata com o ar; a tração é calibrada pelo
 // 0-100 real de cada carro e o arrasto pela máxima real.
-export const GEARS = [0.22, 0.4, 0.58, 0.78, 1];
 export const G = 9.81;
 const ROLL = 0.18; // resistência dos pneus e atritos (m/s²)
 const EFFICIENCY = 0.85; // perdas na transmissão
@@ -259,18 +268,25 @@ export const toMs = (v: number) => (v * KMH) / 3.6;
 export const toGame = (a: number) => (a * 3.6) / KMH;
 const powerW = (car: CarSpec) => Number(car.power.replace(/\D/g, '')) * 735.5 * EFFICIENCY * car.accel;
 
-// fração da potência máxima conforme a rotação (pico perto de 85% do giro)
-function powerShape(rpm: number) {
-  const r = clamp(rpm, 0.12, 1);
-  return r < 0.85 ? 0.38 + (0.62 * r) / 0.85 : 1 - (r - 0.85) * 0.9;
+// fração da potência máxima conforme a rotação, por tipo de motor
+function powerShape(rpm: number, curve: PowerCurve = 'v12') {
+  const r = clamp(rpm, 0.1, 1);
+  switch (curve) {
+    case 'turbo': return r < 0.35 ? 0.22 + 0.5 * r : r < 0.6 ? 0.4 + ((r - 0.35) / 0.25) * 0.58 : r < 0.88 ? 0.98 + (r - 0.6) * 0.07 : 1 - (r - 0.88) * 0.9;
+    case 'seqturbo': return r < 0.75 ? 0.45 + (0.55 * r) / 0.75 : 1 - (r - 0.75) * 0.4;
+    case 'v12': return r < 0.9 ? 0.3 + (0.7 * r) / 0.9 : 1 - (r - 0.9) * 0.6;
+    case 'flat12': return r < 0.85 ? 0.38 + (0.62 * r) / 0.85 : 1 - (r - 0.85) * 0.7;
+    case 'vtec': return r < 0.62 ? 0.32 + (0.43 * r) / 0.62 : r < 0.93 ? 0.75 + ((r - 0.62) / 0.31) * 0.25 : 1 - (r - 0.93) * 0.5;
+    case 'torque': return r < 0.6 ? 0.58 + (0.42 * r) / 0.6 : r < 0.8 ? 1 : 1 - (r - 0.8) * 0.9;
+  }
 }
 
 // aceleração do motor (m/s²) na marcha atual; zero no corte de giro
 export function driveAcc(car: CarSpec, gear: number, speed: number) {
-  const gearMax = car.maxSpeed * GEARS[gear];
+  const gearMax = car.maxSpeed * car.gears[gear];
   if (speed >= gearMax) return 0;
   const v = Math.max(toMs(speed), 1.5);
-  const aPow = (powerW(car) * powerShape(speed / gearMax)) / (car.mass * v);
+  const aPow = (powerW(car) * powerShape(speed / gearMax, car.curve)) / (car.mass * v);
   return Math.min(aPow, (car.traction ?? 1) * G);
 }
 
@@ -281,21 +297,31 @@ export function resistAcc(car: CarSpec, speed: number, dragMul = 1) {
 }
 
 export function autoGear(car: CarSpec, gear: number, speed: number, throttle: boolean) {
-  const rpm = speed / (car.maxSpeed * GEARS[gear]);
-  if (rpm >= 0.97 && throttle && gear < 4) return gear + 1;
-  if (gear > 0 && speed < car.maxSpeed * GEARS[gear - 1] * 0.85) return gear - 1;
+  const rpm = speed / (car.maxSpeed * car.gears[gear]);
+  if (rpm >= 0.97 && throttle && gear < car.gears.length - 1) return gear + 1;
+  if (gear > 0 && speed < car.maxSpeed * car.gears[gear - 1] * 0.85) return gear - 1;
   return gear;
+}
+
+// marcha que o câmbio automático usaria nesta velocidade (rival e gráficos)
+export function gearFor(car: CarSpec, speed: number) {
+  let g = 0;
+  while (g < car.gears.length - 1 && speed >= car.maxSpeed * car.gears[g] * 0.97) g++;
+  return g;
 }
 
 // arrasto que faz a máxima acontecer exatamente na velocidade de ficha do carro
 export function prepareCar(car: CarSpec) {
   const vmax = toMs(car.maxSpeed) * 0.995;
-  const aPow = (powerW(car) * powerShape(0.995)) / (car.mass * vmax);
+  const aPow = (powerW(car) * powerShape(0.995, car.curve)) / (car.mass * vmax);
   car.drag = Math.max(0.00002, (aPow - ROLL) / (vmax * vmax));
   return car;
 }
 
 // Curva de aceleração (km/h a cada 0,25 s) e tempo de 0 a 100 km/h
+// posição do motor / tração, abreviados para caber na ficha técnica
+export const layout = (car: CarSpec) => `${car.position.slice(0, 4)}. / ${car.drive.slice(0, 4)}.`;
+
 export function accelCurve(car: CarSpec, seconds = 14) {
   const pts: number[] = [];
   let speed = 0, gear = 0, t100 = 0;

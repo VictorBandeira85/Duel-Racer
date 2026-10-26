@@ -3,7 +3,7 @@ import type { CareerSave, EventResult } from './career';
 import { drawCareerScreen, keyCareerScreen, openCareer, tapCareerScreen } from './careerScreens';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
-import { CARS, accelCurve, drawCar, drawCarSide, type CarSpec } from './cars';
+import { CARS, accelCurve, drawCar, drawCarSide, layout, type CarSpec } from './cars';
 import { COURSES, type Course } from './courses';
 import { THEMES } from './themes';
 import { dither, inside, panel, text, type Rect } from './ui';
@@ -274,9 +274,9 @@ function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
   });
   const { pts } = accelCurve(car);
   const rows: [string, string][] = [
-    ['Preço', car.price], ['Motor', car.engine], ['Posição', car.position], ['Tração', car.drive],
-    ['Cilindr.', car.displacement], ['Potência', car.power], ['0-100', `${car.zeroTo100.toFixed(1).replace('.', ',')} s`],
-    ['Máxima', `${Math.round(car.maxSpeed * KMH)} km/h`],
+    ['Preço', car.price], ['Motor', car.engine], ['Layout', layout(car)], ['Potência', car.power],
+    ['Peso', `${car.mass.toLocaleString('pt-BR')} kg`], ['Câmbio', `${car.gears.length} marchas`],
+    ['0-100', `${car.zeroTo100.toFixed(1).replace('.', ',')} s`], ['Máxima', `${Math.round(car.maxSpeed * KMH)} km/h`],
   ];
   rows.forEach(([k, v], i) => {
     const yy = p.y + 28 + i * 11;

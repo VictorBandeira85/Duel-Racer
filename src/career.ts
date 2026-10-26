@@ -88,7 +88,9 @@ export function tunedCar(car: CarSpec, lv: Record<Upgrade, number>): CarSpec {
     ...car,
     maxSpeed: car.maxSpeed * (1 + 0.03 * lv.motor),
     accel: car.accel * (1 + 0.06 * lv.motor + 0.05 * lv.cambio),
-    handling: car.handling * (1 + 0.06 * lv.pneus),
+    handling: car.handling * (1 + 0.04 * lv.pneus),
+    lateralG: car.lateralG * (1 + 0.05 * lv.pneus),
+    brakeG: car.brakeG * (1 + 0.03 * lv.pneus),
     traction: (car.traction ?? 1) * (1 + 0.04 * lv.pneus),
   };
   return prepareCar(tuned);

@@ -6,7 +6,11 @@ export function text(
   size = 8, color = '#fff', align: CanvasTextAlign = 'left', shadow: string | null = '#000',
 ) {
   c.font = `${size}px ${FONT}`;
-  c.textAlign = align;
+  // posição inteira, para a fonte de pixel não sair com antialias
+  const tw = align === 'left' ? 0 : c.measureText(s).width;
+  x = Math.round(align === 'center' ? x - tw / 2 : align === 'right' ? x - tw : x);
+  y = Math.round(y);
+  c.textAlign = 'left';
   c.textBaseline = 'top';
   if (shadow) {
     c.fillStyle = shadow;

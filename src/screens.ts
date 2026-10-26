@@ -193,15 +193,31 @@ const carButtons = () => {
   };
 };
 
+// marca d'água em pixels duros (texto do canvas sai com antialias, que parece borrado)
+const marks = new Map<string, HTMLCanvasElement>();
+function watermark(label: string): HTMLCanvasElement {
+  let cv = marks.get(label);
+  if (cv) return cv;
+  cv = document.createElement('canvas');
+  cv.width = 80;
+  cv.height = 16;
+  const m = cv.getContext('2d')!;
+  m.font = 'italic 12px Georgia, serif';
+  m.fillStyle = '#6a5eb0';
+  m.fillText(label, 1, 12);
+  const img = m.getImageData(0, 0, cv.width, cv.height);
+  for (let i = 3; i < img.data.length; i += 4) img.data[i] = img.data[i] >= 100 ? 255 : 0;
+  m.putImageData(img, 0, 0);
+  marks.set(label, cv);
+  return cv;
+}
+
 function purpleBg(c: CanvasRenderingContext2D, label: string) {
   const { w, h } = view;
   c.fillStyle = '#4e4290';
   c.fillRect(0, 0, w, h);
-  c.save();
-  c.font = 'italic 12px Georgia, serif';
-  c.fillStyle = '#6a5eb0';
-  for (let row = 0; row < 12; row++) for (let col = -1; col < w / 70 + 1; col++) c.fillText(label, col * 70 + (row % 2) * 35, 14 + row * 15);
-  c.restore();
+  const mark = watermark(label);
+  for (let row = 0; row < 12; row++) for (let col = -1; col < w / 70 + 1; col++) c.drawImage(mark, col * 70 + (row % 2) * 35 - 1, 2 + row * 15);
 }
 
 function smallButton(c: CanvasRenderingContext2D, r: Rect, label: string, hot = false) {

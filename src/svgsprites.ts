@@ -41,10 +41,21 @@ export function svgSprite(svg: string, w: number, h: number): HTMLCanvasElement 
   cv.width = bw;
   cv.height = bh;
   const c = cv.getContext('2d')!;
-  c.drawImage(img, 0, 0, bw, bh);
+  // pixel art: redução por vizinho mais próximo (um pixel da arte por pixel da tela, sem
+  // misturar cores); SVG é rasterizado em 4x e reduzido do mesmo jeito, para não ter antialias
+  c.imageSmoothingEnabled = false;
+  if (svg.trimStart().startsWith('<svg')) {
+    const big = document.createElement('canvas');
+    big.width = bw * 4;
+    big.height = bh * 4;
+    big.getContext('2d')!.drawImage(img, 0, 0, bw * 4, bh * 4);
+    c.drawImage(big, 0, 0, bw, bh);
+  } else {
+    c.drawImage(img, 0, 0, bw, bh);
+  }
   const data = c.getImageData(0, 0, bw, bh);
   const d = data.data;
-  for (let i = 3; i < d.length; i += 4) d[i] = d[i] >= 110 ? 255 : 0;
+  for (let i = 3; i < d.length; i += 4) d[i] = d[i] >= 128 ? 255 : 0;
   c.putImageData(data, 0, 0);
   if (rasters.size >= MAX_RASTERS) rasters.delete(rasters.keys().next().value!);
   rasters.set(key, cv);

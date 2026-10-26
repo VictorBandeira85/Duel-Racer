@@ -1,3 +1,4 @@
+import { drawCrisp } from './crisp';
 import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { drawCar } from './cars';
 import type { Officer, Race, TrafficCar } from './race';
@@ -213,7 +214,11 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
       const sh = def.h * sc * vp.K;
       const sx = s.p1.screen.x + sc * sp.x * vp.K;
       if (sx + sw / 2 < vp.x || sx - sw / 2 > vp.x + vp.w || sw < 1.2) continue;
-      def.draw(c, sx, s.p1.screen.y, sw, sh, sp.seed);
+      // desenhado como pixel art nítida (sem antialias, com contorno); a caixa é um pouco
+      // mais larga que o objeto para caber o que passa da largura (braço do poste etc.)
+      const seed = sp.kind === 'building' ? sp.seed % 45 : sp.kind === 'house' ? sp.seed % 6 : 0;
+      const bw = sw * (sp.kind === 'lamp' ? 3.4 : 1.1);
+      drawCrisp(c, `${sp.kind}${seed}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed));
     }
     for (const e of s.cars) {
       if (e.z - r.position < 450) continue; // colado no para-brisa: some sob o painel

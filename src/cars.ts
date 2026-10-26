@@ -1,3 +1,4 @@
+import { drawCrisp } from './crisp';
 import { KMH } from './config';
 import { clamp, shade } from './util';
 import { F40_REAR, F40_SIDE } from './svg/f40';
@@ -295,7 +296,6 @@ function glow(c: CanvasRenderingContext2D, x: number, y: number, w: number, rgb:
 // Carro visto de trás (ou de frente, se vier na contramão). (x, y) = centro da base.
 export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   if (w < 2) return;
-  if (look.truck) return drawTruck(c, x, y, w, look);
   if (look.front && look.rear?.frontImg) {
     const h = w * look.rear.h;
     const spr = svgSprite(look.rear.frontImg, w, h);
@@ -327,6 +327,32 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
   }
   if (look.rear?.custom === 'f40' && !look.front) return drawRearF40(c, x, y, w, look);
   if (look.rear?.custom === '959' && !look.front) return drawRear959(c, x, y, w, look);
+  drawCarCrisp(c, x, y, w, look);
+}
+
+// Trânsito, polícia e rivais sem sprite: desenho vetorial convertido em pixel art nítida
+const rearIds = new WeakMap<RearDef, number>();
+let nextRearId = 1;
+function drawCarCrisp(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
+  const R = look.rear ?? GENERIC;
+  if (!rearIds.has(R)) rearIds.set(R, nextRearId++);
+  const h = w * (look.truck ? 1.05 : R.h);
+  c.fillStyle = 'rgba(0,0,0,0.35)';
+  c.fillRect(Math.round(x - w * 0.53), Math.round(y - h * 0.05), Math.round(w * 1.06), Math.max(1, Math.round(h * 0.08)));
+  const on = !!look.siren && Math.floor(performance.now() / 120) % 2 === 1;
+  const lit = look.brake || look.night;
+  const key = `car${rearIds.get(R)}${look.truck ? 'T' : ''}${look.front ? 'F' : ''}${look.police ? 'P' : ''}${on ? 'S' : ''}${lit ? 'L' : ''}${look.color}`;
+  const BW = 1.08, BH = 1.16;
+  drawCrisp(c, key, x, y, w * BW, h * BH, (o, bw, bh) => {
+    const ww = bw / BW;
+    const f = { ...look, siren: on, brake: lit, night: false };
+    if (look.truck) drawTruck(o, bw / 2, bh, ww, f);
+    else drawCarRaw(o, bw / 2, bh, ww, f);
+  }, 64);
+  if (look.night && look.front) glow(c, x, y - h * (look.truck ? 0.27 : 0.53), w, '255,246,192');
+}
+
+function drawCarRaw(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   const R = look.rear ?? GENERIC;
   const h = w * R.h;
   const L = x - w / 2;
@@ -381,7 +407,7 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
   }
 
   if (look.police) {
-    const on = look.siren && Math.floor(performance.now() / 120) % 2;
+    const on = look.siren;
     c.fillStyle = on ? '#ff2020' : '#801010';
     c.fillRect(x - w * 0.22, y - h * 1.1, w * 0.2, h * 0.11);
     c.fillStyle = on ? '#3030a0' : '#4060ff';
@@ -632,7 +658,7 @@ function drawTruck(c: CanvasRenderingContext2D, x: number, y: number, w: number,
     c.fillRect(L, y - h * 0.72, w, h * 0.12);
     c.fillStyle = '#9a9a9a';
     c.fillRect(x - w * 0.01, y - h * 0.98, w * 0.02, h * 0.8);
-    c.fillStyle = look.night ? '#ff3030' : '#a01414';
+    c.fillStyle = look.night || look.brake ? '#ff3030' : '#a01414';
     c.fillRect(L + w * 0.04, y - h * 0.25, w * 0.12, h * 0.07);
     c.fillRect(x + w / 2 - w * 0.16, y - h * 0.25, w * 0.12, h * 0.07);
   }

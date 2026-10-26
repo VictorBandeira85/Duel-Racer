@@ -3,7 +3,7 @@ import type { Race } from './race';
 import { renderMirror, renderRoad, type Viewport } from './render3d';
 import { pix, pixWidth } from './pixfont';
 import { dither, speckle, text } from './ui';
-import { formatTime, lerp, rng, shade } from './util';
+import { clamp, formatTime, lerp, rng, shade } from './util';
 import { F40_WHEEL } from './svg/f40';
 import { svgSprite } from './svgsprites';
 // cabines em pixel art (tools/ref/import_cockpit.py)
@@ -760,7 +760,8 @@ function leatherRim(c: CanvasRenderingContext2D, cx: number, cy: number, R: numb
 }
 
 function steerAngle(r: Race, dt: number) {
-  wheelAngle = lerp(wheelAngle, r.steer * 0.3, Math.min(1, dt * 10));
+  // com a traseira escapando o volante vai para o lado contrário (contraesterço)
+  wheelAngle = lerp(wheelAngle, clamp(r.steer * 0.3 - r.yaw * 4, -0.6, 0.6), Math.min(1, dt * 10));
   return wheelAngle;
 }
 

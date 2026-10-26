@@ -63,8 +63,9 @@ function drawOfficer(c: CanvasRenderingContext2D, x: number, y: number, h: numbe
   c.fillRect(x - w * 0.05, y - h * 0.985, w * 0.1, h * 0.035);
 }
 
-function project(p: Point, camX: number, camY: number, camZ: number, roadW: number, vp: Viewport) {
-  p.camera.x = -camX;
+// yaw: carro atravessado, a câmera gira (desloca mais quanto mais longe)
+function project(p: Point, camX: number, camY: number, camZ: number, roadW: number, vp: Viewport, yaw = 0) {
+  p.camera.x = -camX - yaw * (p.world.z - camZ);
   p.camera.y = p.world.y - camY;
   p.camera.z = p.world.z - camZ;
   const s = CAM_DEPTH / p.camera.z;
@@ -124,6 +125,7 @@ function hash(n: number) {
 function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   const th = r.theme;
   const night = !!r.def.night;
+  const yawPx = CAM_DEPTH * r.yaw * vp.K; // carro atravessado: o fundo gira junto com a pista
   // céu em faixas, do tom de cima até o do horizonte (com uma linha pontilhada em cada emenda)
   const top = vp.y, hz = vp.horizon + 2, bands = 6;
   for (let i = 0; i < bands; i++) {
@@ -139,7 +141,7 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   if (night) {
     c.fillStyle = '#fff';
     for (let i = 0; i < 40; i++) {
-      const sx = ((hash(i) * 900 - r.bgOffset * 0.1) % vp.w + vp.w) % vp.w;
+      const sx = ((hash(i) * 900 - r.bgOffset * 0.1 - yawPx) % vp.w + vp.w) % vp.w;
       c.fillRect(vp.x + Math.floor(sx), vp.y + Math.floor(hash(i + 50) * (vp.horizon - vp.y) * 0.7), 1, 1);
     }
     c.fillStyle = '#fff4c8';
@@ -151,7 +153,7 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   const [far, near] = th.bg;
   const layer = (kind: BgLayer, isNear: boolean, speed: number) => {
     const img = panorama(kind, isNear, night, seed);
-    const off = ((Math.floor(r.bgOffset * speed) % PANO_W) + PANO_W) % PANO_W;
+    const off = ((Math.floor(r.bgOffset * speed + yawPx) % PANO_W) + PANO_W) % PANO_W;
     const y = vp.horizon - PANO_H + 1;
     c.drawImage(img, vp.x - off, y);
     if (PANO_W - off < vp.w) c.drawImage(img, vp.x - off + PANO_W, y);
@@ -211,8 +213,8 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   for (let i = base.index; i < end; i++) {
     const s = segs[i];
     s.clip = maxy;
-    project(s.p1, r.x - x, playerY + CAM_H, r.position, roadW, vp);
-    project(s.p2, r.x - x - dx, playerY + CAM_H, r.position, roadW, vp);
+    project(s.p1, r.x - x, playerY + CAM_H, r.position, roadW, vp, r.yaw);
+    project(s.p2, r.x - x - dx, playerY + CAM_H, r.position, roadW, vp, r.yaw);
     x += dx;
     dx += s.curve;
     if (s.p1.camera.z <= CAM_DEPTH || s.p2.screen.y >= s.p1.screen.y || s.p2.screen.y >= maxy) continue;

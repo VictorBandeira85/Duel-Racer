@@ -250,7 +250,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
       const ex = e.x;
       const cx = baseX + sc * ex * vp.K;
       if (e === r.rival) {
-        drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: r.rival.recover > 0, night });
+        drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: r.rival.recover > 0 || r.rival.mistake > 0, night, paint: r.rivalPaint });
       } else if ('phase' in e) {
         drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, (e as Officer).phase === 'show');
       } else if ('spotZ' in e) {
@@ -304,7 +304,7 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
   const behind: { z: number; x: number; w: number; look: Parameters<typeof drawCar>[4] }[] = [];
   const night = !!r.def.night;
   for (const t of r.traffic) behind.push({ z: t.z, x: t.x, w: t.truck ? TRUCK_W : CAR_W, look: { color: t.color, front: t.speed > 0, truck: t.truck, night } });
-  if (r.rival) behind.push({ z: r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night } });
+  if (r.rival) behind.push({ z: r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint } });
   for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') behind.push({ z: p.z, x: p.x, w: POLICE_W, look: { color: '#fff', police: true, siren: true, front: true, night } });
   behind.sort((a, b) => a.z - b.z);
   for (const b of behind) {

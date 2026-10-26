@@ -18,6 +18,7 @@ export interface Course {
   level: string;
   rivalSkill: number;
   stages: StageDef[];
+  seed?: number; // semente das pistas (eventos da carreira)
 }
 
 const s = (theme: ThemeId, lanes: 2 | 4, extra: Partial<StageDef> = {}): StageDef => ({

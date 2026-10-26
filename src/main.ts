@@ -1,7 +1,10 @@
 import '@fontsource/press-start-2p/400.css';
 import { RES, view } from './config';
 import { CARS } from './cars';
-import { COURSES } from './courses';
+import { COURSES, type Course } from './courses';
+import { ui as careerUi } from './careerScreens';
+import { REGIONS, carById, eventCourse, levels, loadCareer, settleEvent, tunedCar } from './career';
+import type { CarSpec } from './cars';
 import { Race } from './race';
 import { COCKPIT_IMAGES, renderCockpit } from './cockpit';
 import { drawScreen, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
@@ -20,7 +23,18 @@ const state: AppState = {
   screen: 'title', t: 0, sel: 1, auto: true, sound: true, music: true,
   carIdx: 0, oppIdx: 0, courseIdx: 0, scoreCourse: 0,
   lives: 5, results: [], gameOver: false,
+  mode: 'arcade', career: loadCareer(), careerResult: null,
 };
+
+// corrida em andamento: percurso, carro (com melhorias, na carreira) e rival
+interface Run {
+  course: Course;
+  car: CarSpec;
+  rival: CarSpec | null;
+  opts: { rivalStyle?: import('./race').RivalStyle; rivalPaint?: string };
+  event?: { region: number; event: number };
+}
+let run: Run = { course: COURSES[0], car: CARS[0], rival: null, opts: {} };
 let race: Race | null = null;
 let paused = false;
 
@@ -46,15 +60,28 @@ const actions: Actions = {
     playMusic('menu');
   },
   startCourse() {
-    initAudio();
-    state.lives = 5;
-    state.results = [];
-    state.gameOver = false;
-    startStage(0);
+    state.mode = 'arcade';
+    run = {
+      course: COURSES[state.courseIdx], car: CARS[state.carIdx],
+      rival: state.oppIdx < CARS.length ? CARS[state.oppIdx] : null, opts: {},
+    };
+    begin(5);
+  },
+  startEvent(region: number, event: number) {
+    const cs = state.career!;
+    const ev = REGIONS[region].events[event];
+    careerUi.region = region;
+    careerUi.event = event;
+    state.mode = 'career';
+    state.carIdx = CARS.findIndex((c) => c.id === cs.car);
+    run = {
+      course: eventCourse(ev), car: tunedCar(carById(cs.car), levels(cs, cs.car)), rival: carById(ev.driver.car),
+      opts: { rivalStyle: ev.driver.style, rivalPaint: ev.driver.paint }, event: { region, event },
+    };
+    begin(3);
   },
   nextStage() {
-    const course = COURSES[state.courseIdx];
-    if (state.results.length >= course.stages.length) finishCourse();
+    if (state.results.length >= run.course.stages.length) finishCourse();
     else startStage(state.results.length);
   },
   toggleSound() {
@@ -67,12 +94,18 @@ const actions: Actions = {
   },
 };
 
+function begin(lives: number) {
+  initAudio();
+  state.lives = lives;
+  state.results = [];
+  state.gameOver = false;
+  startStage(0);
+}
+
 function startStage(i: number) {
-  const course = COURSES[state.courseIdx];
-  const rivalCar = state.oppIdx < CARS.length ? CARS[state.oppIdx] : null;
-  const r = new Race(course, i, CARS[state.carIdx], rivalCar, state.auto);
+  const r = new Race(run.course, i, run.car, run.rival, state.auto, run.opts);
   r.onArrive = () => {
-    state.results.push({ time: r.time, rival: r.rivalTime, clean: r.clean, crashes: r.crashes, tickets: r.tickets });
+    state.results.push({ time: r.time, rival: r.rivalTime, clean: r.clean, crashes: r.crashes, tickets: r.tickets, fines: r.fines });
     if (r.clean) state.lives++;
     actions.go('gas');
   };
@@ -80,7 +113,8 @@ function startStage(i: number) {
     state.lives--;
     if (state.lives <= 0) {
       state.gameOver = true;
-      actions.go('end');
+      if (state.mode === 'career') settle(false, r);
+      else actions.go('end');
     }
   };
   race = r;
@@ -88,10 +122,26 @@ function startStage(i: number) {
   state.screen = 'race';
   resize();
   showControls(true);
-  playMusic(`r${state.courseIdx % 4}`);
+  playMusic(`r${(run.event ? run.event.region : state.courseIdx) % 4}`);
+}
+
+// resultado de um evento da carreira (dinheiro, prêmio, progresso)
+function settle(won: boolean, last?: Race) {
+  const ev = REGIONS[run.event!.region].events[run.event!.event];
+  const res = state.results;
+  const fines = res.reduce((a, r) => a + (r.fines ?? 0), 0) + (last && state.gameOver ? last.fines : 0);
+  const crashes = res.reduce((a, r) => a + r.crashes, 0) + (last && state.gameOver ? last.crashes : 0);
+  state.careerResult = settleEvent(state.career!, ev, won, state.gameOver, res.filter((r) => r.clean).length, fines, crashes);
+  actions.go('careerEnd');
 }
 
 function finishCourse() {
+  if (state.mode === 'career') {
+    const total = totalTime();
+    const rival = state.results.reduce((a, r) => a + Math.max(0, r.rival), 0);
+    settle(total <= rival);
+    return;
+  }
   const course = COURSES[state.courseIdx];
   const total = totalTime();
   const rivalOk = state.results.every((r) => r.rival >= 0);
@@ -176,8 +226,7 @@ function frame(now: number) {
       }
     }
     if (state.screen === 'race') {
-      const course = COURSES[state.courseIdx];
-      renderCockpit(ctx, race, state.lives, `${race.stageIdx + 1}/${course.stages.length}`, totalTime(), paused ? 0 : dt);
+      renderCockpit(ctx, race, state.lives, `${race.stageIdx + 1}/${run.course.stages.length}`, totalTime(), paused ? 0 : dt);
     } else drawScreen(ctx, state);
   } else {
     acc = 0;

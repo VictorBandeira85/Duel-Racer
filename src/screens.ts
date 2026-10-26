@@ -1,4 +1,6 @@
 import { RIVAL_STYLE } from './race';
+import type { CareerSave, EventResult } from './career';
+import { drawCareerScreen, keyCareerScreen, openCareer, tapCareerScreen } from './careerScreens';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
 import { CARS, accelCurve, drawCar, drawCarSide, type CarSpec } from './cars';
@@ -7,10 +9,11 @@ import { THEMES } from './themes';
 import { dither, inside, panel, text, type Rect } from './ui';
 import { formatTime, shade } from './util';
 
-export type ScreenId = 'title' | 'options' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores';
+export type ScreenId = 'title' | 'options' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores'
+  | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd';
 export type MenuKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back';
 
-export interface StageResult { time: number; rival: number; clean: boolean; crashes: number; tickets: number }
+export interface StageResult { time: number; rival: number; clean: boolean; crashes: number; tickets: number; fines?: number }
 
 export interface AppState {
   screen: ScreenId;
@@ -26,6 +29,9 @@ export interface AppState {
   lives: number;
   results: StageResult[];
   gameOver: boolean;
+  mode: 'arcade' | 'career';
+  career: CareerSave | null;
+  careerResult: EventResult | null;
 }
 
 export interface Actions {
@@ -34,9 +40,10 @@ export interface Actions {
   nextStage: () => void;
   toggleSound: () => void;
   toggleMusic: () => void;
+  startEvent: (region: number, event: number) => void;
 }
 
-const ox = () => Math.floor((view.w - SAFE_W) / 2);
+export const ox = () => Math.floor((view.w - SAFE_W) / 2);
 
 export interface ScoreEntry { time: number; car: string; won: boolean }
 export function loadScores(course: Course): ScoreEntry[] {
@@ -59,7 +66,7 @@ export function saveScore(course: Course, e: ScoreEntry) {
 // ---------- tela título: placas de rodovia ----------
 const titleSigns = () => {
   const x = ox();
-  return [0, 1, 2].map((i): Rect => ({ x: x + 22 + i * 96, y: 104, w: 84, h: 52 }));
+  return [0, 1, 2, 3].map((i): Rect => ({ x: x + 6 + i * 78, y: 104, w: 74, h: 52 }));
 };
 
 function sky(c: CanvasRenderingContext2D, top: string, bottom: string, y1: number) {
@@ -79,7 +86,7 @@ function cloud(c: CanvasRenderingContext2D, x: number, y: number, s: number) {
   }
 }
 
-function drawRoadScene(c: CanvasRenderingContext2D, t: number) {
+export function drawRoadScene(c: CanvasRenderingContext2D, t: number) {
   const { w, h } = view;
   const hz = 158;
   sky(c, '#5a9ae8', '#dce8f6', hz);
@@ -159,7 +166,7 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
     c.lineTo(x, 124);
     c.fill();
   }
-  const labels = [['OPÇÕES'], ['JOGAR'], ['RECORDES']];
+  const labels = [['OPÇÕES'], ['ARCADE'], ['CARREIRA'], ['RECORDES']];
   titleSigns().forEach((r, i) => sign(c, r, labels[i], s.sel === i && Math.floor(s.t * 3) % 2 === 0));
   text(c, 'DUEL RACER', w / 2, 44, 24, '#ffd400', 'center', '#7a1010');
   text(c, 'O DUELO NA ESTRADA', w / 2, 76, 8, '#fff', 'center', '#203060');
@@ -167,10 +174,14 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
 
 function tapTitle(s: AppState, a: Actions, x: number, y: number) {
   titleSigns().forEach((r, i) => {
-    if (inside(x, y, r)) activateTitle(i, a);
+    if (inside(x, y, r)) activateTitle(s, i, a);
   });
 }
-const activateTitle = (i: number, a: Actions) => a.go((['options', 'car', 'scores'] as ScreenId[])[i]);
+function activateTitle(s: AppState, i: number, a: Actions) {
+  if (i === 2) return openCareer(s, a);
+  if (i === 1) s.mode = 'arcade';
+  a.go((['options', 'car', 'career', 'scores'] as ScreenId[])[i]);
+}
 
 // ---------- opções ----------
 const optionRects = () => [0, 1, 2, 3].map((i): Rect => ({ x: ox() + 40, y: 58 + i * 42, w: 240, h: 34 }));
@@ -217,7 +228,7 @@ function watermark(label: string): HTMLCanvasElement {
   return cv;
 }
 
-function purpleBg(c: CanvasRenderingContext2D, label: string) {
+export function purpleBg(c: CanvasRenderingContext2D, label: string) {
   const { w, h } = view;
   c.fillStyle = '#4e4290';
   c.fillRect(0, 0, w, h);
@@ -225,7 +236,7 @@ function purpleBg(c: CanvasRenderingContext2D, label: string) {
   for (let row = 0; row < 12; row++) for (let col = -1; col < w / 86 + 1; col++) c.drawImage(mark, col * 86 + (row % 2) * 43 - 1, 2 + row * 15);
 }
 
-function smallButton(c: CanvasRenderingContext2D, r: Rect, label: string, hot = false) {
+export function smallButton(c: CanvasRenderingContext2D, r: Rect, label: string, hot = false) {
   panel(c, r, hot ? '#ffd400' : '#2a2060', '#120c30');
   text(c, label, r.x + r.w / 2, r.y + r.h / 2 - 4, 8, hot ? '#200' : '#fff', 'center', null);
 }
@@ -572,10 +583,12 @@ export function drawScreen(c: CanvasRenderingContext2D, s: AppState) {
     case 'gas': return drawGas(c, s, CARS[s.carIdx]);
     case 'end': return drawEnd(c, s);
     case 'scores': return drawScores(c, s);
+    default: return drawCareerScreen(c, s);
   }
 }
 
 export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
+  if (['career', 'event', 'garage', 'dealer', 'careerEnd'].includes(s.screen)) return tapCareerScreen(s, a, x, y);
   switch (s.screen) {
     case 'title': return tapTitle(s, a, x, y);
     case 'options':
@@ -624,7 +637,8 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 }
 
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
-  const counts: Partial<Record<ScreenId, number>> = { title: 3, options: 4, opponent: OPP_N, course: 4 };
+  if (['career', 'event', 'garage', 'dealer', 'careerEnd'].includes(s.screen)) return keyCareerScreen(s, a, k);
+  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 4, opponent: OPP_N, course: 4 };
   const n = counts[s.screen];
   if (s.screen === 'car') {
     if (k === 'left') s.carIdx = (s.carIdx + CARS.length - 1) % CARS.length;
@@ -649,7 +663,7 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (grid && k === 'down') s.sel = (s.sel + 3) % n;
   if (k === 'back') a.go(s.screen === 'course' ? 'opponent' : s.screen === 'opponent' ? 'car' : 'title');
   if (k === 'ok') {
-    if (s.screen === 'title') activateTitle(s.sel, a);
+    if (s.screen === 'title') activateTitle(s, s.sel, a);
     else if (s.screen === 'options') activateOption(s, a, s.sel);
     else if (s.screen === 'opponent') {
       s.oppIdx = s.sel;

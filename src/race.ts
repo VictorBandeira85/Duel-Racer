@@ -96,6 +96,9 @@ export class Race {
   messageT = 0;
 
   rival: Rival | null = null;
+  rivalPaint?: string; // cor do rival (piloto da carreira)
+  private rivalStyleOverride?: RivalStyle;
+  fines = 0; // soma das multas do trecho
   traffic: TrafficCar[] = [];
   police: Police[] = [];
   officer: Officer | null = null;
@@ -113,12 +116,15 @@ export class Race {
     public car: CarSpec,
     public rivalCar: CarSpec | null,
     public auto: boolean,
+    opts: { rivalStyle?: RivalStyle; rivalPaint?: string } = {},
   ) {
+    this.rivalPaint = opts.rivalPaint;
+    this.rivalStyleOverride = opts.rivalStyle;
     setEngineProfile(car.engine);
     this.def = course.stages[stageIdx];
     const base = THEMES[this.def.theme];
     this.theme = this.def.night ? nightTheme(base) : this.def.weather === 'rain' ? rainTheme(base) : base;
-    const seed = course.id.length * 1000 + stageIdx * 97 + 11;
+    const seed = (course.seed ?? course.id.length * 1000) + stageIdx * 97 + 11;
     this.track = buildTrack(this.def, this.theme, seed);
     this.rand = rng(seed + 5);
 
@@ -128,7 +134,7 @@ export class Race {
     this.x = laneCenter(t, myLane);
     if (rivalCar) {
       this.rival = { z: this.playerZ, x: laneCenter(t, myLane - 1), targetX: laneCenter(t, myLane - 1), speed: 0, recover: 0, think: 0, finishTime: -1,
-        style: RIVAL_STYLE[this.rivalCar!.id] ?? 'cauteloso', mistake: 0, boost: 0 };
+        style: this.rivalStyleOverride ?? RIVAL_STYLE[this.rivalCar!.id] ?? 'cauteloso', mistake: 0, boost: 0 };
     }
     for (let i = 0; i < this.def.traffic; i++) {
       const c: TrafficCar = { z: 0, x: 0, speed: 0, color: '', truck: false, hit: false };
@@ -152,7 +158,7 @@ export class Race {
     return s[clamp(Math.floor(z / SEG_LEN), 0, s.length - 1)];
   }
 
-  private say(msg: string, t = 1.6) {
+  say(msg: string, t = 1.6) {
     this.message = msg;
     this.messageT = t;
   }
@@ -483,6 +489,7 @@ export class Race {
     const kmh = Math.round(this.speed * KMH);
     const limit = this.track.lanes === 4 ? 120 : 100;
     this.fine = { kmh, limit, value: Math.round((150 + (kmh - limit) * 3) / 10) * 10 };
+    this.fines += this.fine.value;
     this.stopX = this.track.roadW + 350;
     this.ghost = 99;
     this.say('ENCOSTE O CARRO!', 2.5);

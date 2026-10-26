@@ -7,6 +7,8 @@ import f40SidePng from './assets/cars/f40-side.png';
 import f40RearPng from './assets/cars/f40-rear.png';
 import s959SidePng from './assets/cars/959-side.png';
 import s959RearPng from './assets/cars/959-rear.png';
+import f40FrontPng from './assets/cars/f40-front.png';
+import s959FrontPng from './assets/cars/959-front.png';
 
 // ---------- definição visual ----------
 type Fill = 'body' | 'shade' | 'dark' | 'glass' | 'chrome' | 'black' | 'red' | 'amber';
@@ -33,7 +35,8 @@ export interface RearDef {
   mesh?: boolean; // grade preta entre as lanternas
   custom?: 'f40' | '959'; // traseira desenhada com detalhes próprios
   svg?: string; // arte vetorial da traseira
-  img?: string; // sprite da traseira gerado de foto
+  img?: string; // sprite da traseira (pixel art)
+  frontImg?: string; // sprite da frente (retrovisor)
   glow?: { dots?: number[][]; bar?: number[] }; // onde acendem as luzes de freio (frações u, f)
 }
 
@@ -88,15 +91,15 @@ export const CARS: CarSpec[] = [
         [0.72, 0.248, 0.84, 0.222], [0.73, 0.242, 0.84, 0.216],
       ],
     },
-    rear: { h: 0.49, roof: 0.52, lights: 'quadRound', wing: 2, mesh: true, custom: 'f40', svg: F40_REAR, img: f40RearPng, glow: { dots: [[0.115, 0.47], [0.21, 0.47], [0.79, 0.47], [0.885, 0.47]] } },
+    rear: { h: 0.57, roof: 0.52, lights: 'quadRound', wing: 2, mesh: true, custom: 'f40', svg: F40_REAR, img: f40RearPng, frontImg: f40FrontPng, glow: { dots: [[0.155, 0.43], [0.25, 0.43], [0.75, 0.43], [0.845, 0.43]] } },
     svgSide: F40_SIDE,
     imgSide: f40SidePng,
   },
   {
-    id: 'silber-95', name: 'Silber 95', basedOn: 'Porsche 959', color: '#c4c8cc',
+    id: 'silber-95', name: 'Silber 95', basedOn: 'Porsche 959', color: '#f0b400',
     price: '$300.000', position: 'traseira', drive: 'integral', engine: 'Boxer 6 biturbo',
     displacement: '2.849 cc', power: '450 cv', maxSpeed: kmh(317), zeroTo100: 3.7, accel: 1, handling: 1.1,
-    dash: '959', hood: '#a8acb2',
+    dash: '959', hood: '#d89c00',
     // proporções tiradas da foto de perfil do modelo real
     side: {
       body: [0.01, 0.025, 0, 0.085, 0.03, 0.12, 0.196, 0.165, 0.348, 0.2, 0.465, 0.29, 0.587, 0.296, 0.683, 0.278, 0.804, 0.209, 0.83, 0.22, 0.9, 0.206, 0.957, 0.2, 1, 0.19, 1, 0.15, 0.995, 0.035, 0.97, 0.018, 0.03, 0.018],
@@ -118,7 +121,7 @@ export const CARS: CarSpec[] = [
         [0.93, 0.07, 0.99, 0.07], [0.93, 0.085, 0.99, 0.085], [0.93, 0.1, 0.99, 0.1], [0.93, 0.115, 0.99, 0.115],
       ],
     },
-    rear: { h: 0.56, roof: 0.56, lights: 'bar', wing: 1, custom: '959', img: s959RearPng, glow: { bar: [0.04, 0.58, 0.96, 0.64] } },
+    rear: { h: 0.59, roof: 0.56, lights: 'bar', wing: 1, custom: '959', img: s959RearPng, frontImg: s959FrontPng, glow: { bar: [0.1, 0.51, 0.9, 0.58] } },
     imgSide: s959SidePng,
   },
   {
@@ -293,6 +296,14 @@ function glow(c: CanvasRenderingContext2D, x: number, y: number, w: number, rgb:
 export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   if (w < 2) return;
   if (look.truck) return drawTruck(c, x, y, w, look);
+  if (look.front && look.rear?.frontImg) {
+    const h = w * look.rear.h;
+    const spr = svgSprite(look.rear.frontImg, w, h);
+    if (spr) {
+      c.drawImage(spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
+      return;
+    }
+  }
   const art = look.rear?.img ?? look.rear?.svg;
   if (art && look.rear && !look.front) {
     const h = w * look.rear.h;

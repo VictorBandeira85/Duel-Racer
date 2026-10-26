@@ -10,7 +10,7 @@ import { initAudio, setEngine, setMuted, setSiren } from './audio';
 import { preloadSvg } from './svgsprites';
 import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
 
-preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.rear.img]).filter((s): s is string => !!s), ...COCKPIT_IMAGES);
+preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.rear.img, c.rear.frontImg]).filter((s): s is string => !!s), ...COCKPIT_IMAGES);
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;

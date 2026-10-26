@@ -6,11 +6,64 @@ import { dither, speckle, text } from './ui';
 import { formatTime, lerp, rng, shade } from './util';
 import { F40_WHEEL } from './svg/f40';
 import { svgSprite } from './svgsprites';
-// painel e volante do 959 convertidos de foto (ver assets/cars/LEIA-ME.md)
+// cabines em pixel art (tools/ref/import_cockpit.py)
+import dashF40Png from './assets/cockpit/f40-dash.png';
+import wheelF40Png from './assets/cockpit/f40-wheel.png';
 import dash959Png from './assets/cockpit/959-dash.png';
 import wheel959Png from './assets/cockpit/959-wheel.png';
 
-export const COCKPIT_IMAGES = [dash959Png, wheel959Png];
+interface CockpitArt {
+  dash: string;
+  wheel: string;
+  pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
+  tach: [number, number, number]; // x, y, raio
+  speed: [number, number, number];
+  speedMax: number;
+  needle: string;
+}
+
+// a arte cobre da linha 100 da tela até o fim (124 linhas); o topo transparente mostra a estrada
+const ART_TOP = 100;
+const COCKPIT_ART: Record<string, CockpitArt> = {
+  f40: { dash: dashF40Png, wheel: wheelF40Png, pivot: [128, 81.4], tach: [109, 42.9, 17.5], speed: [149, 42.9, 17.5], speedMax: 360, needle: '#ff2a1a' },
+  '959': { dash: dash959Png, wheel: wheel959Png, pivot: [128, 99.5], tach: [127.4, 61.1, 23.5], speed: [177.8, 66.6, 20.2], speedMax: 300, needle: '#ff6a1a' },
+};
+
+export const COCKPIT_IMAGES = Object.values(COCKPIT_ART).flatMap((a) => [a.dash, a.wheel]);
+
+// Cabine a partir da arte: painel, ponteiros dinâmicos, radar e volante girando.
+function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: CockpitArt): boolean {
+  const { w } = view;
+  const ox = coreX();
+  const dash = svgSprite(art.dash, CORE_W, 124);
+  const wheelImg = svgSprite(art.wheel, CORE_W, 124);
+  if (!dash || !wheelImg) return false;
+  if (ox > 0) {
+    c.drawImage(dash, 0, 0, 8, 124, 0, ART_TOP, ox, 124);
+    c.drawImage(dash, CORE_W - 8, 0, 8, 124, ox + CORE_W, ART_TOP, w - ox - CORE_W, 124);
+  }
+  c.drawImage(dash, ox, ART_TOP);
+  const needle = (g: [number, number, number], frac: number) => {
+    const [gx, gy, gr] = g;
+    const cx = ox + gx, cy = ART_TOP + gy;
+    const a = Math.PI * 0.75 + Math.PI * 1.5 * Math.max(0, Math.min(1.02, frac));
+    c.strokeStyle = art.needle;
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.moveTo(cx, cy);
+    c.lineTo(cx + Math.cos(a) * (gr - 3), cy + Math.sin(a) * (gr - 3) * (8 / 7));
+    c.stroke();
+    disc(c, cx, cy, 1.5, '#1a1a1a');
+  };
+  needle(art.tach, 0.06 + Math.min(1, r.rpm) * 0.82);
+  needle(art.speed, (r.speed * KMH) / art.speedMax);
+  pix(c, String(r.gear + 1), ox + art.tach[0], ART_TOP + art.tach[1] + art.tach[2] * 0.55, '#ff2a1a');
+  rect(c, ox + 206, ART_TOP + 22, 30, 6, '#0c0c0e');
+  radarLeds(c, ox + 208, ART_TOP + 23, 26, r.radar);
+  const px = ox + art.pivot[0], py = ART_TOP + art.pivot[1];
+  withRotation(c, px, py, steerAngle(r, dt), () => c.drawImage(wheelImg, ox, ART_TOP));
+  return true;
+}
 
 // Cabine desenhada em pixels nativos do Super Nintendo (256x224), com as posições
 // medidas nas capturas de referência (tools/ref/measure.py). Em telas largas, a área
@@ -189,7 +242,10 @@ export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: numbe
   }
   drawRoof(c, r, stageLabel, totalTime);
   const dash = r.car.dash;
-  if (dash === 'f40') drawDashF40(c, r, dt);
+  const art = COCKPIT_ART[dash];
+  if (art && drawCockpitArt(c, r, dt, art)) {
+    // cabine desenhada a partir da arte
+  } else if (dash === 'f40') drawDashF40(c, r, dt);
   else if (dash === '959') drawDash959(c, r, dt);
   else if (dash === 'A') drawDashTD2Black(c, r, dt);
   else drawDashTD2Grey(c, r, dt);

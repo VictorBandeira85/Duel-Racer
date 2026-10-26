@@ -22,8 +22,11 @@ export function pixWidth(s: string, scale = 1) {
 // (x, y) = centro do texto
 export function pix(c: CanvasRenderingContext2D, s: string, x: number, y: number, color: string, scale = 1) {
   c.fillStyle = color;
-  let px = Math.round(x - pixWidth(s, scale) / 2);
-  const py = Math.round(y - (5 * scale) / 2);
+  // alinhado à grade do próprio tamanho (meio pixel quando scale = 0.5)
+  const g = Math.min(1, scale);
+  const snap = (v: number) => Math.round(v / g) * g;
+  let px = snap(x - pixWidth(s, scale) / 2);
+  const py = snap(y - (5 * scale) / 2);
   for (const ch of s) {
     const g = GLYPHS[ch];
     if (g) {

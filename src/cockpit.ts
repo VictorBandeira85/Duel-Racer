@@ -34,12 +34,12 @@ const DASH_PAD = 102; // colunas extras de cada lado do painel (telas largas), v
 const DASH_W = 256 + 2 * DASH_PAD;
 const COCKPIT_ART: Record<string, CockpitArt> = {
   f40: { dash: dashF40Png, wheel: wheelF40Png, pivot: [127.4, 80], 
-    tach: { x: 109, y: 46, r: 17, max: 10, labels: [0, 2, 4, 6, 8, 10], tick: 1, red: 7.75 },
-    speed: { x: 149, y: 46, r: 17, max: 360, labels: [0, 100, 200, 300], tick: 20, red: 999 },
+    tach: { x: 109, y: 46, r: 17, max: 10, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], tick: 0.5, red: 7.75 },
+    speed: { x: 149, y: 46, r: 17, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], tick: 20, red: 999 },
     speedMax: 360, needle: '#ff2a1a', hub: '#ff2a1a' },
   '959': { dash: dash959Png, wheel: wheel959Png, pivot: [127.8, 104], 
     tach: { x: 129, y: 66, r: 23, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6.5 },
-    speed: { x: 180, y: 68, r: 19, max: 300, labels: [0, 100, 200, 300], tick: 25, red: 999 },
+    speed: { x: 180, y: 68, r: 19, max: 300, labels: [0, 50, 100, 150, 200, 250, 300], tick: 10, red: 999 },
     speedMax: 300, needle: '#ff6a1a', hub: '#1a1a1a' },
 };
 
@@ -69,7 +69,6 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
 }
 
 // pixel nítido em (x, y) arredondado
-const dot = (c: CanvasRenderingContext2D, x: number, y: number) => c.fillRect(Math.round(x), Math.round(y), 1, 1);
 const PIX_Y = 8 / 7; // o pixel é mais largo que alto: no eixo vertical tudo é 8/7 maior
 
 function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number, art: CockpitArt) {
@@ -81,35 +80,38 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
     c.fillRect(cx - hw, cy + dy, hw * 2 + 1, 1);
   }
   const a0 = Math.PI * 0.75, sweep = Math.PI * 1.5;
-  const at = (a: number, rr: number): [number, number] => [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * PIX_Y];
+  const at = (a: number, rr: number): [number, number] => [cx + 0.5 + Math.cos(a) * rr, cy + 0.5 + Math.sin(a) * rr * PIX_Y];
   const fr = (v: number) => a0 + (sweep * v) / d.max;
+  const half = (x: number, y: number) => c.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, 0.5, 0.5);
   // faixa vermelha
   if (d.red < d.max) {
     c.fillStyle = '#d81818';
     for (let a = fr(d.red); a <= a0 + sweep + 0.001; a += 0.02)
-      for (const rr of [r - 1, r - 2]) dot(c, ...at(a, rr));
+      for (const k of [0.75, 1.25, 1.75, 2.25]) half(...at(a, r - k));
   }
-  // marcações: traço de 2 px nos números, 1 px no meio
+  // marcações: traço de 1,5 px nos números, meio pixel no meio (resolução interna 2x)
   for (let v = 0; v <= d.max + 1e-6; v += d.tick) {
     const major = d.labels.some((l) => Math.abs(l - v) < 1e-6);
     c.fillStyle = v >= d.red ? '#ffd0d0' : '#ececec';
-    dot(c, ...at(fr(v), r - 1));
-    if (major) dot(c, ...at(fr(v), r - 2));
+    half(...at(fr(v), r - 0.75));
+    if (major) for (const k of [1.25, 1.75]) half(...at(fr(v), r - k));
   }
   for (const v of d.labels) {
     const l = String(v);
-    const [lx, ly] = at(fr(v), r - 4.5 - pixWidth(l) * 0.4);
-    pix(c, l, lx, ly, v >= d.red ? '#ff5a4a' : '#f2f2f2');
+    // recua do aro só o quanto o número ocupa na direção do centro (largura nas laterais,
+    // altura no alto), para os de cima não se encostarem
+    const a = fr(v);
+    const [lx, ly] = at(a, r - 2.3 - Math.abs(Math.cos(a)) * pixWidth(l, 0.5) * 0.5 - Math.abs(Math.sin(a)) * 1.25);
+    pix(c, l, lx, ly, v >= d.red ? '#ff5a4a' : '#f2f2f2', 0.5);
   }
-  // ponteiro: 2 px de espessura, do centro exato
+  // ponteiro: do centro exato, traçado em meio pixel (1 px de espessura)
   const a = a0 + sweep * Math.max(0, Math.min(1.02, frac));
-  const len = r - 3;
+  const len = r - 2.5;
   const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y;
-  const thickX = Math.abs(ca) < Math.abs(sa); // mais vertical: engrossa na horizontal
   c.fillStyle = art.needle;
   for (let t = 0; t <= len; t += 0.25) {
-    const x = Math.round(cx + ca * t), y = Math.round(cy + sa * t);
-    c.fillRect(x, y, thickX ? 2 : 1, thickX ? 1 : 2);
+    const x = Math.round((cx + 0.5 + ca * t) * 2) / 2, y = Math.round((cy + 0.5 + sa * t) * 2) / 2;
+    c.fillRect(x - 0.5, y - 0.5, 1, 1);
   }
   c.fillStyle = art.hub;
   c.fillRect(cx - 1, cy - 1, 3, 3);

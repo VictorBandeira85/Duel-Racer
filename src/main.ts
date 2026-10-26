@@ -1,5 +1,5 @@
 import '@fontsource/press-start-2p/400.css';
-import { view } from './config';
+import { RES, view } from './config';
 import { CARS } from './cars';
 import { COURSES } from './courses';
 import { Race } from './race';
@@ -101,8 +101,11 @@ function resize() {
   view.aspect = race ? 8 / 7 : 1;
   const screenAspect = window.innerWidth / window.innerHeight;
   view.w = Math.round(Math.min(race ? 460 : 520, Math.max(race ? 256 : 320, (view.h * screenAspect) / view.aspect)));
-  canvas.width = view.w;
-  canvas.height = view.h;
+  // resolução interna 2x: tudo continua desenhado em pixels nativos (e ampliado sem
+  // suavizar), mas os detalhes finos (números dos mostradores) podem usar meio pixel
+  canvas.width = view.w * RES;
+  canvas.height = view.h * RES;
+  ctx.setTransform(RES, 0, 0, RES, 0, 0);
   ctx.imageSmoothingEnabled = false;
   const scale = Math.min(window.innerWidth / (view.w * view.aspect), window.innerHeight / view.h);
   canvas.style.width = `${view.w * view.aspect * scale}px`;

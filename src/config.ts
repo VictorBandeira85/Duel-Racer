@@ -18,3 +18,5 @@ export const KMH = 0.025; // unidades/s -> km/h
 // Cabine: teto, para-brisa e painel (em pixels internos)
 export const ROOF_H = 24;
 export const DASH_Y = 120; // medido nas referências (pixels nativos 256x224)
+
+export const RES = 2; // pixels do canvas por pixel nativo

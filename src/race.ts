@@ -20,6 +20,12 @@ export interface TrafficCar {
   truck: boolean;
   model: TrafficModel;
   hit: boolean;
+  base: number; // velocidade que o motorista gosta de manter
+  tx: number; // faixa para onde está indo
+  signal: number; // seta: -1 esquerda, 1 direita, 0 desligada
+  signalT: number; // tempo de seta antes de começar a trocar de faixa
+  moving: boolean;
+  think: number;
 }
 
 export interface Rival {
@@ -32,6 +38,7 @@ export interface Rival {
   finishTime: number;
   style: RivalStyle;
   mistake: number; // tempo restante de um erro (imprevisível)
+  wasAhead?: boolean;
   boost: number; // tempo restante de uma arrancada (imprevisível)
 }
 
@@ -88,6 +95,11 @@ export class Race {
   ghost = 0;
   shake = 0;
   scrapeT = 0; // tremida curta depois de um raspão
+  slip = 0; // derrapagem (0 = com aderência, 1 = escorregando)
+  air = 0; // alívio de peso no topo das lombadas (0..1)
+  private airborne = false;
+  private landT = 0;
+  draft = 0; // vácuo atrás de outro carro (0..1)
   bgOffset = 0;
 
   time = 0; // tempo do trecho (inclui multas)
@@ -141,7 +153,7 @@ export class Race {
         style: this.rivalStyleOverride ?? RIVAL_STYLE[this.rivalCar!.id] ?? 'cauteloso', mistake: 0, boost: 0 };
     }
     for (let i = 0; i < this.def.traffic; i++) {
-      const c: TrafficCar = { z: 0, x: 0, speed: 0, color: '', truck: false, model: 'sedan', hit: false };
+      const c: TrafficCar = { z: 0, x: 0, speed: 0, color: '', truck: false, model: 'sedan', hit: false, base: 0, tx: 0, signal: 0, signalT: 0, moving: false, think: 0 };
       this.spawn(c, this.playerZ + (45 + (i / this.def.traffic) * 300) * SEG_LEN);
       this.traffic.push(c);
     }
@@ -178,7 +190,14 @@ export class Race {
     c.color = TRAFFIC_COLORS[Math.floor(r() * TRAFFIC_COLORS.length)];
     c.truck = r() < 0.18;
     c.model = c.truck ? 'truck' : CAR_MODELS[Math.floor(r() * CAR_MODELS.length)];
+    if (c.truck) c.speed *= 0.85; // caminhão anda mais devagar
     c.hit = false;
+    c.base = c.speed;
+    c.tx = laneCenter(this.track, lane);
+    c.signal = 0;
+    c.signalT = 0;
+    c.moving = false;
+    c.think = 1 + r() * 3;
   }
 
   // área de colisão um pouco menor que o desenho, para raspões não contarem
@@ -226,19 +245,43 @@ export class Race {
     const gearMax = max * GEARS[this.gear];
     if (this.throttle) this.speed += engineAccel(this.car, this.gear, this.speed) * dt;
     else this.speed -= max * 0.06 * dt;
-    if (this.speed > gearMax) this.speed -= (this.speed - gearMax) * 2 * dt; // freio-motor
-    if (this.braking) this.speed -= max * (this.state === 'crash' ? 2 : pulling ? 0.17 : 0.6) * dt;
-    const slope = (pSeg.p2.world.y - pSeg.p1.world.y) / SEG_LEN;
-    this.speed -= slope * max * 0.1 * dt;
-    this.speed = clamp(this.speed, 0, max * 1.05);
+    // ---- relevo: gravidade na subida/descida e "flutuação" no topo das lombadas ----
+    const slope = clamp((pSeg.p2.world.y - pSeg.p1.world.y) / SEG_LEN, -0.6, 0.6);
+    const ahead = this.track.segments[(pSeg.index + 7) % this.track.segments.length];
+    const slopeAhead = clamp((ahead.p2.world.y - ahead.p1.world.y) / SEG_LEN, -0.6, 0.6);
+    const pct0 = this.speed / max;
+    // topo de lombada: a inclinação vai diminuindo rápido (sobe e depois desce) -> o carro alivia
+    const lift = clamp(((slope - slopeAhead) * pct0 * pct0 - 0.015) * 12, 0, 1);
+    this.air = lerp(this.air, lift, Math.min(1, dt * 8));
+    if (this.air > 0.55) this.airborne = true;
+    else if (this.airborne && this.air < 0.2) {
+      this.airborne = false;
+      this.landT = 0.18; // pancada da aterrissagem
+    }
+    // freio-motor menor na descida (deixa embalar um pouco acima da máxima)
+    if (this.speed > gearMax) this.speed -= (this.speed - gearMax) * (slope < -0.05 ? 0.5 : 2) * dt;
+    if (this.braking) this.speed -= max * (this.state === 'crash' ? 2 : pulling ? 0.17 : 0.6) * (1 - this.air * 0.5) * dt;
+    this.speed -= slope * max * 0.3 * dt;
+    // vácuo: colado atrás de outro carro, menos arrasto (passa um pouco da máxima)
+    this.draft = lerp(this.draft, driving ? this.draftAhead(this.playerZ, this.x, this.speed) : 0, Math.min(1, dt * 3));
+    if (this.draft > 0.05 && this.throttle) this.speed += max * 0.05 * this.draft * dt;
+    this.speed = clamp(this.speed, 0, max * (1.04 + 0.04 * this.draft + (slope < -0.05 ? 0.05 : 0)));
     if (this.auto) this.gear = autoGear(this.car, this.gear, this.speed, this.throttle);
     this.rpm = this.speed / (max * GEARS[this.gear]);
 
-    // ---- direção ----
+    // ---- direção e aderência ----
+    // A curva empurra o carro para fora (centrífuga). Os pneus seguram até um limite que
+    // depende do carro (e das melhorias), do piso, da freada e das lombadas; acima dele o
+    // carro derrapa: escorrega para fora, perde velocidade e a direção fica mais leve.
     const speedPct = this.speed / max;
+    const push = speedPct * speedPct * pSeg.curve * 560;
+    const grip = this.gripLimit() * (this.braking && speedPct > 0.3 ? 0.78 : 1) * (1 - this.air * 0.6) * (Math.abs(this.x) > t.roadW + 700 ? 0.6 : 1);
+    const excess = Math.max(0, Math.abs(push) - grip);
+    this.slip = lerp(this.slip, driving ? clamp(excess / (grip * 0.6), 0, 1) : 0, Math.min(1, dt * 6));
     if (driving) {
-      this.x += this.steer * dt * 2700 * this.car.handling * Math.sqrt(speedPct);
-      this.x -= dt * speedPct * speedPct * pSeg.curve * 560;
+      this.x += this.steer * dt * 2700 * this.car.handling * Math.sqrt(speedPct) * (1 - this.slip * 0.45);
+      this.x -= dt * (push + Math.sign(push) * excess * 0.9);
+      this.speed -= max * 0.28 * this.slip * dt; // pneus arrastando
     } else if (pulling && copAhead) {
       this.x += clamp(this.stopX - this.x, -dt * 1400, dt * 1400); // encosta no acostamento
     }
@@ -249,6 +292,11 @@ export class Race {
       this.scrapeT -= dt;
       this.shake = 1;
     }
+    if (this.landT > 0) {
+      this.landT -= dt;
+      this.shake = 1;
+    }
+    if (this.slip > 0.45) this.shake = 1;
     if (Math.abs(this.x) > t.roadW + 700) {
       const limit = max * 0.28;
       if (this.speed > limit) this.speed = Math.max(limit, this.speed - max * 0.6 * dt);
@@ -308,8 +356,7 @@ export class Race {
     if (this.gear !== this.lastGear && this.speed > 200) shiftSound();
     this.lastGear = this.gear;
     const offRoad = Math.abs(this.x) > t.roadW + 700;
-    const cornering = Math.abs(this.steer) * speedPct * speedPct + Math.abs(pSeg.curve) * speedPct * speedPct * 0.18;
-    const screech = driving && !offRoad ? Math.max((cornering - 0.42) * 2.5, this.braking && speedPct > 0.3 ? 0.6 : 0) : 0;
+    const screech = driving && !offRoad ? Math.max(this.slip * 1.4, this.braking && speedPct > 0.3 ? 0.6 : 0) : 0;
     setTires(screech, offRoad && this.speed > 100 ? 0.4 + speedPct * 0.6 : 0);
     setEngine(Math.max(0.1, this.rpm), this.throttle, true);
   }
@@ -342,9 +389,82 @@ export class Race {
   private updateTraffic(dt: number) {
     const pz = this.playerZ;
     for (const c of this.traffic) {
+      if (!c.hit) this.trafficAI(c, dt);
       c.z += c.speed * dt;
       if (c.z < pz - 25 * SEG_LEN || c.z > pz + 420 * SEG_LEN) this.spawn(c, pz + (280 + this.rand() * 80) * SEG_LEN);
     }
+  }
+
+  // Motorista do trânsito: segue o carro da frente (sem atravessá-lo) e, onde há duas faixas
+  // no mesmo sentido, troca de faixa dando seta antes, só se a faixa ao lado estiver livre
+  private trafficAI(c: TrafficCar, dt: number) {
+    const t = this.track;
+    const dir = c.speed >= 0 ? 1 : -1;
+    let gapAhead = Infinity, aheadSpeed = 0;
+    const look = (z: number, x: number, sp: number) => {
+      const dz = (z - c.z) * dir;
+      if (dz <= 0 || dz > 8 * SEG_LEN || Math.abs(x - c.x) > CAR_W * 0.8 || sp * dir < 0) return;
+      if (dz < gapAhead) {
+        gapAhead = dz;
+        aheadSpeed = sp;
+      }
+    };
+    for (const o of this.traffic) if (o !== c && !o.hit) look(o.z, o.x, o.speed);
+    if (dir > 0) look(this.playerZ, this.x, this.speed); // não atropela o jogador parado
+    if (this.rival && dir > 0) look(this.rival.z, this.rival.x, this.rival.speed);
+    let desired = c.base;
+    if (gapAhead < 6 * SEG_LEN && Math.abs(aheadSpeed) < Math.abs(desired)) desired = aheadSpeed * (gapAhead < 2 * SEG_LEN ? 0.85 : 1);
+    c.speed += (desired - c.speed) * Math.min(1, dt * 1.2);
+
+    if (t.lanes < 4) return; // uma faixa por sentido: não há para onde ir
+    if (c.signalT > 0) {
+      c.signalT -= dt;
+      if (c.signalT <= 0) c.moving = true;
+    }
+    if (c.moving) {
+      c.x += clamp(c.tx - c.x, -dt * 900, dt * 900);
+      if (Math.abs(c.tx - c.x) < 5) {
+        c.moving = false;
+        c.signal = 0;
+      }
+      return;
+    }
+    c.think -= dt;
+    if (c.think > 0 || c.signal) return;
+    c.think = 1.5 + this.rand() * 2.5;
+    const blocked = gapAhead < 5 * SEG_LEN && Math.abs(aheadSpeed) < Math.abs(c.base) * 0.92;
+    if (!blocked && this.rand() > 0.12) return;
+    const lw = (t.roadW * 2) / t.lanes;
+    const lane = clamp(Math.floor((c.x + t.roadW) / lw), 0, t.lanes - 1);
+    const group = lane < t.lanes / 2 ? 0 : t.lanes / 2;
+    const tx = laneCenter(t, group + (1 - (lane - group)));
+    const busy = this.traffic.some((o) => o !== c && Math.abs(o.x - tx) < CAR_W && Math.abs(o.z - c.z) < SEG_LEN * 3.5)
+      || (Math.abs(this.x - tx) < CAR_W * 1.2 && Math.abs(this.playerZ - c.z) < SEG_LEN * 4)
+      || (!!this.rival && Math.abs(this.rival.x - tx) < CAR_W * 1.2 && Math.abs(this.rival.z - c.z) < SEG_LEN * 4);
+    if (busy) return;
+    c.tx = tx;
+    c.signal = tx > c.x ? 1 : -1;
+    c.signalT = 1.1;
+  }
+
+  // limite de aderência lateral (mesma escala da força da curva): carro, pneus e piso
+  gripLimit(car: CarSpec = this.car) {
+    const surface = this.def.weather === 'snow' ? 0.72 : this.def.weather === 'rain' ? 0.84 : 1;
+    return 1500 * car.handling * surface;
+  }
+
+  // vácuo: há um carro logo à frente na mesma faixa, no mesmo sentido?
+  draftAhead(z: number, x: number, speed: number) {
+    let best = 0;
+    const consider = (cz: number, cx: number, cs: number) => {
+      const dz = cz - z;
+      if (cs <= 0 || dz < SEG_LEN * 0.8 || dz > SEG_LEN * 7 || Math.abs(cx - x) > CAR_W * 0.6 || speed < 4000) return;
+      best = Math.max(best, 1 - (dz - SEG_LEN * 0.8) / (SEG_LEN * 6.2));
+    };
+    for (const c of this.traffic) if (!c.hit) consider(c.z, c.x, c.speed);
+    if (this.rival && this.rival.z !== z) consider(this.rival.z, this.rival.x, this.rival.speed);
+    if (z !== this.playerZ) consider(this.playerZ, this.x, this.speed);
+    return best;
   }
 
   // tempo até alcançar o próximo obstáculo numa faixa
@@ -377,9 +497,20 @@ export class Race {
       const skill = this.course.rivalSkill;
       const floor = clamp(0.85 - (1 - skill) * 1.6, 0.62, 0.85);
       target = max * skill * clamp(1 - gap * 0.0025, floor, 1.06);
-      // personalidade: o cauteloso alivia nas curvas fechadas, o agressivo arrisca mais
-      if (r.style === 'cauteloso' && sharp) target *= 0.93;
+      // limite de curva igual ao do jogador: olha as próximas curvas e alivia antes de
+      // entrar (o agressivo vai mais perto do limite, o cauteloso com folga)
+      const segs = this.track.segments;
+      let curveAhead = 0;
+      for (let k = 0; k < 10; k++) curveAhead = Math.max(curveAhead, Math.abs(segs[(rSeg.index + k) % segs.length].curve));
+      const nerve = r.style === 'agressivo' ? 1.06 : r.style === 'cauteloso' ? 0.88 : 0.98;
+      const limit = Math.sqrt((this.gripLimit(this.rivalCar) * nerve) / Math.max(0.05, curveAhead * 560));
+      target = Math.min(target, max * limit * (0.92 + 0.08 * skill));
       if (r.style === 'agressivo') target *= sharp ? 1 : 1.015;
+      // vácuo atrás de outro carro
+      target *= 1 + 0.04 * this.draftAhead(r.z, r.x, r.speed);
+      // ultrapassado agora há pouco: o agressivo e o imprevisível devolvem a pressão
+      if (r.wasAhead && gap < 0 && gap > -3 && r.style !== 'cauteloso' && r.boost <= 0) r.boost = 2;
+      if (r.boost > 0 && r.style !== 'imprevisivel') target *= 1.05;
       if (r.style === 'imprevisivel') {
         if (r.mistake <= 0 && r.boost <= 0 && this.rand() < dt * (sharp ? 0.12 : 0.05)) {
           if (this.rand() < 0.6) {
@@ -393,6 +524,7 @@ export class Race {
     }
     r.mistake = Math.max(0, r.mistake - dt);
     r.boost = Math.max(0, r.boost - dt);
+    r.wasAhead = gap > 0;
 
     r.think -= dt;
     if (r.think <= 0 && r.mistake <= 0) {
@@ -400,16 +532,24 @@ export class Race {
       const lanes = this.track.lanes;
       // o cauteloso troca de faixa mais cedo (precisa de mais folga à frente)
       const margin = r.style === 'cauteloso' ? 0.6 : r.style === 'agressivo' ? 0.2 : 0.4;
+      // nota de cada faixa: tempo livre à frente, com ajustes de estratégia
+      const laneScore = (lx: number, i: number) => {
+        let score = this.laneTTC(lx) * (i < lanes / 2 ? 0.85 : 1);
+        const playerLane = Math.abs(this.x - lx) < LANE_W / 2;
+        // o agressivo fecha a faixa do jogador quando ele vem colado atrás
+        if (r.style === 'agressivo' && gap > 0.5 && gap < 7 && playerLane) score += 1.5;
+        // jogador logo à frente: não fica preso atrás dele, prepara a ultrapassagem pelo lado
+        if (gap < -0.5 && gap > -9) score += playerLane ? -2 : 0.6;
+        return score;
+      };
       let bestX = r.targetX;
-      let bestScore = this.laneTTC(r.targetX) + margin; // prefere ficar onde está
+      let bestScore = laneScore(r.targetX, lanes - 1) + margin; // prefere ficar onde está
       for (let i = 0; i < lanes; i++) {
         const lx = laneCenter(this.track, i);
         if (lx === r.targetX) continue;
         const beside = Math.abs(this.playerZ - r.z) < SEG_LEN * 3 && Math.abs(this.x - lx) < CAR_W;
         if (beside) continue;
-        let score = this.laneTTC(lx) * (i < lanes / 2 ? 0.85 : 1);
-        // o agressivo fecha a faixa do jogador quando ele vem colado atrás
-        if (r.style === 'agressivo' && gap > 0.5 && gap < 7 && Math.abs(this.x - lx) < LANE_W / 2) score += 1.5;
+        const score = laneScore(lx, i);
         if (score > bestScore) {
           bestScore = score;
           bestX = lx;

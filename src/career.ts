@@ -19,8 +19,8 @@ export const REGIONS: Region[] = [
   {
     id: 'costa', name: 'Costa do Sol', desc: 'Estradas à beira-mar, trânsito leve.', color: '#3a8ad0',
     events: [
-      { id: 'c1', name: 'Racha da Orla', prize: 9000, driver: drv('Dudu Pneu', 'serpe-v10', 'cauteloso', 0.88, '#1a9a3a', 'Vai com calma, novato.'), stages: [st('coast', 2, { curviness: 0.6, police: 0, traffic: 3, sections: 8 })] },
-      { id: 'c2', name: 'Farol Vermelho', prize: 12000, driver: drv('Lia Faísca', 'vortex-zr', 'imprevisivel', 0.9, '#ececec', 'Hoje eu tô inspirada!'), stages: [st('coast', 2, { curviness: 0.8, traffic: 3 })] },
+      { id: 'c1', name: 'Racha da Orla', prize: 9000, driver: drv('Dudu Pneu', 'serpe-v10', 'cauteloso', 0.86, '#1a9a3a', 'Vai com calma, novato.'), stages: [st('coast', 2, { curviness: 0.6, police: 0, traffic: 3, sections: 8 })] },
+      { id: 'c2', name: 'Farol Vermelho', prize: 12000, driver: drv('Lia Faísca', 'vortex-zr', 'imprevisivel', 0.885, '#ececec', 'Hoje eu tô inspirada!'), stages: [st('coast', 2, { curviness: 0.8, traffic: 3 })] },
       { id: 'c3', name: 'Coqueiral', prize: 15000, driver: drv('Beto Turbo', 'kaze-nx', 'agressivo', 0.91, '#d01818', 'Sai da minha frente!'), stages: [st('coast', 4, { curviness: 0.7 }), st('forest', 2, { curviness: 0.7, police: 0 })] },
       { id: 'c4', name: 'Pôr do Sol', prize: 18000, driver: drv('Nina Maresia', 'vortex-zr', 'cauteloso', 0.93, '#18b8d0', 'Constância vence corrida.'), stages: [st('coast', 2, { curviness: 1 }), st('coast', 2, { night: true, curviness: 0.9 })] },
       { id: 'c5', name: 'Rei da Praia', prize: 35000, boss: true, driver: drv('Capitão Maré', 'kaze-nx', 'agressivo', 0.95, '#1f4fd0', 'Esta costa é minha há dez anos.'), stages: [st('coast', 4, { curviness: 0.9 }), st('coast', 2, { curviness: 1.1, weather: 'rain' }), st('forest', 2, { curviness: 1 })] },

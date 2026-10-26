@@ -178,6 +178,8 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   c.beginPath();
   c.rect(vp.x, vp.y, vp.w, vp.h);
   c.clip();
+  // topo de lombada: a câmera sobe um pouco (o carro alivia)
+  if (r.air > 0.15) c.translate(0, -Math.round(r.air * 4));
   if (r.shake) c.translate(Math.round((Math.random() - 0.5) * 2), Math.round((Math.random() - 0.5) * 2));
   // sensação de velocidade: perto da máxima a imagem trepida de leve (1 px, de vez em quando)
   else if (r.speed > r.car.maxSpeed * 0.8 && Math.random() < (r.speed / r.car.maxSpeed - 0.8) * 2.5) c.translate(0, Math.random() < 0.5 ? 1 : -1);
@@ -259,7 +261,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
         drawCar(c, cx, cy, POLICE_W * sc * vp.K, { color: '#fff', police: true, siren, night });
       } else {
         const t = e as TrafficCar;
-        drawCar(c, cx, cy, (t.truck ? TRUCK_W : CAR_W) * sc * vp.K, { color: t.color, front: t.speed < 0, truck: t.truck, night, model: t.model });
+        drawCar(c, cx, cy, (t.truck ? TRUCK_W : CAR_W) * sc * vp.K, { color: t.color, front: t.speed < 0, truck: t.truck, night, model: t.model, signal: t.signal });
       }
     }
     c.restore();

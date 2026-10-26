@@ -300,6 +300,7 @@ export interface CarLook {
   night?: boolean;
   paint?: string; // cor escolhida (troca a carroceria do sprite pela máscara)
   model?: string; // trânsito: sedan, hatch, pickup, van, truck (sprites de assets/traffic)
+  signal?: number; // seta ligada: -1 lado esquerdo da tela, 1 direito
 }
 
 const GENERIC: RearDef = { h: 0.5, roof: 0.56, lights: 'rect', wing: 0 };
@@ -338,6 +339,13 @@ function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w:
     for (const [u, f] of TRAFFIC_GLOW[model]?.dots ?? []) c.fillRect(Math.round(L + u * w - w * 0.07), Math.round(T + f * h - h * 0.05), Math.max(1, Math.round(w * 0.14)), Math.max(1, Math.round(h * 0.1)));
   }
   if (look.front && look.night) glow(c, x, y - h * 0.4, w, '255,246,192');
+  // seta piscando do lado para onde o carro vai
+  if (look.signal && Math.floor(performance.now() / 250) % 2 === 0) {
+    const u = look.signal < 0 ? 0.04 : 0.84;
+    const f = look.front ? 0.62 : (TRAFFIC_GLOW[model]?.dots?.[0]?.[1] ?? 0.6) - 0.04;
+    c.fillStyle = '#ffb020';
+    c.fillRect(Math.round(L + u * w), Math.round(T + f * h), Math.max(1, Math.round(w * 0.12)), Math.max(1, Math.round(h * 0.08)));
+  }
   if (model === 'police' && look.siren) {
     const on = Math.floor(performance.now() / 120) % 2 === 0;
     const bar = TRAFFIC_GLOW.police.siren!;

@@ -17,17 +17,20 @@ import numpy as np
 from PIL import Image
 
 ROWS = 124  # linhas nativas (a cabine começa na linha 100 da tela e vai até a 224)
+EXT = 76    # linhas entre o teto (24) e o topo da arte (100)
 PAD = 102   # colunas extras de cada lado do painel, para telas largas (até 460 px)
 
 CARS = {
     'f40': {
         'scale': 0.25, 'x0': 338, 'y0': 50,
         'gauges': {'tach': (774, 200, 70), 'speed': (934, 200, 70)},
+        'pillar': (40, 0.40),   # coluna da porta: até x nativo 40, sobe 0,40 px para a esquerda por linha
     },
     '959': {
         'scale': 0.28, 'x0': 241, 'y0': 20,
         'erase': [(852, 276, 912, 298)],
-        'fill_left': (24, 22, 22),                # BGR do pilar, onde a arte acaba          # hodômetro (não é velocímetro digital)
+        'fill_left': (24, 22, 22),
+        'pillar': (-50, 0.0),                # BGR do pilar, onde a arte acaba          # hodômetro (não é velocímetro digital)
         'gauges': {'tach': (696, 211, 84), 'speed': (876, 228, 72)},
     },
 }
@@ -113,6 +116,19 @@ def main():
     d_rgb = sample(cv2.cvtColor(dash, cv2.COLOR_BGR2RGB), nw, nh)
     d_a = sample((~sky).astype(np.uint8) * 255, nw, nh)
     Image.fromarray(np.dstack([d_rgb, d_a]), 'RGBA').save(f'{outdir}/{car}-dash.png')
+    # a arte acaba antes do teto: a coluna da porta é prolongada para cima (linha 0 do
+    # painel repetida e deslocada pela inclinação da coluna) até a linha 24 da tela
+    if 'pillar' in cfg:
+        xmax, k = cfg['pillar']
+        row = np.dstack([d_rgb, d_a])[0].copy()
+        row[PAD + xmax:] = 0
+        top = np.zeros((EXT, nw, 4), np.uint8)
+        for j in range(EXT):
+            d = EXT - j
+            shift = int(round(k * d))
+            if shift >= nw: continue
+            top[j, :nw - shift] = row[shift:]
+        Image.fromarray(top, 'RGBA').save(f'{outdir}/{car}-top.png')
     w_rgb = sample(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), nw, nh)
     w_a = sample((wheel & ~sky0).astype(np.uint8) * 255, nw, nh)
     Image.fromarray(np.dstack([w_rgb, w_a])[:, PAD:PAD + 256], 'RGBA').save(f'{outdir}/{car}-wheel.png')

@@ -10,10 +10,13 @@ import { svgSprite } from './svgsprites';
 import dashF40Png from './assets/cockpit/f40-dash.png';
 import wheelF40Png from './assets/cockpit/f40-wheel.png';
 import dash959Png from './assets/cockpit/959-dash.png';
+import top959Png from './assets/cockpit/959-top.png';
+import topF40Png from './assets/cockpit/f40-top.png';
 import wheel959Png from './assets/cockpit/959-wheel.png';
 
 interface CockpitArt {
   dash: string;
+  top: string; // coluna da porta prolongada até o teto (76 linhas acima da arte)
   wheel: string;
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
   tach: Dial;
@@ -32,18 +35,19 @@ interface Dial { x: number; y: number; r: number; max: number; labels: number[];
 const ART_TOP = 100;
 const DASH_PAD = 102; // colunas extras de cada lado do painel (telas largas), ver import_cockpit.py
 const DASH_W = 256 + 2 * DASH_PAD;
+const TOP_EXT = 76; // linhas do teto (24) até o topo da arte
 const COCKPIT_ART: Record<string, CockpitArt> = {
-  f40: { dash: dashF40Png, wheel: wheelF40Png, pivot: [127.4, 80], 
+  f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, pivot: [127.4, 80], 
     tach: { x: 109, y: 46, r: 17, max: 10, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], tick: 0.5, red: 7.75 },
     speed: { x: 149, y: 46, r: 17, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], tick: 20, red: 999 },
     speedMax: 360, needle: '#ff2a1a', hub: '#ff2a1a' },
-  '959': { dash: dash959Png, wheel: wheel959Png, pivot: [127.8, 104], 
+  '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [127.8, 104], 
     tach: { x: 129, y: 66, r: 23, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6.5 },
     speed: { x: 180, y: 68, r: 19, max: 300, labels: [0, 50, 100, 150, 200, 250, 300], tick: 10, red: 999 },
     speedMax: 300, needle: '#ff6a1a', hub: '#1a1a1a' },
 };
 
-export const COCKPIT_IMAGES = Object.values(COCKPIT_ART).flatMap((a) => [a.dash, a.wheel]);
+export const COCKPIT_IMAGES = Object.values(COCKPIT_ART).flatMap((a) => [a.dash, a.top, a.wheel]);
 
 // Cabine a partir da arte: painel, ponteiros dinâmicos, radar e volante girando.
 function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: CockpitArt): boolean {
@@ -59,6 +63,11 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     c.drawImage(dash, DASH_W - 2, 0, 2, 124, dx + DASH_W, ART_TOP, w - dx - DASH_W, 124);
   }
   c.drawImage(dash, dx, ART_TOP);
+  const top = svgSprite(art.top, DASH_W, TOP_EXT);
+  if (top) {
+    if (dx > 0) c.drawImage(top, 0, 0, 2, TOP_EXT, 0, ART_TOP - TOP_EXT, dx, TOP_EXT);
+    c.drawImage(top, dx, ART_TOP - TOP_EXT);
+  }
   artDial(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, art);
   artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
   rect(c, ox + 206, ART_TOP + 22, 30, 6, '#0c0c0e');

@@ -1,5 +1,7 @@
 import { KMH } from './config';
 import { clamp, shade } from './util';
+import { F40_REAR, F40_SIDE } from './svg/f40';
+import { svgSprite } from './svgsprites';
 
 // ---------- definição visual ----------
 type Fill = 'body' | 'shade' | 'dark' | 'glass' | 'chrome' | 'black' | 'red' | 'amber';
@@ -25,6 +27,7 @@ export interface RearDef {
   roadster?: boolean;
   mesh?: boolean; // grade preta entre as lanternas
   custom?: 'f40' | '959'; // traseira desenhada com detalhes próprios
+  svg?: string; // arte vetorial da traseira
 }
 
 export interface CarSpec {
@@ -46,6 +49,7 @@ export interface CarSpec {
   hood: string;
   side: SideDef;
   rear: RearDef;
+  svgSide?: string; // arte vetorial do perfil (viewBox com chão na base)
 }
 
 const kmh = (v: number) => v / KMH;
@@ -76,7 +80,8 @@ export const CARS: CarSpec[] = [
         [0.72, 0.248, 0.84, 0.222], [0.73, 0.242, 0.84, 0.216],
       ],
     },
-    rear: { h: 0.53, roof: 0.52, lights: 'quadRound', wing: 2, mesh: true, custom: 'f40' },
+    rear: { h: 0.53, roof: 0.52, lights: 'quadRound', wing: 2, mesh: true, custom: 'f40', svg: F40_REAR },
+    svgSide: F40_SIDE,
   },
   {
     id: 'silber-95', name: 'Silber 95', basedOn: 'Porsche 959', color: '#c4c8cc',
@@ -278,6 +283,24 @@ function glow(c: CanvasRenderingContext2D, x: number, y: number, w: number, rgb:
 export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   if (w < 2) return;
   if (look.truck) return drawTruck(c, x, y, w, look);
+  if (look.rear?.svg && !look.front) {
+    const h = w * look.rear.h;
+    const spr = svgSprite(look.rear.svg, w, h);
+    if (spr) {
+      c.fillStyle = 'rgba(0,0,0,0.35)';
+      c.fillRect(x - w * 0.53, y - h * 0.05, w * 1.06, h * 0.08);
+      c.drawImage(spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
+      if (look.brake || look.night) {
+        for (const u of [0.1, 0.205, 0.795, 0.9]) {
+          c.fillStyle = 'rgba(255,60,40,0.45)';
+          c.beginPath();
+          c.arc(x - w / 2 + u * w, y - h + 0.465 * h, w * 0.06, 0, Math.PI * 2);
+          c.fill();
+        }
+      }
+      return;
+    }
+  }
   if (look.rear?.custom === 'f40' && !look.front) return drawRearF40(c, x, y, w, look);
   if (look.rear?.custom === '959' && !look.front) return drawRear959(c, x, y, w, look);
   const R = look.rear ?? GENERIC;
@@ -593,6 +616,15 @@ function drawTruck(c: CanvasRenderingContext2D, x: number, y: number, w: number,
 
 // Vista lateral (escolha do carro e posto). x = frente do carro, y = chão.
 export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec) {
+  if (car.svgSide) {
+    // viewBox 1071 x 300 com o chão em y = 294
+    const h = (len * 300) / 1071;
+    const spr = svgSprite(car.svgSide, len, h);
+    if (spr) {
+      c.drawImage(spr, Math.round(x), Math.round(y - (h * 294) / 300), Math.round(len), Math.round(h));
+      return;
+    }
+  }
   const S = car.side;
   const path = (arr: number[]) => {
     c.beginPath();

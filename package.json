@@ -10,6 +10,7 @@
     "artifact": "npm run build:single && node tools/to-artifact.mjs"
   },
   "devDependencies": {
+    "potrace": "^2.1.8",
     "typescript": "^5.6.3",
     "vite": "^5.4.10",
     "vite-plugin-singlefile": "^2.0.3"

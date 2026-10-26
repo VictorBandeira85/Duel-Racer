@@ -4,6 +4,8 @@ import { renderMirror, renderRoad, type Viewport } from './render3d';
 import { pix, pixWidth } from './pixfont';
 import { dither, speckle, text } from './ui';
 import { formatTime, lerp, rng, shade } from './util';
+import { F40_WHEEL } from './svg/f40';
+import { svgSprite } from './svgsprites';
 
 // Cabine desenhada em pixels nativos do Super Nintendo (256x224), com as posições
 // medidas nas capturas de referência (tools/ref/measure.py). Em telas largas, a área
@@ -468,6 +470,11 @@ function drawDashF40(c: CanvasRenderingContext2D, r: Race, dt: number) {
   const cx = ox + 78, cy = 200, R = 60;
   shadow(c, cx + 8, cy - 6, R, R * 0.8, 0.35);
   vignette(c, 176);
+  const wheelSpr = svgSprite(F40_WHEEL, R * 2, R * 2);
+  if (wheelSpr) {
+    withRotation(c, cx, cy, steerAngle(r, dt), () => c.drawImage(wheelSpr, cx - R, cy - R, R * 2, R * 2));
+    return;
+  }
   withRotation(c, cx, cy, steerAngle(r, dt), () => {
     for (const ang of [Math.PI * 1.03, -Math.PI * 0.04, Math.PI * 0.46]) spoke(c, cx, cy, ang, 10, R - 4, 5, 3.5, '#4a4b52', '#8a8c96');
     disc(c, cx, cy, 13, '#121216');

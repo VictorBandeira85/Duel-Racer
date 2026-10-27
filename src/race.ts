@@ -109,6 +109,7 @@ export class Race {
   private spinOut = 0; // animação de rodada
   pt: Powertrain;
   air = 0; // alívio de peso no topo das lombadas (0..1)
+  pitch = 0; // inclinação da carroceria acompanhando o chão (subida > 0)
   private airborne = false;
   private landT = 0;
   draft = 0; // vácuo atrás de outro carro (0..1)
@@ -262,6 +263,10 @@ export class Race {
     const slope = clamp((pSeg.p2.world.y - pSeg.p1.world.y) / SEG_LEN, -0.6, 0.6);
     const ahead = this.track.segments[(pSeg.index + 7) % this.track.segments.length];
     const slopeAhead = clamp((ahead.p2.world.y - ahead.p1.world.y) / SEG_LEN, -0.6, 0.6);
+    // a carroceria inclina com o chão entre as rodas (a câmera vai junto, com um pouco de suspensão)
+    const cSeg = this.findSegment(this.position);
+    const slopeCam = clamp((cSeg.p2.world.y - cSeg.p1.world.y) / SEG_LEN, -0.6, 0.6);
+    this.pitch = lerp(this.pitch, (slope + slopeCam) / 2, Math.min(1, dt * 6));
     const pct0 = this.speed / max;
     const lift = clamp(((slope - slopeAhead) * pct0 * pct0 - 0.015) * 12, 0, 1);
     this.air = lerp(this.air, lift, Math.min(1, dt * 8));

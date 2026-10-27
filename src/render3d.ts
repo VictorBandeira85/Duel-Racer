@@ -172,7 +172,9 @@ function mix(a: string, b: string, t: number) {
 // objetos grandes, que aparecem de longe
 const FAR_KINDS = ['building', 'station', 'bridge', 'billboard', 'barn'];
 
-export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
+export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport) {
+  // câmera inclinada junto com o carro: na subida o horizonte desce, na descida sobe
+  const vp = { ...view0, horizon: view0.horizon + Math.round(Math.max(-40, Math.min(40, r.pitch * CAM_DEPTH * view0.K))) };
   const segs = r.track.segments;
   const roadW = r.track.roadW;
   const night = !!r.def.night;
@@ -189,9 +191,8 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
 
   const base = r.findSegment(r.position);
   const basePct = (r.position % SEG_LEN) / SEG_LEN;
-  const pSeg = r.findSegment(r.playerZ);
-  const pPct = (r.playerZ % SEG_LEN) / SEG_LEN;
-  const playerY = lerp(pSeg.p1.world.y, pSeg.p2.world.y, pPct);
+  // altura da câmera: o chão logo abaixo do motorista
+  const playerY = lerp(base.p1.world.y, base.p2.world.y, basePct);
   const end = Math.min(segs.length, base.index + DRAW_DIST);
   const ground = dither(c, r.theme.ground[0], r.theme.ground[1]);
   // chão por baixo de tudo: em vales, parte da tela não é coberta por nenhum segmento

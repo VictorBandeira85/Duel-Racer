@@ -7,7 +7,7 @@ export const LANE_W = 2200; // largura de uma faixa (unidades do mundo)
 export const DRAW_DIST = 260;
 export const FOV = 100;
 export const CAM_DEPTH = 1 / Math.tan(((FOV / 2) * Math.PI) / 180);
-export const CAM_H = 900; // altura dos olhos do motorista (medida nas referências)
+export const CAM_H = 600; // altura dos olhos do motorista: ~1 m, como num esportivo baixo (CAR_W = 1,8 m)
 export const PLAYER_Z = 400; // frente do carro, à frente da câmera
 export const CAR_W = 1100;
 export const TRUCK_W = 1300;

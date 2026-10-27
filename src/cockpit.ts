@@ -40,7 +40,8 @@ interface Dial { x: number; y: number; r: number; max: number; labels: number[];
 
 // Mostradores auxiliares, também redesenhados: 'single' (um ponteiro), 'dual' (dois
 // ponteiros no mesmo eixo, em V), 'twin' (dois eixos lado a lado) e 'clock' (relógio)
-type Gauge = 'oil' | 'water' | 'oiltemp' | 'fuel' | 'press';
+// oil = pressão do óleo, boost = pressão do turbo, volt = voltímetro
+type Gauge = 'oil' | 'water' | 'oiltemp' | 'fuel' | 'boost' | 'volt';
 interface Aux { x: number; y: number; r: number; kind: 'single' | 'dual' | 'twin' | 'clock'; show?: Gauge[]; icon?: keyof typeof ICONS }
 
 // a arte cobre da linha 100 da tela até o fim (124 linhas); o topo transparente mostra a estrada
@@ -58,10 +59,10 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
     speed: { x: 149, y: 46, r: 17, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], tick: 20, red: 999 },
     speedMax: 360, needle: '#ff2a1a', hub: '#ff2a1a',
     aux: [
-      { x: 79, y: 45, r: 6.5, kind: 'single', show: ['oil'], icon: 'temp' },
-      { x: 79, y: 65, r: 8, kind: 'dual', show: ['water', 'press'], icon: 'temp' },
-      { x: 176, y: 45, r: 6.5, kind: 'single', show: ['oiltemp'], icon: 'oil' },
-      { x: 176, y: 65, r: 8, kind: 'dual', show: ['fuel', 'oil'], icon: 'fuel' },
+      { x: 79, y: 45, r: 6.5, kind: 'single', show: ['boost'], icon: 'turbo' },
+      { x: 79, y: 65, r: 8, kind: 'dual', show: ['water', 'oiltemp'], icon: 'temp' },
+      { x: 176, y: 45, r: 6.5, kind: 'single', show: ['oil'], icon: 'oil' },
+      { x: 176, y: 65, r: 8, kind: 'dual', show: ['fuel', 'volt'], icon: 'fuel' },
     ] },
   '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [127.8, 104], 
     tach: { x: 129, y: 66, r: 23, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6.5 },
@@ -69,7 +70,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
     speedMax: 300, needle: '#ff6a1a', hub: '#1a1a1a',
     aux: [
       { x: 36, y: 70, r: 16.5, kind: 'twin', show: ['oil', 'oiltemp'], icon: 'oil' },
-      { x: 80, y: 70, r: 16.5, kind: 'twin', show: ['press', 'fuel'], icon: 'oil' },
+      { x: 80, y: 70, r: 16.5, kind: 'twin', show: ['boost', 'fuel'], icon: 'turbo' },
       { x: 227, y: 70, r: 17, kind: 'clock' },
     ] },
 };
@@ -117,7 +118,8 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   if (art.lcd) lcdPanel(c, ox, r, art);
   if (art.tach) artDial(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, art);
   if (art.speed) artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
-  for (const g of art.aux) auxDial(c, g, ox, r, art);
+  updateGauges(r, dt);
+  for (const g of art.aux) auxDial(c, g, ox, art);
   rect(c, ox + 206, ART_TOP + 22, 30, 6, '#0c0c0e');
   radarLeds(c, ox + 208, ART_TOP + 23, 26, r.radar);
   const px = ox + art.pivot[0], py = ART_TOP + art.pivot[1];
@@ -181,6 +183,7 @@ const ICONS = {
   oil: ['1......', '1111.1.', '.11111.', '.1111..'],
   temp: ['...1...', '...11..', '...1...', '1111111'],
   fuel: ['1111.1.', '1..1.1.', '1111.1.', '1111...'],
+  turbo: ['.111...', '1...111', '1...1..', '.111...'],
 };
 
 // fundo preto do mostrador, por linhas (centro no meio do pixel cx, cy)
@@ -203,7 +206,28 @@ function hand(c: CanvasRenderingContext2D, x0: number, y0: number, a: number, le
   }
 }
 
-function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, r: Race, art: CockpitArt) {
+// Leitura dos mostradores auxiliares (0..1 da escala), cada um com sua função:
+// pressão do óleo sobe na partida e estabiliza; água e óleo esquentam aos poucos;
+// o combustível baixa ao longo do trecho; o turbo só enche acelerando; a bateria fica parada.
+const gauges: Record<Gauge, number> = { oil: 0.3, water: 0.3, oiltemp: 0.25, fuel: 0.92, boost: 0, volt: 0.62 };
+let gaugeRace: Race | null = null;
+function updateGauges(r: Race, dt: number) {
+  if (gaugeRace !== r) {
+    gaugeRace = r;
+    Object.assign(gauges, { oil: 0.3, boost: 0 });
+  }
+  const k = Math.min(1, dt * 1.5);
+  const rpm = Math.min(1, r.rpm);
+  gauges.oil += (0.3 + 0.35 * clamp(rpm / 0.3, 0, 1) - gauges.oil) * k;
+  gauges.water = 0.3 + 0.25 * Math.min(1, r.time / 40);
+  gauges.oiltemp = 0.25 + 0.35 * Math.min(1, r.time / 80);
+  gauges.fuel = 0.92 - 0.3 * clamp(r.playerZ / r.track.finishZ, 0, 1);
+  const boost = r.throttle && r.car.curve.includes('turbo') ? r.pt.boost * clamp((rpm - 0.2) / 0.4, 0, 1) : 0;
+  gauges.boost += (boost - gauges.boost) * Math.min(1, dt * 6);
+  gauges.volt = r.speed > 0 || r.throttle ? 0.62 : 0.55;
+}
+
+function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitArt) {
   const cx = ox + g.x, cy = ART_TOP + g.y, R = g.r;
   const mx = cx + 0.5, my = cy + 0.5; // centro real
   face(c, cx, cy, R);
@@ -217,15 +241,7 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, r: Race, art: 
       if (i === 0 || i === n || i * 2 === n) half(c, ...at(x, y, a, rr - 1));
     }
   };
-  const val = (k: Gauge) => {
-    switch (k) {
-      case 'oil': return 0.35 + 0.45 * Math.min(1, r.rpm);
-      case 'press': return 0.3 + 0.55 * Math.min(1, r.rpm);
-      case 'water': return 0.55;
-      case 'oiltemp': return 0.45 + 0.15 * Math.min(1, r.time / 90);
-      case 'fuel': return 0.8;
-    }
-  };
+  const val = (k: Gauge) => gauges[k];
   const PI = Math.PI;
   if (g.kind === 'clock') {
     ticks(mx, my, R - 0.75, -PI / 2, PI * 1.5, 12);

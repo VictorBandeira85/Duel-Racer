@@ -8,7 +8,8 @@ export type SpriteKind =
   | 'tree' | 'pine' | 'snowpine' | 'bush' | 'cactus' | 'rock' | 'palm' | 'post'
   | 'building' | 'house' | 'fence' | 'lamp' | 'signL' | 'signR' | 'gasSign' | 'station'
   | 'rail' | 'billboard' | 'bridge' | 'barn' | 'stop'
-  | 'autumn' | 'acacia' | 'umbrella' | 'kiosk' | 'factory' | 'silo' | 'banana' | 'spire' | 'lighthouse' | 'chalet';
+  | 'autumn' | 'acacia' | 'umbrella' | 'kiosk' | 'factory' | 'silo' | 'banana' | 'spire' | 'lighthouse' | 'chalet'
+  | 'snowrock' | 'snowchalet' | 'snowman';
 
 type Draw = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, seed: number) => void;
 
@@ -463,6 +464,42 @@ const chalet: Draw = (c, x, y, w, h) => {
   rect(c, '#f4f8fc', x + w * 0.17, y - h * 0.99, w * 0.1, h * 0.03);
 };
 
+// pedra com neve por cima
+const snowrock: Draw = (c, x, y, w, h, seed) => {
+  rock(c, x, y, w, h, seed);
+  poly(c, '#f4f8fc', x - w * 0.38, y - h * 0.62, x - w * 0.08, y - h, x + w * 0.3, y - h * 0.78, x + w * 0.42, y - h * 0.5, x + w * 0.2, y - h * 0.6, x - w * 0.05, y - h * 0.72, x - w * 0.3, y - h * 0.5);
+  poly(c, '#c8d6e6', x + w * 0.06, y - h * 0.82, x + w * 0.3, y - h * 0.78, x + w * 0.42, y - h * 0.5, x + w * 0.2, y - h * 0.6);
+  ell(c, '#eef2f8', x, y, w * 0.55, h * 0.06);
+};
+
+// chalé no inverno: neve acumulada no chão, na janela e fumaça na chaminé
+const snowchalet: Draw = (c, x, y, w, h, seed) => {
+  chalet(c, x, y, w, h, seed);
+  ell(c, '#f4f8fc', x, y - h * 0.01, w * 0.55, h * 0.05);
+  for (const wx of [-0.3, 0.1]) rect(c, '#f4f8fc', x + w * wx - w * 0.03, y - h * 0.29, w * 0.22, h * 0.025);
+  ell(c, 'rgba(225,230,238,0.85)', x + w * 0.24, y - h * 1.04, w * 0.06, h * 0.035);
+  ell(c, 'rgba(225,230,238,0.65)', x + w * 0.3, y - h * 1.1, w * 0.08, h * 0.04);
+};
+
+// boneco de neve com cachecol vermelho
+const snowman: Draw = (c, x, y, w, h) => {
+  ell(c, '#dfe6f0', x, y - h * 0.24, w * 0.46, h * 0.24);
+  ell(c, '#f6f9fc', x - w * 0.06, y - h * 0.27, w * 0.36, h * 0.19);
+  ell(c, '#dfe6f0', x, y - h * 0.6, w * 0.34, h * 0.17);
+  ell(c, '#f6f9fc', x - w * 0.05, y - h * 0.62, w * 0.26, h * 0.13);
+  ell(c, '#dfe6f0', x, y - h * 0.84, w * 0.24, h * 0.12);
+  ell(c, '#f6f9fc', x - w * 0.04, y - h * 0.86, w * 0.18, h * 0.09);
+  rect(c, '#c82020', x - w * 0.26, y - h * 0.74, w * 0.52, h * 0.05);
+  rect(c, '#a01818', x + w * 0.1, y - h * 0.74, w * 0.1, h * 0.16);
+  rect(c, '#202024', x - w * 0.2, y - h * 0.98, w * 0.4, h * 0.03);
+  rect(c, '#202024', x - w * 0.13, y - h * 1.08, w * 0.26, h * 0.1);
+  rect(c, '#f08a1a', x, y - h * 0.85, w * 0.14, h * 0.025);
+  for (const ex of [-0.08, 0.06]) rect(c, '#202024', x + w * ex, y - h * 0.89, w * 0.04, h * 0.02);
+  for (const by of [0.55, 0.62]) rect(c, '#202024', x - w * 0.02, y - h * by, w * 0.04, h * 0.02);
+  poly(c, '#5a3a20', x - w * 0.3, y - h * 0.6, x - w * 0.62, y - h * 0.78, x - w * 0.6, y - h * 0.8, x - w * 0.28, y - h * 0.62);
+  poly(c, '#5a3a20', x + w * 0.3, y - h * 0.6, x + w * 0.6, y - h * 0.74, x + w * 0.62, y - h * 0.72, x + w * 0.32, y - h * 0.58);
+};
+
 export const SPRITES: Record<SpriteKind, { w: number; h: number; draw: Draw; solid: boolean }> = {
   tree: { w: 1700, h: 2100, draw: tree, solid: true },
   pine: { w: 1300, h: 2700, draw: pineDraw(false), solid: true },
@@ -495,4 +532,7 @@ export const SPRITES: Record<SpriteKind, { w: number; h: number; draw: Draw; sol
   spire: { w: 2200, h: 4200, draw: spire, solid: true },
   lighthouse: { w: 1400, h: 4600, draw: lighthouse, solid: true },
   chalet: { w: 2800, h: 2600, draw: chalet, solid: true },
+  snowrock: { w: 1500, h: 900, draw: snowrock, solid: true },
+  snowchalet: { w: 2800, h: 2600, draw: snowchalet, solid: true },
+  snowman: { w: 700, h: 1000, draw: snowman, solid: true },
 };

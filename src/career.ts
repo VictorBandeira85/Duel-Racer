@@ -75,7 +75,7 @@ export const REGIONS: Region[] = [
       { id: 'f2', name: 'Turno da Noite', prize: 70000, driver: drv('Operário', 'furia-tr', 'agressivo', 0.97, '#7a7a6a', 'Bati o ponto. Agora é corrida.'), stages: [st('industrial', 4, { night: true, traffic: 8, police: 2 }), st('industrial', 4, { night: true, police: 2 })] },
       { id: 'f3', name: 'Neblina na Metrópole', prize: 80000, driver: drv('Fantasma', 'silber-95', 'imprevisivel', 0.975, '#ececec', 'Você vai ouvir, mas não vai ver.'), stages: [st('city', 4, { weather: 'rain', traffic: 9, police: 2 }), st('industrial', 4, { weather: 'rain', night: true, police: 3 })] },
       { id: 'f4', name: 'Beira do Abismo', prize: 95000, driver: drv('Águia', 'furia-f4', 'agressivo', 0.98, '#d81a12', 'Lá de cima eu vejo tudo.'), stages: [st('mountain', 2, { curviness: 1.7, hilliness: 1 }), st('coast', 2, { curviness: 1.6, weather: 'rain', night: true })] },
-      { id: 'f5', name: 'Barão dos Alpes', prize: 180000, boss: true, driver: drv('Barão Gélido', 'toro-v12', 'agressivo', 0.99, '#6aa0d0', 'Lá no alto o ar é rarefeito. Para você.'), stages: [st('alpine', 2, { curviness: 1.5, hilliness: 1 }), st('alpine', 2, { curviness: 1.6, weather: 'rain', night: true }), st('snow', 2, { weather: 'snow', curviness: 1.5, hilliness: 1 })] },
+      { id: 'f5', name: 'Barão dos Alpes', prize: 180000, boss: true, driver: drv('Barão Gélido', 'toro-v12', 'agressivo', 0.99, '#6aa0d0', 'Lá no alto o ar é rarefeito. Para você.'), stages: [st('alpine', 2, { curviness: 1.5, hilliness: 1 }), st('alpine', 2, { curviness: 1.6, weather: 'rain', night: true }), st('alpinesnow', 2, { weather: 'snow', curviness: 1.5, hilliness: 1 })] },
     ],
   },
   {

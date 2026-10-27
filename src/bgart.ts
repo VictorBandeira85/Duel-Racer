@@ -94,7 +94,7 @@ const FOREST_PAL: Record<string, [string, string, string]> = {
   jungle: ['#08401a', '#127a2a', '#38a83a'],
   autumn: ['#6a2a10', '#b8521a', '#e89a2a'],
 };
-function forest(img: Img, rand: () => number, night: boolean, base: number, pal = FOREST_PAL.forest) {
+function forest(img: Img, rand: () => number, night: boolean, base: number, pal = FOREST_PAL.forest, snowy = false) {
   const nt = (c: string) => (night ? dim(hex(c), 0.42) : hex(c));
   const dark = nt(pal[0]);
   const mid = nt(pal[1]);
@@ -120,6 +120,8 @@ function forest(img: Img, rand: () => number, night: boolean, base: number, pal 
       if (depth < 2) c = (x + y) % 2 ? light : mid;
       else if (depth < 5) c = rand() < 0.35 ? mid : dark;
       else if (rand() < 0.12) c = mid;
+      // mata nevada: as copas ficam brancas e a neve salpica o meio
+      if (snowy && (depth < 2 || (depth < 6 && rand() < 0.3))) c = hex(night ? '#8a94a8' : (x + y) % 3 ? '#f2f6fa' : '#d0dcea');
       img.set(x, y, c);
     }
   }
@@ -167,7 +169,7 @@ function hills(img: Img, rand: () => number, night: boolean, dry = false) {
   }
 }
 
-function snowpeaks(img: Img, rand: () => number, night: boolean, tall = 1) {
+function snowpeaks(img: Img, rand: () => number, night: boolean, tall = 1, deep = false) {
   const rock = hex(night ? '#3a4458' : '#7e8aa2');
   const rockDark = hex(night ? '#262e3e' : '#5a6680');
   const snow = hex(night ? '#9aa4b8' : '#f2f6fa');
@@ -179,7 +181,7 @@ function snowpeaks(img: Img, rand: () => number, night: boolean, tall = 1) {
     for (let y = top; y < PANO_H; y++) {
       const rel = (y - top) / h;
       let c = rand() < 0.3 ? rockDark : rock;
-      if (rel < 0.28 + (rand() - 0.5) * 0.08 && h > 22) c = rand() < 0.85 ? snow : rock;
+      if (rel < (deep ? 0.75 : 0.28) + (rand() - 0.5) * 0.08 && h > (deep ? 8 : 22)) c = rand() < (deep ? 0.93 : 0.85) ? snow : rock;
       img.set(x, y, c);
     }
   }
@@ -277,11 +279,11 @@ function beach(img: Img, rand: () => number, night: boolean) {
   }
 }
 
-// alpes: picos altos e pontudos, muita neve, um lago azul no pé
-function alps(img: Img, rand: () => number, night: boolean) {
-  snowpeaks(img, rand, night, 1.35);
-  const lake = hex(night ? '#0c1c3a' : '#3a7ac8');
-  const shine = hex(night ? '#2a3a5a' : '#9ac8f0');
+// alpes: picos altos e pontudos, muita neve, um lago azul no pé (congelado no inverno)
+function alps(img: Img, rand: () => number, night: boolean, frozen = false) {
+  snowpeaks(img, rand, night, 1.35, frozen);
+  const lake = hex(night ? (frozen ? '#3a4a66' : '#0c1c3a') : frozen ? '#a8c8e8' : '#3a7ac8');
+  const shine = hex(night ? '#2a3a5a' : frozen ? '#eef6ff' : '#9ac8f0');
   for (let x = 0; x < PANO_W; x++)
     if (Math.sin(x * 0.012) > 0.2) for (let y = PANO_H - 3; y < PANO_H; y++) img.set(x, y, rand() < 0.1 ? shine : lake);
 }
@@ -309,6 +311,8 @@ export function panorama(kind: BgLayer, near: boolean, night: boolean, seed: num
     case 'factory': factory(img, rand, night); break;
     case 'beach': beach(img, rand, night); break;
     case 'alps': alps(img, rand, night); break;
+    case 'alpsnow': alps(img, rand, night, true); break;
+    case 'snowforest': forest(img, rand, night, near ? 7 : 11, FOREST_PAL.forest, true); break;
   }
   cv = document.createElement('canvas');
   cv.width = PANO_W;

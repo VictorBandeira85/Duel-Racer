@@ -2,9 +2,9 @@ import type { SpriteKind } from './sprites';
 import { shade } from './util';
 
 export type BgLayer = 'city' | 'forest' | 'mesa' | 'hills' | 'snowpeaks' | 'dunes' | 'sea'
-  | 'redmesa' | 'jungle' | 'autumn' | 'savanna' | 'factory' | 'beach' | 'alps';
+  | 'redmesa' | 'jungle' | 'autumn' | 'savanna' | 'factory' | 'beach' | 'alps' | 'alpsnow' | 'snowforest';
 export type ThemeId = 'forest' | 'farm' | 'desert' | 'city' | 'mountain' | 'snow' | 'coast'
-  | 'canyon' | 'jungle' | 'autumn' | 'beach' | 'savanna' | 'industrial' | 'alpine';
+  | 'canyon' | 'jungle' | 'autumn' | 'beach' | 'savanna' | 'industrial' | 'alpine' | 'alpinesnow';
 
 export interface Theme {
   sky: [string, string];
@@ -75,6 +75,11 @@ export const THEMES: Record<ThemeId, Theme> = {
   alpine: {
     sky: ['#2a6ad8', '#d0e4f8'], ground: ['#2a7a2a', '#368a30'], shoulder: '#a0a4a8', road: '#474747',
     bg: ['alps', 'forest'], bgColors: ['#9eb0c6', '#2a5a3c'], scenery: ['pine', 'chalet', 'pine', 'rock', 'pine', 'chalet'], density: 0.13, bridges: 1, mapColor: '#6aa0d0',
+  },
+  // Alpes no inverno: tudo coberto de neve, lago congelado, pinheiros e chalés nevados
+  alpinesnow: {
+    sky: ['#4a7ac0', '#d8e4f4'], ground: ['#eef2f8', '#d4dce8'], shoulder: '#9aa4b0', road: '#4c4c50',
+    bg: ['alpsnow', 'snowforest'], bgColors: ['#c8d4e4', '#3a5a4a'], scenery: ['snowpine', 'snowchalet', 'snowpine', 'snowrock', 'snowpine', 'snowpine', 'snowchalet', 'snowman', 'snowpine'], density: 0.14, bridges: 1, mapColor: '#c8dcf0',
   },
 };
 

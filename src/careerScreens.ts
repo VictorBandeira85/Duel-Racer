@@ -14,7 +14,7 @@ import { formatTime } from './util';
 
 const THEME_NAME: Record<ThemeId, string> = {
   forest: 'Floresta', farm: 'Fazenda', desert: 'Deserto', city: 'Cidade', mountain: 'Serra', snow: 'Neve', coast: 'Litoral',
-  canyon: 'Cânion', jungle: 'Selva', autumn: 'Outono', beach: 'Praia', savanna: 'Savana', industrial: 'Indústria', alpine: 'Alpes',
+  canyon: 'Cânion', jungle: 'Selva', autumn: 'Outono', beach: 'Praia', savanna: 'Savana', industrial: 'Indústria', alpine: 'Alpes', alpinesnow: 'Alpes nevados',
 };
 const STYLE: Record<string, [string, string]> = {
   agressivo: ['AGRESSIVO', '#ff7a6a'], cauteloso: ['CAUTELOSO', '#8aff8a'], imprevisivel: ['IMPREVISÍVEL', '#ffe060'],

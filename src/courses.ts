@@ -132,9 +132,9 @@ export const COURSES: Course[] = [
     stages: [
       s('alpine', 2, { curviness: 1.2, hilliness: 0.9 }),
       s('alpine', 2, { curviness: 1.4, hilliness: 1 }),
-      s('snow', 2, { weather: 'snow', curviness: 1.3, hilliness: 1 }),
+      s('alpinesnow', 2, { weather: 'snow', curviness: 1.3, hilliness: 1 }),
       s('alpine', 2, { curviness: 1.5, hilliness: 1, weather: 'rain' }),
-      s('snow', 2, { weather: 'snow', curviness: 1.5, hilliness: 1 }),
+      s('alpinesnow', 2, { weather: 'snow', curviness: 1.5, hilliness: 1 }),
     ],
   },
   {
@@ -164,7 +164,7 @@ export const COURSES: Course[] = [
       s('jungle', 2, { curviness: 1.4, weather: 'rain' }),
       s('canyon', 2, { curviness: 1.5, hilliness: 1 }),
       s('industrial', 4, { traffic: 8, police: 3 }),
-      s('snow', 2, { curviness: 1.6, hilliness: 1, weather: 'snow' }),
+      s('alpinesnow', 2, { curviness: 1.6, hilliness: 1, weather: 'snow' }),
     ],
   },
 ];

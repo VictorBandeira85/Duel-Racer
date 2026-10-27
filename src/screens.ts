@@ -5,7 +5,7 @@ import { drawCareerScreen, keyCareerScreen, openCareer, tapCareerScreen } from '
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
 import { CARS, accelCurve, drawCar, drawCarSide, gearbox, layout, type CarSpec } from './cars';
-import { COURSES, type Course } from './courses';
+import { COURSES, withTimeOfDay, type Course } from './courses';
 import { THEMES } from './themes';
 import { dither, inside, panel, text, type Rect } from './ui';
 import { formatTime, shade } from './util';
@@ -38,6 +38,8 @@ export interface AppState {
   career: CareerSave | null;
   careerResult: EventResult | null;
   gasPage: number; // posto: 0 = chegada com o frentista, 1 = resultado do trecho
+  arcadeNight: boolean; // Arcade: corrida de dia ou de noite
+  courseTop: number; // primeiro percurso visível na lista
 }
 
 export interface Actions {
@@ -375,7 +377,19 @@ function drawOpponent(c: CanvasRenderingContext2D, s: AppState) {
 }
 
 // ---------- escolha do percurso ----------
-const courseRects = () => [0, 1, 2, 3].map((i): Rect => ({ x: ox() + 8, y: 26 + i * 52, w: SAFE_W - 16, h: 46 }));
+// lista com 4 percursos visíveis (rola com as setas); botão de dia/noite no alto
+const COURSE_ROWS = 4;
+const courseRects = () => Array.from({ length: COURSE_ROWS }, (_, i): Rect => ({ x: ox() + 8, y: 26 + i * 52, w: SAFE_W - 40, h: 46 }));
+const courseButtons = () => ({
+  time: { x: ox() + SAFE_W - 84, y: 3, w: 76, h: 18 } as Rect,
+  up: { x: ox() + SAFE_W - 28, y: 26, w: 20, h: 98 } as Rect,
+  down: { x: ox() + SAFE_W - 28, y: 130, w: 20, h: 98 } as Rect,
+});
+function scrollCourses(s: AppState) {
+  if (s.sel < s.courseTop) s.courseTop = s.sel;
+  if (s.sel >= s.courseTop + COURSE_ROWS) s.courseTop = s.sel - COURSE_ROWS + 1;
+  s.courseTop = Math.max(0, Math.min(COURSES.length - COURSE_ROWS, s.courseTop));
+}
 
 function drawCourseStrip(c: CanvasRenderingContext2D, r: Rect, course: Course, t: number) {
   c.save();
@@ -440,10 +454,26 @@ function drawCourse(c: CanvasRenderingContext2D, s: AppState) {
   const { w, h } = view;
   c.fillStyle = '#2a2050';
   c.fillRect(0, 0, w, h);
-  text(c, 'ESCOLHA O PERCURSO', w / 2, 8, 8, '#a8a0d8', 'center', null);
-  courseRects().forEach((r, i) => {
+  text(c, 'ESCOLHA O PERCURSO', ox() + 8, 8, 8, '#a8a0d8', 'left', null);
+  scrollCourses(s);
+  const b = courseButtons();
+  smallButton(c, b.time, s.arcadeNight ? 'NOITE' : 'DIA', false);
+  // sol ou lua no botão
+  c.fillStyle = s.arcadeNight ? '#ffe680' : '#ffd400';
+  c.beginPath();
+  c.arc(b.time.x + 9, b.time.y + 9, 4, 0, Math.PI * 2);
+  c.fill();
+  if (s.arcadeNight) {
+    c.fillStyle = '#2a2060';
+    c.beginPath();
+    c.arc(b.time.x + 11, b.time.y + 7.5, 3.5, 0, Math.PI * 2);
+    c.fill();
+  }
+  courseRects().forEach((r, row) => {
+    const i = s.courseTop + row;
+    if (i >= COURSES.length) return;
     const hot = s.sel === i;
-    drawCourseStrip(c, r, COURSES[i], s.t);
+    drawCourseStrip(c, r, withTimeOfDay(COURSES[i], s.arcadeNight), s.t);
     c.strokeStyle = hot ? '#ffd400' : '#120c30';
     c.lineWidth = 2;
     c.beginPath();
@@ -451,6 +481,9 @@ function drawCourse(c: CanvasRenderingContext2D, s: AppState) {
     c.stroke();
     text(c, `${COURSES[i].name} - ${COURSES[i].level}`, r.x + r.w / 2, r.y + r.h / 2 - 4, 8, '#fff', 'center', '#000');
   });
+  smallButton(c, b.up, '▲', false);
+  smallButton(c, b.down, '▼', false);
+  text(c, `${s.sel + 1}/${COURSES.length}`, b.up.x + b.up.w / 2, 124, 5, '#a8a0d8', 'center', null);
 }
 
 // ---------- posto de gasolina ----------
@@ -691,14 +724,22 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
         }
       });
       return;
-    case 'course':
-      courseRects().forEach((r, i) => {
-        if (inside(x, y, r)) {
-          s.courseIdx = i;
-          a.startCourse();
-        }
-      });
+    case 'course': {
+      const b = courseButtons();
+      if (inside(x, y, b.time)) s.arcadeNight = !s.arcadeNight;
+      else if (inside(x, y, b.up)) s.sel = Math.max(0, Math.min(s.sel, s.courseTop + COURSE_ROWS - 1) - COURSE_ROWS);
+      else if (inside(x, y, b.down)) s.sel = Math.min(COURSES.length - 1, Math.max(s.sel, s.courseTop) + COURSE_ROWS);
+      else
+        courseRects().forEach((r, row) => {
+          const i = s.courseTop + row;
+          if (inside(x, y, r) && i < COURSES.length) {
+            s.courseIdx = i;
+            a.startCourse();
+          }
+        });
+      scrollCourses(s);
       return;
+    }
     case 'gas':
       if (!s.gasPage) s.gasPage = 1;
       else a.nextStage();
@@ -716,7 +757,12 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (['career', 'event', 'garage', 'dealer', 'careerEnd'].includes(s.screen)) return keyCareerScreen(s, a, k);
-  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 4, opponent: OPP_N, course: 4 };
+  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 4, opponent: OPP_N, course: COURSES.length };
+  // percursos: cima/baixo escolhem, esquerda/direita trocam dia e noite
+  if (s.screen === 'course' && (k === 'left' || k === 'right')) {
+    s.arcadeNight = !s.arcadeNight;
+    return;
+  }
   const n = counts[s.screen];
   if (s.screen === 'car') {
     if (k === 'left') s.carIdx = (s.carIdx + CARS.length - 1) % CARS.length;

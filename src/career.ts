@@ -7,7 +7,8 @@ import type { ThemeId } from './themes';
 
 export interface Driver { name: string; car: string; style: RivalStyle; skill: number; paint: string; quote: string }
 export interface CareerEvent { id: string; name: string; driver: Driver; stages: StageDef[]; prize: number; boss?: boolean }
-export interface Region { id: string; name: string; desc: string; color: string; events: CareerEvent[] }
+// after: região cujo chefão libera esta (sem isso, a anterior da lista)
+export interface Region { id: string; name: string; desc: string; color: string; events: CareerEvent[]; after?: string }
 
 const st = (theme: ThemeId, lanes: 2 | 4, extra: Partial<StageDef> = {}): StageDef => ({
   theme, lanes, curviness: 1, hilliness: 0.5, sections: 10, traffic: lanes === 4 ? 6 : 4, police: 1, ...extra,
@@ -37,7 +38,18 @@ export const REGIONS: Region[] = [
     ],
   },
   {
-    id: 'deserto', name: 'Rota do Deserto', desc: 'Retas longas, calor e polícia.', color: '#d0a860',
+    // biomas novos; clima e hora do dia definidos pela dificuldade do evento
+    id: 'tropico', name: 'Trópico Selvagem', desc: 'Praias, savana, selva e cânion.', color: '#f0a030', after: 'vale',
+    events: [
+      { id: 't1', name: 'Areia Dourada', prize: 20000, driver: drv('Surfista Léo', 'vortex-zr', 'cauteloso', 0.93, '#18b8d0', 'A onda boa é a da estrada.'), stages: [st('beach', 4, { curviness: 0.7, police: 0 }), st('beach', 2, { curviness: 0.8 })] },
+      { id: 't2', name: 'Safári', prize: 25000, driver: drv('Juba', 'serpe-v10', 'agressivo', 0.94, '#c8a840', 'O rei da savana sou eu.'), stages: [st('savanna', 2, { curviness: 0.8, hilliness: 0.7 }), st('savanna', 4, { curviness: 0.6 })] },
+      { id: 't3', name: 'Chuva na Selva', prize: 30000, driver: drv('Tucano', 'kaze-nx', 'imprevisivel', 0.945, '#1a9a3a', 'Na mata ninguém me acha.'), stages: [st('jungle', 2, { curviness: 1.1, weather: 'rain' }), st('jungle', 2, { curviness: 1.2, weather: 'rain' })] },
+      { id: 't4', name: 'Pôr do Sol no Cânion', prize: 36000, driver: drv('Coiote', 'toro-lp5', 'agressivo', 0.95, '#c8603a', 'Bip bip? Não comigo.'), stages: [st('canyon', 2, { curviness: 1.2, hilliness: 0.9 }), st('canyon', 2, { curviness: 1.3, night: true })] },
+      { id: 't5', name: 'Rainha do Trópico', prize: 70000, boss: true, driver: drv('Rainha Jaci', 'silber-95', 'cauteloso', 0.955, '#f0a030', 'Do mar ao cânion, tudo é meu.'), stages: [st('beach', 4, { curviness: 0.9 }), st('jungle', 2, { curviness: 1.3, weather: 'rain' }), st('canyon', 2, { curviness: 1.4, night: true, hilliness: 1 })] },
+    ],
+  },
+  {
+    id: 'deserto', name: 'Rota do Deserto', after: 'vale', desc: 'Retas longas, calor e polícia.', color: '#d0a860',
     events: [
       { id: 'd1', name: 'Miragem', prize: 26000, driver: drv('Sol Escaldante', 'toro-lp5', 'agressivo', 0.94, '#f0c000', 'O asfalto derrete, eu não.'), stages: [st('desert', 4, { police: 2 })] },
       { id: 'd2', name: 'Cânion', prize: 32000, driver: drv('Kiko Poeira', 'furia-tr', 'imprevisivel', 0.94, '#d8c49a', 'Cuidado com a poeira!'), stages: [st('desert', 2, { curviness: 1.2, hilliness: 0.8 }), st('desert', 2, { police: 2 })] },
@@ -57,7 +69,17 @@ export const REGIONS: Region[] = [
     ],
   },
   {
-    id: 'cume', name: 'Cume Gelado', desc: 'Serra, neve e o lendário Rei da Serra.', color: '#e0e8f0',
+    id: 'fronteira', name: 'Fronteira Norte', desc: 'Outono, indústrias, penhascos e Alpes.', color: '#6aa0d0', after: 'metropole',
+    events: [
+      { id: 'f1', name: 'Folhas ao Vento', prize: 60000, driver: drv('Outonal', 'toro-v12', 'cauteloso', 0.965, '#d07a2a', 'Cada curva, uma folha.'), stages: [st('autumn', 2, { curviness: 1.1, hilliness: 0.8 }), st('autumn', 4, { curviness: 0.9 })] },
+      { id: 'f2', name: 'Turno da Noite', prize: 70000, driver: drv('Operário', 'furia-tr', 'agressivo', 0.97, '#7a7a6a', 'Bati o ponto. Agora é corrida.'), stages: [st('industrial', 4, { night: true, traffic: 8, police: 2 }), st('industrial', 4, { night: true, police: 2 })] },
+      { id: 'f3', name: 'Neblina na Metrópole', prize: 80000, driver: drv('Fantasma', 'silber-95', 'imprevisivel', 0.975, '#ececec', 'Você vai ouvir, mas não vai ver.'), stages: [st('city', 4, { weather: 'rain', traffic: 9, police: 2 }), st('industrial', 4, { weather: 'rain', night: true, police: 3 })] },
+      { id: 'f4', name: 'Beira do Abismo', prize: 95000, driver: drv('Águia', 'furia-f4', 'agressivo', 0.98, '#d81a12', 'Lá de cima eu vejo tudo.'), stages: [st('mountain', 2, { curviness: 1.7, hilliness: 1 }), st('coast', 2, { curviness: 1.6, weather: 'rain', night: true })] },
+      { id: 'f5', name: 'Barão dos Alpes', prize: 180000, boss: true, driver: drv('Barão Gélido', 'toro-v12', 'agressivo', 0.99, '#6aa0d0', 'Lá no alto o ar é rarefeito. Para você.'), stages: [st('alpine', 2, { curviness: 1.5, hilliness: 1 }), st('alpine', 2, { curviness: 1.6, weather: 'rain', night: true }), st('snow', 2, { weather: 'snow', curviness: 1.5, hilliness: 1 })] },
+    ],
+  },
+  {
+    id: 'cume', name: 'Cume Gelado', after: 'metropole', desc: 'Serra, neve e o lendário Rei da Serra.', color: '#e0e8f0',
     events: [
       { id: 'g1', name: 'Primeira Neve', prize: 70000, driver: drv('Ulf Gelo', 'toro-v12', 'cauteloso', 0.97, '#ececec', 'Na neve, quem corre muito, para.'), stages: [st('snow', 2, { weather: 'snow', curviness: 1.2, hilliness: 0.9 })] },
       { id: 'g2', name: 'Curva do Abismo', prize: 80000, driver: drv('Paulo Penhasco', 'silber-95', 'agressivo', 0.98, '#d81a12', 'Olha pra frente, não pra baixo.'), stages: [st('mountain', 2, { curviness: 1.5, hilliness: 1 }), st('snow', 2, { weather: 'snow' })] },
@@ -131,10 +153,14 @@ export function newCareer(): CareerSave {
 export const levels = (s: CareerSave, id: string): Record<Upgrade, number> => s.upgrades[id] ?? { motor: 0, cambio: 0, pneus: 0 };
 export const carById = (id: string) => CARS.find((c) => c.id === id)!;
 
-// região liberada quando o chefão da anterior foi vencido
+// região liberada quando o chefão da região indicada (ou da anterior) foi vencido
 export function regionUnlocked(s: CareerSave, ri: number) {
-  return ri === 0 || REGIONS[ri - 1].events.some((e) => e.boss && s.done.includes(e.id));
+  if (ri === 0) return true;
+  const prev = REGIONS.find((r) => r.id === REGIONS[ri].after) ?? REGIONS[ri - 1];
+  return prev.events.some((e) => e.boss && s.done.includes(e.id));
 }
+// regiões que o chefão desta libera
+export const regionsAfter = (ri: number) => REGIONS.filter((r, i) => i > 0 && (r.after ?? REGIONS[i - 1].id) === REGIONS[ri].id);
 // eventos em ordem: cada um libera o seguinte; o chefão exige os quatro anteriores
 export function eventUnlocked(s: CareerSave, ri: number, ei: number) {
   if (!regionUnlocked(s, ri)) return false;

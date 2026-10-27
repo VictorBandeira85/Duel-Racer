@@ -1,8 +1,10 @@
 import type { SpriteKind } from './sprites';
 import { shade } from './util';
 
-export type BgLayer = 'city' | 'forest' | 'mesa' | 'hills' | 'snowpeaks' | 'dunes' | 'sea';
-export type ThemeId = 'forest' | 'farm' | 'desert' | 'city' | 'mountain' | 'snow' | 'coast';
+export type BgLayer = 'city' | 'forest' | 'mesa' | 'hills' | 'snowpeaks' | 'dunes' | 'sea'
+  | 'redmesa' | 'jungle' | 'autumn' | 'savanna' | 'factory' | 'beach' | 'alps';
+export type ThemeId = 'forest' | 'farm' | 'desert' | 'city' | 'mountain' | 'snow' | 'coast'
+  | 'canyon' | 'jungle' | 'autumn' | 'beach' | 'savanna' | 'industrial' | 'alpine';
 
 export interface Theme {
   sky: [string, string];
@@ -45,6 +47,34 @@ export const THEMES: Record<ThemeId, Theme> = {
   coast: {
     sky: ['#1a8ae8', '#a8e2ff'], ground: ['#cdb874', '#bea866'], shoulder: '#b0a898', road: '#474747',
     bg: ['sea', 'hills'], bgColors: ['#2a6ec4', '#3a8a4a'], scenery: ['palm', 'palm', 'bush', 'palm', 'billboard'], density: 0.11, mapColor: '#3a8ad0',
+  },
+  canyon: {
+    sky: ['#2a78d0', '#f0c890'], ground: ['#b85a30', '#c86a3a'], shoulder: '#a08068', road: '#4a4442',
+    bg: ['redmesa', 'redmesa'], bgColors: ['#a8482a', '#d47a4a'], scenery: ['spire', 'rock', 'cactus', 'rock', 'spire', 'billboard'], density: 0.1, mapColor: '#c8603a',
+  },
+  jungle: {
+    sky: ['#2a8ad8', '#b8e8d0'], ground: ['#0a4a14', '#10601a'], shoulder: '#8a8a6a', road: '#444444',
+    bg: ['jungle', 'jungle'], bgColors: ['#127a2a', '#08401a'], scenery: ['banana', 'palm', 'banana', 'bush', 'tree', 'banana'], density: 0.2, bridges: 1, mapColor: '#1a8a3a',
+  },
+  autumn: {
+    sky: ['#3a82d8', '#f0d8b0'], ground: ['#5a6a1a', '#6a7a24'], shoulder: '#a8a098', road: '#474747',
+    bg: ['hills', 'autumn'], bgColors: ['#8a7a3a', '#b8521a'], scenery: ['autumn', 'autumn', 'pine', 'autumn', 'house', 'fence', 'billboard'], density: 0.14, bridges: 1, mapColor: '#d07a2a',
+  },
+  beach: {
+    sky: ['#1a90f0', '#b0ecff'], ground: ['#e8d49a', '#dcc68a'], shoulder: '#c8b890', road: '#4a4a4a',
+    bg: ['hills', 'beach'], bgColors: ['#3a8a4a', '#2a6ec4'], scenery: ['umbrella', 'palm', 'umbrella', 'kiosk', 'palm', 'umbrella', 'palm', 'umbrella', 'kiosk', 'palm', 'umbrella', 'palm', 'umbrella', 'lighthouse'], density: 0.13, mapColor: '#f0d070',
+  },
+  savanna: {
+    sky: ['#2a86e0', '#f8e0a0'], ground: ['#b8a24a', '#c8b05a'], shoulder: '#a89a78', road: '#4c4a46',
+    bg: ['savanna', 'savanna'], bgColors: ['#9a8a3a', '#c8b05a'], scenery: ['acacia', 'bush', 'acacia', 'rock', 'acacia', 'billboard'], density: 0.08, mapColor: '#c8a840',
+  },
+  industrial: {
+    sky: ['#5a7ab0', '#c8c8c0'], ground: ['#4a5a3a', '#56664a'], shoulder: '#9a9a9a', road: '#404040',
+    bg: ['factory', 'city'], bgColors: ['#6a6a72', '#5a5a7a'], scenery: ['factory', 'silo', 'lamp', 'silo', 'billboard', 'factory', 'lamp'], density: 0.13, bridges: 2, mapColor: '#7a7a6a',
+  },
+  alpine: {
+    sky: ['#2a6ad8', '#d0e4f8'], ground: ['#2a7a2a', '#368a30'], shoulder: '#a0a4a8', road: '#474747',
+    bg: ['alps', 'forest'], bgColors: ['#9eb0c6', '#2a5a3c'], scenery: ['pine', 'chalet', 'pine', 'rock', 'pine', 'chalet'], density: 0.13, bridges: 1, mapColor: '#6aa0d0',
   },
 };
 

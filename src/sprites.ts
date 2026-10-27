@@ -7,7 +7,8 @@ import { dither } from './ui';
 export type SpriteKind =
   | 'tree' | 'pine' | 'snowpine' | 'bush' | 'cactus' | 'rock' | 'palm' | 'post'
   | 'building' | 'house' | 'fence' | 'lamp' | 'signL' | 'signR' | 'gasSign' | 'station'
-  | 'rail' | 'billboard' | 'bridge' | 'barn' | 'stop';
+  | 'rail' | 'billboard' | 'bridge' | 'barn' | 'stop'
+  | 'autumn' | 'acacia' | 'umbrella' | 'kiosk' | 'factory' | 'silo' | 'banana' | 'spire' | 'lighthouse' | 'chalet';
 
 type Draw = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, seed: number) => void;
 
@@ -331,6 +332,137 @@ const bridge: Draw = (c, x, y, w, h) => {
   for (let i = 0; i < 16; i++) rect(c, i % 2 ? '#202020' : '#e8c020', x - w * 0.42 + (w * 0.84 * i) / 16, y - h + deck * 0.8, (w * 0.84) / 16, deck * 0.2);
 };
 
+// ---------- objetos dos biomas novos ----------
+// árvore de outono: copa laranja e vermelha, algumas folhas no chão
+const autumn: Draw = (c, x, y, w, h, seed) => {
+  rect(c, '#3a2410', x - w * 0.07, y - h * 0.46, w * 0.14, h * 0.46);
+  rect(c, '#5a3a1c', x - w * 0.07, y - h * 0.46, w * 0.05, h * 0.46);
+  const red = seed % 3 === 0;
+  canopy(c, x, y - h * 0.62, w * 0.5, h * 0.36, red ? '#6a1410' : '#7a3410', red ? '#b82a18' : '#d0661a', red ? '#e8603a' : '#f0b030');
+  ell(c, red ? '#9a2a14' : '#c8701e', x + w * 0.2, y - h * 0.01, w * 0.2, h * 0.015);
+};
+
+// acácia da savana: tronco fino e torto, copa achatada larga
+const acacia: Draw = (c, x, y, w, h) => {
+  poly(c, '#4a3220', x - w * 0.04, y, x + w * 0.04, y, x + w * 0.02, y - h * 0.55, x + w * 0.16, y - h * 0.72, x + w * 0.12, y - h * 0.74, x - w * 0.02, y - h * 0.6, x - w * 0.14, y - h * 0.74, x - w * 0.18, y - h * 0.72, x - w * 0.05, y - h * 0.55);
+  rect(c, '#6a4a30', x - w * 0.04, y - h * 0.55, w * 0.02, h * 0.55);
+  ell(c, '#2a4a14', x, y - h * 0.8, w * 0.5, h * 0.13);
+  ell(c, '#46701e', x - w * 0.06, y - h * 0.84, w * 0.42, h * 0.09);
+  ell(c, '#6a9a2a', x - w * 0.18, y - h * 0.88, w * 0.18, h * 0.04);
+  ell(c, '#6a9a2a', x + w * 0.16, y - h * 0.87, w * 0.12, h * 0.03);
+};
+
+// guarda-sol de praia listrado com cadeira
+const umbrella: Draw = (c, x, y, w, h, seed) => {
+  rect(c, '#e8e8e8', x - w * 0.02, y - h * 0.75, w * 0.04, h * 0.75);
+  const cols = [['#e82a2a', '#ffffff'], ['#1a6ae8', '#ffe040'], ['#2aa84a', '#ffffff']][seed % 3];
+  for (let i = 0; i < 6; i++) {
+    const a0 = Math.PI + (Math.PI * i) / 6, a1 = Math.PI + (Math.PI * (i + 1)) / 6;
+    poly(c, cols[i % 2], x, y - h * 0.95, x + Math.cos(a0) * w * 0.5, y - h * 0.72 + Math.sin(a0 + Math.PI) * h * 0.02, x + Math.cos(a1) * w * 0.5, y - h * 0.72 + Math.sin(a1 + Math.PI) * h * 0.02);
+  }
+  rect(c, 'rgba(0,0,0,0.25)', x - w * 0.5, y - h * 0.72, w, h * 0.03);
+  // espreguiçadeira
+  poly(c, '#d8b070', x + w * 0.08, y, x + w * 0.42, y, x + w * 0.42, y - h * 0.12, x + w * 0.3, y - h * 0.3, x + w * 0.26, y - h * 0.28, x + w * 0.34, y - h * 0.12, x + w * 0.08, y - h * 0.12);
+  ell(c, 'rgba(0,0,0,0.2)', x, y, w * 0.5, h * 0.03);
+};
+
+// quiosque de praia com teto de palha
+const kiosk: Draw = (c, x, y, w, h) => {
+  rect(c, '#8a5a2a', x - w * 0.36, y - h * 0.5, w * 0.72, h * 0.5);
+  rect(c, '#a8743a', x - w * 0.36, y - h * 0.5, w * 0.72, h * 0.05);
+  rect(c, '#5a3a1a', x + w * 0.18, y - h * 0.5, w * 0.18, h * 0.5);
+  rect(c, '#2a1a0a', x - w * 0.3, y - h * 0.44, w * 0.42, h * 0.18);
+  rect(c, '#e8e0c0', x - w * 0.4, y - h * 0.28, w * 0.8, h * 0.06);
+  for (const px of [-0.42, 0.38]) rect(c, '#6a4a2a', x + w * px, y - h * 0.62, w * 0.04, h * 0.62);
+  poly(c, '#c8a250', x - w / 2, y - h * 0.58, x + w / 2, y - h * 0.58, x, y - h);
+  poly(c, '#9a7a30', x, y - h, x + w / 2, y - h * 0.58, x + w * 0.2, y - h * 0.58);
+  for (let i = 0; i < 6; i++) rect(c, '#e0c070', x - w * 0.46 + i * w * 0.18, y - h * 0.6, w * 0.02, h * 0.06);
+  if (w > 14) {
+    c.font = `bold ${Math.floor(h * 0.1)}px monospace`;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillStyle = '#d02020';
+    c.fillText('COCO', x - w * 0.06, y - h * 0.25);
+  }
+};
+
+// fábrica: galpão com telhado em serra e chaminé listrada
+const factory: Draw = (c, x, y, w, h) => {
+  rect(c, '#7a7466', x - w / 2, y - h * 0.45, w * 0.8, h * 0.45);
+  rect(c, '#5a564c', x + w * 0.3, y - h * 0.45, w * 0.2, h * 0.45);
+  for (let i = 0; i < 4; i++) {
+    const tx = x - w / 2 + i * w * 0.2;
+    poly(c, '#8a8478', tx, y - h * 0.45, tx + w * 0.2, y - h * 0.45, tx + w * 0.2, y - h * 0.6);
+    rect(c, '#9ab0c8', tx + w * 0.16, y - h * 0.58, w * 0.03, h * 0.12);
+  }
+  for (let i = 0; i < 5; i++) rect(c, '#3a4a5a', x - w * 0.44 + i * w * 0.15, y - h * 0.32, w * 0.1, h * 0.1);
+  rect(c, '#4a4a50', x - w * 0.1, y - h * 0.18, w * 0.18, h * 0.18);
+  for (let i = 0; i < 8; i++) rect(c, i % 2 ? '#c83a2a' : '#e8e8e8', x + w * 0.34, y - h * (0.45 + i * 0.07), w * 0.1, h * 0.07);
+  rect(c, '#8a8a90', x + w * 0.34, y - h, w * 0.1, h * 0.02);
+  ell(c, 'rgba(200,200,205,0.85)', x + w * 0.42, y - h * 1.02, w * 0.08, h * 0.04);
+};
+
+// silo / tanque industrial
+const silo: Draw = (c, x, y, w, h) => {
+  rect(c, '#b8b8c0', x - w * 0.4, y - h * 0.85, w * 0.8, h * 0.85);
+  rect(c, '#d8d8e0', x - w * 0.4, y - h * 0.85, w * 0.18, h * 0.85);
+  rect(c, '#8a8a92', x + w * 0.2, y - h * 0.85, w * 0.2, h * 0.85);
+  ell(c, '#a8a8b0', x, y - h * 0.85, w * 0.4, h * 0.08);
+  ell(c, '#d8d8e0', x - w * 0.1, y - h * 0.87, w * 0.2, h * 0.04);
+  for (let i = 1; i < 5; i++) rect(c, '#9a9aa2', x - w * 0.4, y - h * (0.85 - i * 0.17), w * 0.8, h * 0.01);
+  for (let i = 0; i < 6; i++) rect(c, '#5a5a62', x + w * 0.42, y - h * (0.1 + i * 0.13), w * 0.06, h * 0.01);
+  rect(c, '#5a5a62', x + w * 0.42, y - h * 0.85, w * 0.01, h * 0.85);
+};
+
+// bananeira da selva: folhas grandes e caídas
+const banana: Draw = (c, x, y, w, h) => {
+  rect(c, '#4a6a2a', x - w * 0.06, y - h * 0.55, w * 0.12, h * 0.55);
+  rect(c, '#6a8a3a', x - w * 0.06, y - h * 0.55, w * 0.04, h * 0.55);
+  const leaf = (dx: number, up: number, col: string) => poly(c, col, x, y - h * 0.58, x + dx * w * 0.3, y - h * (0.6 + up * 0.35), x + dx * w * 0.55, y - h * (0.45 + up * 0.2), x + dx * w * 0.25, y - h * 0.5);
+  for (const [dx, up] of [[-1, 0.6], [1, 0.5], [-0.8, 1.1], [0.9, 1]]) leaf(dx, up, '#1a6a1a');
+  for (const [dx, up] of [[-0.5, 1.2], [0.4, 1.25], [0.1, 1.3]]) leaf(dx, up, '#2e9a2a');
+  ell(c, '#c8b020', x + w * 0.08, y - h * 0.5, w * 0.06, h * 0.06);
+};
+
+// torre de pedra vermelha do cânion
+const spire: Draw = (c, x, y, w, h) => {
+  poly(c, '#a8482a', x - w / 2, y, x - w * 0.32, y - h * 0.5, x - w * 0.26, y - h * 0.92, x + w * 0.1, y - h, x + w * 0.3, y - h * 0.6, x + w / 2, y);
+  poly(c, '#d47a4a', x - w * 0.32, y - h * 0.5, x - w * 0.26, y - h * 0.92, x - w * 0.08, y - h * 0.96, x - w * 0.14, y - h * 0.4, x - w * 0.3, y);
+  poly(c, '#6a2a1a', x + w * 0.1, y - h, x + w * 0.3, y - h * 0.6, x + w / 2, y, x + w * 0.18, y);
+  for (let i = 1; i < 6; i++) rect(c, '#8a3a20', x - w * 0.36, y - h * (i * 0.16), w * 0.7, Math.max(0.5, h * 0.012));
+};
+
+// farol listrado (praia)
+const lighthouse: Draw = (c, x, y, w, h) => {
+  rect(c, '#9a9a9a', x - w * 0.4, y - h * 0.08, w * 0.8, h * 0.08);
+  for (let i = 0; i < 6; i++) {
+    const t0 = i / 6, t1 = (i + 1) / 6;
+    const w0 = w * (0.3 - t0 * 0.12), w1 = w * (0.3 - t1 * 0.12);
+    poly(c, i % 2 ? '#d02020' : '#f2f2f2', x - w0, y - h * 0.08 - h * 0.7 * t0, x + w0, y - h * 0.08 - h * 0.7 * t0, x + w1, y - h * 0.08 - h * 0.7 * t1, x - w1, y - h * 0.08 - h * 0.7 * t1);
+  }
+  rect(c, '#2a2a30', x - w * 0.22, y - h * 0.8, w * 0.44, h * 0.03);
+  rect(c, '#fff4b0', x - w * 0.14, y - h * 0.92, w * 0.28, h * 0.12);
+  rect(c, '#2a2a30', x - w * 0.02, y - h * 0.92, w * 0.04, h * 0.12);
+  poly(c, '#d02020', x - w * 0.18, y - h * 0.92, x + w * 0.18, y - h * 0.92, x, y - h);
+};
+
+// chalé dos alpes: madeira escura, telhado de duas águas com neve
+const chalet: Draw = (c, x, y, w, h) => {
+  rect(c, '#6a4024', x - w * 0.4, y - h * 0.55, w * 0.8, h * 0.55);
+  for (let i = 1; i < 6; i++) rect(c, '#4a2a14', x - w * 0.4, y - h * (i * 0.09), w * 0.8, Math.max(0.5, h * 0.01));
+  rect(c, '#c8c8c0', x - w * 0.4, y - h * 0.06, w * 0.8, h * 0.06);
+  for (const wx of [-0.3, 0.1]) {
+    rect(c, '#f0e0b0', x + w * wx, y - h * 0.42, w * 0.16, h * 0.14);
+    rect(c, '#8a2a1a', x + w * wx - w * 0.03, y - h * 0.42, w * 0.03, h * 0.14);
+    rect(c, '#8a2a1a', x + w * wx + w * 0.16, y - h * 0.42, w * 0.03, h * 0.14);
+  }
+  rect(c, '#3a2010', x - w * 0.06, y - h * 0.28, w * 0.12, h * 0.28);
+  poly(c, '#4a2a18', x - w * 0.52, y - h * 0.52, x + w * 0.52, y - h * 0.52, x, y - h * 0.95);
+  poly(c, '#f4f8fc', x - w * 0.52, y - h * 0.52, x, y - h * 0.95, x + w * 0.52, y - h * 0.52, x + w * 0.4, y - h * 0.56, x, y - h * 0.86, x - w * 0.4, y - h * 0.56);
+  rect(c, '#5a3a24', x + w * 0.18, y - h * 0.98, w * 0.08, h * 0.16);
+  rect(c, '#f4f8fc', x + w * 0.17, y - h * 0.99, w * 0.1, h * 0.03);
+};
+
 export const SPRITES: Record<SpriteKind, { w: number; h: number; draw: Draw; solid: boolean }> = {
   tree: { w: 1700, h: 2100, draw: tree, solid: true },
   pine: { w: 1300, h: 2700, draw: pineDraw(false), solid: true },
@@ -353,4 +485,14 @@ export const SPRITES: Record<SpriteKind, { w: number; h: number; draw: Draw; sol
   rail: { w: 700, h: 420, draw: rail, solid: false },
   billboard: { w: 3600, h: 2600, draw: billboard, solid: true },
   bridge: { w: 12000, h: 2200, draw: bridge, solid: false },
+  autumn: { w: 1700, h: 2100, draw: autumn, solid: true },
+  acacia: { w: 2600, h: 2000, draw: acacia, solid: true },
+  umbrella: { w: 900, h: 1100, draw: umbrella, solid: false },
+  kiosk: { w: 2400, h: 1900, draw: kiosk, solid: true },
+  factory: { w: 5200, h: 3600, draw: factory, solid: true },
+  silo: { w: 1600, h: 3000, draw: silo, solid: true },
+  banana: { w: 1600, h: 2300, draw: banana, solid: true },
+  spire: { w: 2200, h: 4200, draw: spire, solid: true },
+  lighthouse: { w: 1400, h: 4600, draw: lighthouse, solid: true },
+  chalet: { w: 2800, h: 2600, draw: chalet, solid: true },
 };

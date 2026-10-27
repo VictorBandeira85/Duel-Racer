@@ -2,7 +2,7 @@ import { stageResult } from './score';
 import '@fontsource/press-start-2p/400.css';
 import { RES, view } from './config';
 import { CARS, TRAFFIC_IMAGES } from './cars';
-import { COURSES, type Course } from './courses';
+import { COURSES, withTimeOfDay, type Course } from './courses';
 import { ui as careerUi } from './careerScreens';
 import { REGIONS, carById, eventCourse, levels, loadCareer, settleEvent, tunedCar } from './career';
 import type { CarSpec } from './cars';
@@ -24,7 +24,7 @@ const state: AppState = {
   screen: 'title', t: 0, sel: 1, auto: true, sound: true, music: true,
   carIdx: 0, oppIdx: 0, courseIdx: 0, scoreCourse: 0,
   lives: 5, results: [], gameOver: false,
-  mode: 'arcade', career: loadCareer(), careerResult: null, gasPage: 0,
+  mode: 'arcade', career: loadCareer(), careerResult: null, gasPage: 0, arcadeNight: false, courseTop: 0,
 };
 
 // corrida em andamento: percurso, carro (com melhorias, na carreira) e rival
@@ -63,7 +63,7 @@ const actions: Actions = {
   startCourse() {
     state.mode = 'arcade';
     run = {
-      course: COURSES[state.courseIdx], car: CARS[state.carIdx],
+      course: withTimeOfDay(COURSES[state.courseIdx], state.arcadeNight), car: CARS[state.carIdx],
       rival: state.oppIdx < CARS.length ? CARS[state.oppIdx] : null, opts: {},
     };
     begin(5);

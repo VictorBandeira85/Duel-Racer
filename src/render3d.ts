@@ -170,7 +170,7 @@ function mix(a: string, b: string, t: number) {
 }
 
 // objetos grandes, que aparecem de longe
-const FAR_KINDS = ['building', 'station', 'bridge', 'billboard', 'barn'];
+const FAR_KINDS = ['building', 'station', 'bridge', 'billboard', 'barn', 'factory', 'silo', 'spire', 'lighthouse'];
 
 export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport) {
   // câmera inclinada junto com o carro: na subida o horizonte desce, na descida sobe
@@ -242,7 +242,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       if (sx + sw / 2 < vp.x || sx - sw / 2 > vp.x + vp.w || sw < 1.2) continue;
       // desenhado como pixel art nítida (sem antialias, com contorno); a caixa é um pouco
       // mais larga que o objeto para caber o que passa da largura (braço do poste etc.)
-      const seed = sp.kind === 'building' ? sp.seed % 45 : sp.kind === 'house' ? sp.seed % 6 : sp.kind === 'billboard' ? sp.seed % 6 : 0;
+      const seed = sp.kind === 'building' ? sp.seed % 45 : sp.kind === 'house' || sp.kind === 'billboard' ? sp.seed % 6 : sp.kind === 'autumn' || sp.kind === 'umbrella' ? sp.seed % 3 : 0;
       const bw = sw * (sp.kind === 'lamp' ? 3.4 : 1.1);
       drawCrisp(c, `${sp.kind}${seed}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed));
     }

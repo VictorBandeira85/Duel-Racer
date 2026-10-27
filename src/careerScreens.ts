@@ -2,7 +2,7 @@
 import { SAFE_W, view, KMH } from './config';
 import { CARS, DEALER_CARS, drawCarSide, gearbox, layout } from './cars';
 import {
-  MAX_LEVEL, REGIONS, UPGRADES, carById, eventUnlocked, levels, newCareer, priceOf, regionUnlocked, saveCareer,
+  MAX_LEVEL, REGIONS, UPGRADES, carById, eventUnlocked, levels, newCareer, priceOf, regionUnlocked, regionsAfter, saveCareer,
   sellValue, upgradeCost, type CareerSave, type EventResult,
 } from './career';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
@@ -14,6 +14,7 @@ import { formatTime } from './util';
 
 const THEME_NAME: Record<ThemeId, string> = {
   forest: 'Floresta', farm: 'Fazenda', desert: 'Deserto', city: 'Cidade', mountain: 'Serra', snow: 'Neve', coast: 'Litoral',
+  canyon: 'Cânion', jungle: 'Selva', autumn: 'Outono', beach: 'Praia', savanna: 'Savana', industrial: 'Indústria', alpine: 'Alpes',
 };
 const STYLE: Record<string, [string, string]> = {
   agressivo: ['AGRESSIVO', '#ff7a6a'], cauteloso: ['CAUTELOSO', '#8aff8a'], imprevisivel: ['IMPREVISÍVEL', '#ffe060'],
@@ -65,7 +66,8 @@ export function drawCareer(c: CanvasRenderingContext2D, s: AppState) {
   c.fillStyle = reg.color;
   c.fillRect(x + 36, 32, 6, 16);
   text(c, `${ri + 1}. ${reg.name}`, view.w / 2, 31, 8, open ? '#fff' : '#8a8aa0', 'center', null);
-  text(c, open ? reg.desc : 'Vença o chefão da região anterior', view.w / 2, 43, 5, '#c8c0f0', 'center', null);
+  const prevName = (REGIONS.find((r2) => r2.id === reg.after) ?? REGIONS[ri - 1])?.name ?? '';
+  text(c, open ? reg.desc : `Vença o chefão de ${prevName}`, view.w / 2, 43, 5, '#c8c0f0', 'center', null);
   smallButton(c, b.prev, '◀');
   smallButton(c, b.next, '▶');
   hubRows().forEach((r, ei) => {
@@ -344,8 +346,9 @@ export function drawCareerEnd(c: CanvasRenderingContext2D, s: AppState) {
   text(c, (res.total < 0 ? '-' : '') + money(Math.abs(res.total)), x + SAFE_W - 44, 144, 8, res.total < 0 ? '#ff8a7a' : '#ffd400', 'right', null);
   let note = `Saldo: ${money(cs.money)}`;
   if (res.firstWin && ev.boss) {
-    const next = REGIONS[ui.region + 1];
-    note = next ? `NOVA REGIÃO LIBERADA: ${next.name.toUpperCase()}!` : 'VOCÊ É O CAMPEÃO DA CARREIRA!';
+    const next = regionsAfter(ui.region);
+    const champion = REGIONS.every((r) => r.events.some((e) => e.boss && cs.done.includes(e.id)));
+    note = next.length ? `LIBERADA: ${next.map((r) => r.name.toUpperCase()).join(' E ')}!` : champion ? 'VOCÊ É O CAMPEÃO DA CARREIRA!' : 'REGIÃO CONCLUÍDA!';
   }
   text(c, note, view.w / 2, 166, res.firstWin && ev.boss ? 8 : 5, res.firstWin && ev.boss ? '#30e060' : '#d8d0ff', 'center', null);
   if (Math.floor(s.t * 2) % 2) text(c, 'TOQUE PARA CONTINUAR', view.w / 2, 190, 5, '#ffd400', 'center', null);

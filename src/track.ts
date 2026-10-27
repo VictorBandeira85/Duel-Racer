@@ -112,6 +112,8 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
   // posto de gasolina na chegada
   for (const k of [60, 35]) segments[finishIndex - k].sprites.push({ kind: 'gasSign', x: roadW + 2200, seed: 0 });
   segments[finishIndex + 4].sprites.push({ kind: 'station', x: roadW + 5200, seed: 0 });
+  // placa de PARE: o trecho termina parando no posto, como no Test Drive II
+  segments[finishIndex + 2].sprites.push({ kind: 'stop', x: roadW + 700, seed: 0 });
 
   // cenário
   for (let i = 20; i < segments.length; i++) {

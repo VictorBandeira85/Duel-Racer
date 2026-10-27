@@ -113,6 +113,8 @@ export class Race {
   private airborne = false;
   private landT = 0;
   draft = 0; // vácuo atrás de outro carro (0..1)
+  top = 0; // velocidade máxima do jogador no trecho
+  rivalTop = 0;
   bgOffset = 0;
 
   time = 0; // tempo do trecho (inclui multas)
@@ -377,6 +379,7 @@ export class Race {
     }
     this.x = clamp(this.x, -t.roadW * 3, t.roadW * 3);
     this.speed = clamp(this.speed, 0, max * 1.05);
+    if (driving) this.top = Math.max(this.top, this.speed);
     this.position += this.speed * dt;
     this.bgOffset += (pSeg.curve * this.speed * dt) / SEG_LEN;
     if (this.ghost > 0) this.ghost -= dt;
@@ -661,6 +664,7 @@ export class Race {
     } else r.speed = Math.max(target, r.speed - toGame(G * this.rivalCar.brakeG * this.surface(this.rivalCar) * aeroMul(this.rivalCar, r.speed)) * dt);
     r.x += clamp(r.targetX - r.x, -dt * (r.style === 'agressivo' ? 3000 : 2600), dt * (r.style === 'agressivo' ? 3000 : 2600));
     r.z += r.speed * dt;
+    if (r.finishTime < 0) this.rivalTop = Math.max(this.rivalTop, r.speed);
   }
 
   private updatePolice(dt: number) {

@@ -1,3 +1,4 @@
+import { stageResult } from './score';
 import '@fontsource/press-start-2p/400.css';
 import { RES, view } from './config';
 import { CARS, TRAFFIC_IMAGES } from './cars';
@@ -23,7 +24,7 @@ const state: AppState = {
   screen: 'title', t: 0, sel: 1, auto: true, sound: true, music: true,
   carIdx: 0, oppIdx: 0, courseIdx: 0, scoreCourse: 0,
   lives: 5, results: [], gameOver: false,
-  mode: 'arcade', career: loadCareer(), careerResult: null,
+  mode: 'arcade', career: loadCareer(), careerResult: null, gasPage: 0,
 };
 
 // corrida em andamento: percurso, carro (com melhorias, na carreira) e rival
@@ -105,8 +106,9 @@ function begin(lives: number) {
 function startStage(i: number) {
   const r = new Race(run.course, i, run.car, run.rival, state.auto, run.opts);
   r.onArrive = () => {
-    state.results.push({ time: r.time, rival: r.rivalTime, clean: r.clean, crashes: r.crashes, tickets: r.tickets, fines: r.fines });
+    state.results.push(stageResult(r));
     if (r.clean) state.lives++;
+    state.gasPage = 0;
     actions.go('gas');
   };
   r.onCrash = () => {
@@ -146,7 +148,7 @@ function finishCourse() {
   const total = totalTime();
   const rivalOk = state.results.every((r) => r.rival >= 0);
   const rival = state.results.reduce((a, r) => a + r.rival, 0);
-  saveScore(course, { time: total, car: CARS[state.carIdx].name, won: !rivalOk || total <= rival });
+  saveScore(course, { time: total, car: CARS[state.carIdx].name, won: !rivalOk || total <= rival, score: state.results.reduce((a, r) => a + r.score, 0) });
   actions.go('end');
 }
 

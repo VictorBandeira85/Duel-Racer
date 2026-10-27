@@ -7,7 +7,7 @@ import { dither } from './ui';
 export type SpriteKind =
   | 'tree' | 'pine' | 'snowpine' | 'bush' | 'cactus' | 'rock' | 'palm' | 'post'
   | 'building' | 'house' | 'fence' | 'lamp' | 'signL' | 'signR' | 'gasSign' | 'station'
-  | 'rail' | 'billboard' | 'bridge' | 'barn';
+  | 'rail' | 'billboard' | 'bridge' | 'barn' | 'stop';
 
 type Draw = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, seed: number) => void;
 
@@ -238,6 +238,26 @@ const gasSign: Draw = (c, x, y, w, h) => {
   }
 };
 
+// placa de PARE da chegada (octógono vermelho com borda branca)
+const stop: Draw = (c, x, y, w, h) => {
+  rect(c, '#6a6a70', x - w * 0.05, y - h * 0.62, w * 0.1, h * 0.62);
+  rect(c, '#9a9aa0', x - w * 0.05, y - h * 0.62, w * 0.04, h * 0.62);
+  const oct = (r: number, color: string) => {
+    const cy = y - h * 0.78, k = Math.tan(Math.PI / 8);
+    const ry = r * (h / w) * 0.55;
+    poly(c, color, x - r * k, cy - ry, x + r * k, cy - ry, x + r, cy - ry * k, x + r, cy + ry * k, x + r * k, cy + ry, x - r * k, cy + ry, x - r, cy + ry * k, x - r, cy - ry * k);
+  };
+  oct(w / 2, '#f4f4f4');
+  oct(w * 0.44, '#d01818');
+  if (w > 14) {
+    c.font = `bold ${Math.floor(w * 0.26)}px monospace`;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillStyle = '#fff';
+    c.fillText('PARE', x, y - h * 0.78);
+  }
+};
+
 const station: Draw = (c, x, y, w, h) => {
   // loja ao fundo
   rect(c, '#e8e8e0', x + w * 0.1, y - h * 0.5, w * 0.38, h * 0.5);
@@ -329,6 +349,7 @@ export const SPRITES: Record<SpriteKind, { w: number; h: number; draw: Draw; sol
   signR: { w: 650, h: 850, draw: sign(1), solid: true },
   gasSign: { w: 1600, h: 2600, draw: gasSign, solid: true },
   station: { w: 6500, h: 3200, draw: station, solid: true },
+  stop: { w: 900, h: 1900, draw: stop, solid: false },
   rail: { w: 700, h: 420, draw: rail, solid: false },
   billboard: { w: 3600, h: 2600, draw: billboard, solid: true },
   bridge: { w: 12000, h: 2200, draw: bridge, solid: false },

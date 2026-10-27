@@ -1,3 +1,4 @@
+import { gasQuip } from './score';
 import { RIVAL_STYLE } from './race';
 import type { CareerSave, EventResult } from './career';
 import { drawCareerScreen, keyCareerScreen, openCareer, tapCareerScreen } from './careerScreens';
@@ -13,7 +14,11 @@ export type ScreenId = 'title' | 'options' | 'car' | 'opponent' | 'course' | 'ra
   | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd';
 export type MenuKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back';
 
-export interface StageResult { time: number; rival: number; clean: boolean; crashes: number; tickets: number; fines?: number }
+export interface StageResult {
+  time: number; rival: number; clean: boolean; crashes: number; tickets: number; fines?: number;
+  km: number; top: number; avg: number; score: number; // km/h e pontos do jogador
+  rivalTop: number; rivalAvg: number; rivalScore: number;
+}
 
 export interface AppState {
   screen: ScreenId;
@@ -32,6 +37,7 @@ export interface AppState {
   mode: 'arcade' | 'career';
   career: CareerSave | null;
   careerResult: EventResult | null;
+  gasPage: number; // posto: 0 = chegada com o frentista, 1 = resultado do trecho
 }
 
 export interface Actions {
@@ -45,7 +51,7 @@ export interface Actions {
 
 export const ox = () => Math.floor((view.w - SAFE_W) / 2);
 
-export interface ScoreEntry { time: number; car: string; won: boolean }
+export interface ScoreEntry { time: number; car: string; won: boolean; score?: number }
 export function loadScores(course: Course): ScoreEntry[] {
   try {
     return JSON.parse(localStorage.getItem(`duel-racer:scores:${course.id}`) || '[]');
@@ -516,16 +522,81 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   c.restore();
   drawCarSide(c, x + 80, 176, 170, car, paintHex(car.id));
 
+  // fala do frentista, como no Test Drive II
   c.fillStyle = '#3a3a3e';
   c.fillRect(0, 186, w, h - 186);
   const r = s.results[s.results.length - 1];
-  const lines = [
-    r.clean ? 'Trecho limpo! Carro bônus.' : `Batidas: ${r.crashes}   Multas: ${r.tickets}`,
-    `Carros restantes: ${s.lives}`,
-    r.rival >= 0 ? `Você ${formatTime(r.time)}  Rival ${formatTime(r.rival)}` : `Tempo ${formatTime(r.time)}`,
+  const lines = wrap(`"${gasQuip(r, s.results.length - 1)}"`, 36);
+  if (r.clean) lines.push('Trecho limpo! Ganhou um carro.');
+  lines.slice(0, 3).forEach((l, i) => text(c, l, x + 12, 192 + i * 12, 8, i < lines.length - (r.clean ? 1 : 0) ? '#f0f0f0' : '#30e060', 'left', null));
+  if (Math.floor(s.t * 2) % 2) text(c, 'TOQUE PARA VER O RESULTADO', w / 2, 230, 5, '#ffd400', 'center', null);
+}
+
+// quebra uma frase em linhas de até n caracteres
+function wrap(s: string, n: number) {
+  const out: string[] = [];
+  let line = '';
+  for (const word of s.split(' ')) {
+    if (line && (line + ' ' + word).length > n) {
+      out.push(line);
+      line = word;
+    } else line = line ? `${line} ${word}` : word;
+  }
+  if (line) out.push(line);
+  return out;
+}
+
+const pts = (n: number) => Math.round(n).toLocaleString('pt-BR');
+
+// ---------- resultado do trecho (você x rival, como no Test Drive II) ----------
+function drawStageResult(c: CanvasRenderingContext2D, s: AppState) {
+  const { w } = view;
+  purpleBg(c, 'Duel Racer');
+  const x = ox();
+  const r = s.results[s.results.length - 1];
+  const n = s.results.length;
+  const hasRival = r.rival >= 0;
+  const sum = (f: (r: StageResult) => number) => s.results.reduce((a, q) => a + f(q), 0);
+  const myTotal = sum((q) => q.time), rivalTotal = sum((q) => Math.max(0, q.rival));
+  panel(c, { x: x + 8, y: 8, w: SAFE_W - 16, h: 26 }, '#2a2060', '#100830');
+  text(c, s.mode === 'career' ? `TRECHO ${n}` : `TRECHO ${n}/${COURSES[s.courseIdx].stages.length}`, x + 16, 13, 8, '#fff', 'left', null);
+  text(c, `${r.km.toFixed(1).replace('.', ',')} km`, x + SAFE_W - 16, 13, 8, '#c8c0f0', 'right', null);
+  const ahead = myTotal <= rivalTotal;
+  text(c, !hasRival ? 'CONTRA O RELÓGIO' : ahead ? 'VOCÊ ESTÁ VENCENDO O DUELO!' : 'O RIVAL ESTÁ NA FRENTE...', w / 2, 23, 8, !hasRival ? '#ffd400' : ahead ? '#30e060' : '#ff7070', 'center', null);
+
+  panel(c, { x: x + 8, y: 40, w: SAFE_W - 16, h: 160 }, '#2a2060', '#100830');
+  const colYou = x + 214, colRival = x + SAFE_W - 18;
+  text(c, 'VOCÊ', colYou, 46, 8, '#ffd400', 'right', null);
+  if (hasRival) text(c, 'RIVAL', colRival, 46, 8, '#ff9a6a', 'right', null);
+  const kmh = (v: number) => `${Math.round(v)}`;
+  const rows: [string, string, string][] = [
+    ['Tempo', formatTime(r.time), hasRival ? formatTime(r.rival) : ''],
+    ['Batidas', `${r.crashes}`, hasRival ? '0' : ''],
+    ['Multas', `${r.tickets}`, hasRival ? '0' : ''],
+    ['Vel. máx.', kmh(r.top), hasRival ? kmh(r.rivalTop) : ''],
+    ['Vel. média', kmh(r.avg), hasRival ? kmh(r.rivalAvg) : ''],
+    ['Pontos', pts(r.score), hasRival ? pts(r.rivalScore) : ''],
   ];
-  lines.forEach((l, i) => text(c, l, x + 12, 192 + i * 12, 8, '#f0f0f0', 'left', null));
-  if (Math.floor(s.t * 2) % 2) text(c, 'TOQUE PARA SEGUIR', w / 2, 230, 5, '#ffd400', 'center', null);
+  rows.forEach(([k, a, b], i) => {
+    const y = 62 + i * 13;
+    text(c, k, x + 18, y, 8, '#c8c0f0', 'left', null);
+    text(c, a, colYou, y, 8, '#fff', 'right', null);
+    if (b) text(c, b, colRival, y, 8, '#fff', 'right', null);
+  });
+  c.fillStyle = '#6a5ab0';
+  c.fillRect(x + 16, 142, SAFE_W - 32, 1);
+  const totals: [string, string, string][] = [
+    ['Tempo total', formatTime(myTotal), hasRival ? formatTime(rivalTotal) : ''],
+    ['Pontuação', pts(sum((q) => q.score)), hasRival ? pts(sum((q) => q.rivalScore)) : ''],
+  ];
+  totals.forEach(([k, a, b], i) => {
+    const y = 150 + i * 13;
+    text(c, k, x + 18, y, 8, '#ffd400', 'left', null);
+    text(c, a, colYou, y, 8, '#fff', 'right', null);
+    if (b) text(c, b, colRival, y, 8, '#fff', 'right', null);
+  });
+  text(c, `Carros restantes: ${s.lives}`, x + 18, 180, 8, '#c8c0f0', 'left', null);
+  if (Math.floor(s.t * 2) % 2) text(c, 'TOQUE PARA SEGUIR', w / 2, 214, 8, '#ffd400', 'center', null);
 }
 
 // ---------- fim do percurso ----------
@@ -546,6 +617,7 @@ function drawEnd(c: CanvasRenderingContext2D, s: AppState) {
       text(c, `Rival: ${formatTime(rival)}`, w / 2, 106, 8, '#fff', 'center', null);
       text(c, won ? 'VOCÊ VENCEU O DUELO!' : 'O RIVAL VENCEU...', w / 2, 134, 8, won ? '#ffd400' : '#ff7070', 'center');
     }
+    text(c, `Pontuação: ${pts(s.results.reduce((a, r) => a + r.score, 0))}`, w / 2, 158, 8, '#ffd400', 'center', null);
   } else {
     text(c, `Trechos concluídos: ${s.results.length}/${course.stages.length}`, w / 2, 100, 8, '#fff', 'center', null);
     text(c, 'Seus carros acabaram.', w / 2, 120, 8, '#fff', 'center', null);
@@ -568,6 +640,7 @@ function drawScores(c: CanvasRenderingContext2D, s: AppState) {
   list.forEach((e, i) => {
     const y = 60 + i * 18;
     text(c, `${i + 1}. ${formatTime(e.time)}`, x + 36, y, 8, e.won ? '#fff' : '#a8a0d8', 'left', null);
+    if (e.score) text(c, `${pts(e.score)} pts`, x + 52, y + 9, 5, '#ffd400', 'left', null);
     text(c, e.car, x + SAFE_W - 36, y, 8, '#d8d0ff', 'right', null);
   });
 }
@@ -580,7 +653,7 @@ export function drawScreen(c: CanvasRenderingContext2D, s: AppState) {
     case 'car': return drawCarSelect(c, s);
     case 'opponent': return drawOpponent(c, s);
     case 'course': return drawCourse(c, s);
-    case 'gas': return drawGas(c, s, CARS[s.carIdx]);
+    case 'gas': return s.gasPage ? drawStageResult(c, s) : drawGas(c, s, CARS[s.carIdx]);
     case 'end': return drawEnd(c, s);
     case 'scores': return drawScores(c, s);
     default: return drawCareerScreen(c, s);
@@ -624,7 +697,10 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
         }
       });
       return;
-    case 'gas': return a.nextStage();
+    case 'gas':
+      if (!s.gasPage) s.gasPage = 1;
+      else a.nextStage();
+      return;
     case 'end':
       s.scoreCourse = s.courseIdx;
       return a.go('scores');
@@ -647,7 +723,12 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
     if (k === 'back') a.go('title');
     return;
   }
-  if (s.screen === 'gas') return k === 'ok' && a.nextStage();
+  if (s.screen === 'gas') {
+    if (k !== 'ok') return;
+    if (!s.gasPage) s.gasPage = 1;
+    else a.nextStage();
+    return;
+  }
   if (s.screen === 'end') return k === 'ok' && tapScreen(s, a, 0, 100);
   if (s.screen === 'scores') {
     if (k === 'left') s.scoreCourse = (s.scoreCourse + COURSES.length - 1) % COURSES.length;

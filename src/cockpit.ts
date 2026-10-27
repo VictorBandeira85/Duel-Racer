@@ -82,12 +82,12 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
 // Viatura: painel de sedã com hodômetro e indicador da alavanca funcionando
 COCKPIT_ART.patrol = {
   dash: cp('patrol-dash'), top: cp('patrol-top'), wheel: cp('patrol-wheel'),
-  pivot: [128, 105.6], speedMax: 240, needle: '#ff2a1a', hub: '#1a1a1c', aux: [],
-  // redesenhados nítidos sobre a arte (reduzida, ela borra); escala como na arte: do 0 (146°)
-  // ao fim (≈ 36°), 250° de abertura, números em pixel inteiro
-  tach: { x: 91, y: 66, r: 25, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6, a0: 2.55, sweep: 4.36, labelScale: 1 },
-  speed: { x: 176, y: 66, r: 25, max: 240, labels: [0, 40, 80, 120, 160, 200, 240], tick: 10, red: 999, a0: 2.55, sweep: 4.36, labelScale: 1 },
-  odo: { x: 119, y: 44, w: 27, h: 11 }, prnd: { x: 120, y: 60, w: 26, h: 8 },
+  pivot: [128.2, 103.1], speedMax: 240, needle: '#ff2a1a', hub: '#1a1a1c', aux: [],
+  // redesenhados nítidos sobre a arte (reduzida, ela borra); escala como na arte: do 0 (≈ 148°)
+  // ao fim (≈ 30°), 242° de abertura, números em pixel inteiro
+  tach: { x: 87, y: 65, r: 27, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6, a0: 2.6, sweep: 4.22, labelScale: 1 },
+  speed: { x: 179, y: 65, r: 27, max: 240, labels: [0, 40, 80, 120, 160, 200, 240], tick: 10, red: 999, a0: 2.55, sweep: 4.25, labelScale: 1 },
+  odo: { x: 118, y: 43, w: 32, h: 11 }, prnd: { x: 118, y: 59, w: 32, h: 8 },
 };
 
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
@@ -209,7 +209,7 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
     // altura no alto), para os de cima não se encostarem
     const a = fr(v);
     const ls = d.labelScale ?? 0.5;
-    const [lx, ly] = at(a, r - 2.3 - (Math.abs(Math.cos(a)) * pixWidth(l, ls) * 0.5 + Math.abs(Math.sin(a)) * 2.5 * ls) * (ls > 0.5 ? 1.3 : 1) - (ls > 0.5 ? 0.6 : 0));
+    const [lx, ly] = at(a, r - (ls > 0.5 ? 3.2 : 2.3) - (Math.abs(Math.cos(a)) * pixWidth(l, ls) * 0.5 + Math.abs(Math.sin(a)) * 2.5 * ls) * (ls > 0.5 ? 1.3 : 1) - (ls > 0.5 ? 0.6 : 0));
     pix(c, l, lx, ly, v >= d.red ? '#ff5a4a' : '#f2f2f2', ls);
   }
   needle(c, cx, cy, r, a0 + sweep * Math.max(0, Math.min(1.02, frac)), art);

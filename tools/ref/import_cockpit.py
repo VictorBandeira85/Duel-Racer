@@ -33,17 +33,16 @@ CARS = {
         'pillar': (-50, 0.0),                # BGR do pilar, onde a arte acaba          # hodômetro (não é velocímetro digital)
         'gauges': {'tach': (696, 211, 84), 'speed': (876, 228, 72)},
     },
-    # viatura: a arte acaba logo à esquerda do volante; o painel se estende repetindo a borda
+    # viatura: interior completo desenhado pelo Victor (porta, painel, console e passageiro)
     'patrol': {
-        'scale': 0.2, 'x0': -133, 'y0': 198,   # volante inteiro no centro, com o miolo à vista
-        'gauges': {'tach': (324, 491, 127), 'speed': (751, 491, 127)},
+        'scale': 0.48, 'x0': 218, 'y0': 212,   # volante centralizado, inteiro, com o miolo à vista
+        'gauges': {'tach': (400, 332, 57), 'speed': (591, 332, 57)},
         # hodômetro e indicador de marcha: fundo liso, o jogo desenha os números funcionando
-        'lcd': [((26, 26, 28), (462, 389, 598, 438)), ((26, 26, 28), (466, 462, 598, 494))],
-        'top_art': [],  # coluna da porta segue a arte até o teto
-        'left': 'replicate', 'right': 'replicate',
-        'sky_above': 236,   # nas colunas fora da arte, acima do painel é vidro (estrada à vista)
-        'hub_fill': ((27, 28, 31), 575),   # atrás do miolo do volante: cor lisa (a coluna é desenhada depois)
-        'wheel_rows': 230, 'paint': 'patrol', 'rim_margin': 11,
+        'lcd': [((28, 29, 31), (464, 291, 530, 311)), ((28, 29, 31), (464, 320, 530, 334))],
+        'top_art': [(690, 0, 990, 140)],   # sem o retrovisor interno (o jogo tem o seu)
+        'hub_fill': ((27, 28, 31), 370),   # atrás do miolo: cor lisa, a coluna de direção é desenhada depois
+        'wheel_rows': 220, 'paint': 'column', 'rim_margin': 9,
+        'sky_left': True, 'hole_sky_above': 228,
     },
     # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
     'zr1': {
@@ -176,7 +175,18 @@ def paint_patrol(rgb, a, art_l, art_r, pivot, hub):
     for x in range(lx - 6, lx + 6):
         put(x, 65, '#0e0f10')
         put(x, 66, '#8a8c90')
-    # ---- coluna de direção (aparece entre os raios quando o volante gira) ----
+    paint_column(rgb, a, pivot, hub)
+
+
+def paint_column(rgb, a, pivot, hub):
+    """Coluna de direção e painel dos joelhos atrás do miolo (aparece quando o volante gira)."""
+    H, W = a.shape
+
+    def put(x, y, c):
+        if 0 <= x < W and 0 <= y < H:
+            rgb[y, x] = hexrgb(c)
+            a[y, x] = 255
+
     px, py = pivot
     for y in range(int(py) - 18, H):
         for x in range(W):
@@ -302,6 +312,10 @@ def main():
     for x in range(0, w, 8):
         if ff[0, x] == 1:
             cv2.floodFill(ff, msk, (x, 0), 2)
+    if cfg.get('sky_left'):  # vidro lateral: branco ligado à borda esquerda também é transparente
+        for y in range(0, h, 4):
+            if ff[y, 0] == 1:
+                cv2.floodFill(ff, msk, (0, y), 2)
     sky = ff == 2
     if 'sky_above' in cfg:
         pc = padcols[x0 + pad_x0:x1 + pad_x0]
@@ -316,6 +330,8 @@ def main():
     seeds[lab[hole == 0]] = sky[hole == 0]
     sky0 = sky
     sky = sky | ((hole > 0) & seeds[lab])
+    if 'hole_sky_above' in cfg:  # o aro passa por cima do para-brisa: atrás dele é céu, não painel
+        sky |= (hole > 0) & ((yy + (y0 - tpad)) < cfg['hole_sky_above'])
     # ponteiros e lataria vermelhos perto do aro não entram na reconstrução (viram manchas)
     near = cv2.dilate(hole, np.ones((41, 41), np.uint8)) > 0
     fill = cv2.inpaint(img, ((~known) | (hot & near)).astype(np.uint8) * 255, 7, cv2.INPAINT_TELEA)
@@ -332,13 +348,16 @@ def main():
     nw, nh = 256 + 2 * PAD, ROWS
     d_rgb = sample(cv2.cvtColor(dash, cv2.COLOR_BGR2RGB), nw, nh)
     d_a = sample((~sky).astype(np.uint8) * 255, nw, nh)
-    if cfg.get('paint') == 'patrol':
+    if cfg.get('paint') in ('patrol', 'column'):
         pivot_n = ((geo['center'][0] - xc0) / px_w + PAD, (geo['center'][1] - (y0 - tpad)) / px_h)
         hub_n = sample(hub.astype(np.uint8), nw, nh) > 0
         art_l = int(np.ceil(PAD + (0 - xc0) / px_w)) + 1
         art_r = int(np.floor(PAD + (full.shape[1] - xc0) / px_w)) - 1
-        paint_patrol(d_rgb, d_a, art_l, art_r, pivot_n, hub_n)
-        patrol_mirror = (art_l, int(np.argmax(d_a[:, art_l + 30] > 0)) + 2)
+        if cfg['paint'] == 'patrol':
+            paint_patrol(d_rgb, d_a, art_l, art_r, pivot_n, hub_n)
+            patrol_mirror = (art_l, int(np.argmax(d_a[:, art_l + 30] > 0)) + 2)
+        else:
+            paint_column(d_rgb, d_a, pivot_n, hub_n)
     Image.fromarray(np.dstack([d_rgb, d_a]), 'RGBA').save(f'{outdir}/{car}-dash.png')
     # a arte acaba antes do teto: a coluna da porta é prolongada para cima (linha 0 do
     # painel repetida e deslocada pela inclinação da coluna) até a linha 24 da tela
@@ -351,7 +370,16 @@ def main():
             for yy_ in (0, th_ - 1):
                 if tsky[yy_, x] == 1:
                     cv2.floodFill(tsky, tm, (x, yy_), 2)
+        if cfg.get('sky_left'):
+            for y_ in range(0, th_, 4):
+                if tsky[y_, 0] == 1:
+                    cv2.floodFill(tsky, tm, (0, y_), 2)
         talpha = tsky != 2
+        if 'hole_sky_above' in cfg:  # topo do aro que passa da linha 100: no topo fica só o céu
+            tw = np.zeros((th_, tw_), np.uint8)
+            cv2.fillPoly(tw, [(np.array(geo['outer'], np.float32) - [x0, ty0 - tpad]).round().astype(np.int32)], 1)
+            tw = cv2.dilate(tw, np.ones((cfg.get('rim_margin', 7) + 10,) * 2, np.uint8))
+            talpha[tw > 0] = False
         talpha[:, padcols[x0 + pad_x0:x1 + pad_x0]] = False  # acima das colunas repetidas, só céu
         for (a, b, c, d) in cfg['top_art']:
             a, c = a - x0 + pad_x0 - pad_x0, c - x0

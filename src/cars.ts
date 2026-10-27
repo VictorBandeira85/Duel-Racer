@@ -1,6 +1,7 @@
 import { drawCrisp } from './crisp';
 import { KMH } from './config';
 import { clamp, shade } from './util';
+import { BR_CARS } from './carsbr';
 import { F40_REAR, F40_SIDE } from './svg/f40';
 import { spriteAspect, svgSprite } from './svgsprites';
 // sprites derivados de fotos (ver assets/cars/LEIA-ME.md)
@@ -68,6 +69,7 @@ export interface CarSpec {
   handling: number;
   arcadeOnly?: boolean; // fora da concessionária e dos pilotos da carreira
   automatic?: boolean; // câmbio automático de fábrica (só muda o que a ficha mostra)
+  pendingArt?: boolean; // ficha pronta, esperando a arte (src/carsbr.ts)
   dash: string; // cabine: 'A'/'B' (desenhadas por código) ou a chave da arte em COCKPIT_ART
   hood: string;
   side: SideDef;
@@ -258,6 +260,15 @@ export const CARS: CarSpec[] = [
   },
 ];
 
+// carros nacionais: entram no jogo quando a arte deles existir (lateral e traseira)
+const PNG0 = import.meta.glob('./assets/cars/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+for (const car of BR_CARS) {
+  if (PNG0[`./assets/cars/${car.art}-side.png`] && PNG0[`./assets/cars/${car.art}-rear.png`]) {
+    car.pendingArt = false;
+    CARS.push(car);
+  }
+}
+
 // carros à venda na carreira (a viatura fica de fora)
 export const DEALER_CARS = CARS.filter((c) => !c.arcadeOnly);
 
@@ -395,7 +406,7 @@ export function prepareCar(car: CarSpec) {
 export type PerfClass = 'D' | 'C' | 'B' | 'A' | 'S';
 export const PERF_CLASSES: PerfClass[] = ['D', 'C', 'B', 'A', 'S'];
 export const CLASS_COLOR: Record<PerfClass, string> = { D: '#3a9ad8', C: '#30b050', B: '#e0b020', A: '#e8641a', S: '#d02a8a' };
-const CLASS_MIN: Record<PerfClass, number> = { D: 0, C: 450, B: 630, A: 700, S: 800 };
+const CLASS_MIN: Record<PerfClass, number> = { D: 0, C: 230, B: 630, A: 700, S: 800 };
 const piCache = new WeakMap<CarSpec, number>();
 export function perfIndex(car: CarSpec) {
   let pi = piCache.get(car);
@@ -442,17 +453,20 @@ export function accelCurve(car: CarSpec, seconds = 14) {
   return { pts, t100 };
 }
 
-// calibra cada carro: arrasto pela máxima e tração pelo 0-100 km/h real
-for (const car of CARS) {
+// calibra um carro: arrasto pela máxima e tração pelo 0-100 km/h real
+export function calibrate(car: CarSpec) {
   prepareCar(car);
-  let lo = 0.4, hi = 1.6;
+  let lo = 0.2, hi = 1.6;
+  const secs = Math.ceil(car.zeroTo100 + 6);
   for (let i = 0; i < 18; i++) {
     car.traction = (lo + hi) / 2;
-    const t = accelCurve(car, 12).t100 || 99;
+    const t = accelCurve(car, secs).t100 || 99;
     if (t > car.zeroTo100) lo = car.traction;
     else hi = car.traction;
   }
+  return car;
 }
+for (const car of CARS) calibrate(car);
 
 // ---------- desenho ----------
 export interface CarLook {

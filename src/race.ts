@@ -327,10 +327,12 @@ export class Race {
     this.slip = lerp(this.slip, slipTarget, Math.min(1, dt * (slipTarget > this.slip ? 6 : 2.5)));
     // transferência de peso: freando, a frente carrega e a traseira alivia; acelerando com a
     // traseira, a potência solta o carro. Motor central é mais arisco, integral é mais neutro.
-    const rwd = this.car.drive !== 'integral';
+    // tração dianteira: acelerar puxa o carro para fora (sai de frente); tirar o pé solta a traseira
+    const rwd = this.car.drive === 'traseira';
+    const fwd = this.car.drive === 'dianteira';
     const mid = this.car.position !== 'dianteira';
-    let bal = (mid ? 0.12 : -0.12) + (rwd ? 0 : -0.25);
-    if (this.throttle) bal += lonDrive * (rwd ? 1 : 0.35) + this.spin * (rwd ? 0.5 : 0.1);
+    let bal = (mid ? 0.12 : -0.12) + (rwd ? 0 : fwd ? -0.18 : -0.25);
+    if (this.throttle) bal += lonDrive * (rwd ? 1 : fwd ? -0.6 : 0.35) + this.spin * (rwd ? 0.5 : fwd ? -0.3 : 0.1);
     else if (this.braking) bal += mid ? 0.4 : 0.25;
     else bal += mid ? 0.18 : 0.06; // tirar o pé no meio da curva
     this.balance = lerp(this.balance, clamp(bal, -1, 1), Math.min(1, dt * 5));

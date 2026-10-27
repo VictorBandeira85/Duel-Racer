@@ -24,7 +24,7 @@ const state: AppState = {
   screen: 'title', t: 0, sel: 1, auto: true, sound: true, music: true,
   carIdx: 0, oppIdx: 0, courseIdx: 0, scoreCourse: 0,
   lives: 5, results: [], gameOver: false,
-  mode: 'arcade', career: loadCareer(), careerResult: null, gasPage: 0, arcadeNight: false, courseTop: 0, carFilter: null,
+  mode: 'arcade', career: loadCareer(), careerResult: null, gasPage: 0, arcadeNight: false, courseTop: 0, carFilter: null, oppFilter: null,
 };
 
 // corrida em andamento: percurso, carro (com melhorias, na carreira) e rival

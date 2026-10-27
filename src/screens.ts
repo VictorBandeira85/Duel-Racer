@@ -41,6 +41,7 @@ export interface AppState {
   gasPage: number; // posto: 0 = chegada com o frentista, 1 = resultado do trecho
   arcadeNight: boolean; // Arcade: corrida de dia ou de noite
   carFilter: ClassFilter; // escolha de carro: só uma classe de desempenho (null = todas)
+  oppFilter: ClassFilter; // escolha de adversário, idem
   courseTop: number; // primeiro percurso visível na lista
 }
 
@@ -324,12 +325,17 @@ function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
 }
 
 // ---------- escolha do adversário ----------
-const OPP_N = CARS.length + 1; // carros + relógio
+// adversários: carros do filtro de classe + relógio, em páginas de 3 linhas de 4
 const OPP_COLS = 4;
+const OPP_PAGE = 12;
+const oppList = (s: AppState) => [...filtered(CARS, s.oppFilter), CARS.length]; // CARS.length = relógio
 const oppCells = () => {
-  const x = ox() + 24, y = 40;
-  return Array.from({ length: OPP_N }, (_, i): Rect => ({ x: x + (i % OPP_COLS) * 68, y: y + Math.floor(i / OPP_COLS) * 64, w: 66, h: 62 }));
+  const x = ox() + 24, y = 50;
+  return Array.from({ length: OPP_PAGE }, (_, i): Rect => ({ x: x + (i % OPP_COLS) * 68, y: y + Math.floor(i / OPP_COLS) * 60, w: 66, h: 58 }));
 };
+const oppFilterRects = () => filterRects(ox() + 24, 33, 200, 12);
+const oppPageButtons = () => ({ prev: { x: ox() + 230, y: 31, w: 20, h: 16 } as Rect, next: { x: ox() + 274, y: 31, w: 20, h: 16 } as Rect });
+const oppPage = (s: AppState) => Math.floor(s.sel / OPP_PAGE);
 
 function stopwatch(c: CanvasRenderingContext2D, x: number, y: number, r: number) {
   c.strokeStyle = '#9a9aa0';
@@ -367,9 +373,22 @@ function drawOpponent(c: CanvasRenderingContext2D, s: AppState) {
   c.stroke();
   const x = ox();
   panel(c, { x: x + 20, y: 22, w: 280, h: 212 }, '#4e4290', '#201850');
-  text(c, 'ESCOLHA O ADVERSÁRIO', x + 160, 28, 8, '#d8d0ff', 'center', null);
-  oppCells().forEach((r, i) => {
-    const hot = s.sel === i;
+  text(c, 'ESCOLHA O ADVERSÁRIO', x + 160, 23, 8, '#d8d0ff', 'center', null);
+  const list = oppList(s);
+  s.sel = Math.min(s.sel, list.length - 1);
+  drawFilter(c, oppFilterRects(), s.oppFilter, (k) => filtered(CARS, k).length);
+  const pages = Math.ceil(list.length / OPP_PAGE), pg = oppPage(s);
+  if (pages > 1) {
+    const pb = oppPageButtons();
+    smallButton(c, pb.prev, '◀');
+    smallButton(c, pb.next, '▶');
+    text(c, `${pg + 1}/${pages}`, x + 262, 36, 5, '#d8d0ff', 'center', null);
+  }
+  oppCells().forEach((r, slot) => {
+    const li = pg * OPP_PAGE + slot;
+    if (li >= list.length) return;
+    const i = list[li];
+    const hot = s.sel === li;
     c.fillStyle = hot ? '#6a5ec0' : '#4e4290';
     c.fillRect(r.x, r.y, r.w, r.h);
     c.strokeStyle = hot ? '#fff' : '#2a2060';
@@ -733,14 +752,27 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
       }
       return;
     }
-    case 'opponent':
-      oppCells().forEach((r, i) => {
-        if (inside(x, y, r)) {
-          s.oppIdx = i;
-          a.go('course');
+    case 'opponent': {
+      const list = oppList(s);
+      const f = filterAt(oppFilterRects(), x, y);
+      const pb = oppPageButtons();
+      if (f !== undefined) {
+        if (f === null || filtered(CARS, f).length) {
+          s.oppFilter = f;
+          s.sel = 0;
         }
-      });
+      } else if (inside(x, y, pb.prev)) s.sel = Math.max(0, (oppPage(s) - 1) * OPP_PAGE);
+      else if (inside(x, y, pb.next)) s.sel = Math.min(list.length - 1, (oppPage(s) + 1) * OPP_PAGE);
+      else
+        oppCells().forEach((r, slot) => {
+          const li = oppPage(s) * OPP_PAGE + slot;
+          if (inside(x, y, r) && li < list.length) {
+            s.oppIdx = list[li];
+            a.go('course');
+          }
+        });
       return;
+    }
     case 'course': {
       const b = courseButtons();
       if (inside(x, y, b.time)) s.arcadeNight = !s.arcadeNight;
@@ -774,7 +806,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (['career', 'event', 'garage', 'dealer', 'careerEnd'].includes(s.screen)) return keyCareerScreen(s, a, k);
-  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 4, opponent: OPP_N, course: COURSES.length };
+  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 4, opponent: oppList(s).length, course: COURSES.length };
   // percursos: cima/baixo escolhem, esquerda/direita trocam dia e noite
   if (s.screen === 'course' && (k === 'left' || k === 'right')) {
     s.arcadeNight = !s.arcadeNight;
@@ -814,7 +846,7 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
     if (s.screen === 'title') activateTitle(s, s.sel, a);
     else if (s.screen === 'options') activateOption(s, a, s.sel);
     else if (s.screen === 'opponent') {
-      s.oppIdx = s.sel;
+      s.oppIdx = oppList(s)[s.sel];
       a.go('course');
     } else if (s.screen === 'course') {
       s.courseIdx = s.sel;

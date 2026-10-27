@@ -41,8 +41,19 @@ CARS = {
         'lcd': [((26, 26, 28), (462, 389, 598, 438)), ((26, 26, 28), (466, 462, 598, 494))],
         'top_art': [],  # coluna da porta segue a arte até o teto
         'left': 'replicate', 'right': 'replicate',
-        'sky_above': 236,
-        'pad_blur': (300, 18),   # nas colunas repetidas, acima do painel é vidro (estrada à vista)
+        'sky_above': 236,   # nas colunas fora da arte, acima do painel é vidro (estrada à vista)
+        # fora da arte: à esquerda a porta, à direita o painel continua (faixas de cor lisa,
+        # tons tirados da arte; linhas da imagem original)
+        'pad_bands': {
+            'left': [(236, 240, '#5a5c5e'), (240, 262, '#3a3c3e'), (262, 268, '#121416'), (268, 300, '#26282a'),
+                     (300, 304, '#5e3422'), (304, 322, '#49271b'), (322, 326, '#2e180f'), (326, 420, '#1c1e20'),
+                     (420, 426, '#3c3e40'), (426, 466, '#2a2c2e'), (466, 472, '#0e1012'), (472, 640, '#1a1c1e'),
+                     (640, 646, '#2e3032'), (646, 2000, '#121314')],
+            'right': [(236, 240, '#121517'), (240, 270, '#4a4c4e'), (270, 282, '#191b1c'), (282, 300, '#1e2022'),
+                      (300, 322, '#49271b'), (322, 418, '#141516'), (418, 422, '#39302a'), (422, 458, '#4d2a19'),
+                      (458, 620, '#18191a'), (620, 658, '#472617'), (658, 820, '#131414'), (820, 856, '#3a1f13'),
+                      (856, 2000, '#141516')],
+        },
         'hub_fill': ((30, 30, 32), 575),   # atrás do miolo do volante: coluna de direção escura, sem borrão
     },
     # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
@@ -89,11 +100,11 @@ def main():
     padcols = np.zeros(canvas.shape[1], bool)  # colunas que não vêm da arte
     if cfg.get('left') == 'replicate': padcols[:pad_x0] = True
     if cfg.get('right') == 'replicate' and pad_x1: padcols[-pad_x1:] = True
-    if 'pad_blur' in cfg:  # a borda repetida corta saídas de ar e botões: vira listras; suaviza na vertical
-        ys, sig = cfg['pad_blur']
-        ys += tpad
-        soft = cv2.GaussianBlur(canvas, (1, 0), sigmaX=0.1, sigmaY=sig)
-        canvas[ys:, padcols] = soft[ys:, padcols]
+    for side, bands in cfg.get('pad_bands', {}).items():  # porta / painel em faixas lisas (pixel art)
+        cols = slice(0, pad_x0) if side == 'left' else slice(canvas.shape[1] - pad_x1, canvas.shape[1])
+        for a, b, hexc in bands:
+            bgr = [int(hexc[i:i + 2], 16) for i in (5, 3, 1)]
+            canvas[max(0, a + tpad):max(0, b + tpad), cols] = bgr
     if 'fill_left' in cfg:  # espelhar daria um "bico" (pilar dobrado): faz uma coluna lisa
         canvas[:, :pad_x0] = cfg['fill_left']
     img = canvas[y0:y1, x0 + pad_x0:x1 + pad_x0].copy()

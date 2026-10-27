@@ -40,7 +40,7 @@ interface CockpitArt {
 // fração da escala onde começa a faixa vermelha
 // face: false = o mostrador da arte já é legível, o jogo só desenha o ponteiro;
 // a0/sweep: onde começa a escala e quanto ela abre (padrão 135° e 270°)
-interface Dial { x: number; y: number; r: number; max: number; labels: number[]; tick: number; red: number; face?: boolean; a0?: number; sweep?: number }
+interface Dial { x: number; y: number; r: number; max: number; labels: number[]; tick: number; red: number; face?: boolean; a0?: number; sweep?: number; labelScale?: number }
 
 // Mostradores auxiliares, também redesenhados: 'single' (um ponteiro), 'dual' (dois
 // ponteiros no mesmo eixo, em V), 'twin' (dois eixos lado a lado) e 'clock' (relógio)
@@ -83,9 +83,10 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
 COCKPIT_ART.patrol = {
   dash: cp('patrol-dash'), top: cp('patrol-top'), wheel: cp('patrol-wheel'),
   pivot: [128, 105.6], speedMax: 240, needle: '#ff2a1a', hub: '#1a1a1c', aux: [],
-  // escalas medidas na arte: do 0 (146°) ao fim (≈ 36°), 250° de abertura
-  tach: { x: 91, y: 66, r: 25, max: 8, labels: [], tick: 1, red: 6, face: false, a0: 2.55, sweep: 4.36 },
-  speed: { x: 176, y: 66, r: 25, max: 240, labels: [], tick: 20, red: 999, face: false, a0: 2.55, sweep: 4.36 },
+  // redesenhados nítidos sobre a arte (reduzida, ela borra); escala como na arte: do 0 (146°)
+  // ao fim (≈ 36°), 250° de abertura, números em pixel inteiro
+  tach: { x: 91, y: 66, r: 25, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6, a0: 2.55, sweep: 4.36, labelScale: 1 },
+  speed: { x: 176, y: 66, r: 25, max: 240, labels: [0, 40, 80, 120, 160, 200, 240], tick: 10, red: 999, a0: 2.55, sweep: 4.36, labelScale: 1 },
   odo: { x: 119, y: 44, w: 27, h: 11 }, prnd: { x: 120, y: 60, w: 26, h: 8 },
 };
 
@@ -205,8 +206,9 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
     // recua do aro só o quanto o número ocupa na direção do centro (largura nas laterais,
     // altura no alto), para os de cima não se encostarem
     const a = fr(v);
-    const [lx, ly] = at(a, r - 2.3 - Math.abs(Math.cos(a)) * pixWidth(l, 0.5) * 0.5 - Math.abs(Math.sin(a)) * 1.25);
-    pix(c, l, lx, ly, v >= d.red ? '#ff5a4a' : '#f2f2f2', 0.5);
+    const ls = d.labelScale ?? 0.5;
+    const [lx, ly] = at(a, r - 2.3 - (Math.abs(Math.cos(a)) * pixWidth(l, ls) * 0.5 + Math.abs(Math.sin(a)) * 2.5 * ls) * (ls > 0.5 ? 1.3 : 1) - (ls > 0.5 ? 0.6 : 0));
+    pix(c, l, lx, ly, v >= d.red ? '#ff5a4a' : '#f2f2f2', ls);
   }
   needle(c, cx, cy, r, a0 + sweep * Math.max(0, Math.min(1.02, frac)), art);
 }

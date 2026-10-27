@@ -121,12 +121,14 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
 
   // câmera: no retrovisor, um pouco à esquerda do carro, olhando para trás; o espelho
   // está virado para fora, então o ponto de fuga fica à direita do centro
-  const hz = Math.round(h * 0.46);
-  const vx = w * 0.52;
-  const f = w * 1.1;
-  const xm = r.x - 700;
-  const sx = (X: number, dz: number) => vx + ((X - xm) * f) / dz / 1.6;
-  const sy = (dz: number) => hz + (CAM_H * f) / dz / 2.6;
+  // mesma escala na horizontal e na vertical (como uma câmera de verdade) e campo de visão
+  // estreito de espelho plano: quem se aproxima cresce e sai pela borda de fora
+  const hz = Math.round(h * 0.45);
+  const vx = w * 0.8;
+  const f = w * 1.25;
+  const xm = r.x - 800;
+  const sx = (X: number, dz: number) => vx + ((X - xm) * f) / dz;
+  const sy = (dz: number) => hz + (CAM_H * f) / dz;
   const night = !!r.def.night;
   const th = r.theme;
   v.fillStyle = th.sky[1];
@@ -137,7 +139,7 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
   v.fillRect(0, hz, w, h - hz);
   // estrada até o horizonte
   const roadW = r.track.roadW;
-  const near = (CAM_H * f) / 2.6 / (h - hz + 2);
+  const near = (CAM_H * f) / (h - hz + 2);
   const far = 60 * SEG_LEN;
   const quad = (xa: number, xb: number, color: string) => {
     v.fillStyle = color;
@@ -164,7 +166,7 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
       const on = edge || center || Math.floor((dz + r.position) / dashLen) % 2 === 0;
       if (!on) continue;
       const x0 = sx(X, dz), y0 = sy(dz), x1 = sx(X, dz + step), y1 = sy(dz + step);
-      const lw = Math.max(0.5, (90 * f) / dz / 1.6);
+      const lw = Math.max(0.5, (90 * f) / dz);
       v.beginPath();
       v.moveTo(x0 - lw / 2, y0);
       v.lineTo(x0 + lw / 2, y0);
@@ -182,9 +184,8 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
   for (const p of r.police) if (p.state !== 'done') behind.push({ dz: pz - p.z, x: p.x, w: POLICE_W, look: { color: '#fff', police: true, siren: p.state === 'chase' || p.state === 'pull', front: true, night } });
   behind.sort((a, b) => b.dz - a.dz);
   for (const b of behind) {
-    if (b.dz < near * 0.8 || b.dz > far) continue;
-    // um pouco largo por causa do vidro convexo
-    drawCar(v, sx(b.x, b.dz), sy(b.dz), (b.w * f) / b.dz / 1.6, b.look);
+    if (b.dz < near * 0.5 || b.dz > far) continue;
+    drawCar(v, sx(b.x, b.dz), sy(b.dz), (b.w * f) / b.dz, b.look);
   }
   // o espelho escurece um pouco a imagem (mais à noite)
   v.fillStyle = night ? 'rgba(0,0,24,0.5)' : 'rgba(10,20,40,0.12)';

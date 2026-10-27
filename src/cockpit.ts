@@ -69,14 +69,14 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
       { x: 176, y: 65, r: 8, kind: 'dual', show: ['fuel', 'volt'], icon: 'fuel' },
     ] },
   // 959: interior completo do Victor; os cinco mostradores redesenhados com números maiores
-  '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.1, 93.3],
-    tach: { x: 128, y: 54, r: 28, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6.5, a0: 2.53, sweep: 4.28, labelScale: 1 },
-    speed: { x: 180, y: 57, r: 21, max: 300, labels: [0, 50, 100, 150, 200, 250, 300], tick: 10, red: 999, a0: 2.45, sweep: 4.4, labelScale: 0.7 },
+  '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.2, 84.3],
+    tach: { x: 129, y: 49, r: 24, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6.5, a0: 2.53, sweep: 4.45, labelScale: 1 },
+    speed: { x: 176, y: 53, r: 19, max: 300, labels: [0, 50, 100, 150, 200, 250, 300], tick: 10, red: 999, a0: 2.46, sweep: 4.4, labelScale: 0.7 },
     speedMax: 300, needle: '#ff6a1a', hub: '#1a1a1a',
     aux: [
-      { x: 28, y: 57, r: 19, kind: 'twin', show: ['oil', 'oiltemp'], icon: 'oil' },
-      { x: 75, y: 58, r: 20, kind: 'twin', show: ['boost', 'fuel'], icon: 'turbo' },
-      { x: 236, y: 57, r: 22, kind: 'clock' },
+      { x: 38, y: 53, r: 16, kind: 'twin', show: ['oil', 'oiltemp'], icon: 'oil' },
+      { x: 83, y: 53, r: 17.5, kind: 'twin', show: ['boost', 'fuel'], icon: 'turbo' },
+      { x: 223, y: 53, r: 18, kind: 'clock' },
     ] },
 };
 

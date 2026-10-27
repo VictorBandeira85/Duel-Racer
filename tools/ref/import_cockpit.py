@@ -26,20 +26,18 @@ CARS = {
         'gauges': {'tach': (774, 200, 70), 'speed': (934, 200, 70)},
         'pillar': (40, 0.40),   # coluna da porta: até x nativo 40, sobe 0,40 px para a esquerda por linha
     },
-    # 959: interior completo desenhado pelo Victor (cinco mostradores redesenhados no jogo)
+    # 959: interior completo desenhado pelo Victor, com colunas do para-brisa e portas
     '959': {
-        'scale': 0.3, 'x0': 273, 'y0': 68,   # volante inteiro no centro, os cinco mostradores à vista
-        'gauges': {'tach': (700, 227, 95), 'speed': (875, 235, 70), 'aux1': (367, 235, 65),
-                   'aux2': (526, 238, 68), 'clock': (1060, 235, 77)},
-        'top_art': [],
-        'left': 'replicate', 'sky_above': 140,
-        'hub_fill': ((22, 22, 25), 330),
-        'wheel_rows': 190, 'paint': 'column', 'rim_margin': 9, 'hole_sky_above': 90,
-        # borda de cima do painel na arte (acima: limpadores e ponta da coluna, que viram vidro)
-        'dash_curve': [(0, 150), (100, 135), (200, 118), (300, 100), (400, 85), (500, 75), (600, 68),
-                       (700, 64), (800, 63), (900, 66), (1000, 72), (1100, 78), (1200, 84), (1300, 90),
-                       (1450, 95), (1680, 100)],
-        'pillars': [(92, 40, 104, 14, 22), (372, 428, 88, 14, 22)],
+        'scale': 0.36, 'x0': 299, 'y0': 155,   # volante inteiro no centro; em tela larga aparecem coluna, porta e retrovisor
+        'gauges': {'tach': (660, 275, 67), 'speed': (790, 285, 55), 'aux1': (405, 285, 46),
+                   'aux2': (530, 285, 50), 'clock': (920, 285, 52)},
+        'top_art': [], 'sky_left': True,
+        'hub_fill': ((22, 22, 25), 340),
+        'wheel_rows': 172, 'paint': 'column', 'rim_margin': 7, 'hole_sky_above': 150,
+        # borda de cima do painel entre as colunas (acima: limpadores, que viram vidro)
+        'dash_curve': [(199, -1000), (205, 160), (300, 158), (400, 155), (500, 151), (600, 147),
+                       (700, 148), (800, 149), (900, 151), (1000, 154), (1100, 156), (1200, 157),
+                       (1300, 158), (1400, 160), (1485, 162), (1491, -1000)],
     },
     # viatura: interior completo desenhado pelo Victor (porta, painel, console e passageiro)
     'patrol': {

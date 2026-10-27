@@ -38,7 +38,9 @@ interface CockpitArt {
 // Mostrador redesenhado em pixels (os números da arte ficam ilegíveis em 256 px):
 // centro inteiro medido na arte, raio horizontal (o vertical é 8/7 maior), rótulos e
 // fração da escala onde começa a faixa vermelha
-interface Dial { x: number; y: number; r: number; max: number; labels: number[]; tick: number; red: number }
+// face: false = o mostrador da arte já é legível, o jogo só desenha o ponteiro;
+// a0/sweep: onde começa a escala e quanto ela abre (padrão 135° e 270°)
+interface Dial { x: number; y: number; r: number; max: number; labels: number[]; tick: number; red: number; face?: boolean; a0?: number; sweep?: number }
 
 // Mostradores auxiliares, também redesenhados: 'single' (um ponteiro), 'dual' (dois
 // ponteiros no mesmo eixo, em V), 'twin' (dois eixos lado a lado) e 'clock' (relógio)
@@ -80,10 +82,11 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
 // Viatura: painel de sedã com hodômetro e indicador da alavanca funcionando
 COCKPIT_ART.patrol = {
   dash: cp('patrol-dash'), top: cp('patrol-top'), wheel: cp('patrol-wheel'),
-  pivot: [128, 128], speedMax: 240, needle: '#ff3a1a', hub: '#26262a', aux: [],
-  tach: { x: 82, y: 80, r: 31, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6 },
-  speed: { x: 189, y: 80, r: 31, max: 240, labels: [0, 40, 80, 120, 160, 200, 240], tick: 20, red: 999 },
-  odo: { x: 117, y: 51, w: 34, h: 13 }, prnd: { x: 118, y: 71, w: 33, h: 10 },
+  pivot: [128, 105.6], speedMax: 240, needle: '#ff2a1a', hub: '#1a1a1c', aux: [],
+  // escalas medidas na arte: do 0 (146°) ao fim (≈ 36°), 250° de abertura
+  tach: { x: 91, y: 66, r: 25, max: 8, labels: [], tick: 1, red: 6, face: false, a0: 2.55, sweep: 4.36 },
+  speed: { x: 176, y: 66, r: 25, max: 240, labels: [], tick: 20, red: 999, face: false, a0: 2.55, sweep: 4.36 },
+  odo: { x: 119, y: 44, w: 27, h: 11 }, prnd: { x: 120, y: 60, w: 26, h: 8 },
 };
 
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
@@ -148,10 +151,11 @@ function odometer(c: CanvasRenderingContext2D, ox: number, r: Race, b: Box) {
   const km = Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600);
   const v = String(Math.floor(ODO_BASE + km) % 1e6).padStart(6, '0');
   // cada dígito numa janelinha, como os tambores de um hodômetro mecânico
+  const cw = b.w / 6;
   for (let i = 0; i < 6; i++) {
-    const x = ox + b.x + 1 + i * 5.5;
-    rect(c, x, ART_TOP + b.y + 2, 4.5, b.h - 4, '#0c0c0e');
-    pix(c, v[i], x + 2.25, ART_TOP + b.y + b.h / 2, '#d8dcd8', 1);
+    const x = ox + b.x + i * cw;
+    rect(c, x + 0.5, ART_TOP + b.y + 2, cw - 0.5, b.h - 4, '#0c0c0e');
+    pix(c, v[i], x + cw / 2 + 0.25, ART_TOP + b.y + b.h / 2, '#d8dcd8', 1);
   }
 }
 
@@ -159,10 +163,11 @@ function odometer(c: CanvasRenderingContext2D, ox: number, r: Race, b: Box) {
 function leverIndicator(c: CanvasRenderingContext2D, ox: number, r: Race, b: Box) {
   const sel = r.state === 'ticket' || r.state === 'pullover' && r.speed < 1 ? 'P' : !r.auto && r.gear < 2 ? String(r.gear + 1) : 'D';
   const keys = ['P', 'R', 'N', 'D', '2', '1'];
+  const cw = b.w / keys.length;
   keys.forEach((k, i) => {
-    const x = ox + b.x + 0.5 + i * 5.5, y = ART_TOP + b.y + 1;
-    if (k === sel) rect(c, x, y, 5, b.h - 2, '#d81818');
-    pix(c, k, x + 2.5, y + (b.h - 2) / 2, k === sel ? '#fff' : '#8a8a90', 1);
+    const x = ox + b.x + i * cw, y = ART_TOP + b.y + 0.5;
+    if (k === sel) rect(c, x, y, cw, b.h - 1, '#d81818');
+    pix(c, k, x + cw / 2, y + (b.h - 1) / 2, k === sel ? '#fff' : '#8a8a90', 1);
   });
 }
 
@@ -171,13 +176,14 @@ const PIX_Y = 8 / 7; // o pixel é mais largo que alto: no eixo vertical tudo é
 
 function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number, art: CockpitArt) {
   const cx = ox + d.x, cy = ART_TOP + d.y, r = d.r, ry = r * PIX_Y;
+  const a0 = d.a0 ?? Math.PI * 0.75, sweep = d.sweep ?? Math.PI * 1.5;
+  if (d.face === false) return needle(c, cx, cy, r, a0 + sweep * Math.max(0, Math.min(1.02, frac)), art);
   // fundo preto (por linhas, sem antialias), por cima do mostrador da arte
   c.fillStyle = '#050506';
   for (let dy = -Math.floor(ry); dy <= Math.floor(ry); dy++) {
     const hw = Math.round(r * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
     c.fillRect(cx - hw, cy + dy, hw * 2 + 1, 1);
   }
-  const a0 = Math.PI * 0.75, sweep = Math.PI * 1.5;
   const at = (a: number, rr: number): [number, number] => [cx + 0.5 + Math.cos(a) * rr, cy + 0.5 + Math.sin(a) * rr * PIX_Y];
   const fr = (v: number) => a0 + (sweep * v) / d.max;
   const half = (x: number, y: number) => c.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, 0.5, 0.5);
@@ -202,8 +208,11 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
     const [lx, ly] = at(a, r - 2.3 - Math.abs(Math.cos(a)) * pixWidth(l, 0.5) * 0.5 - Math.abs(Math.sin(a)) * 1.25);
     pix(c, l, lx, ly, v >= d.red ? '#ff5a4a' : '#f2f2f2', 0.5);
   }
-  // ponteiro: do centro exato, traçado em meio pixel (1 px de espessura)
-  const a = a0 + sweep * Math.max(0, Math.min(1.02, frac));
+  needle(c, cx, cy, r, a0 + sweep * Math.max(0, Math.min(1.02, frac)), art);
+}
+
+// ponteiro: do centro exato, traçado em meio pixel (1 px de espessura)
+function needle(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, a: number, art: CockpitArt) {
   const len = r - 2.5;
   const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y;
   c.fillStyle = art.needle;

@@ -35,12 +35,15 @@ CARS = {
     },
     # viatura: a arte acaba logo à esquerda do volante; o painel se estende repetindo a borda
     'patrol': {
-        'scale': 0.25, 'x0': -5, 'y0': 212,
+        'scale': 0.2, 'x0': -133, 'y0': 198,   # volante inteiro no centro, com o miolo à vista
         'gauges': {'tach': (324, 491, 127), 'speed': (751, 491, 127)},
         # hodômetro e indicador de marcha: fundo liso, o jogo desenha os números funcionando
         'lcd': [((26, 26, 28), (462, 389, 598, 438)), ((26, 26, 28), (466, 462, 598, 494))],
         'top_art': [],  # coluna da porta segue a arte até o teto
-        'left': 'replicate',
+        'left': 'replicate', 'right': 'replicate',
+        'sky_above': 236,
+        'pad_blur': (300, 18),   # nas colunas repetidas, acima do painel é vidro (estrada à vista)
+        'hub_fill': ((30, 30, 32), 575),   # atrás do miolo do volante: coluna de direção escura, sem borrão
     },
     # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
     'zr1': {
@@ -75,11 +78,22 @@ def main():
     tpad = max(0, -ty0)
     canvas = cv2.copyMakeBorder(full, tpad, max(0, y1 - full.shape[0]), 0, 0, cv2.BORDER_REPLICATE)
     y0 += tpad
+    y1 += tpad  # o recorte do painel também desce (sem isso a arte saía esticada na vertical)
     ty0 += tpad
     # onde a arte acaba nas laterais, espelha (fica natural; repetir a coluna vira listras)
     canvas = cv2.copyMakeBorder(canvas, 0, 0, pad_x0, pad_x1, cv2.BORDER_REFLECT)
     if cfg.get('left') == 'replicate':  # espelhar duplicaria volante e mostrador: repete a borda
         canvas[:, :pad_x0] = canvas[:, pad_x0:pad_x0 + 1]
+    if cfg.get('right') == 'replicate' and pad_x1:
+        canvas[:, -pad_x1:] = canvas[:, -pad_x1 - 1:-pad_x1]
+    padcols = np.zeros(canvas.shape[1], bool)  # colunas que não vêm da arte
+    if cfg.get('left') == 'replicate': padcols[:pad_x0] = True
+    if cfg.get('right') == 'replicate' and pad_x1: padcols[-pad_x1:] = True
+    if 'pad_blur' in cfg:  # a borda repetida corta saídas de ar e botões: vira listras; suaviza na vertical
+        ys, sig = cfg['pad_blur']
+        ys += tpad
+        soft = cv2.GaussianBlur(canvas, (1, 0), sigmaX=0.1, sigmaY=sig)
+        canvas[ys:, padcols] = soft[ys:, padcols]
     if 'fill_left' in cfg:  # espelhar daria um "bico" (pilar dobrado): faz uma coluna lisa
         canvas[:, :pad_x0] = cfg['fill_left']
     img = canvas[y0:y1, x0 + pad_x0:x1 + pad_x0].copy()
@@ -123,6 +137,10 @@ def main():
         if ff[0, x] == 1:
             cv2.floodFill(ff, msk, (x, 0), 2)
     sky = ff == 2
+    if 'sky_above' in cfg:
+        pc = padcols[x0 + pad_x0:x1 + pad_x0]
+        rows = np.arange(h) + (y0 - tpad) < cfg['sky_above']
+        sky |= rows[:, None] & pc[None, :]
     # atrás do aro: a parte cujo vizinho visível mais próximo é o para-brisa também fica
     # transparente; o resto é reconstruído só a partir do painel (sem o branco escorrer)
     known = (hole == 0) & ~sky
@@ -136,6 +154,10 @@ def main():
     near = cv2.dilate(hole, np.ones((41, 41), np.uint8)) > 0
     fill = cv2.inpaint(img, ((~known) | (hot & near)).astype(np.uint8) * 255, 7, cv2.INPAINT_TELEA)
     dash = np.where(known[..., None], img, fill)
+    if 'hub_fill' in cfg:  # o miolo e os raios escondem uma área grande: cor lisa em vez de borrão
+        color, ylim = cfg['hub_fill']
+        hub = (hole > 0) & (m_in > 0) & ((yy + (y0 - tpad)) > ylim) & ~sky
+        dash[hub] = color[::-1]
     # visores de LCD: fundo liso (o conteúdo é desenhado pelo jogo, funcionando)
     for color, (a, b, c, d) in cfg.get('lcd', []):
         (a, b), (c, d) = to_crop(a, b), to_crop(c, d)
@@ -157,8 +179,7 @@ def main():
                 if tsky[yy_, x] == 1:
                     cv2.floodFill(tsky, tm, (x, yy_), 2)
         talpha = tsky != 2
-        if cfg.get('left') == 'replicate':  # acima do painel, à esquerda da coluna, só céu
-            talpha[:, :pad_x0] = False
+        talpha[:, padcols[x0 + pad_x0:x1 + pad_x0]] = False  # acima das colunas repetidas, só céu
         for (a, b, c, d) in cfg['top_art']:
             a, c = a - x0 + pad_x0 - pad_x0, c - x0
             talpha[max(0, b - (ty0 - tpad)):max(0, d - (ty0 - tpad)), max(0, a):max(0, c)] = False

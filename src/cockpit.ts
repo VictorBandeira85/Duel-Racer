@@ -68,7 +68,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
       { x: 176, y: 45, r: 6.5, kind: 'single', show: ['oil'], icon: 'oil' },
       { x: 176, y: 65, r: 8, kind: 'dual', show: ['fuel', 'volt'], icon: 'fuel' },
     ] },
-  '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [127.8, 104], 
+  '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128, 104], 
     tach: { x: 129, y: 66, r: 23, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6.5 },
     speed: { x: 180, y: 68, r: 19, max: 300, labels: [0, 50, 100, 150, 200, 250, 300], tick: 10, red: 999 },
     speedMax: 300, needle: '#ff6a1a', hub: '#1a1a1a',

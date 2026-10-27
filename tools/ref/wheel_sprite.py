@@ -17,6 +17,14 @@ CFG = {
         'hub': (583.5, 487, 108), 'bar': (250, 506, 920, 594),
         'pivot': (128, 86), 'rx': 72, 'ry': 81, 'size': (256, 170),
     },
+    # 959: três raios (dois laterais e um para baixo) e miolo de 12 lados
+    '959': {
+        'center': (700, 340), 'outer': (303, 270), 'inner': (257, 227),
+        'hub': (698, 381, 74),
+        'spokes': [[(398, 328), (630, 331), (630, 392), (398, 402)],
+                   [(658, 441), (738, 441), (731, 517), (742, 580), (655, 580), (666, 517)]],
+        'pivot': (128, 104), 'rx': 83.8, 'ry': 87, 'size': (256, 194),
+    },
 }
 
 src, out, key = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -24,7 +32,8 @@ c = CFG[key]
 img = cv2.cvtColor(cv2.imread(src), cv2.COLOR_BGR2RGB)
 (cx, cy), (ao, bo), (ai, bi) = c['center'], c['outer'], c['inner']
 hx, hy, hr = c['hub']
-bx0, by0, bx1, by1 = c['bar']
+bx0, by0, bx1, by1 = c.get('bar', (0, 0, -1, -1))
+polys = [np.array(q, np.float32) for q in c.get('spokes', [])]
 pxw, pxh = ao / c['rx'], bo / c['ry']
 W, H = c['size']
 px, py = c['pivot']
@@ -37,7 +46,8 @@ for Y in range(H):
         rim = qo <= 1 and qi >= 1
         hub = (sx - hx) ** 2 + (sy - hy) ** 2 <= hr * hr
         bar = bx0 <= sx <= bx1 and by0 <= sy <= by1 and qo <= 1
-        if rim or hub or bar:
+        spoke = qo <= 1 and any(cv2.pointPolygonTest(q, (sx, sy), False) >= 0 for q in polys)
+        if rim or hub or bar or spoke:
             ix, iy = int(sx), int(sy)
             if 0 <= ix < img.shape[1] and 0 <= iy < img.shape[0]:
                 spr[Y, X, :3] = img[iy, ix]

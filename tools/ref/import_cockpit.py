@@ -34,7 +34,7 @@ CARS = {
                    'aux2': (530, 285, 50), 'clock': (920, 285, 52)},
         'top_art': [], 'sky_left': True,
         'despeckle': True,
-        'hub_fill': ((22, 22, 25), 340),
+        'hub_fill': ((10, 10, 12), 340), 'knee': '#0d0d0f',
         'wheel_rows': 172, 'paint': 'column', 'rim_margin': 7, 'hole_sky_above': 150,
         # borda de cima do painel entre as colunas (acima: limpadores, que viram vidro)
         'dash_curve': [(199, -1000), (205, 162), (300, 162), (350, 163), (420, 164), (480, 159), (520, 151), (600, 147),
@@ -193,7 +193,7 @@ def paint_patrol(rgb, a, art_l, art_r, pivot, hub):
     paint_column(rgb, a, pivot, hub)
 
 
-def paint_column(rgb, a, pivot, hub):
+def paint_column(rgb, a, pivot, hub, knee='#1b1c1f'):
     """Coluna de direção e painel dos joelhos atrás do miolo (aparece quando o volante gira)."""
     H, W = a.shape
 
@@ -216,7 +216,7 @@ def paint_column(rgb, a, pivot, hub):
                 if y < py - 13: c = '#202124' if abs(dx) < hw - 3 else c
                 put(x, y, c)
             elif y > py - 18:
-                put(x, y, '#1b1c1f')  # painel embaixo do volante (joelhos)
+                put(x, y, knee)  # painel embaixo do volante (joelhos)
 
 
 def paint_pillars(top, dash, pillars):
@@ -440,7 +440,7 @@ def main():
             paint_patrol(d_rgb, d_a, art_l, art_r, pivot_n, hub_n)
             patrol_mirror = (art_l, int(np.argmax(d_a[:, art_l + 30] > 0)) + 2)
         else:
-            paint_column(d_rgb, d_a, pivot_n, hub_n)
+            paint_column(d_rgb, d_a, pivot_n, hub_n, cfg.get('knee', '#1b1c1f'))
     Image.fromarray(np.dstack([d_rgb, d_a]), 'RGBA').save(f'{outdir}/{car}-dash.png')
     # a arte acaba antes do teto: a coluna da porta é prolongada para cima (linha 0 do
     # painel repetida e deslocada pela inclinação da coluna) até a linha 24 da tela

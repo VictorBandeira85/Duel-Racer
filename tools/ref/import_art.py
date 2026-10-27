@@ -3,7 +3,7 @@
 Remove o fundo branco ligado às bordas (o branco interno, como vidros e faróis,
 é preservado), recorta o carro e reduz para a largura pedida.
 
-Uso: python3 tools/ref/import_art.py <imagem> <saida.png> <largura> [vaos]
+Uso: python3 tools/ref/import_art.py <imagem> <saida.png> <largura> [vaos] [--fechar=y0:y1]
   vaos: fração do topo da imagem onde áreas brancas fechadas também viram
         transparentes (ex.: 0.4 para o vão sob a asa do F40)
 """
@@ -26,7 +26,19 @@ def main():
         if work[y, x]:
             cv2.floodFill(work, bg, (x, y), 2)
     fg = (work != 2).astype(np.uint8)
-    gaps = float(sys.argv[4]) if len(sys.argv) > 4 else 0
+    # --fechar=y0:y1 (fração da altura): nessas linhas o que fica entre a primeira e a última
+    # parte do carro é carroceria (teto branco ligado ao fundo por uma fresta no contorno)
+    for arg in sys.argv[4:]:
+        if arg.startswith('--fechar='):  # y0:y1[:x0:x1] (x limita as colunas, fora ficam retrovisores)
+            v = [float(t) for t in arg.split('=')[1].split(':')]
+            a, b = int(v[0] * h), int(v[1] * h)
+            c0, c1 = (int(v[2] * w), int(v[3] * w)) if len(v) > 2 else (0, w)
+            for y in range(a, b):
+                xs = np.where(fg[y, c0:c1])[0] + c0
+                if len(xs) > 1:
+                    fg[y, xs.min():xs.max() + 1] = 1
+    args = [v for v in sys.argv[4:] if not v.startswith('--')]
+    gaps = float(args[0]) if args else 0
     if gaps:
         n, lab, st, _ = cv2.connectedComponentsWithStats(near_white, 8)
         for i in range(1, n):

@@ -41,7 +41,7 @@ interface CockpitArt {
 // fração da escala onde começa a faixa vermelha
 // face: false = o mostrador da arte já é legível, o jogo só desenha o ponteiro;
 // a0/sweep: onde começa a escala e quanto ela abre (padrão 135° e 270°)
-interface Dial { x: number; y: number; r: number; max: number; labels: number[]; tick: number; red: number; face?: boolean; a0?: number; sweep?: number; labelScale?: number }
+interface Dial { x: number; y: number; r: number; max: number; labels: number[]; tick: number; red: number; face?: boolean; a0?: number; sweep?: number; labelScale?: number; cut?: number }
 
 // Mostradores auxiliares, também redesenhados: 'single' (um ponteiro), 'dual' (dois
 // ponteiros no mesmo eixo, em V), 'twin' (dois eixos lado a lado) e 'clock' (relógio)
@@ -87,8 +87,8 @@ COCKPIT_ART.patrol = {
   pivot: [128.2, 103.1], speedMax: 240, needle: '#ff2a1a', hub: '#1a1a1c', aux: [],
   // redesenhados nítidos sobre a arte (reduzida, ela borra); escala como na arte: do 0 (≈ 148°)
   // ao fim (≈ 30°), 242° de abertura, números em pixel inteiro
-  tach: { x: 87, y: 65, r: 27, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6, a0: 2.6, sweep: 4.22, labelScale: 1 },
-  speed: { x: 179, y: 65, r: 27, max: 240, labels: [0, 40, 80, 120, 160, 200, 240], tick: 10, red: 999, a0: 2.55, sweep: 4.25, labelScale: 1 },
+  tach: { x: 87, y: 65, r: 26.5, cut: 20, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6, a0: 2.6, sweep: 4.22, labelScale: 1 },
+  speed: { x: 179, y: 65, r: 25.5, cut: 20, max: 240, labels: [0, 40, 80, 120, 160, 200, 240], tick: 10, red: 999, a0: 2.55, sweep: 4.25, labelScale: 1 },
   odo: { x: 118, y: 43, w: 32, h: 11 }, prnd: { x: 118, y: 59, w: 32, h: 8 },
 };
 
@@ -183,9 +183,10 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
   const cx = ox + d.x, cy = ART_TOP + d.y, r = d.r, ry = r * PIX_Y;
   const a0 = d.a0 ?? Math.PI * 0.75, sweep = d.sweep ?? Math.PI * 1.5;
   if (d.face === false) return needle(c, cx, cy, r, a0 + sweep * Math.max(0, Math.min(1.02, frac)), art);
-  // fundo preto (por linhas, sem antialias), por cima do mostrador da arte
+  // fundo preto (por linhas, sem antialias), por cima do mostrador da arte; cut: o mostrador
+  // da arte é cortado embaixo pela borda do painel, o fundo para ali
   c.fillStyle = '#050506';
-  for (let dy = -Math.floor(ry); dy <= Math.floor(ry); dy++) {
+  for (let dy = -Math.floor(ry); dy <= Math.min(Math.floor(ry), d.cut ?? 99); dy++) {
     const hw = Math.round(r * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
     c.fillRect(cx - hw, cy + dy, hw * 2 + 1, 1);
   }
@@ -217,7 +218,7 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
       pix7(c, l, lx, ly, col, true);
       continue;
     }
-    const [lx, ly] = at(a, r - (ls > 0.5 ? 3.2 : 2.3) - (Math.abs(Math.cos(a)) * pixWidth(l, ls) * 0.5 + Math.abs(Math.sin(a)) * 2.5 * ls) * (ls > 0.5 ? 1.3 : 1) - (ls > 0.5 ? 0.6 : 0));
+    const [lx, ly] = at(a, r - (ls > 0.5 ? 3.2 : 2.7) - (Math.abs(Math.cos(a)) * pixWidth(l, ls) * 0.5 + Math.abs(Math.sin(a)) * 2.5 * ls) * (ls > 0.5 ? 1.3 : 1) - (ls > 0.5 ? 0.6 : 0));
     pix(c, l, lx, ly, col, ls);
   }
   needle(c, cx, cy, r, a0 + sweep * Math.max(0, Math.min(1.02, frac)), art);

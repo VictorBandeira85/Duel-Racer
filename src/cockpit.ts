@@ -777,7 +777,8 @@ function leatherRim(c: CanvasRenderingContext2D, cx: number, cy: number, R: numb
 
 function steerAngle(r: Race, dt: number) {
   // com a traseira escapando o volante vai para o lado contrário (contraesterço)
-  wheelAngle = lerp(wheelAngle, clamp(r.steer * 0.3 - r.yaw * 4, -0.6, 0.6), Math.min(1, dt * 10));
+  // como no Test Drive II, o volante gira bem (até ~50°) e com o peso de um volante de verdade
+  wheelAngle = lerp(wheelAngle, clamp(r.steer * 0.85 - r.yaw * 6, -1.1, 1.1), Math.min(1, dt * 6));
   return wheelAngle;
 }
 

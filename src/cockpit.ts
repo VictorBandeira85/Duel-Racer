@@ -212,8 +212,8 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
     const ls = d.labelScale ?? 0.5;
     const col = v >= d.red ? '#ff5a4a' : '#f2f2f2';
     if (ls === 0.7) {  // fonte 5x7 em meio pixel (tamanho intermediário)
-      const [lx, ly] = at(a, r - 2.8 - Math.abs(Math.cos(a)) * pix7Width(l) * 0.55 - Math.abs(Math.sin(a)) * 1.9);
-      pix7(c, l, lx, ly, col);
+      const [lx, ly] = at(a, r - 2.8 - Math.abs(Math.cos(a)) * pix7Width(l, true) * 0.55 - Math.abs(Math.sin(a)) * 1.9);
+      pix7(c, l, lx, ly, col, true);
       continue;
     }
     const [lx, ly] = at(a, r - (ls > 0.5 ? 3.2 : 2.3) - (Math.abs(Math.cos(a)) * pixWidth(l, ls) * 0.5 + Math.abs(Math.sin(a)) * 2.5 * ls) * (ls > 0.5 ? 1.3 : 1) - (ls > 0.5 ? 0.6 : 0));

@@ -32,6 +32,7 @@ CARS = {
         'gauges': {'tach': (660, 275, 67), 'speed': (790, 285, 55), 'aux1': (405, 285, 46),
                    'aux2': (530, 285, 50), 'clock': (920, 285, 52)},
         'top_art': [], 'sky_left': True,
+        'mirror_pillar': 70,   # colunas 0..70 do painel: a coluna da esquerda, espelhada para a direita
         'hub_fill': ((22, 22, 25), 340),
         'wheel_rows': 172, 'paint': 'column', 'rim_margin': 7, 'hole_sky_above': 150,
         # borda de cima do painel entre as colunas (acima: limpadores, que viram vidro)
@@ -244,6 +245,23 @@ def paint_pillars(top, dash, pillars):
                 put(x, y, c)
 
 
+def mirror_pillar(top, dash, center, cols):
+    """Coluna do lado do passageiro: espelho da coluna da esquerda em torno do centro do
+    volante, só onde o outro lado é vidro (ela termina ao encostar no painel)."""
+    for img in (top, dash):
+        W = img.shape[1]
+        for x in range(cols):
+            m = int(round(2 * center - x))
+            if not 0 <= m < W:
+                continue
+            src, dst = img[:, x], img[:, m]
+            take = (src[:, 3] > 0) & (dst[:, 3] == 0)
+            if img is dash:  # no painel, só acima da borda do lado de lá
+                top_row = np.argmax(dst[:, 3] > 0) if (dst[:, 3] > 0).any() else img.shape[0]
+                take &= np.arange(img.shape[0]) < top_row
+            dst[take] = src[take]
+
+
 def paint_mirror(top, dash, art_l, sill_f):
     """Retrovisor externo no canto da frente do vidro lateral, encostado na coluna da porta.
     Ocupa o fim do topo (linhas negativas) e o começo do painel."""
@@ -431,6 +449,12 @@ def main():
         t_rgb = sample(cv2.cvtColor(timg, cv2.COLOR_BGR2RGB), nw, EXT)
         t_a = sample(talpha.astype(np.uint8) * 255, nw, EXT)
         Image.fromarray(np.dstack([t_rgb, t_a]), 'RGBA').save(f'{outdir}/{car}-top.png')
+    if 'mirror_pillar' in cfg:
+        tp, dp = f'{outdir}/{car}-top.png', f'{outdir}/{car}-dash.png'
+        top_i, dash_i = np.array(Image.open(tp).convert('RGBA')), np.array(Image.open(dp).convert('RGBA'))
+        mirror_pillar(top_i, dash_i, (geo['center'][0] - xc0) / px_w + PAD, cfg['mirror_pillar'])
+        Image.fromarray(top_i, 'RGBA').save(tp)
+        Image.fromarray(dash_i, 'RGBA').save(dp)
     if 'pillars' in cfg:
         tp, dp = f'{outdir}/{car}-top.png', f'{outdir}/{car}-dash.png'
         top_i, dash_i = np.array(Image.open(tp).convert('RGBA')), np.array(Image.open(dp).convert('RGBA'))

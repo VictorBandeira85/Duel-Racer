@@ -11,6 +11,8 @@ import { clamp, lerp, overlap, rng } from './util';
 // curvatura da pista por unidade de curva (1/m): curva 4 = fechada (~175 km/h a 1 g)
 const CURVE_K = 0.00105;
 const TRAFFIC_KG = 1300;
+const COP_KMH = 245; // máxima da viatura na perseguição
+const COP_ACC = 1300; // aceleração da viatura parada (unidades/s², ~32 km/h por segundo)
 const TRUCK_KG = 9000;
 
 export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck';
@@ -686,7 +688,7 @@ export class Race {
             this.caughtKmh = Math.round(this.speed * KMH); // velocidade da infração (vale para a multa)
             p.state = 'chase';
             p.chaseT = 0;
-            p.speed = this.speed * 0.6;
+            p.speed = this.speed * 0.45; // saindo do esconderijo
             this.say('POLÍCIA!');
           } else p.state = 'done';
         }
@@ -694,17 +696,20 @@ export class Race {
         siren = true;
         this.radar = 1;
         p.chaseT += dt;
-        // sai forte e depois só ganha terreno se o jogador estiver abaixo do máximo
-        const target = Math.min(max * 0.975, this.speed + 2500);
-        p.speed += clamp(target - p.speed, -4000 * dt, 3000 * dt);
+        // viatura preparada (V8 de interceptador): ~245 km/h de máxima e aceleração de sedã,
+        // que cai com a velocidade; um esportivo de pé no fundo consegue fugir
+        const copMax = COP_KMH / KMH;
+        const target = Math.min(copMax, this.speed + 2500);
+        const acc = COP_ACC * Math.max(0.15, 1 - p.speed / copMax);
+        p.speed += clamp(target - p.speed, -4000 * dt, acc * dt);
         const gapNow = pz - p.z;
         if (gapNow < SEG_LEN * 1.5) p.speed = Math.min(p.speed, this.speed); // não ultrapassa antes da abordagem
         p.z += p.speed * dt;
         // atrás do jogador, pela faixa da esquerda (para ultrapassar)
         p.x += clamp(this.x - CAR_W * 1.3 - p.x, -dt * 2500, dt * 2500);
         const gap = pz - p.z;
-        if (this.state === 'drive' && p.chaseT > 2.5 && gap < SEG_LEN * 2.5) this.startPullover(p);
-        else if (gap > 60 * SEG_LEN || p.chaseT > 30) {
+        if (this.state === 'drive' && p.chaseT > 4 && gap < SEG_LEN * 2) this.startPullover(p);
+        else if (gap > 160 * SEG_LEN || p.chaseT > 25) { // ~220 m de vantagem (ou desistiu)
           p.state = 'done';
           this.say('ESCAPOU!');
         }

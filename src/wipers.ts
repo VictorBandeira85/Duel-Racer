@@ -16,8 +16,11 @@ interface Part { x: number; y: number; s: number; snow: boolean; life: number; v
 const parts: Part[] = [];
 let phase = 0;
 let lastS = 0;
-let film = 0; // película de água/neve que embaça o vidro entre uma passada e outra (0..1)
-let swept = 0; // até onde a passada atual já limpou (fração da varredura)
+// película de água/neve no vidro, numa grade de células de CELL px: cada célula embaça aos
+// poucos e só é limpa quando a palheta passa por ela (fora do alcance continua embaçada)
+const CELL = 3;
+let film = new Float32Array(0);
+let filmW = 0, filmH = 0, filmY0 = 0;
 let raceRef: Race | null = null;
 
 // topo do painel em cada coluna da tela (para pôr o eixo escondido e a palheta deitada)
@@ -90,8 +93,7 @@ export function drawWipers(c: CanvasRenderingContext2D, r: Race, vp: Viewport, d
     parts.length = 0;
     phase = 0;
     lastS = 0;
-    film = 0;
-    swept = 0;
+    film = new Float32Array(0);
   }
   const w = r.def.weather;
   const on = !!w && r.state !== 'arrived';
@@ -125,16 +127,36 @@ export function drawWipers(c: CanvasRenderingContext2D, r: Race, vp: Viewport, d
     if (phase >= 1) phase = on ? phase - 1 : 0;
   }
   const sNow = sweepAt(phase);
-  // a película volta a se formar aos poucos; a palheta limpa o setor por onde passou
-  if (w) film = Math.min(1, film + dt * (w === 'rain' ? 0.5 : 0.25));
-  if (sNow > swept) swept = sNow;
-  if (phase >= 0.84 || !on) {
-    if (swept > 0.9) film = 0.15;
-    swept = 0;
-  }
   const up = sNow > lastS;
   const sLo = Math.min(sNow, lastS), sHi = Math.max(sNow, lastS);
   lastS = sNow;
+  // película: embaça cada célula aos poucos; a palheta zera só as células por onde passou
+  if (w) {
+    const fw = Math.ceil(view.w / CELL), fy0 = vp.y, fh = Math.ceil((view.h - vp.y) / CELL);
+    if (film.length !== fw * fh || filmY0 !== fy0) {
+      film = new Float32Array(fw * fh);
+      filmW = fw; filmH = fh; filmY0 = fy0;
+    }
+    const grow = dt * (w === 'rain' ? 0.45 : 0.22);
+    for (let i = 0; i < film.length; i++) film[i] = Math.min(1, film[i] + grow);
+    if (sHi > sLo) {
+      for (const pv of pivots) {
+        const lo = pv.rest - SWEEP * sHi - 0.04, hi = pv.rest - SWEEP * sLo + 0.04;
+        for (let j = 0; j < filmH; j++) {
+          const cy = filmY0 + (j + 0.5) * CELL;
+          const dy = (cy - pv.y) / FORE;
+          if (Math.abs(dy) > L + 2) continue;
+          for (let i = 0; i < filmW; i++) {
+            const dx = ((i + 0.5) * CELL - pv.x) * view.aspect;
+            const rr = Math.hypot(dx, dy);
+            if (rr < L * 0.1 || rr > L + 1) continue;
+            const ang = Math.atan2(dy, dx);
+            if (ang >= lo && ang <= hi) film[j * filmW + i] = 0;
+          }
+        }
+      }
+    }
+  }
   // varridos: gotas somem; flocos vão para o fim da varredura (acumulam nas pontas)
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i];
@@ -166,23 +188,22 @@ export function drawWipers(c: CanvasRenderingContext2D, r: Race, vp: Viewport, d
   c.beginPath();
   c.rect(vp.x, vp.y, vp.w, view.h - vp.y);
   c.clip();
-  // película: embaça o vidro todo, menos o setor que a palheta acabou de limpar
-  if (w && film > 0.02) {
-    c.save();
-    c.beginPath();
-    c.rect(0, vp.y, view.w, view.h - vp.y);
-    if (swept > 0.02) for (const pv of pivots) {
-      c.moveTo(pv.x, pv.y);
-      for (let k = 0; k <= 16; k++) {
-        const [x, y] = at(pv.x, pv.y, pv.rest - SWEEP * swept * (k / 16), L);
-        c.lineTo(x, y);
+  // película: desenhada em faixas por linha, com a opacidade em 6 níveis
+  if (w && film.length) {
+    const base = w === 'rain' ? [170, 190, 215, 0.16] : [235, 240, 250, 0.22];
+    for (let j = 0; j < filmH; j++) {
+      let i = 0;
+      while (i < filmW) {
+        const q = Math.round(film[j * filmW + i] * 5);
+        let k = i + 1;
+        while (k < filmW && Math.round(film[j * filmW + k] * 5) === q) k++;
+        if (q > 0) {
+          c.fillStyle = `rgba(${base[0]},${base[1]},${base[2]},${(base[3] * q) / 5})`;
+          c.fillRect(i * CELL, filmY0 + j * CELL, (k - i) * CELL, CELL);
+        }
+        i = k;
       }
-      c.closePath();
     }
-    c.clip('evenodd');
-    c.fillStyle = w === 'rain' ? `rgba(170,190,215,${0.16 * film})` : `rgba(235,240,250,${0.22 * film})`;
-    c.fillRect(0, vp.y, view.w, view.h - vp.y);
-    c.restore();
   }
   for (const p of parts) {
     const x = Math.round(p.x * 2) / 2, y = Math.round(p.y * 2) / 2;

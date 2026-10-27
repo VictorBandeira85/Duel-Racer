@@ -6,6 +6,7 @@ import { dither, speckle, text } from './ui';
 import { clamp, formatTime, lerp, rng, shade } from './util';
 import { F40_WHEEL } from './svg/f40';
 import { spriteAspect, svgSprite } from './svgsprites';
+import { drawWipers, type DashTop } from './wipers';
 // cabines em pixel art (tools/ref/import_cockpit.py)
 import dashF40Png from './assets/cockpit/f40-dash.png';
 import wheelF40Png from './assets/cockpit/f40-wheel.png';
@@ -64,9 +65,9 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
     speedMax: 360, needle: '#ff2a1a', hub: '#ff2a1a',
     aux: [
       { x: 79, y: 45, r: 6.5, kind: 'single', show: ['boost'], icon: 'turbo' },
-      { x: 79, y: 65, r: 8, kind: 'dual', show: ['water', 'oiltemp'], icon: 'temp' },
+      { x: 79, y: 65, r: 8, kind: 'single', show: ['water'], icon: 'temp' },
       { x: 176, y: 45, r: 6.5, kind: 'single', show: ['oil'], icon: 'oil' },
-      { x: 176, y: 65, r: 8, kind: 'dual', show: ['fuel', 'volt'], icon: 'fuel' },
+      { x: 176, y: 65, r: 8, kind: 'single', show: ['fuel'], icon: 'fuel' },
     ] },
   // 959: interior completo do Victor; os cinco mostradores redesenhados com números maiores
   '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.2, 84.3],
@@ -627,6 +628,28 @@ function weather(c: CanvasRenderingContext2D, r: Race, vp: Viewport, dt: number)
   c.restore();
 }
 
+// topo do painel em cada coluna da tela (primeira linha opaca da arte do painel)
+const dashTops = new Map<string, Int16Array>();
+function dashTopFn(art: CockpitArt | undefined): DashTop {
+  if (!art) return () => DASH_Y;
+  let col = dashTops.get(art.dash);
+  if (!col) {
+    const spr = svgSprite(art.dash, DASH_W, 124);
+    if (spr) {
+      const d = spr.getContext('2d')!.getImageData(0, 0, spr.width, spr.height).data;
+      col = new Int16Array(spr.width);
+      for (let x = 0; x < spr.width; x++) {
+        let y = 0;
+        while (y < spr.height - 1 && d[(y * spr.width + x) * 4 + 3] === 0) y++;
+        col[x] = y;
+      }
+      dashTops.set(art.dash, col);
+    }
+  }
+  const dx = coreX() - DASH_PAD;
+  return (x) => (col ? ART_TOP + col[Math.max(0, Math.min(col.length - 1, x - dx))] : DASH_Y);
+}
+
 export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: number, stageLabel: string, totalTime: number, dt: number) {
   const { w } = view;
   const vp = windshield();
@@ -634,6 +657,7 @@ export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: numbe
   // nas cabines desenhadas, os vidros laterais vão abaixo do painel: a estrada desce até o fim
   renderRoad(c, r, art ? { ...vp, h: view.h - vp.y } : vp);
   weather(c, r, vp, dt);
+  drawWipers(c, r, vp, dt, dashTopFn(art), coreX());
   if (r.state === 'crash') {
     const t = 2.6 - r.timer;
     drawCracks(c, r, vp, 1);

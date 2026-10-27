@@ -7,6 +7,7 @@ Gera dois PNGs do mesmo tamanho (256 x linhas, pixels nativos com pixel 8:7):
 e imprime as posições (em pixels nativos) do pivô do volante e dos mostradores.
 
 Uso: python3 tools/ref/import_cockpit.py <imagem> <pasta> <carro>   (configurações abaixo)
+     python3 tools/ref/import_cockpit.py --limpar <png>...  (só a limpeza das bordas com o vidro)
 """
 import json
 import os
@@ -246,17 +247,20 @@ def paint_pillars(top, dash, pillars):
 
 
 def despeckle(img):
-    """Limpa a borda com o vidro: pontos claros encostados no transparente (sobras do fundo
-    branco da arte) e pontinhos soltos no vidro."""
+    """Limpa a borda com o vidro: manchas brancas presas entre as peças e encostadas no
+    transparente (sobras do fundo branco da arte), pontos claros na borda e pontinhos soltos."""
     a = img[..., 3] > 0
-    light = img[..., :3].min(axis=2) > 115
-    for _ in range(3):
-        clear = ~a
-        near = cv2.dilate(clear.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
-        kill = a & light & near
-        if not kill.any():
-            break
-        a &= ~kill
+    mn = img[..., :3].min(axis=2)
+    # manchas quase brancas que encostam no vidro, de qualquer tamanho
+    white = (a & (mn > 190)).astype(np.uint8)
+    n, lab = cv2.connectedComponents(white, connectivity=8)
+    near = cv2.dilate((~a).astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+    touch = np.unique(lab[(white > 0) & near])
+    a &= ~np.isin(lab, touch[touch > 0])
+    # pontos claros na borda (duas voltas)
+    for _ in range(2):
+        near = cv2.dilate((~a).astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+        a &= ~(near & (mn > 115))
     n, lab, st, _ = cv2.connectedComponentsWithStats(a.astype(np.uint8), 8)
     for i in range(1, n):
         if st[i, cv2.CC_STAT_AREA] <= 6:
@@ -528,4 +532,12 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if sys.argv[1] == '--limpar':
+        for fn in sys.argv[2:]:
+            im_ = np.array(Image.open(fn).convert('RGBA'))
+            before = int((im_[..., 3] > 0).sum())
+            despeckle(im_)
+            Image.fromarray(im_, 'RGBA').save(fn)
+            print(fn, 'pixels removidos:', before - int((im_[..., 3] > 0).sum()))
+    else:
+        main()

@@ -307,7 +307,8 @@ export class Race {
     // até ~1 g (carro, melhorias, piso, asa, lombada), mas essa aderência é dividida: frear forte
     // ou acelerar com tudo em marcha baixa deixa menos para a curva. Acima do limite o carro
     // derrapa; para onde, depende do equilíbrio: sai de frente (escorrega para fora, direção
-    // leve) ou solta a traseira (atravessa, perde mais velocidade e pode rodar).
+    // leve) ou solta a traseira (atravessa e pode rodar). O carro NÃO se acalma sozinho: quase
+    // não perde velocidade escorregando; quem corrige é o piloto, tirando o pé ou freando.
     const speedPct = this.speed / max;
     const vms = toMs(this.speed);
     const latG = (vms * vms * Math.abs(pSeg.curve) * CURVE_K) / G;
@@ -319,7 +320,9 @@ export class Race {
     const grip = tire * aero * shared * (1 - this.air * 0.6) * offGrip;
     const demand = latG / grip;
     const excess = Math.max(0, demand - 1);
-    this.slip = lerp(this.slip, driving ? clamp(excess / 0.35, 0, 1) : 0, Math.min(1, dt * 6));
+    // a aderência some rápido e volta mais devagar (o pneu precisa voltar a agarrar)
+    const slipTarget = driving ? clamp(excess / 0.35, 0, 1) : 0;
+    this.slip = lerp(this.slip, slipTarget, Math.min(1, dt * (slipTarget > this.slip ? 6 : 2.5)));
     // transferência de peso: freando, a frente carrega e a traseira alivia; acelerando com a
     // traseira, a potência solta o carro. Motor central é mais arisco, integral é mais neutro.
     const rwd = this.car.drive !== 'integral';
@@ -335,11 +338,11 @@ export class Race {
     const dir = Math.sign(pSeg.curve);
     if (driving) {
       this.x += this.steer * dt * steerMax * (1 - under * 0.45);
-      this.x -= dir * dt * (Math.min(demand, 1) * steerMax * 0.72 + excess * steerMax * 1.1 * (1 - 0.5 * clamp(this.balance / 0.5, 0, 1)));
-      this.speed -= toGame(G * (0.35 * under + 0.7 * over)) * dt; // pneus arrastando de lado
+      this.x -= dir * dt * (Math.min(demand, 1) * steerMax * 0.72 + (excess * 1.4 + this.slip * 0.25) * steerMax * (1 - 0.3 * clamp(this.balance / 0.5, 0, 1)));
+      this.speed -= toGame(G * (0.05 * under + 0.1 * over)) * dt; // pneu de lado arrasta só um pouco
       // traseira solta por tempo demais com o carro no limite: roda
       this.spinT = over > 0.6 ? this.spinT + dt : Math.max(0, this.spinT - dt * 2);
-      if (this.spinT > 0.7 && this.spinOut <= 0) this.spinAround(dir);
+      if (this.spinT > 0.9 && this.spinOut <= 0) this.spinAround(dir);
     } else if (pulling && copAhead) {
       this.x += clamp(this.stopX - this.x, -dt * 1400, dt * 1400); // encosta no acostamento
     }

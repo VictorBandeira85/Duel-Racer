@@ -26,12 +26,15 @@ CARS = {
         'gauges': {'tach': (774, 200, 70), 'speed': (934, 200, 70)},
         'pillar': (40, 0.40),   # coluna da porta: até x nativo 40, sobe 0,40 px para a esquerda por linha
     },
+    # 959: interior completo desenhado pelo Victor (cinco mostradores redesenhados no jogo)
     '959': {
-        'scale': 0.28, 'x0': 241, 'y0': 20,
-        'erase': [(852, 276, 912, 298)],
-        'fill_left': (24, 22, 22),
-        'pillar': (-50, 0.0),                # BGR do pilar, onde a arte acaba          # hodômetro (não é velocímetro digital)
-        'gauges': {'tach': (696, 211, 84), 'speed': (876, 228, 72)},
+        'scale': 0.3, 'x0': 273, 'y0': 68,   # volante inteiro no centro, os cinco mostradores à vista
+        'gauges': {'tach': (700, 227, 95), 'speed': (875, 235, 70), 'aux1': (367, 235, 65),
+                   'aux2': (526, 238, 68), 'clock': (1060, 235, 77)},
+        'top_art': [],
+        'left': 'replicate', 'sky_above': 140,
+        'hub_fill': ((22, 22, 25), 330),
+        'wheel_rows': 190, 'paint': 'column', 'rim_margin': 9, 'hole_sky_above': 90,
     },
     # viatura: interior completo desenhado pelo Victor (porta, painel, console e passageiro)
     'patrol': {

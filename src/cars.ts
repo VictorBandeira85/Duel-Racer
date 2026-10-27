@@ -66,6 +66,8 @@ export interface CarSpec {
   traction?: number; // aderência na largada (em g), calibrada pelo 0-100
   drag?: number; // arrasto aerodinâmico (por m), calibrado pela velocidade máxima
   handling: number;
+  arcadeOnly?: boolean; // fora da concessionária e dos pilotos da carreira
+  automatic?: boolean; // câmbio automático de fábrica (só muda o que a ficha mostra)
   dash: string; // cabine: 'A'/'B' (desenhadas por código) ou a chave da arte em COCKPIT_ART
   hood: string;
   side: SideDef;
@@ -241,7 +243,23 @@ export const CARS: CarSpec[] = [
     },
     rear: { h: 0.48, roof: 0.5, lights: 'roundPair', wing: 0, roadster: true, glow: { dots: [[0.17, 0.5625], [0.83, 0.5625]] } },
   },
+  {
+    // a viatura que persegue o jogador; pilotável (e adversária) só no Arcade
+    id: 'patrol', name: 'Patrulha 9C', basedOn: 'Chevrolet Caprice 9C1 (viatura)', color: '#141414', arcadeOnly: true, automatic: true,
+    price: '$24.000', position: 'dianteira', drive: 'traseira', engine: 'V8 16v',
+    displacement: '5.733 cc', power: '205 cv', maxSpeed: kmh(212), zeroTo100: 8.6, accel: 1, mass: 1840, gears: [0.36, 0.6, 0.82, 1], curve: 'torque', lateralG: 0.82, brakeG: 0.92, aero: -0.02, handling: 0.84,
+    dash: 'patrol', hood: '#141414', art: 'patrol',
+    side: {
+      body: [0, 0.06, 0, 0.13, 0.12, 0.16, 0.3, 0.17, 0.4, 0.25, 0.68, 0.25, 0.8, 0.18, 1, 0.17, 1, 0.06],
+      glass: [0.42, 0.24, 0.66, 0.24, 0.76, 0.18, 0.36, 0.18],
+      wheels: [0.18, 0.76], shoulder: 0.15,
+    },
+    rear: { h: 0.78, roof: 0.6, lights: 'rect', wing: 0, glow: { dots: [[0.17, 0.6], [0.83, 0.6]] } },
+  },
 ];
+
+// carros à venda na carreira (a viatura fica de fora)
+export const DEALER_CARS = CARS.filter((c) => !c.arcadeOnly);
 
 // Sprites de cada carro pela chave `art`: <art>-side/-rear/-front.png e as máscaras
 const PNG = import.meta.glob('./assets/cars/*.png', { eager: true, import: 'default' }) as Record<string, string>;
@@ -372,6 +390,7 @@ export function prepareCar(car: CarSpec) {
 }
 
 // posição do motor / tração, abreviados para caber na ficha técnica
+export const gearbox = (car: CarSpec) => `${car.gears.length} ${car.automatic ? 'autom.' : 'marchas'}`;
 export const layout = (car: CarSpec) => `${car.position.slice(0, 4)}. / ${car.drive.slice(0, 4)}.`;
 
 // Curva de aceleração (km/h a cada 0,25 s) e tempo de 0 a 100 km/h
@@ -468,8 +487,8 @@ function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w:
       c.fillStyle = col;
       c.fillRect(Math.round(L + u0 * w), Math.round(T + f0 * h), Math.max(1, Math.round((u1 - u0) * w)), Math.max(1, Math.round((f1 - f0) * h)));
     };
-    lamp(0, on ? '#ff3a3a' : '#6a1414');
-    lamp(1, on ? '#18287a' : '#4a7aff');
+    lamp(0, on ? '#4a7aff' : '#10184a');
+    lamp(1, on ? '#4a1010' : '#ff3a3a');
   }
   return true;
 }
@@ -477,7 +496,8 @@ const TRAFFIC_GLOW: Record<string, { dots?: number[][]; siren?: number[][] }> = 
   sedan: { dots: [[0.15, 0.6], [0.85, 0.6]] }, hatch: { dots: [[0.11, 0.62], [0.89, 0.62]] },
   pickup: { dots: [[0.06, 0.6], [0.94, 0.6]] }, van: { dots: [[0.06, 0.71], [0.94, 0.71]] },
   truck: { dots: [[0.08, 0.79], [0.92, 0.79]] },
-  police: { dots: [[0.15, 0.6], [0.85, 0.6]], siren: [[0.34, 0.07, 0.49, 0.11], [0.51, 0.07, 0.66, 0.11]] },
+  // giroflex da arte: azul à esquerda, vermelho à direita (u0, f0, u1, f1 em fração do sprite)
+  police: { dots: [[0.17, 0.6], [0.83, 0.6]], siren: [[0.23, 0.0, 0.42, 0.075], [0.52, 0.0, 0.77, 0.075]] },
 };
 
 export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {

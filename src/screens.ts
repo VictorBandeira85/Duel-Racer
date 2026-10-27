@@ -4,7 +4,7 @@ import type { CareerSave, EventResult } from './career';
 import { drawCareerScreen, keyCareerScreen, openCareer, tapCareerScreen } from './careerScreens';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
-import { CARS, accelCurve, drawCar, drawCarSide, layout, type CarSpec } from './cars';
+import { CARS, accelCurve, drawCar, drawCarSide, gearbox, layout, type CarSpec } from './cars';
 import { COURSES, type Course } from './courses';
 import { THEMES } from './themes';
 import { dither, inside, panel, text, type Rect } from './ui';
@@ -268,7 +268,8 @@ function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
   text(c, `${s.carIdx + 1}/${CARS.length}`, p.x + 150, p.y + 10, 8, '#2a2060', 'left', null);
   // cores da carroceria (sem escolha, fica marcada a mais parecida com a original)
   const cur = paintIdx(car.id) ?? nearestPaint(car.color);
-  swatches().forEach((r, i) => {
+  // a viatura não tem máscara de pintura: fica preta e branca
+  if (car.sideMask) swatches().forEach((r, i) => {
     c.fillStyle = i === cur ? '#ffffff' : '#1a1040';
     c.fillRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
     c.fillStyle = PAINTS[i].hex;
@@ -281,7 +282,7 @@ function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
   const { pts } = accelCurve(car);
   const rows: [string, string][] = [
     ['Preço', car.price], ['Motor', car.engine], ['Layout', layout(car)], ['Potência', car.power],
-    ['Peso', `${car.mass.toLocaleString('pt-BR')} kg`], ['Câmbio', `${car.gears.length} marchas`],
+    ['Peso', `${car.mass.toLocaleString('pt-BR')} kg`], ['Câmbio', gearbox(car)],
     ['0-100', `${car.zeroTo100.toFixed(1).replace('.', ',')} s`], ['Máxima', `${Math.round(car.maxSpeed * KMH)} km/h`],
   ];
   rows.forEach(([k, v], i) => {
@@ -309,9 +310,10 @@ function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
 
 // ---------- escolha do adversário ----------
 const OPP_N = CARS.length + 1; // carros + relógio
+const OPP_COLS = 4;
 const oppCells = () => {
-  const x = ox() + 26, y = 40;
-  return Array.from({ length: OPP_N }, (_, i): Rect => ({ x: x + (i % 3) * 90, y: y + Math.floor(i / 3) * 64, w: 88, h: 62 }));
+  const x = ox() + 24, y = 40;
+  return Array.from({ length: OPP_N }, (_, i): Rect => ({ x: x + (i % OPP_COLS) * 68, y: y + Math.floor(i / OPP_COLS) * 64, w: 66, h: 62 }));
 };
 
 function stopwatch(c: CanvasRenderingContext2D, x: number, y: number, r: number) {
@@ -360,7 +362,7 @@ function drawOpponent(c: CanvasRenderingContext2D, s: AppState) {
     c.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
     if (i < CARS.length) {
       const car = CARS[i];
-      drawCar(c, r.x + r.w / 2, r.y + 44, 58, { color: car.color, rear: car.rear });
+      drawCar(c, r.x + r.w / 2, r.y + 44, 52, { color: car.color, rear: car.rear });
       text(c, car.name, r.x + r.w / 2, r.y + 48, 5, '#fff', 'center', '#1a1040');
       const st = RIVAL_STYLE[car.id] ?? 'cauteloso';
       const [label, col] = st === 'agressivo' ? ['AGRESSIVO', '#ff7a6a'] : st === 'cauteloso' ? ['CAUTELOSO', '#8aff8a'] : ['IMPREVISÍVEL', '#ffe060'];
@@ -676,7 +678,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
       else {
         // toque com folga em volta de cada cor (dedos maiores que os quadradinhos)
         swatches().forEach((r, i) => {
-          if (inside(x, y, { x: r.x - 1.5, y: r.y - 8, w: r.w + 3, h: r.h + 16 })) setPaint(CARS[s.carIdx].id, i);
+          if (inside(x, y, { x: r.x - 1.5, y: r.y - 8, w: r.w + 3, h: r.h + 16 }) && CARS[s.carIdx].sideMask) setPaint(CARS[s.carIdx].id, i);
         });
       }
       return;
@@ -740,8 +742,8 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   const grid = s.screen === 'opponent';
   if (k === 'left' || (k === 'up' && !grid)) s.sel = (s.sel + n - 1) % n;
   if (k === 'right' || (k === 'down' && !grid)) s.sel = (s.sel + 1) % n;
-  if (grid && k === 'up') s.sel = (s.sel + n - 3) % n;
-  if (grid && k === 'down') s.sel = (s.sel + 3) % n;
+  if (grid && k === 'up') s.sel = (s.sel + n - OPP_COLS) % n;
+  if (grid && k === 'down') s.sel = (s.sel + OPP_COLS) % n;
   if (k === 'back') a.go(s.screen === 'course' ? 'opponent' : s.screen === 'opponent' ? 'car' : 'title');
   if (k === 'ok') {
     if (s.screen === 'title') activateTitle(s, s.sel, a);

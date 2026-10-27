@@ -33,6 +33,15 @@ CARS = {
         'pillar': (-50, 0.0),                # BGR do pilar, onde a arte acaba          # hodômetro (não é velocímetro digital)
         'gauges': {'tach': (696, 211, 84), 'speed': (876, 228, 72)},
     },
+    # viatura: a arte acaba logo à esquerda do volante; o painel se estende repetindo a borda
+    'patrol': {
+        'scale': 0.25, 'x0': -5, 'y0': 212,
+        'gauges': {'tach': (324, 491, 127), 'speed': (751, 491, 127)},
+        # hodômetro e indicador de marcha: fundo liso, o jogo desenha os números funcionando
+        'lcd': [((26, 26, 28), (462, 389, 598, 438)), ((26, 26, 28), (466, 462, 598, 494))],
+        'top_art': [],  # coluna da porta segue a arte até o teto
+        'left': 'replicate',
+    },
     # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
     'zr1': {
         'scale': 0.35, 'x0': 153, 'y0': 175,
@@ -69,6 +78,8 @@ def main():
     ty0 += tpad
     # onde a arte acaba nas laterais, espelha (fica natural; repetir a coluna vira listras)
     canvas = cv2.copyMakeBorder(canvas, 0, 0, pad_x0, pad_x1, cv2.BORDER_REFLECT)
+    if cfg.get('left') == 'replicate':  # espelhar duplicaria volante e mostrador: repete a borda
+        canvas[:, :pad_x0] = canvas[:, pad_x0:pad_x0 + 1]
     if 'fill_left' in cfg:  # espelhar daria um "bico" (pilar dobrado): faz uma coluna lisa
         canvas[:, :pad_x0] = cfg['fill_left']
     img = canvas[y0:y1, x0 + pad_x0:x1 + pad_x0].copy()
@@ -146,6 +157,8 @@ def main():
                 if tsky[yy_, x] == 1:
                     cv2.floodFill(tsky, tm, (x, yy_), 2)
         talpha = tsky != 2
+        if cfg.get('left') == 'replicate':  # acima do painel, à esquerda da coluna, só céu
+            talpha[:, :pad_x0] = False
         for (a, b, c, d) in cfg['top_art']:
             a, c = a - x0 + pad_x0 - pad_x0, c - x0
             talpha[max(0, b - (ty0 - tpad)):max(0, d - (ty0 - tpad)), max(0, a):max(0, c)] = False

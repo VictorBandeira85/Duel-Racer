@@ -1,6 +1,6 @@
 // Telas do modo Carreira: central (regiões e eventos), evento, garagem, concessionária e resultado.
 import { SAFE_W, view, KMH } from './config';
-import { CARS, drawCarSide, layout } from './cars';
+import { CARS, DEALER_CARS, drawCarSide, gearbox, layout } from './cars';
 import {
   MAX_LEVEL, REGIONS, UPGRADES, carById, eventUnlocked, levels, newCareer, priceOf, regionUnlocked, saveCareer,
   sellValue, upgradeCost, type CareerSave, type EventResult,
@@ -254,18 +254,18 @@ export function drawDealer(c: CanvasRenderingContext2D, s: AppState) {
   const first = cs.owned.length === 0;
   purpleBg(c, 'Loja');
   topBar(c, s, first ? 'ESCOLHA SEU PRIMEIRO CARRO' : 'CONCESSIONÁRIA', cs);
-  const car = CARS[ui.dealer];
+  const car = DEALER_CARS[ui.dealer];
   const owned = cs.owned.includes(car.id);
   drawCarSide(c, x + 50, 104, 220, car, paintHex(car.id));
   text(c, car.name, view.w / 2, 28, 8, '#fff', 'center', '#100830');
-  text(c, `${ui.dealer + 1}/${CARS.length}`, view.w / 2, 40, 5, '#c8c0f0', 'center', null);
+  text(c, `${ui.dealer + 1}/${DEALER_CARS.length}`, view.w / 2, 40, 5, '#c8c0f0', 'center', null);
   const b = dealerButtons();
   smallButton(c, b.prev, '◀');
   smallButton(c, b.next, '▶');
   panel(c, { x: x + 6, y: 112, w: SAFE_W - 12, h: 88 }, '#8c84c8', '#2a2060');
   const rows: [string, string][] = [
     ['Preço', car.price], ['Motor', `${car.engine}, ${car.power}`], ['Layout', layout(car)],
-    ['Peso', `${car.mass.toLocaleString('pt-BR')} kg`], ['Câmbio', `${car.gears.length} marchas`],
+    ['Peso', `${car.mass.toLocaleString('pt-BR')} kg`], ['Câmbio', gearbox(car)],
     ['0-100', `${car.zeroTo100.toFixed(1).replace('.', ',')} s`], ['Máxima', `${Math.round(car.maxSpeed * KMH)} km/h`],
   ];
   rows.forEach(([k, v], i) => {
@@ -287,9 +287,9 @@ export function drawDealer(c: CanvasRenderingContext2D, s: AppState) {
 function tapDealer(s: AppState, a: Actions, x: number, y: number) {
   const cs = s.career!;
   const b = dealerButtons();
-  const car = CARS[ui.dealer];
-  if (inside(x, y, b.prev)) ui.dealer = (ui.dealer + CARS.length - 1) % CARS.length;
-  else if (inside(x, y, b.next)) ui.dealer = (ui.dealer + 1) % CARS.length;
+  const car = DEALER_CARS[ui.dealer];
+  if (inside(x, y, b.prev)) ui.dealer = (ui.dealer + DEALER_CARS.length - 1) % DEALER_CARS.length;
+  else if (inside(x, y, b.next)) ui.dealer = (ui.dealer + 1) % DEALER_CARS.length;
   else if (inside(x, y, b.back)) a.go(cs.owned.length ? 'career' : 'title');
   else if (inside(x, y, b.buy)) {
     if (cs.owned.includes(car.id)) {
@@ -359,7 +359,7 @@ export function openCareer(s: AppState, a: Actions) {
     saveCareer(s.career);
   }
   if (!s.career.owned.length) {
-    ui.dealer = CARS.findIndex((c) => priceOf(c) <= s.career!.money);
+    ui.dealer = DEALER_CARS.findIndex((c) => priceOf(c) <= s.career!.money);
     a.go('dealer');
   } else {
     // abre na região mais avançada liberada

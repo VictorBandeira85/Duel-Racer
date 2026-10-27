@@ -11,7 +11,7 @@ export const CAM_H = 600; // altura dos olhos do motorista: ~1 m, como num espor
 export const PLAYER_Z = 400; // frente do carro, à frente da câmera
 export const CAR_W = 1100;
 export const TRUCK_W = 1300;
-export const POLICE_W = 1100;
+export const POLICE_W = 1280; // o sprite inclui os retrovisores
 
 export const KMH = 0.025; // unidades/s -> km/h
 

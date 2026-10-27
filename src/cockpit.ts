@@ -27,6 +27,8 @@ interface CockpitArt {
   tach?: Dial;
   speed?: Dial;
   lcd?: boolean; // painel digital (Corvette C4): visores desenhados por lcdPanel
+  odo?: Box; // hodômetro (viatura): quilometragem andando de verdade
+  prnd?: Box; // indicador da alavanca P R N D 2 1 (viatura)
   speedMax: number;
   needle: string;
   hub: string;
@@ -75,6 +77,15 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
     ] },
 };
 
+// Viatura: painel de sedã com hodômetro e indicador da alavanca funcionando
+COCKPIT_ART.patrol = {
+  dash: cp('patrol-dash'), top: cp('patrol-top'), wheel: cp('patrol-wheel'),
+  pivot: [128, 128], speedMax: 240, needle: '#ff3a1a', hub: '#26262a', aux: [],
+  tach: { x: 82, y: 80, r: 31, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6 },
+  speed: { x: 189, y: 80, r: 31, max: 240, labels: [0, 40, 80, 120, 160, 200, 240], tick: 20, red: 999 },
+  odo: { x: 117, y: 51, w: 34, h: 13 }, prnd: { x: 118, y: 71, w: 33, h: 10 },
+};
+
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
 COCKPIT_ART.zr1 = {
   dash: cp('zr1-dash'), top: cp('zr1-top'), wheel: cp('zr1-wheel'),
@@ -116,6 +127,8 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     c.drawImage(top, dx, ART_TOP - TOP_EXT);
   }
   if (art.lcd) lcdPanel(c, ox, r, art);
+  if (art.odo) odometer(c, ox, r, art.odo);
+  if (art.prnd) leverIndicator(c, ox, r, art.prnd);
   if (art.tach) artDial(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, art);
   if (art.speed) artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
   updateGauges(r, dt);
@@ -125,6 +138,32 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   const px = ox + art.pivot[0], py = ART_TOP + art.pivot[1];
   withRotation(c, px, py, steerAngle(r, dt), () => c.drawImage(wheelImg, ox, ART_TOP));
   return true;
+}
+
+interface Box { x: number; y: number; w: number; h: number }
+
+// hodômetro: quilometragem do carro + o que já andou neste trecho
+const ODO_BASE = 62487;
+function odometer(c: CanvasRenderingContext2D, ox: number, r: Race, b: Box) {
+  const km = Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600);
+  const v = String(Math.floor(ODO_BASE + km) % 1e6).padStart(6, '0');
+  // cada dígito numa janelinha, como os tambores de um hodômetro mecânico
+  for (let i = 0; i < 6; i++) {
+    const x = ox + b.x + 1 + i * 5.5;
+    rect(c, x, ART_TOP + b.y + 2, 4.5, b.h - 4, '#0c0c0e');
+    pix(c, v[i], x + 2.25, ART_TOP + b.y + b.h / 2, '#d8dcd8', 1);
+  }
+}
+
+// alavanca no volante: D no automático; no manual, 1 e 2 nas marchas baixas; P parado na multa
+function leverIndicator(c: CanvasRenderingContext2D, ox: number, r: Race, b: Box) {
+  const sel = r.state === 'ticket' || r.state === 'pullover' && r.speed < 1 ? 'P' : !r.auto && r.gear < 2 ? String(r.gear + 1) : 'D';
+  const keys = ['P', 'R', 'N', 'D', '2', '1'];
+  keys.forEach((k, i) => {
+    const x = ox + b.x + 0.5 + i * 5.5, y = ART_TOP + b.y + 1;
+    if (k === sel) rect(c, x, y, 5, b.h - 2, '#d81818');
+    pix(c, k, x + 2.5, y + (b.h - 2) / 2, k === sel ? '#fff' : '#8a8a90', 1);
+  });
 }
 
 // pixel nítido em (x, y) arredondado

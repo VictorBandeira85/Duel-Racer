@@ -52,7 +52,7 @@ export interface Rival {
 export type RivalStyle = 'agressivo' | 'cauteloso' | 'imprevisivel';
 export const RIVAL_STYLE: Record<string, RivalStyle> = {
   'furia-f4': 'agressivo', 'silber-95': 'cauteloso', 'toro-v12': 'agressivo', 'vortex-zr': 'imprevisivel',
-  'furia-tr': 'cauteloso', 'toro-lp5': 'imprevisivel', 'kaze-nx': 'cauteloso', 'serpe-v10': 'agressivo',
+  'furia-tr': 'cauteloso', 'toro-lp5': 'imprevisivel', 'kaze-nx': 'cauteloso', 'serpe-v10': 'agressivo', patrol: 'agressivo',
 };
 
 export interface Police {
@@ -678,7 +678,8 @@ export class Race {
         if (d > 0 && d < 80 * SEG_LEN) this.radar = Math.max(this.radar, 1 - d / (80 * SEG_LEN));
         // a viatura sai do esconderijo logo depois que o jogador passa
         if (d <= -3 * SEG_LEN) {
-          if (this.speed * KMH > 150 && this.state === 'drive') {
+          // de viatura o jogador é colega: o radar não persegue
+          if (this.speed * KMH > 150 && this.state === 'drive' && this.car.id !== 'patrol') {
             this.caughtKmh = Math.round(this.speed * KMH); // velocidade da infração (vale para a multa)
             p.state = 'chase';
             p.chaseT = 0;

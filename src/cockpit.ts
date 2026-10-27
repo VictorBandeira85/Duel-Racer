@@ -7,6 +7,7 @@ import { clamp, formatTime, lerp, rng, shade } from './util';
 import { F40_WHEEL } from './svg/f40';
 import { spriteAspect, svgSprite } from './svgsprites';
 import { drawWipers, type DashTop } from './wipers';
+import { drawSideMirror, findGlass } from './sidemirror';
 // cabines em pixel art (tools/ref/import_cockpit.py)
 import dashF40Png from './assets/cockpit/f40-dash.png';
 import wheelF40Png from './assets/cockpit/f40-wheel.png';
@@ -134,6 +135,9 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     if (dx > 0) c.drawImage(top, 0, 0, 2, TOP_EXT, 0, ART_TOP - TOP_EXT, dx, TOP_EXT);
     c.drawImage(top, dx, ART_TOP - TOP_EXT);
   }
+  // retrovisor externo esquerdo funcionando (onde a arte mostra o vidro dele)
+  const glass = findGlass(art.dash, svgSprite(art.top, DASH_W, TOP_EXT), svgSprite(art.dash, DASH_W, 124) ?? dash, DASH_PAD + 90);
+  if (glass) drawSideMirror(c, r, glass, dx, ART_TOP, color ?? r.car.color);
   if (art.lcd) lcdPanel(c, ox, r, art);
   if (art.odo) odometer(c, ox, r, art.odo);
   if (art.prnd) leverIndicator(c, ox, r, art.prnd);

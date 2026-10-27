@@ -32,11 +32,11 @@ CARS = {
         'gauges': {'tach': (660, 275, 67), 'speed': (790, 285, 55), 'aux1': (405, 285, 46),
                    'aux2': (530, 285, 50), 'clock': (920, 285, 52)},
         'top_art': [], 'sky_left': True,
-        'mirror_pillar': 70,   # colunas 0..70 do painel: a coluna da esquerda, espelhada para a direita
+        'despeckle': True,
         'hub_fill': ((22, 22, 25), 340),
         'wheel_rows': 172, 'paint': 'column', 'rim_margin': 7, 'hole_sky_above': 150,
         # borda de cima do painel entre as colunas (acima: limpadores, que viram vidro)
-        'dash_curve': [(199, -1000), (205, 160), (300, 158), (400, 155), (500, 151), (600, 147),
+        'dash_curve': [(199, -1000), (205, 162), (300, 162), (350, 163), (420, 164), (480, 159), (520, 151), (600, 147),
                        (700, 148), (800, 149), (900, 151), (1000, 154), (1100, 156), (1200, 157),
                        (1300, 158), (1400, 160), (1485, 162), (1491, -1000)],
     },
@@ -245,6 +245,25 @@ def paint_pillars(top, dash, pillars):
                 put(x, y, c)
 
 
+def despeckle(img):
+    """Limpa a borda com o vidro: pontos claros encostados no transparente (sobras do fundo
+    branco da arte) e pontinhos soltos no vidro."""
+    a = img[..., 3] > 0
+    light = img[..., :3].min(axis=2) > 115
+    for _ in range(3):
+        clear = ~a
+        near = cv2.dilate(clear.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+        kill = a & light & near
+        if not kill.any():
+            break
+        a &= ~kill
+    n, lab, st, _ = cv2.connectedComponentsWithStats(a.astype(np.uint8), 8)
+    for i in range(1, n):
+        if st[i, cv2.CC_STAT_AREA] <= 6:
+            a[lab == i] = False
+    img[..., 3] = np.where(a, 255, 0)
+
+
 def mirror_pillar(top, dash, center, cols):
     """Coluna do lado do passageiro: espelho da coluna da esquerda em torno do centro do
     volante, só onde o outro lado é vidro (ela termina ao encostar no painel)."""
@@ -449,6 +468,11 @@ def main():
         t_rgb = sample(cv2.cvtColor(timg, cv2.COLOR_BGR2RGB), nw, EXT)
         t_a = sample(talpha.astype(np.uint8) * 255, nw, EXT)
         Image.fromarray(np.dstack([t_rgb, t_a]), 'RGBA').save(f'{outdir}/{car}-top.png')
+    if cfg.get('despeckle'):
+        for fn in (f'{outdir}/{car}-top.png', f'{outdir}/{car}-dash.png'):
+            im_ = np.array(Image.open(fn).convert('RGBA'))
+            despeckle(im_)
+            Image.fromarray(im_, 'RGBA').save(fn)
     if 'mirror_pillar' in cfg:
         tp, dp = f'{outdir}/{car}-top.png', f'{outdir}/{car}-dash.png'
         top_i, dash_i = np.array(Image.open(tp).convert('RGBA')), np.array(Image.open(dp).convert('RGBA'))

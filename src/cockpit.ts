@@ -1,7 +1,7 @@
 import { DASH_Y, KMH, ROOF_H, view } from './config';
 import type { Race } from './race';
 import { renderMirror, renderRoad, type Viewport } from './render3d';
-import { pix, pixWidth } from './pixfont';
+import { pix, pix7, pix7Width, pixWidth } from './pixfont';
 import { dither, speckle, text } from './ui';
 import { clamp, formatTime, lerp, rng, shade } from './util';
 import { F40_WHEEL } from './svg/f40';
@@ -71,7 +71,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
   // 959: interior completo do Victor; os cinco mostradores redesenhados com números maiores
   '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.1, 93.3],
     tach: { x: 128, y: 54, r: 28, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6.5, a0: 2.53, sweep: 4.28, labelScale: 1 },
-    speed: { x: 180, y: 57, r: 21, max: 300, labels: [0, 100, 200, 300], tick: 10, red: 999, a0: 2.45, sweep: 4.4, labelScale: 1 },
+    speed: { x: 180, y: 57, r: 21, max: 300, labels: [0, 50, 100, 150, 200, 250, 300], tick: 10, red: 999, a0: 2.45, sweep: 4.4, labelScale: 0.7 },
     speedMax: 300, needle: '#ff6a1a', hub: '#1a1a1a',
     aux: [
       { x: 28, y: 57, r: 19, kind: 'twin', show: ['oil', 'oiltemp'], icon: 'oil' },
@@ -210,8 +210,14 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
     // altura no alto), para os de cima não se encostarem
     const a = fr(v);
     const ls = d.labelScale ?? 0.5;
+    const col = v >= d.red ? '#ff5a4a' : '#f2f2f2';
+    if (ls === 0.7) {  // fonte 5x7 em meio pixel (tamanho intermediário)
+      const [lx, ly] = at(a, r - 2.8 - Math.abs(Math.cos(a)) * pix7Width(l) * 0.55 - Math.abs(Math.sin(a)) * 1.9);
+      pix7(c, l, lx, ly, col);
+      continue;
+    }
     const [lx, ly] = at(a, r - (ls > 0.5 ? 3.2 : 2.3) - (Math.abs(Math.cos(a)) * pixWidth(l, ls) * 0.5 + Math.abs(Math.sin(a)) * 2.5 * ls) * (ls > 0.5 ? 1.3 : 1) - (ls > 0.5 ? 0.6 : 0));
-    pix(c, l, lx, ly, v >= d.red ? '#ff5a4a' : '#f2f2f2', ls);
+    pix(c, l, lx, ly, col, ls);
   }
   needle(c, cx, cy, r, a0 + sweep * Math.max(0, Math.min(1.02, frac)), art);
 }

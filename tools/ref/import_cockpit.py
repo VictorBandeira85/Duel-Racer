@@ -35,6 +35,11 @@ CARS = {
         'left': 'replicate', 'sky_above': 140,
         'hub_fill': ((22, 22, 25), 330),
         'wheel_rows': 190, 'paint': 'column', 'rim_margin': 9, 'hole_sky_above': 90,
+        # borda de cima do painel na arte (acima: limpadores e ponta da coluna, que viram vidro)
+        'dash_curve': [(0, 150), (100, 135), (200, 118), (300, 100), (400, 85), (500, 75), (600, 68),
+                       (700, 64), (800, 63), (900, 66), (1000, 72), (1100, 78), (1200, 84), (1300, 90),
+                       (1450, 95), (1680, 100)],
+        'pillars': [(92, 40, 104, 14, 22), (372, 428, 88, 14, 22)],
     },
     # viatura: interior completo desenhado pelo Victor (porta, painel, console e passageiro)
     'patrol': {
@@ -63,6 +68,13 @@ def sample(img, w, h):
     xs = ((np.arange(w) + 0.5) * img.shape[1] / w).astype(int)
     ys = ((np.arange(h) + 0.5) * img.shape[0] / h).astype(int)
     return img[ys][:, xs]
+
+
+def above_curve(pts, ox, oy, h, w):
+    """Máscara do que fica acima de uma linha (pontos x, y da arte), no recorte que começa em (ox, oy)."""
+    xs, ys = zip(*pts)
+    yc = np.interp(np.arange(w) + ox, xs, ys) - oy
+    return np.arange(h)[:, None] < yc[None, :]
 
 
 def hexrgb(c):
@@ -207,6 +219,33 @@ def paint_column(rgb, a, pivot, hub):
                 put(x, y, '#1b1c1f')  # painel embaixo do volante (joelhos)
 
 
+def paint_pillars(top, dash, pillars):
+    """Colunas do para-brisa (a arte corta antes delas): faixas inclinadas do painel até o teto.
+    Cada uma: (x no teto, x no painel, linha onde encosta no painel, largura em cima, embaixo),
+    em pixels nativos; linhas contadas do teto (topo + painel empilhados)."""
+    EXTR = top.shape[0]
+
+    def put(x, y, c):
+        img = top if y < EXTR else dash
+        yy = y if y < EXTR else y - EXTR
+        if 0 <= x < img.shape[1] and 0 <= yy < img.shape[0]:
+            img[yy, x, :3] = hexrgb(c)
+            img[yy, x, 3] = 255
+
+    for xt, xb, yb, wt, wb in pillars:
+        inner = 1 if xb < xt else -1  # lado de dentro (voltado para o centro) recebe a luz
+        for y in range(0, int(yb) + 1):
+            t = y / yb
+            cx, hw = xt + (xb - xt) * t, (wt + (wb - wt) * t) / 2
+            x0, x1 = int(round(cx - hw)), int(round(cx + hw))
+            for x in range(x0, x1 + 1):
+                c = '#26262a'
+                if (x == x1 and inner > 0) or (x == x0 and inner < 0): c = '#4c4c52'
+                elif (x == x0 and inner > 0) or (x == x1 and inner < 0): c = '#0e0e10'
+                elif abs(x - cx) < 1: c = '#2e2e34'
+                put(x, y, c)
+
+
 def paint_mirror(top, dash, art_l, sill_f):
     """Retrovisor externo no canto da frente do vidro lateral, encostado na coluna da porta.
     Ocupa o fim do topo (linhas negativas) e o começo do painel."""
@@ -320,6 +359,8 @@ def main():
             if ff[y, 0] == 1:
                 cv2.floodFill(ff, msk, (0, y), 2)
     sky = ff == 2
+    if 'dash_curve' in cfg:  # acima da borda do painel (limpadores, ponta da coluna) é vidro
+        sky |= above_curve(cfg['dash_curve'], x0, y0 - tpad, h, w)
     if 'sky_above' in cfg:
         pc = padcols[x0 + pad_x0:x1 + pad_x0]
         rows = np.arange(h) + (y0 - tpad) < cfg['sky_above']
@@ -378,6 +419,8 @@ def main():
                 if tsky[y_, 0] == 1:
                     cv2.floodFill(tsky, tm, (0, y_), 2)
         talpha = tsky != 2
+        if 'dash_curve' in cfg:
+            talpha &= ~above_curve(cfg['dash_curve'], x0, ty0 - tpad, th_, tw_)
         if 'hole_sky_above' in cfg:  # topo do aro que passa da linha 100: no topo fica só o céu
             tw = np.zeros((th_, tw_), np.uint8)
             cv2.fillPoly(tw, [(np.array(geo['outer'], np.float32) - [x0, ty0 - tpad]).round().astype(np.int32)], 1)
@@ -390,6 +433,12 @@ def main():
         t_rgb = sample(cv2.cvtColor(timg, cv2.COLOR_BGR2RGB), nw, EXT)
         t_a = sample(talpha.astype(np.uint8) * 255, nw, EXT)
         Image.fromarray(np.dstack([t_rgb, t_a]), 'RGBA').save(f'{outdir}/{car}-top.png')
+    if 'pillars' in cfg:
+        tp, dp = f'{outdir}/{car}-top.png', f'{outdir}/{car}-dash.png'
+        top_i, dash_i = np.array(Image.open(tp).convert('RGBA')), np.array(Image.open(dp).convert('RGBA'))
+        paint_pillars(top_i, dash_i, cfg['pillars'])
+        Image.fromarray(top_i, 'RGBA').save(tp)
+        Image.fromarray(dash_i, 'RGBA').save(dp)
     if cfg.get('paint') == 'patrol':
         tp, dp = f'{outdir}/{car}-top.png', f'{outdir}/{car}-dash.png'
         top_i, dash_i = np.array(Image.open(tp).convert('RGBA')), np.array(Image.open(dp).convert('RGBA'))

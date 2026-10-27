@@ -6,6 +6,7 @@ import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
 import { CARS, accelCurve, drawCar, drawCarSide, gearbox, layout, type CarSpec } from './cars';
 import { COURSES, withTimeOfDay, type Course } from './courses';
+import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import { THEMES } from './themes';
 import { dither, inside, panel, text, type Rect } from './ui';
 import { formatTime, shade } from './util';
@@ -39,6 +40,7 @@ export interface AppState {
   careerResult: EventResult | null;
   gasPage: number; // posto: 0 = chegada com o frentista, 1 = resultado do trecho
   arcadeNight: boolean; // Arcade: corrida de dia ou de noite
+  carFilter: ClassFilter; // escolha de carro: só uma classe de desempenho (null = todas)
   courseTop: number; // primeiro percurso visível na lista
 }
 
@@ -207,6 +209,13 @@ function activateOption(s: AppState, a: Actions, i: number) {
 }
 
 // ---------- escolha do carro ----------
+const carFilterRects = () => filterRects(ox() + 84, 5, SAFE_W - 168, 14);
+// troca o filtro e, se o carro atual não for da classe, vai para o primeiro que for
+function setCarFilter(s: AppState, f: ClassFilter) {
+  s.carFilter = f;
+  if (!filtered(CARS, f).includes(s.carIdx)) s.carIdx = filtered(CARS, f)[0] ?? s.carIdx;
+}
+
 const carButtons = () => {
   const x = ox();
   return {
@@ -262,12 +271,16 @@ function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
   smallButton(c, b.next, '▶');
   smallButton(c, b.ok, 'OK ▶', Math.floor(s.t * 2) % 2 === 0);
   smallButton(c, b.back, '◀ VOLTAR');
+  // filtro por classe de desempenho e selo da classe do carro
+  drawFilter(c, carFilterRects(), s.carFilter, (k) => filtered(CARS, k).length);
+  classBadge(c, x + 34, 28, car, true);
 
   const p: Rect = { x: x + 4, y: 116, w: SAFE_W - 8, h: 120 };
   panel(c, p, '#8c84c8', '#2a2060');
   panel(c, { x: p.x + 8, y: p.y + 6, w: 130, h: 16 }, '#a8a0e0', '#2a2060');
   text(c, car.name, p.x + 73, p.y + 10, 8, '#1a1040', 'center', null);
-  text(c, `${s.carIdx + 1}/${CARS.length}`, p.x + 150, p.y + 10, 8, '#2a2060', 'left', null);
+  const ids = filtered(CARS, s.carFilter);
+  text(c, `${ids.indexOf(s.carIdx) + 1}/${ids.length}`, p.x + 150, p.y + 10, 8, '#2a2060', 'left', null);
   // cores da carroceria (sem escolha, fica marcada a mais parecida com a original)
   const cur = paintIdx(car.id) ?? nearestPaint(car.color);
   // a viatura não tem máscara de pintura: fica preta e branca
@@ -365,6 +378,7 @@ function drawOpponent(c: CanvasRenderingContext2D, s: AppState) {
     if (i < CARS.length) {
       const car = CARS[i];
       drawCar(c, r.x + r.w / 2, r.y + 44, 52, { color: car.color, rear: car.rear });
+      classBadge(c, r.x + 3, r.y + 3, car, false, 10);
       text(c, car.name, r.x + r.w / 2, r.y + 48, 5, '#fff', 'center', '#1a1040');
       const st = RIVAL_STYLE[car.id] ?? 'cauteloso';
       const [label, col] = st === 'agressivo' ? ['AGRESSIVO', '#ff7a6a'] : st === 'cauteloso' ? ['CAUTELOSO', '#8aff8a'] : ['IMPREVISÍVEL', '#ffe060'];
@@ -704,8 +718,11 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
       return;
     case 'car': {
       const b = carButtons();
-      if (inside(x, y, b.prev)) s.carIdx = (s.carIdx + CARS.length - 1) % CARS.length;
-      else if (inside(x, y, b.next)) s.carIdx = (s.carIdx + 1) % CARS.length;
+      const f = filterAt(carFilterRects(), x, y);
+      if (f !== undefined) {
+        if (f === null || filtered(CARS, f).length) setCarFilter(s, f);
+      } else if (inside(x, y, b.prev)) s.carIdx = stepCar(CARS, s.carFilter, s.carIdx, -1);
+      else if (inside(x, y, b.next)) s.carIdx = stepCar(CARS, s.carFilter, s.carIdx, 1);
       else if (inside(x, y, b.ok)) a.go('opponent');
       else if (inside(x, y, b.back)) a.go('title');
       else {
@@ -765,8 +782,10 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   }
   const n = counts[s.screen];
   if (s.screen === 'car') {
-    if (k === 'left') s.carIdx = (s.carIdx + CARS.length - 1) % CARS.length;
-    if (k === 'right') s.carIdx = (s.carIdx + 1) % CARS.length;
+    if (k === 'left') s.carIdx = stepCar(CARS, s.carFilter, s.carIdx, -1);
+    if (k === 'right') s.carIdx = stepCar(CARS, s.carFilter, s.carIdx, 1);
+    // cima/baixo trocam o filtro de classe
+    if (k === 'up' || k === 'down') setCarFilter(s, nextFilter(s.carFilter, k === 'down' ? 1 : -1, (c2) => filtered(CARS, c2).length > 0));
     if (k === 'ok') a.go('opponent');
     if (k === 'back') a.go('title');
     return;

@@ -1,9 +1,10 @@
 // Telas do modo Carreira: central (regiões e eventos), evento, garagem, concessionária e resultado.
 import { SAFE_W, view, KMH } from './config';
-import { CARS, DEALER_CARS, drawCarSide, gearbox, layout } from './cars';
+import { CARS, DEALER_CARS, drawCarSide, gearbox, layout, type CarSpec } from './cars';
+import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import {
   MAX_LEVEL, REGIONS, UPGRADES, carById, eventUnlocked, levels, newCareer, priceOf, regionUnlocked, regionsAfter, saveCareer,
-  sellValue, upgradeCost, type CareerSave, type EventResult,
+  sellValue, tunedCar, upgradeCost, type CareerSave, type EventResult, type Upgrade,
 } from './career';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import type { AppState, Actions, MenuKey } from './screens';
@@ -22,7 +23,7 @@ const STYLE: Record<string, [string, string]> = {
 export const money = (v: number) => `$${Math.round(v).toLocaleString('pt-BR')}`;
 
 // estado da interface da carreira (não vai para o save)
-export const ui = { region: 0, event: 0, dealer: 0, garage: 0, msg: '', msgT: 0 };
+export const ui = { region: 0, event: 0, dealer: 0, garage: 0, msg: '', msgT: 0, filter: null as ClassFilter };
 function flash(s: AppState, msg: string) {
   ui.msg = msg;
   ui.msgT = s.t + 2.2;
@@ -164,6 +165,15 @@ const garageButtons = () => {
 };
 const ownedCars = (cs: CareerSave) => CARS.filter((c) => cs.owned.includes(c.id));
 
+// carro com melhorias, guardado por nível (o índice de desempenho é medido uma vez)
+const tunedCache = new Map<string, CarSpec>();
+function tunedFor(car: CarSpec, lv: Record<Upgrade, number>) {
+  const key = `${car.id}:${lv.motor}${lv.cambio}${lv.pneus}`;
+  let t = tunedCache.get(key);
+  if (!t) tunedCache.set(key, (t = tunedCar(car, lv)));
+  return t;
+}
+
 export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   const cs = s.career!;
   const x = ox();
@@ -171,11 +181,13 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   topBar(c, s, 'GARAGEM', cs);
   const cars = ownedCars(cs);
   ui.garage = Math.min(ui.garage, cars.length - 1);
-  const car = cars[ui.garage];
+  const car = cars[ui.garage]!;
   const active = car.id === cs.car;
   drawCarSide(c, x + 50, 104, 220, car, paintHex(car.id));
   text(c, car.name, view.w / 2, 28, 8, '#fff', 'center', '#100830');
   text(c, active ? 'EM USO' : `${ui.garage + 1}/${cars.length}`, view.w / 2, 40, 5, active ? '#8aff8a' : '#c8c0f0', 'center', null);
+  // classe com as melhorias instaladas (as melhorias podem subir o carro de classe)
+  classBadge(c, x + 34, 52, tunedFor(car, levels(cs, car.id)), true);
   const b = garageButtons();
   if (cars.length > 1) {
     smallButton(c, b.prev, '◀');
@@ -242,6 +254,12 @@ function tapGarage(s: AppState, a: Actions, x: number, y: number) {
 }
 
 // ---------- concessionária ----------
+const dealerFilterRects = () => filterRects(ox() + SAFE_W - 152, 27, 144, 12);
+function setDealerFilter(f: ClassFilter) {
+  ui.filter = f;
+  if (!filtered(DEALER_CARS, f).includes(ui.dealer)) ui.dealer = filtered(DEALER_CARS, f)[0] ?? ui.dealer;
+}
+
 const dealerButtons = () => {
   const x = ox();
   return {
@@ -258,9 +276,13 @@ export function drawDealer(c: CanvasRenderingContext2D, s: AppState) {
   topBar(c, s, first ? 'ESCOLHA SEU PRIMEIRO CARRO' : 'CONCESSIONÁRIA', cs);
   const car = DEALER_CARS[ui.dealer];
   const owned = cs.owned.includes(car.id);
-  drawCarSide(c, x + 50, 104, 220, car, paintHex(car.id));
-  text(c, car.name, view.w / 2, 28, 8, '#fff', 'center', '#100830');
-  text(c, `${ui.dealer + 1}/${DEALER_CARS.length}`, view.w / 2, 40, 5, '#c8c0f0', 'center', null);
+  drawCarSide(c, x + 50, 108, 220, car, paintHex(car.id));
+  text(c, car.name, x + 10, 29, 8, '#fff', 'left', '#100830');
+  // filtro por classe de desempenho e selo do carro
+  drawFilter(c, dealerFilterRects(), ui.filter, (k) => filtered(DEALER_CARS, k).length);
+  const ids = filtered(DEALER_CARS, ui.filter);
+  text(c, `${ids.indexOf(ui.dealer) + 1}/${ids.length}`, x + 10, 41, 5, '#c8c0f0', 'left', null);
+  classBadge(c, x + 34, 52, car, true);
   const b = dealerButtons();
   smallButton(c, b.prev, '◀');
   smallButton(c, b.next, '▶');
@@ -290,8 +312,11 @@ function tapDealer(s: AppState, a: Actions, x: number, y: number) {
   const cs = s.career!;
   const b = dealerButtons();
   const car = DEALER_CARS[ui.dealer];
-  if (inside(x, y, b.prev)) ui.dealer = (ui.dealer + DEALER_CARS.length - 1) % DEALER_CARS.length;
-  else if (inside(x, y, b.next)) ui.dealer = (ui.dealer + 1) % DEALER_CARS.length;
+  const f = filterAt(dealerFilterRects(), x, y);
+  if (f !== undefined) {
+    if (f === null || filtered(DEALER_CARS, f).length) setDealerFilter(f);
+  } else if (inside(x, y, b.prev)) ui.dealer = stepCar(DEALER_CARS, ui.filter, ui.dealer, -1);
+  else if (inside(x, y, b.next)) ui.dealer = stepCar(DEALER_CARS, ui.filter, ui.dealer, 1);
   else if (inside(x, y, b.back)) a.go(cs.owned.length ? 'career' : 'title');
   else if (inside(x, y, b.buy)) {
     if (cs.owned.includes(car.id)) {
@@ -416,6 +441,7 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
     case 'dealer':
       if (k === 'left') b(dealerButtons().prev);
       if (k === 'right') b(dealerButtons().next);
+      if (k === 'up' || k === 'down') setDealerFilter(nextFilter(ui.filter, k === 'down' ? 1 : -1, (c2) => filtered(DEALER_CARS, c2).length > 0));
       if (k === 'ok') b(dealerButtons().buy);
       if (k === 'back') a.go(cs.owned.length ? 'career' : 'title');
       return;

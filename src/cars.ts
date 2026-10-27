@@ -389,6 +389,39 @@ export function prepareCar(car: CarSpec) {
   return car;
 }
 
+// ---------- classe de desempenho (D, C, B, A, S) ----------
+// Índice de 0 a ~1000 medido na própria física: tempo de 0 a 200 km/h (aceleração), velocidade
+// máxima, aderência em curva e freio. Cada classe cobre uma faixa do índice.
+export type PerfClass = 'D' | 'C' | 'B' | 'A' | 'S';
+export const PERF_CLASSES: PerfClass[] = ['D', 'C', 'B', 'A', 'S'];
+export const CLASS_COLOR: Record<PerfClass, string> = { D: '#3a9ad8', C: '#30b050', B: '#e0b020', A: '#e8641a', S: '#d02a8a' };
+const CLASS_MIN: Record<PerfClass, number> = { D: 0, C: 450, B: 630, A: 700, S: 800 };
+const piCache = new WeakMap<CarSpec, number>();
+export function perfIndex(car: CarSpec) {
+  let pi = piCache.get(car);
+  if (pi !== undefined) return pi;
+  const pt = new Powertrain(car);
+  pt.boost = LAUNCH_BOOST;
+  let v = 0, t = 0, t200 = 60;
+  const dt = 1 / 60;
+  while (t < 60) {
+    v += toGame(pt.step(v, true, dt) - resistAcc(car, v)) * dt;
+    t += dt;
+    if (v * KMH >= 200) { t200 = t; break; }
+  }
+  const acc = Math.min(1, 9 / t200); // 0-200 em 9 s = nota máxima
+  const top = Math.min(1, (car.maxSpeed * KMH - 150) / 180);
+  const grip = Math.min(1, (car.lateralG - 0.7) / 0.32);
+  const brake = Math.min(1, (car.brakeG - 0.8) / 0.34);
+  pi = Math.round(1000 * (0.4 * acc + 0.3 * top + 0.18 * grip + 0.12 * brake));
+  piCache.set(car, pi);
+  return pi;
+}
+export function perfClass(car: CarSpec): PerfClass {
+  const pi = perfIndex(car);
+  return [...PERF_CLASSES].reverse().find((k) => pi >= CLASS_MIN[k])!;
+}
+
 // posição do motor / tração, abreviados para caber na ficha técnica
 export const gearbox = (car: CarSpec) => `${car.gears.length} ${car.automatic ? 'autom.' : 'marchas'}`;
 export const layout = (car: CarSpec) => `${car.position.slice(0, 4)}. / ${car.drive.slice(0, 4)}.`;

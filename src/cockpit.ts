@@ -5,7 +5,7 @@ import { pix, pixWidth } from './pixfont';
 import { dither, speckle, text } from './ui';
 import { clamp, formatTime, lerp, rng, shade } from './util';
 import { F40_WHEEL } from './svg/f40';
-import { svgSprite } from './svgsprites';
+import { spriteAspect, svgSprite } from './svgsprites';
 // cabines em pixel art (tools/ref/import_cockpit.py)
 import dashF40Png from './assets/cockpit/f40-dash.png';
 import wheelF40Png from './assets/cockpit/f40-wheel.png';
@@ -116,7 +116,9 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   const color = paintHex(r.car.id);
   const tint = (mask?: string) => (color && mask ? { mask, color } : undefined);
   const dash = svgSprite(art.dash, DASH_W, 124, tint(art.dashMask));
-  const wheelImg = svgSprite(art.wheel, CORE_W, 124);
+  // o volante pode ter mais linhas que o painel (inteiro, para girar sem mostrar corte)
+  const wheelH = Math.round(CORE_W * (spriteAspect(art.wheel) ?? 124 / CORE_W));
+  const wheelImg = svgSprite(art.wheel, CORE_W, wheelH);
   if (!dash || !wheelImg) return false;
   // o painel tem DASH_PAD colunas a mais de cada lado; só além disso a borda é esticada
   const dx = ox - DASH_PAD;
@@ -832,10 +834,15 @@ function steerAngle(r: Race, dt: number) {
   return wheelAngle;
 }
 
+// gira como na tela: o pixel é 8/7 mais largo, então o giro é feito em coordenadas de tela
+// (sem isso um aro redondo vira elipse girando e deixa aparecer o que está atrás dele)
 function withRotation(c: CanvasRenderingContext2D, cx: number, cy: number, ang: number, draw: () => void) {
+  const k = view.aspect;
   c.save();
   c.translate(cx, cy);
+  c.scale(1 / k, 1);
   c.rotate(ang);
+  c.scale(k, 1);
   c.translate(-cx, -cy);
   draw();
   c.restore();

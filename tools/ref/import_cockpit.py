@@ -42,19 +42,8 @@ CARS = {
         'top_art': [],  # coluna da porta segue a arte até o teto
         'left': 'replicate', 'right': 'replicate',
         'sky_above': 236,   # nas colunas fora da arte, acima do painel é vidro (estrada à vista)
-        # fora da arte: à esquerda a porta, à direita o painel continua (faixas de cor lisa,
-        # tons tirados da arte; linhas da imagem original)
-        'pad_bands': {
-            'left': [(236, 240, '#5a5c5e'), (240, 262, '#3a3c3e'), (262, 268, '#121416'), (268, 300, '#26282a'),
-                     (300, 304, '#5e3422'), (304, 322, '#49271b'), (322, 326, '#2e180f'), (326, 420, '#1c1e20'),
-                     (420, 426, '#3c3e40'), (426, 466, '#2a2c2e'), (466, 472, '#0e1012'), (472, 640, '#1a1c1e'),
-                     (640, 646, '#2e3032'), (646, 2000, '#121314')],
-            'right': [(236, 240, '#121517'), (240, 270, '#4a4c4e'), (270, 282, '#191b1c'), (282, 300, '#1e2022'),
-                      (300, 322, '#49271b'), (322, 418, '#141516'), (418, 422, '#39302a'), (422, 458, '#4d2a19'),
-                      (458, 620, '#18191a'), (620, 658, '#472617'), (658, 820, '#131414'), (820, 856, '#3a1f13'),
-                      (856, 2000, '#141516')],
-        },
-        'hub_fill': ((30, 30, 32), 575),   # atrás do miolo do volante: coluna de direção escura, sem borrão
+        'hub_fill': ((27, 28, 31), 575),   # atrás do miolo do volante: cor lisa (a coluna é desenhada depois)
+        'wheel_rows': 230, 'paint': 'patrol', 'rim_margin': 11,
     },
     # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
     'zr1': {
@@ -74,6 +63,165 @@ def sample(img, w, h):
     return img[ys][:, xs]
 
 
+def hexrgb(c):
+    return [int(c[i:i + 2], 16) for i in (1, 3, 5)]
+
+
+def paint_patrol(rgb, a, art_l, art_r, pivot, hub):
+    """Viatura: a arte cobre só o meio do painel. Desenha em pixel nativo a porta do
+    motorista (vidro, retrovisor, friso, maçaneta, apoio de braço, bolsa, alto-falante),
+    o lado do passageiro (saída de ar, porta-luvas) e a coluna de direção atrás do volante."""
+    H, W = a.shape
+
+    def put(x, y, c):
+        if 0 <= x < W and 0 <= y < H:
+            rgb[y, x] = hexrgb(c)
+            a[y, x] = 255
+
+    def clear(x, y):
+        if 0 <= x < W and 0 <= y < H:
+            a[y, x] = 0
+
+    top_l = int(np.argmax(a[:, art_l + 30] > 0))  # topo do painel logo à direita da coluna da porta
+    top_r = int(np.argmax(a[:, art_r - 1] > 0))
+    # ---- porta do motorista: as linhas descem para a esquerda (perspectiva) ----
+    for x in range(0, art_l):
+        sill = top_l + 2 + int(round((art_l - x) * 0.22))
+        for y in range(H):
+            d = y - sill
+            if d < 0:
+                clear(x, y)
+                continue
+            c = '#2a2c30'
+            if d == 0: c = '#6a6c70'
+            elif d <= 2: c = '#4a4c50'
+            elif d == 3: c = '#141517'
+            elif d == 7: c = '#5e3422'
+            elif 8 <= d <= 9: c = '#49271b'
+            elif d == 10: c = '#2e180f'
+            elif d == 24: c = '#46484c'
+            elif 25 <= d <= 32: c = '#34363a'
+            elif d == 33: c = '#141517'
+            elif 34 <= d <= 43: c = '#222428'
+            elif d == 44: c = '#3a3c40'
+            elif 45 <= d <= 52: c = '#121314'
+            elif d > 52: c = '#1c1e20'
+            put(x, y, c)
+        put(x, sill + 4, '#202226')
+    # fresta entre a porta e o painel
+    for y in range(top_l + 2, H):
+        put(art_l - 1, y, '#0e0f10')
+    # maçaneta (perto da frente da porta)
+    for x in range(art_l - 26, art_l - 14):
+        sill = top_l + 2 + int(round((art_l - x) * 0.22))
+        for d in range(14, 18):
+            put(x, sill + d, '#141517')
+        put(x, sill + 15, '#a0a2a6')
+        put(x, sill + 16, '#6a6c70')
+    # botões do vidro elétrico no apoio de braço
+    for x in range(art_l - 66, art_l - 44):
+        sill = top_l + 2 + int(round((art_l - x) * 0.22))
+        for d in range(26, 29):
+            put(x, sill + d, '#0e0f10')
+        if (x - (art_l - 66)) % 6 in (1, 2, 3):
+            put(x, sill + 27, '#8a8c90')
+    # alto-falante embaixo, com furinhos
+    cx = art_l - 92
+    cy = top_l + 2 + int(round(92 * 0.22)) + 64
+    for y in range(cy - 11, cy + 12):
+        for x in range(cx - 10, cx + 11):
+            q = ((x - cx) / 10) ** 2 + ((y - cy) / 11.4) ** 2
+            if q <= 1:
+                put(x, y, '#2e3034' if q > 0.8 else ('#26282c' if (x + y) % 2 else '#121314'))
+    # ---- lado do passageiro: painel continua ----
+    for x in range(art_r + 1, W):
+        for y in range(H):
+            d = y - top_r
+            if d < 0:
+                clear(x, y)
+                continue
+            c = '#1c1e20'
+            if d <= 1: c = '#5a5c5e'
+            elif d <= 5: c = '#4a4c4e'
+            elif d <= 7: c = '#2a2c2e'
+            elif d == 8: c = '#121416'
+            if y == 23: c = '#5e3422'
+            elif 24 <= y <= 27: c = '#49271b'
+            elif y == 28: c = '#2e180f'
+            elif y == 51: c = '#5e3422'
+            elif 52 <= y <= 58: c = '#4d2a19'
+            elif y == 59: c = '#2e180f'
+            elif y == 96: c = '#0c0d0e'
+            elif y > 96: c = '#141516'
+            put(x, y, c)
+    # saída de ar do passageiro
+    vx0, vx1 = art_r + 8, min(W - 4, art_r + 46)
+    for x in range(vx0, vx1):
+        for y in range(31, 47):
+            if x in (vx0, vx1 - 1) or y in (31, 46): c = '#3a3c40'
+            elif x == (vx0 + vx1) // 2: c = '#2e3034'
+            else: c = '#0c0d0e' if y % 2 else '#2a2c2e'
+            put(x, y, c)
+    # porta-luvas com fecho cromado
+    gx0, gx1 = art_r + 6, min(W - 2, art_r + 70)
+    for x in range(gx0, gx1):
+        for y in range(62, 93):
+            if y == 62: c = '#44464a'
+            elif y == 92: c = '#0e0f10'
+            elif x == gx0: c = '#3a3c40'
+            elif x == gx1 - 1: c = '#101113'
+            else: c = '#24262a'
+            put(x, y, c)
+    lx = (gx0 + gx1) // 2
+    for x in range(lx - 6, lx + 6):
+        put(x, 65, '#0e0f10')
+        put(x, 66, '#8a8c90')
+    # ---- coluna de direção (aparece entre os raios quando o volante gira) ----
+    px, py = pivot
+    for y in range(int(py) - 18, H):
+        for x in range(W):
+            if not hub[y, x]:  # só onde o miolo escondia a arte (as aberturas do volante ficam como na arte)
+                continue
+            hw = 12 + (y - (py - 18)) * 0.12
+            dx = x - px
+            if abs(dx) <= hw:
+                c = '#2c2e32'
+                if dx < -hw + 2: c = '#44464a'
+                elif dx > hw - 2: c = '#18191c'
+                if y < py - 13: c = '#202124' if abs(dx) < hw - 3 else c
+                put(x, y, c)
+            elif y > py - 18:
+                put(x, y, '#1b1c1f')  # painel embaixo do volante (joelhos)
+
+
+def paint_mirror(top, dash, art_l, sill_f):
+    """Retrovisor externo no canto da frente do vidro lateral, encostado na coluna da porta.
+    Ocupa o fim do topo (linhas negativas) e o começo do painel."""
+    EXTR = top.shape[0]
+
+    def put(x, y, c):
+        img = top if y < 0 else dash
+        yy = y + EXTR if y < 0 else y
+        if 0 <= x < img.shape[1] and 0 <= yy < img.shape[0]:
+            img[yy, x, :3] = hexrgb(c)
+            img[yy, x, 3] = 255
+
+    mx0, mx1 = art_l - 20, art_l + 6
+    my0, my1 = sill_f - 24, sill_f - 1
+    for x in range(mx0, mx1):
+        for y in range(my0, my1):
+            if min(x - mx0, mx1 - 1 - x) + min(y - my0, my1 - 1 - y) < 2:
+                continue  # cantos arredondados
+            if x <= mx0 + 1 or x >= mx1 - 2 or y <= my0 + 1 or y >= my1 - 2:
+                put(x, y, '#3a3c40' if y == my0 and mx0 + 2 < x < mx1 - 3 else '#141517')
+            else:  # vidro: céu claro em cima, estrada escura embaixo (reflexo)
+                t = (y - my0) / (my1 - my0)
+                put(x, y, '#d0dcea' if t < 0.35 else ('#a8bccc' if t < 0.6 else '#5a6068'))
+    for x in range(mx1 - 12, mx1):  # base presa na porta
+        for y in range(my1 - 1, sill_f + 2):
+            put(x, y, '#1c1d20')
+
+
 def main():
     src, outdir, car = sys.argv[1], sys.argv[2], sys.argv[3]
     cfg = CARS[car]
@@ -84,12 +232,15 @@ def main():
     xc0, y0 = cfg['x0'], cfg['y0']
     x0 = int(round(xc0 - PAD * px_w))
     x1, y1 = int(round(xc0 + (256 + PAD) * px_w)), int(y0 + ROWS * px_h)
+    wrows = cfg.get('wheel_rows', ROWS)  # o volante pode ir além da tela (girado, não mostra corte)
+    y1w = int(y0 + wrows * px_h)
     pad_x0, pad_x1 = max(0, -x0), max(0, x1 - full.shape[1])
     ty0 = int(round(y0 - EXT * px_h))  # topo das colunas, se vierem da arte
     tpad = max(0, -ty0)
-    canvas = cv2.copyMakeBorder(full, tpad, max(0, y1 - full.shape[0]), 0, 0, cv2.BORDER_REPLICATE)
+    canvas = cv2.copyMakeBorder(full, tpad, max(0, max(y1, y1w) - full.shape[0]), 0, 0, cv2.BORDER_REPLICATE)
     y0 += tpad
     y1 += tpad  # o recorte do painel também desce (sem isso a arte saía esticada na vertical)
+    y1w += tpad
     ty0 += tpad
     # onde a arte acaba nas laterais, espelha (fica natural; repetir a coluna vira listras)
     canvas = cv2.copyMakeBorder(canvas, 0, 0, pad_x0, pad_x1, cv2.BORDER_REFLECT)
@@ -137,6 +288,10 @@ def main():
 
     # fundo do painel: apaga volante e ponteiros
     hole = cv2.dilate(wheel.astype(np.uint8), np.ones((7, 7), np.uint8)) | needles
+    if 'rim_margin' in cfg:  # o aro medido não bate pixel a pixel: apaga uma faixa mais larga (sem "aro fantasma" ao girar)
+        k = cfg['rim_margin']
+        rim = ((m_out > 0) & (m_in == 0)).astype(np.uint8)
+        hole |= cv2.dilate(rim, np.ones((k, k), np.uint8))
     for (a, b, c, d) in cfg.get('erase', []):
         (a, b), (c, d) = to_crop(a, b), to_crop(c, d)
         hole[max(0, b):max(0, d), max(0, a):max(0, c)] = 1
@@ -177,6 +332,13 @@ def main():
     nw, nh = 256 + 2 * PAD, ROWS
     d_rgb = sample(cv2.cvtColor(dash, cv2.COLOR_BGR2RGB), nw, nh)
     d_a = sample((~sky).astype(np.uint8) * 255, nw, nh)
+    if cfg.get('paint') == 'patrol':
+        pivot_n = ((geo['center'][0] - xc0) / px_w + PAD, (geo['center'][1] - (y0 - tpad)) / px_h)
+        hub_n = sample(hub.astype(np.uint8), nw, nh) > 0
+        art_l = int(np.ceil(PAD + (0 - xc0) / px_w)) + 1
+        art_r = int(np.floor(PAD + (full.shape[1] - xc0) / px_w)) - 1
+        paint_patrol(d_rgb, d_a, art_l, art_r, pivot_n, hub_n)
+        patrol_mirror = (art_l, int(np.argmax(d_a[:, art_l + 30] > 0)) + 2)
     Image.fromarray(np.dstack([d_rgb, d_a]), 'RGBA').save(f'{outdir}/{car}-dash.png')
     # a arte acaba antes do teto: a coluna da porta é prolongada para cima (linha 0 do
     # painel repetida e deslocada pela inclinação da coluna) até a linha 24 da tela
@@ -197,6 +359,12 @@ def main():
         t_rgb = sample(cv2.cvtColor(timg, cv2.COLOR_BGR2RGB), nw, EXT)
         t_a = sample(talpha.astype(np.uint8) * 255, nw, EXT)
         Image.fromarray(np.dstack([t_rgb, t_a]), 'RGBA').save(f'{outdir}/{car}-top.png')
+    if cfg.get('paint') == 'patrol':
+        tp, dp = f'{outdir}/{car}-top.png', f'{outdir}/{car}-dash.png'
+        top_i, dash_i = np.array(Image.open(tp).convert('RGBA')), np.array(Image.open(dp).convert('RGBA'))
+        paint_mirror(top_i, dash_i, *patrol_mirror)
+        Image.fromarray(top_i, 'RGBA').save(tp)
+        Image.fromarray(dash_i, 'RGBA').save(dp)
     if 'pillar' in cfg:
         xmax, k = cfg['pillar']
         row = np.dstack([d_rgb, d_a])[0].copy()
@@ -208,8 +376,22 @@ def main():
             if shift >= nw: continue
             top[j, :nw - shift] = row[shift:]
         Image.fromarray(top, 'RGBA').save(f'{outdir}/{car}-top.png')
-    w_rgb = sample(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), nw, nh)
-    w_a = sample((wheel & ~sky0).astype(np.uint8) * 255, nw, nh)
+    if wrows > ROWS:
+        imgw = canvas[y0:y1w, x0 + pad_x0:x1 + pad_x0]
+        hw_ = imgw.shape[0]
+        wo, wi, ws = (np.zeros((hw_, w), np.uint8) for _ in range(3))
+        cv2.fillPoly(wo, [shift(geo['outer'])], 1)
+        cv2.fillPoly(wi, [shift(geo['inner'])], 1)
+        for q in (sp if isinstance(sp[0][0], list) else [sp]):
+            cv2.fillPoly(ws, [shift(q)], 1)
+        wsky = np.zeros((hw_, w), bool)
+        wsky[:h] = sky0
+        wmask = (wo > 0) & ((wi == 0) | (ws > 0)) & ~wsky
+        w_rgb = sample(cv2.cvtColor(imgw, cv2.COLOR_BGR2RGB), nw, wrows)
+        w_a = sample(wmask.astype(np.uint8) * 255, nw, wrows)
+    else:
+        w_rgb = sample(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), nw, nh)
+        w_a = sample((wheel & ~sky0).astype(np.uint8) * 255, nw, nh)
     Image.fromarray(np.dstack([w_rgb, w_a])[:, PAD:PAD + 256], 'RGBA').save(f'{outdir}/{car}-wheel.png')
 
     nat = lambda x, y: [round((x - xc0) / px_w, 1), round((y - (y0 - tpad)) / px_h, 1)]

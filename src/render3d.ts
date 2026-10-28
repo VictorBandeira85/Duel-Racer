@@ -305,7 +305,8 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
   c.lineTo(cx, hz);
   c.stroke();
 
-  const D = 900;
+  // espelho plano, campo estreito: quem fica para trás continua visível por mais tempo
+  const D = 2000;
   const behind: { z: number; x: number; w: number; look: Parameters<typeof drawCar>[4] }[] = [];
   const night = !!r.def.night;
   for (const t of r.traffic) behind.push({ z: t.z, x: t.x, w: t.truck ? TRUCK_W : CAR_W, look: { color: t.color, front: t.speed > 0, truck: t.truck, night, model: t.model } });
@@ -314,10 +315,16 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
   behind.sort((a, b) => a.z - b.z);
   for (const b of behind) {
     const dz = r.position - b.z;
-    if (dz < 300 || dz > 60 * SEG_LEN) continue;
+    if (dz < 300 || dz > 130 * SEG_LEN) continue;
     const k = D / dz;
     const yy = hz + (bottom - hz) * Math.min(1, k);
-    drawCar(c, cx + (b.x - r.x) * sb * k, yy, b.w * sb * k, b.look);
+    const bw = b.w * sb * k;
+    if (bw < 2) { // bem longe: um pontinho (os faróis, à noite)
+      c.fillStyle = night && b.look.front ? '#fff6c0' : b.look.color;
+      c.fillRect(Math.round(cx + (b.x - r.x) * sb * k - 0.5), Math.round(yy - 1), 1, 1);
+      continue;
+    }
+    drawCar(c, cx + (b.x - r.x) * sb * k, yy, bw, b.look);
   }
   c.restore();
 }

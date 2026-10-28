@@ -184,8 +184,14 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
   for (const p of r.police) if (p.state !== 'done') behind.push({ dz: pz - p.z, x: p.x, w: p.sv ? CAR_W * 1.08 : POLICE_W, look: { color: '#fff', police: true, sv: p.sv, siren: p.state === 'chase' || p.state === 'pull', front: true, night } });
   behind.sort((a, b) => b.dz - a.dz);
   for (const b of behind) {
-    if (b.dz < near * 0.5 || b.dz > far) continue;
-    drawCar(v, sx(b.x, b.dz), sy(b.dz), (b.w * f) / b.dz, b.look);
+    if (b.dz < near * 0.5 || b.dz > far * 2.2) continue;
+    const bw = (b.w * f) / b.dz;
+    if (bw < 2) { // bem longe: um pontinho
+      v.fillStyle = night && b.look.front ? '#fff6c0' : b.look.color;
+      v.fillRect(Math.round(sx(b.x, b.dz) - 0.5), Math.round(sy(b.dz) - 1), 1, 1);
+      continue;
+    }
+    drawCar(v, sx(b.x, b.dz), sy(b.dz), bw, b.look);
   }
   // o espelho escurece um pouco a imagem (mais à noite)
   v.fillStyle = night ? 'rgba(0,0,24,0.5)' : 'rgba(10,20,40,0.12)';

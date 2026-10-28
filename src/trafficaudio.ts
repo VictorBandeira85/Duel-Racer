@@ -276,7 +276,9 @@ export function updateTrafficAudio(r: Race, dt: number) {
       const n = def.notes[i];
       o.frequency.setTargetAtTime((n ?? def.notes[0] * 1.006) * pitch, ctx.currentTime, 0.02); // 2 notas: a 3ª desafina a 1ª de leve (corneta dupla)
     });
-    const g = (def.vol * (def.notes.length === 3 ? 0.8 : 1)) / (1 + (w.s.d / 14) ** 2);
+    // buzina se ouve de longe (o pânico começa ~3 s antes, ainda a dezenas de metros);
+    // as fanhosas (filtro de banda) perdem volume no filtro e são compensadas
+    const g = (def.vol * 2.4 * (def.filter === 'bandpass' ? 1.7 : 1) * (def.notes.length === 3 ? 0.8 : 1)) / (1 + (w.s.d / 45) ** 2);
     h.gain.gain.setTargetAtTime(w.on ? g : 0, ctx.currentTime, w.on ? def.attack : 0.015);
     h.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, (w.s.dx / w.s.d) * 1.2)), ctx.currentTime, 0.03);
   }

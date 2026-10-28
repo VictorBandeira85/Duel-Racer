@@ -119,7 +119,7 @@ export class Race {
   spin = 0; // rodas patinando na arrancada
   balance = 0; // equilíbrio do carro: < 0 sai de frente, > 0 a traseira solta
   yaw = 0; // quanto o carro está "atravessado" (rad, + = virado para dentro da curva à direita)
-  private spinT = 0; // tempo no limite com a traseira solta (passou disso, roda)
+  drift = 0; // ângulo de derrapagem (rad, + = frente virada para a direita); passou de ~32°, roda
   private spinOut = 0; // animação de rodada
   pt: Powertrain;
   air = 0; // alívio de peso no topo das lombadas (0..1)
@@ -377,20 +377,37 @@ export class Race {
       this.x += this.steer * dt * steerMax * (1 - under * 0.45);
       this.x -= dir * dt * (Math.min(demand, 1) * steerMax * 0.72 + (excess * 1.4 + this.slip * 0.25) * steerMax * (1 - 0.3 * clamp(this.balance / 0.5, 0, 1)));
       this.speed -= toGame(G * (0.05 * under + 0.1 * over)) * dt; // pneu de lado arrasta só um pouco
-      // traseira solta por tempo demais com o carro no limite: roda
-      this.spinT = over > 0.6 ? this.spinT + dt : Math.max(0, this.spinT - dt * 2);
-      if (this.spinT > 0.9 && this.spinOut <= 0) this.spinAround(dir);
+      // ângulo de derrapagem: a traseira solta gira o carro para dentro da curva (acelerando
+      // com tração traseira gira mais); quem segura é o piloto, com contraesterço (volante para
+      // o lado contrário) e tirando o pé. Quando os pneus voltam a agarrar o carro se endireita.
+      // Atravessou demais (~32°): rodou.
+      if (this.spinOut <= 0) {
+        const loose = clamp(Math.abs(this.drift) / 0.08 + over, 0, 1) * clamp(speedPct * 2.5, 0, 1);
+        const rotIn = dir * over * (1.2 + (rwd && this.throttle ? 1.0 * lonDrive : 0));
+        // contraesterço segura bem; esterçar a favor da derrapagem gira mais (só um pouco)
+        const steerYaw = this.steer * (Math.sign(this.steer) === -Math.sign(this.drift) ? 2.0 : 0.7) * loose;
+        const align = -this.drift * ((over < 0.12 ? 2.6 : 0.5) + (speedPct < 0.15 ? 4 : 0));
+        this.drift = clamp(this.drift + (rotIn + steerYaw + align) * dt, -0.8, 0.8);
+        // atravessado, o carro escorrega para o lado de fora e perde um pouco de velocidade
+        this.x -= Math.sign(this.drift) * dt * Math.abs(this.drift) * steerMax * 0.9;
+        this.speed -= toGame(G * 0.25 * Math.abs(this.drift)) * dt;
+        if (Math.abs(this.drift) > 0.56) this.spinAround(Math.sign(this.drift));
+      }
     } else if (pulling && copAhead) {
       this.x += clamp(this.stopX - this.x, -dt * 1400, dt * 1400); // encosta no acostamento
     }
     // carro atravessado (a câmera gira junto); na rodada dá uma volta rápida para o lado
-    let yawTarget = dir * over * 0.09 + (over > 0.2 ? (this.rand() - 0.5) * 0.02 * over : 0);
+    if (!driving && this.spinOut <= 0) this.drift = lerp(this.drift, 0, Math.min(1, dt * 4));
+    let yawTarget = this.drift + (Math.abs(this.drift) > 0.1 ? (this.rand() - 0.5) * 0.015 : 0);
     if (this.spinOut > 0) {
       this.spinOut -= dt;
-      yawTarget = this.spinDir * Math.sin(Math.min(1, 1 - this.spinOut / 0.9) * Math.PI) * 0.35;
+      // rodada: continua girando a partir de onde a derrapagem estava, e volta de frente no fim
+      const k = Math.min(1, 1 - this.spinOut / 0.9);
+      yawTarget = this.spinDir * (0.56 + Math.sin(k * Math.PI) * 0.5) * (1 - k * k);
+      if (this.spinOut <= 0) this.drift = 0;
       this.speed -= max * 0.5 * dt;
     }
-    this.yaw = lerp(this.yaw, yawTarget, Math.min(1, dt * 7));
+    this.yaw = lerp(this.yaw, yawTarget, Math.min(1, dt * (this.spinOut > 0 ? 7 : 12)));
 
     // ---- fora da pista ----
     this.shake = 0;
@@ -477,7 +494,6 @@ export class Race {
   // rodou: perde quase toda a velocidade, mas segue sem contar como batida
   private spinAround(dir: number) {
     this.spinOut = 0.9;
-    this.spinT = 0;
     this.spinDir = dir || 1;
     this.clean = false;
     this.say('RODOU!');
@@ -514,7 +530,8 @@ export class Race {
       if (!c.hit) this.trafficAI(c, dt);
       else c.panic = 0;
       c.z += c.speed * dt;
-      if (c.z < pz - 25 * SEG_LEN || c.z > pz + 420 * SEG_LEN) this.spawn(c, pz + (280 + this.rand() * 80) * SEG_LEN);
+      // atrás, some só bem longe (continua visível no retrovisor)
+      if (c.z < pz - 95 * SEG_LEN || c.z > pz + 420 * SEG_LEN) this.spawn(c, pz + (280 + this.rand() * 80) * SEG_LEN);
     }
   }
 

@@ -27,6 +27,10 @@ interface CockpitArt {
   dashMask?: string; // partes na cor do carro (capô, porta, colunas), para a repintura
   topMask?: string;
   radar?: [number, number]; // canto do detector de radar no painel (padrão 206, 22)
+  // retrovisor desenhado à parte (quando a arte o corta na borda): sprite e posição do canto,
+  // x nas coordenadas do painel (pode ser negativo: fica na área esticada de tela larga), y a
+  // partir do topo da arte (topo de 76 linhas + painel)
+  mirror?: { img: string; x: number; y: number };
   dy?: number; // desce a cabine inteira (painel alto demais tapando a pista)
   wheelDx?: number; // desloca o volante para a direita (alinha com o quadro de instrumentos)
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
@@ -91,7 +95,8 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
       warnLamp(c, ox + 129, ART_TOP + 56, gauges.oil < 0.36);
     } },
   // 959: interior completo do Victor; os cinco mostradores redesenhados com números maiores
-  '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.2, 84.3],
+  // o retrovisor da arte é cortado pela borda: o sprite completo (tools/ref/mirror_959.py) entra por cima
+  '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.2, 84.3], mirror: { img: cp('959-mirror'), x: 0, y: 76 },
     // VDO: conta-giros 1-8 com faixa vermelha a partir de 7,5 e o manômetro do turbo (0-2,5 bar)
     // embaixo; velocímetro 20-340 com hodômetro; à esquerda o combinado de óleo (temperatura,
     // pressão e nível) e o de combustível e água
@@ -155,7 +160,7 @@ for (const [k, v] of Object.entries(INTERIORS)) {
   };
 }
 
-export const COCKPIT_IMAGES = Object.values(COCKPIT_ART).flatMap((a) => [a.dash, a.top, a.wheel, a.dashMask, a.topMask]).filter((s): s is string => !!s);
+export const COCKPIT_IMAGES = Object.values(COCKPIT_ART).flatMap((a) => [a.dash, a.top, a.wheel, a.dashMask, a.topMask, a.mirror?.img]).filter((s): s is string => !!s);
 
 // Cabine a partir da arte: painel, ponteiros dinâmicos, radar e volante girando.
 function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: CockpitArt): boolean {
@@ -184,8 +189,20 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     if (gap > 0) c.drawImage(top, 0, 0, DASH_W, 1, dx, ROOF_H, DASH_W, gap + 1);
   }
   // retrovisor externo esquerdo funcionando (onde a arte mostra o vidro dele)
-  const glass = findGlass(art.dash, svgSprite(art.top, DASH_W, TOP_EXT), svgSprite(art.dash, DASH_W, 124) ?? dash, DASH_PAD + 90);
-  if (glass) drawSideMirror(c, r, glass, dx, ART_TOP, color ?? r.car.color);
+  if (art.mirror) {
+    const m = art.mirror;
+    const mw = 34; // largura do sprite (pixels nativos)
+    const spr = svgSprite(m.img, mw, Math.round(mw * (spriteAspect(m.img) ?? 1)));
+    if (spr) {
+      const mx = dx + m.x, my = ART_TOP - TOP_EXT + m.y;
+      c.drawImage(spr, mx, my);
+      const mg = findGlass(m.img, null, spr, spr.width);
+      if (mg) drawSideMirror(c, r, mg, mx, my, color ?? r.car.color);
+    }
+  } else {
+    const glass = findGlass(art.dash, svgSprite(art.top, DASH_W, TOP_EXT), svgSprite(art.dash, DASH_W, 124) ?? dash, DASH_PAD + 90);
+    if (glass) drawSideMirror(c, r, glass, dx, ART_TOP, color ?? r.car.color);
+  }
   if (art.lcd) lcdPanel(c, ox, r, art);
   if (art.odo) odometer(c, ox, r, art.odo);
   if (art.prnd) leverIndicator(c, ox, r, art.prnd);

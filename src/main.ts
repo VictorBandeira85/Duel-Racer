@@ -4,13 +4,14 @@ import { RES, view } from './config';
 import { CARS, TRAFFIC_IMAGES } from './cars';
 import { COURSES, completeCourse, unlockedCourses, withTimeOfDay, type Course } from './courses';
 import { ui as careerUi } from './careerScreens';
-import { REGIONS, carById, eventCourse, levels, loadCareer, settleEvent, tunedCar } from './career';
+import { REGIONS, carById, eventCourse, levels, loadCareer, saveCareer, settleEvent, tunedCar } from './career';
 import type { CarSpec } from './cars';
 import { Race } from './race';
 import { loadGhost, saveRun } from './records';
+import { CHALLENGE_PRIZE, checkChallenge, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
 import { paintHex } from './paint';
 import { COCKPIT_IMAGES, renderCockpit } from './cockpit';
-import { applyBtnSize, drawScreen, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
+import { applyBtnSize, drawScreen, drawToast, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { input, pollGamepad, releaseAll, setupInput } from './input';
 import { initAudio, playMusic, setEngine, setMusicOn, setMuted, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
@@ -40,6 +41,7 @@ interface Run {
 }
 let run: Run = { course: COURSES[0], car: CARS[0], rival: null, opts: {} };
 let race: Race | null = null;
+let liveDone = new Set<number>(); // desafios do trecho já avisados
 let paused = false;
 
 const totalTime = () => state.results.reduce((a, r) => a + r.time, 0);
@@ -112,11 +114,27 @@ function begin(lives: number) {
 function startStage(i: number) {
   const r = new Race(run.course, i, run.car, run.rival, state.auto, run.opts);
   r.ghostRun = loadGhost(run.course.id, i);
+  r.challenges = stageChallenges(r);
+  liveDone = new Set();
   r.onArrive = () => {
     const res = stageResult(r);
     const sv = saveRun(r, run.course.id, i, paintHex(run.car.id));
     res.best = sv.prev;
     res.record = sv.record;
+    // desafios do trecho: medalha (1 bronze, 2 prata, 3 ouro) e, na carreira, dinheiro
+    res.challenges = r.challenges.map((ch) => ({ label: ch.label, done: checkChallenge(ch, r, true) }));
+    const medal = res.challenges.filter((q) => q.done).length;
+    res.medal = medal;
+    res.medalNew = saveMedal(run.course.id, i, medal);
+    if (state.mode === 'career' && state.career && medal) {
+      res.prize = medal * CHALLENGE_PRIZE;
+      state.career.money += res.prize;
+      saveCareer(state.career);
+    }
+    stageAchievements(r, {
+      won: res.rival >= 0 && res.time <= res.rival, record: sv.record && sv.prev !== undefined, medal,
+      unlocked: unlockedCourses(), legend: run.course.id === 'lendas' && i === run.course.stages.length - 1,
+    });
     state.results.push(res);
     if (r.clean) state.lives++;
     state.gasPage = 0;
@@ -262,6 +280,13 @@ function frame(now: number) {
         acc -= STEP;
       }
     }
+    // desafio que já não tem como falhar: avisa na hora em que se cumpre
+    race.challenges.forEach((ch, k) => {
+      if (!liveDone.has(k) && race!.state === 'drive' && checkChallenge(ch, race!, false)) {
+        liveDone.add(k);
+        toast('DESAFIO CUMPRIDO!', ch.label, '#30e060');
+      }
+    });
     if (state.screen === 'race') {
       renderCockpit(ctx, race, state.lives, `${race.stageIdx + 1}/${run.course.stages.length}`, totalTime(), paused ? 0 : dt);
     } else drawScreen(ctx, state);
@@ -269,6 +294,7 @@ function frame(now: number) {
     acc = 0;
     drawScreen(ctx, state);
   }
+  drawToast(ctx, dt);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

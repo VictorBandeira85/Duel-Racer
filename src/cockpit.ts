@@ -1008,6 +1008,11 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   if (r.state === 'countdown') {
     const n = Math.ceil(r.timer);
     text(c, n > 3 ? 'PRONTO?' : String(n), w / 2, vp.y + 28, 16, '#ffd400', 'center');
+    // os desafios deste trecho, para o jogador saber o que buscar
+    if (r.challenges.length) {
+      text(c, 'DESAFIOS', w / 2, vp.y + 52, 5, '#ffd400', 'center');
+      r.challenges.forEach((ch, i) => text(c, ch.label, w / 2, vp.y + 61 + i * 8, 5, '#ffffff', 'center'));
+    }
   } else if (r.state === 'drive' && r.time < 1 && r.crashes === 0) {
     text(c, 'VAI!', w / 2, vp.y + 28, 16, '#30e060', 'center');
   }

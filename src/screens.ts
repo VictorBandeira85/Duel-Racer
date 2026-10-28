@@ -1,5 +1,6 @@
 import { gasQuip } from './score';
 import { ghostOn, setGhostOn } from './records';
+import { ACHIEVEMENTS, MEDAL_COLOR, loadStats, medalName, medals, takeToast, unlockedAchievements } from './challenges';
 import { RIVAL_STYLE } from './race';
 import type { CareerSave, EventResult } from './career';
 import { drawCareerScreen, keyCareerScreen, openCareer, tapCareerScreen } from './careerScreens';
@@ -13,7 +14,7 @@ import { dither, inside, panel, text, type Rect } from './ui';
 import { formatTime, shade } from './util';
 import { setEngine, setTires, shiftSound } from './audio';
 
-export type ScreenId = 'title' | 'options' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores'
+export type ScreenId = 'title' | 'options' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores' | 'achievements'
   | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd';
 export type MenuKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back';
 
@@ -22,6 +23,7 @@ export interface StageResult {
   km: number; top: number; avg: number; score: number; // km/h e pontos do jogador
   rivalTop: number; rivalAvg: number; rivalScore: number;
   best?: number; record?: boolean; // recorde anterior deste trecho com este carro; se bateu
+  challenges?: { label: string; done: boolean }[]; medal?: number; medalNew?: boolean; prize?: number; // desafios
 }
 
 export interface AppState {
@@ -778,6 +780,76 @@ function drawStageResult(c: CanvasRenderingContext2D, s: AppState) {
   if (Math.floor(s.t * 2) % 2) text(c, 'TOQUE PARA SEGUIR', w / 2, 214, 8, '#ffd400', 'center', null);
 }
 
+// posto: chegada -> resultado -> desafios -> próximo trecho
+function gasNext(s: AppState, a: Actions) {
+  if (!s.gasPage) s.gasPage = 1;
+  else if (s.gasPage === 1 && s.results[s.results.length - 1]?.challenges) s.gasPage = 2;
+  else a.nextStage();
+}
+
+// medalha: fita e disco com brilho
+function medal(c: CanvasRenderingContext2D, cx: number, cy: number, n: number, r = 9) {
+  c.fillStyle = '#c02030';
+  c.fillRect(cx - 5, cy - r - 9, 4, 10);
+  c.fillStyle = '#2040c0';
+  c.fillRect(cx + 1, cy - r - 9, 4, 10);
+  c.fillStyle = '#000';
+  c.beginPath();
+  c.arc(cx, cy, r + 1, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = MEDAL_COLOR[n];
+  c.beginPath();
+  c.arc(cx, cy, r, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.45)';
+  c.fillRect(cx - r * 0.5, cy - r * 0.6, 2, 2);
+  c.fillStyle = n ? shade(MEDAL_COLOR[n], -0.35) : '#333';
+  c.beginPath();
+  c.arc(cx, cy, r * 0.55, 0, Math.PI * 2);
+  c.fill();
+}
+
+function drawChallenges(c: CanvasRenderingContext2D, s: AppState) {
+  const { w } = view;
+  purpleBg(c, 'Duel Racer');
+  const x = ox();
+  const r = s.results[s.results.length - 1];
+  const list = r.challenges ?? [];
+  const n = r.medal ?? 0;
+  panel(c, { x: x + 8, y: 8, w: SAFE_W - 16, h: 192 }, '#2a2060', '#100830');
+  text(c, 'DESAFIOS DO TRECHO', w / 2, 16, 8, '#ffd400', 'center', null);
+  list.forEach((ch, i) => {
+    const y = 40 + i * 24;
+    c.fillStyle = ch.done ? '#30e060' : '#5a4a8a';
+    c.fillRect(x + 20, y, 10, 10);
+    if (ch.done) {
+      c.fillStyle = '#0a3a14';
+      c.fillRect(x + 22, y + 5, 2, 2);
+      c.fillRect(x + 24, y + 6, 2, 2);
+      c.fillRect(x + 26, y + 2, 2, 4);
+    }
+    text(c, ch.label, x + 38, y + 1, 8, ch.done ? '#fff' : '#9a90c8', 'left', null);
+  });
+  medal(c, w / 2, 140, n, 13);
+  text(c, n ? `MEDALHA DE ${medalName(n)}` : 'SEM MEDALHA', w / 2, 162, 8, n ? MEDAL_COLOR[n] : '#9a90c8', 'center', null);
+  if (r.medalNew && n) text(c, 'Melhor medalha neste trecho!', w / 2, 175, 5, '#c8c0f0', 'center', null);
+  if (r.prize) text(c, `Prêmio dos desafios: $${pts(r.prize)}`, w / 2, 186, 8, '#30e060', 'center', null);
+  if (Math.floor(s.t * 2) % 2) text(c, 'TOQUE PARA SEGUIR', w / 2, 214, 8, '#ffd400', 'center', null);
+}
+
+// aviso no alto da tela (conquista ou desafio cumprido), em qualquer tela
+export function drawToast(c: CanvasRenderingContext2D, dt: number) {
+  const t = takeToast(dt);
+  if (!t) return;
+  const { w } = view;
+  const k = Math.min(1, (3.2 - t.t) / 0.25, t.t / 0.3); // entra e sai deslizando
+  const y = Math.round(-30 + 34 * k);
+  const bw = Math.min(w - 16, 260);
+  panel(c, { x: (w - bw) / 2, y, w: bw, h: 26 }, '#1a1040', t.color);
+  text(c, t.text, w / 2, y + 4, 8, t.color, 'center', null);
+  if (t.sub) text(c, t.sub, w / 2, y + 16, 5, '#e8e0ff', 'center', null);
+}
+
 // ---------- fim do percurso ----------
 function drawEnd(c: CanvasRenderingContext2D, s: AppState) {
   const { w, h } = view;
@@ -806,6 +878,41 @@ function drawEnd(c: CanvasRenderingContext2D, s: AppState) {
   void h;
 }
 
+// ---------- conquistas e medalhas ----------
+const achButton = (): Rect => ({ x: ox() + 90, y: 172, w: 140, h: 20 });
+function drawAchievements(c: CanvasRenderingContext2D, s: AppState) {
+  const { w } = view;
+  drawRoadScene(c, s.t);
+  const x = ox();
+  const got = unlockedAchievements();
+  const n = ACHIEVEMENTS.filter((q) => got[q.id]).length;
+  panel(c, { x: x + 4, y: 4, w: SAFE_W - 8, h: 232 }, '#2a2060', '#100830');
+  text(c, `CONQUISTAS ${n}/${ACHIEVEMENTS.length}`, x + 14, 10, 8, '#ffd400', 'left', null);
+  // medalhas ganhas nos desafios
+  const m = Object.values(medals());
+  [3, 2, 1].forEach((k, i) => {
+    const cx = x + SAFE_W - 80 + i * 26;
+    c.fillStyle = MEDAL_COLOR[k];
+    c.beginPath();
+    c.arc(cx, 14, 4, 0, Math.PI * 2);
+    c.fill();
+    text(c, String(m.filter((v) => v === k).length), cx + 6, 11, 5, '#fff', 'left', null);
+  });
+  ACHIEVEMENTS.forEach((ach, i) => {
+    const ax = x + 12, ay = 26 + i * 11;
+    const ok = !!got[ach.id];
+    // troféu (aceso se conquistado)
+    c.fillStyle = ok ? '#ffd23a' : '#4a3e78';
+    c.fillRect(ax, ay, 7, 4);
+    c.fillRect(ax + 2, ay + 4, 3, 2);
+    c.fillRect(ax + 1, ay + 6, 5, 2);
+    text(c, ach.name, ax + 11, ay + 1, 5, ok ? '#ffffff' : '#8a80b8', 'left', null);
+    text(c, ach.desc, ax + 96, ay + 1, 5, ok ? '#c8c0f0' : '#6a6098', 'left', null);
+  });
+  const st = loadStats();
+  text(c, `${st.stages} trechos  ${st.passes} ultrapassagens  ${st.tunnels} túneis`, w / 2, 228, 5, '#a8a0d8', 'center', null);
+}
+
 // ---------- recordes ----------
 function drawScores(c: CanvasRenderingContext2D, s: AppState) {
   const { w } = view;
@@ -823,6 +930,7 @@ function drawScores(c: CanvasRenderingContext2D, s: AppState) {
     if (e.score) text(c, `${pts(e.score)} pts`, x + 52, y + 9, 5, '#ffd400', 'left', null);
     text(c, e.car, x + SAFE_W - 36, y, 8, '#d8d0ff', 'right', null);
   });
+  smallButton(c, achButton(), 'CONQUISTAS', false);
 }
 
 // ---------- roteamento ----------
@@ -839,9 +947,10 @@ export function drawScreen(c: CanvasRenderingContext2D, s: AppState) {
         setEngine(0, false, false);
         setTires(0, 0);
       }
-      return s.gasPage ? drawStageResult(c, s) : drawGas(c, s, CARS[s.carIdx]);
+      return s.gasPage === 2 ? drawChallenges(c, s) : s.gasPage ? drawStageResult(c, s) : drawGas(c, s, CARS[s.carIdx]);
     case 'end': return drawEnd(c, s);
     case 'scores': return drawScores(c, s);
+    case 'achievements': return drawAchievements(c, s);
     default: return drawCareerScreen(c, s);
   }
 }
@@ -913,8 +1022,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
       return;
     }
     case 'gas':
-      if (!s.gasPage) s.gasPage = 1;
-      else a.nextStage();
+      gasNext(s, a);
       return;
     case 'end':
       s.scoreCourse = s.courseIdx;
@@ -922,7 +1030,11 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
     case 'scores':
       if (y < 60 && x < view.w / 2) s.scoreCourse = (s.scoreCourse + COURSES.length - 1) % COURSES.length;
       else if (y < 60) s.scoreCourse = (s.scoreCourse + 1) % COURSES.length;
+      else if (inside(x, y, achButton())) a.go('achievements');
       else a.go('title');
+      return;
+    case 'achievements':
+      a.go('scores');
       return;
   }
 }
@@ -947,14 +1059,18 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   }
   if (s.screen === 'gas') {
     if (k !== 'ok') return;
-    if (!s.gasPage) s.gasPage = 1;
-    else a.nextStage();
+    gasNext(s, a);
     return;
   }
   if (s.screen === 'end') return k === 'ok' && tapScreen(s, a, 0, 100);
+  if (s.screen === 'achievements') {
+    if (k === 'ok' || k === 'back' || k === 'up') a.go('scores');
+    return;
+  }
   if (s.screen === 'scores') {
     if (k === 'left') s.scoreCourse = (s.scoreCourse + COURSES.length - 1) % COURSES.length;
     if (k === 'right') s.scoreCourse = (s.scoreCourse + 1) % COURSES.length;
+    if (k === 'down') return a.go('achievements');
     if (k === 'ok' || k === 'back') a.go('title');
     return;
   }

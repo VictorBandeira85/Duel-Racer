@@ -69,6 +69,7 @@ export interface TrafficCar {
   smoke: number;
   slide: number;
   tilt: number;
+  rel?: number; // posição em relação ao jogador no quadro anterior (conta ultrapassagens)
 }
 
 export interface Rival {
@@ -164,6 +165,10 @@ export class Race {
   ghostRun: Ghost | null = null; // fantasma (melhor passagem do trecho)
   ghostPos: { z: number; x: number; ghost: true } | null = null; // motor batido esquentando: perde força e o ponteiro da água sobe
   private stoneT = 0;
+  // contagens do trecho para os desafios e as conquistas
+  stats = { passes: 0, near: 0, brakeT: 0, airT: 0, bestAir: 0, scrapes: 0, tunnels: 0 };
+  challenges: import('./challenges').Challenge[] = [];
+  private wasTunnel = false;
   private crashSlide = 0;
   private hitCar: TrafficCar | null = null; // com quem bateu (fica à frente, os dois arrastando juntos)
   private crashSpin = 0;
@@ -319,6 +324,15 @@ export class Race {
       }
       this.sun = clamp(1 - p / 0.75, 0, 1);
     }
+    if (this.state === 'drive') {
+      if (this.braking && this.speed > 0) this.stats.brakeT += dt;
+      if (this.airborne) {
+        this.stats.airT += dt;
+        this.stats.bestAir = Math.max(this.stats.bestAir, this.stats.airT);
+      } else this.stats.airT = 0;
+    }
+    if (seg.tunnel && !this.wasTunnel) this.stats.tunnels++;
+    this.wasTunnel = !!seg.tunnel;
     const inT = seg.tunnel ? 1 : 0;
     this.inTunnel += (inT - this.inTunnel) * Math.min(1, dt * 4);
     setTunnel(this.inTunnel);
@@ -370,6 +384,7 @@ export class Race {
     c.smoke = 0;
     c.slide = 0;
     c.tilt = 0;
+    c.rel = undefined;
   }
 
   // área de colisão um pouco menor que o desenho, para raspões não contarem
@@ -760,6 +775,13 @@ export class Race {
         if (Math.abs(c.slide) < 20) c.slide = 0;
       }
       c.z += c.speed * dt;
+      // ultrapassagem (passou de à frente para atrás) e raspão de quem vem na contramão
+      const rel = c.z - pz;
+      if (c.rel !== undefined && c.rel > 0 && rel <= 0 && !c.hit && this.state === 'drive') {
+        if (c.base > 0) this.stats.passes++;
+        else if (Math.abs(c.x - this.x) < CAR_W * 1.35) this.stats.near++;
+      }
+      c.rel = rel;
       // atrás, some só bem longe (continua visível no retrovisor)
       if (c.z < pz - 200 * SEG_LEN || c.z > pz + 420 * SEG_LEN) this.spawn(c, pz + (280 + this.rand() * 80) * SEG_LEN);
     }
@@ -1158,6 +1180,7 @@ export class Race {
           this.damage = Math.min(1, this.damage + (c.speed > 0 ? 0.06 : 0.12));
           c.slide = -side * 500; // o outro também é empurrado de lado
           scrapeSound();
+          this.stats.scrapes++;
           continue;
         }
         // de frente com quem vem na contramão, ou forte demais: batida
@@ -1177,6 +1200,7 @@ export class Race {
         this.x += side * Math.min(depth, 200) * 0.4;
         this.ghost = 0.4;
         this.scrapeT = 0.25 + dv / 200;
+        this.stats.scrapes++;
         if (dv > 45) this.clean = false;
         // batida leve: tranco, amassadinho (dano acumula e o motor começa a fumegar) e o outro fica marcado
         this.jolt = Math.max(this.jolt, Math.min(0.7, 0.25 + dv / 120));
@@ -1218,6 +1242,7 @@ export class Race {
         this.speed = (p - m2 * e * rel) / (m1 + m2);
         r.speed = (p + m1 * e * rel) / (m1 + m2);
         r.z = pz + Math.sign(behind) * SEG_LEN * 0.85;
+        this.stats.scrapes++;
         this.scrapeT = 0.3;
         scrapeSound();
       } else {

@@ -5,7 +5,7 @@ import { THEMES, nightTheme, rainTheme, type Theme } from './themes';
 import { SPRITES } from './sprites';
 import { buildTrack, laneCenter, type Segment, type Track } from './track';
 import { input, takeShift } from './input';
-import { beep, crashSound, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
+import { beep, bumpSound, crashSound, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
 import { updateTrafficAudio } from './trafficaudio';
 
@@ -39,6 +39,10 @@ export interface TrafficCar {
   moving: boolean;
   think: number;
   panic: number; // contramão de frente para o jogador: 0 tranquilo .. 3 batida iminente (buzina, freia, desvia)
+  // depois de uma batida: fumaça do motor (0..1), arrasto de lado (unidades/s) e inclinação do desenho (rad)
+  smoke: number;
+  slide: number;
+  tilt: number;
 }
 
 export interface Rival {
@@ -115,6 +119,15 @@ export class Race {
   ghost = 0;
   shake = 0;
   scrapeT = 0; // tremida curta depois de um raspão
+  // batida: tempo desde o impacto, tranco (0..1, sacode a cabine), arrasto de lado e giro do carro,
+  // fumaça/vapor do motor (0..1) e dano acumulado das batidas leves (0..1, a fumaça aparece com ele)
+  impactT = 0;
+  jolt = 0;
+  smoke = 0;
+  damage = 0;
+  private crashSlide = 0;
+  private hitCar: TrafficCar | null = null; // com quem bateu (fica à frente, os dois arrastando juntos)
+  private crashSpin = 0;
   slip = 0; // derrapagem (0 = com aderência, 1 = escorregando)
   spin = 0; // rodas patinando na arrancada
   balance = 0; // equilíbrio do carro: < 0 sai de frente, > 0 a traseira solta
@@ -187,7 +200,7 @@ export class Race {
       this.rival.pt.boost = LAUNCH_BOOST;
     }
     for (let i = 0; i < this.def.traffic; i++) {
-      const c: TrafficCar = { z: 0, x: 0, speed: 0, color: '', truck: false, model: 'sedan', hit: false, base: 0, tx: 0, signal: 0, signalT: 0, moving: false, think: 0, panic: 0 };
+      const c: TrafficCar = { z: 0, x: 0, speed: 0, color: '', truck: false, model: 'sedan', hit: false, base: 0, tx: 0, signal: 0, signalT: 0, moving: false, think: 0, panic: 0, smoke: 0, slide: 0, tilt: 0 };
       this.spawn(c, this.playerZ + (45 + (i / this.def.traffic) * 300) * SEG_LEN);
       this.traffic.push(c);
     }
@@ -250,6 +263,9 @@ export class Race {
     c.moving = false;
     c.think = 1 + r() * 3;
     c.panic = 0;
+    c.smoke = 0;
+    c.slide = 0;
+    c.tilt = 0;
   }
 
   // área de colisão um pouco menor que o desenho, para raspões não contarem
@@ -326,7 +342,7 @@ export class Race {
     this.speed += toGame(aDrive - aResist - aGrav) * dt;
     // freio: ~1 g no seco (menos na chuva/neve e no topo das lombadas; a asa ajuda em alta)
     if (this.braking) {
-      if (this.state === 'crash') this.speed -= max * 2 * dt;
+      if (this.state === 'crash') { /* a batida desacelera em updateCrash (arrastando) */ }
       else if (pulling) this.speed -= max * 0.17 * dt;
       else this.speed -= toGame(G * this.car.brakeG * surf * aero * (1 - this.air * 0.5)) * dt;
     }
@@ -411,6 +427,10 @@ export class Race {
 
     // ---- fora da pista ----
     this.shake = 0;
+    this.jolt = Math.max(0, this.jolt - dt * (this.state === 'crash' ? 1.6 : 4));
+    if (this.jolt > 0.05) this.shake = 1 + this.jolt * 4;
+    // a fumaça da batida vai virando um fio; com dano acumulado, o motor segue soltando vapor
+    this.smoke = Math.max(this.damage > 0.45 ? (this.damage - 0.45) * 1.2 : 0, this.smoke - dt * (this.state === 'crash' ? 0.12 : 0.3));
     if (this.scrapeT > 0) {
       this.scrapeT -= dt;
       this.shake = 1;
@@ -450,6 +470,7 @@ export class Race {
 
     // ---- estados especiais ----
     if (this.state === 'crash') {
+      this.updateCrash(dt);
       this.timer -= dt;
       if (this.timer <= 0) {
         this.onCrash?.();
@@ -487,6 +508,7 @@ export class Race {
     const surface = this.def.weather === 'snow' ? 'snow' : this.def.weather === 'rain' ? 'wet' : 'dry';
     setTires(screech, offRoad && this.speed > 100 ? 0.4 + speedPct * 0.6 : 0, surface, driving || this.state === 'arrived' ? speedPct : 0);
     setEngine(Math.max(0.1, this.rpm), this.throttle, true, this.turboCar ? this.pt.boost : 0);
+    setSteam(this.smoke);
   }
 
   private lastGear = 0;
@@ -502,21 +524,65 @@ export class Race {
     scrapeSound();
   }
 
-  private crash() {
+  // batida de verdade: troca de quantidade de movimento com o outro (pelos pesos, quase sem
+  // ricochete), tranco, o carro gira e desliza para o lado oposto ao do impacto até parar, o outro
+  // é arremessado e roda; capô amassa, solta estilhaços e o motor fumega
+  private crash(other?: { v: number; kg: number; side: number; car?: TrafficCar }) {
     this.state = 'crash';
-    this.timer = 2.6;
+    this.hitCar = null;
+    this.timer = 3.4;
     this.clean = false;
     this.crashes++;
     this.gear = 0;
     this.pt.shift(0);
-    this.crashPoint = { x: 0.3 + this.rand() * 0.4, y: 0.35 + this.rand() * 0.3 };
-    crashSound();
+    const side = other?.side || (this.rand() < 0.5 ? -1 : 1);
+    const v1 = this.speed, v2 = other?.v ?? 0, m1 = this.car.mass, m2 = other?.kg ?? 1800;
+    const rel = Math.max(0, v1 - v2);
+    const e = 0.12; // batida de lata: quase toda a energia vira amassado
+    this.speed = Math.max(0, (m1 * v1 + m2 * v2 - m2 * e * rel) / (m1 + m2));
+    const dv = rel * KMH; // km/h de diferença no impacto
+    this.crashSlide = side * (500 + dv * 12);
+    this.crashSpin = side * Math.min(0.3, 0.1 + dv / 500); // giro na batida (a câmera vai junto: sem exagero)
+    this.impactT = 0;
+    this.jolt = 1;
+    this.smoke = 1;
+    this.damage = 1;
+    if (other?.car) {
+      const c = other.car;
+      c.hit = true;
+      c.speed = (m1 * v1 + m2 * v2 + m1 * e * rel) / (m1 + m2);
+      c.slide = -side * (300 + dv * (c.truck ? 3 : 10));
+      c.smoke = 1;
+      // fica à frente, no ponto da batida (e não "dentro" da câmera)
+      c.z = Math.max(c.z, this.playerZ + SEG_LEN * 3);
+      this.hitCar = c;
+      if (v2 < 0) c.speed = Math.min(c.speed, 0) * 0.3; // de frente: os dois param ali mesmo
+    }
+    this.crashPoint = { x: 0.4 + this.rand() * 0.2 - side * 0.08, y: 0.45 + this.rand() * 0.2 };
+    crashSound(Math.min(1, 0.4 + dv / 160));
+  }
+
+  // durante a batida: desliza girando, perde velocidade arrastando, a cabine para de sacudir aos poucos
+  private updateCrash(dt: number) {
+    this.impactT += dt;
+    this.speed = Math.max(0, this.speed - this.car.maxSpeed * 0.25 * dt); // lata arrastando: para em ~1,5 s
+    this.x += this.crashSlide * dt;
+    // não atravessa o carro em que bateu: os dois param juntos, ele à frente
+    const hc = this.hitCar;
+    if (hc && hc.z - this.playerZ < SEG_LEN * 2.6) this.speed = Math.min(this.speed, Math.max(0, hc.speed));
+    this.crashSlide *= Math.exp(-2.6 * dt);
+    const t = this.impactT;
+    this.drift = this.crashSpin * Math.min(1, t / 0.22) * (t < 1.2 ? 1 : Math.max(0.35, 1 - (t - 1.2) * 0.6));
   }
 
   // volta à pista depois de batida ou multa
   private resume() {
     this.state = 'drive';
     this.speed = 0;
+    this.smoke = 0; // carro novo
+    this.damage = 0;
+    this.jolt = 0;
+    this.drift = 0;
     this.gear = 0;
     this.pt.shift(0);
     this.x = laneCenter(this.track, this.track.lanes - 1);
@@ -530,7 +596,20 @@ export class Race {
     const pz = this.playerZ;
     for (const c of this.traffic) {
       if (!c.hit) this.trafficAI(c, dt);
-      else c.panic = 0;
+      else {
+        // batido: arrasta até parar, escorrega de lado e fica atravessado, fumegando
+        c.panic = 0;
+        c.speed -= Math.sign(c.speed) * Math.min(Math.abs(c.speed), 3000 * dt);
+        c.x += c.slide * dt;
+        c.slide *= Math.exp(-2.2 * dt);
+        c.tilt += ((Math.sign(c.slide) || Math.sign(c.tilt)) * 0.16 - c.tilt) * Math.min(1, dt * 5);
+        c.smoke = Math.max(0.3, c.smoke - dt * 0.08);
+      }
+      if (!c.hit && c.slide) { // empurrado num raspão: volta ao normal
+        c.x += c.slide * dt;
+        c.slide *= Math.exp(-5 * dt);
+        if (Math.abs(c.slide) < 20) c.slide = 0;
+      }
       c.z += c.speed * dt;
       // atrás, some só bem longe (continua visível no retrovisor)
       if (c.z < pz - 95 * SEG_LEN || c.z > pz + 420 * SEG_LEN) this.spawn(c, pz + (280 + this.rand() * 80) * SEG_LEN);
@@ -926,14 +1005,16 @@ export class Race {
           this.speed *= c.speed > 0 ? 0.82 : 0.65;
           this.ghost = 0.35;
           this.scrapeT = c.speed > 0 ? 0.3 : 0.45;
+          this.jolt = Math.max(this.jolt, c.speed > 0 ? 0.3 : 0.5);
+          this.damage = Math.min(1, this.damage + (c.speed > 0 ? 0.06 : 0.12));
+          c.slide = -side * 500; // o outro também é empurrado de lado
           scrapeSound();
           continue;
         }
         // de frente com quem vem na contramão, ou forte demais: batida
         const dv = (this.speed - c.speed) * KMH;
         if (c.speed < 0 || dv > (c.truck ? 70 : 110)) {
-          c.hit = true;
-          this.crash();
+          this.crash({ v: c.speed, kg: c.truck ? TRUCK_KG : TRAFFIC_KG, side, car: c });
           return;
         }
         // batida leve na traseira: troca de quantidade de movimento conforme os pesos
@@ -948,8 +1029,11 @@ export class Race {
         this.ghost = 0.4;
         this.scrapeT = 0.25 + dv / 200;
         if (dv > 45) this.clean = false;
-        scrapeSound();
-        beep(90, 0.1);
+        // batida leve: tranco, amassadinho (dano acumula e o motor começa a fumegar) e o outro fica marcado
+        this.jolt = Math.max(this.jolt, Math.min(0.7, 0.25 + dv / 120));
+        this.damage = Math.min(1, this.damage + Math.min(0.35, 0.08 + dv / 140));
+        if (dv > 30) c.smoke = Math.max(c.smoke, 0.4);
+        bumpSound(Math.min(1, 0.3 + dv / 100));
       }
       if (r) {
         const rz = c.z - r.z;
@@ -964,7 +1048,7 @@ export class Race {
 
     for (const p of this.police) {
       if (p.state === 'parked' && this.ghost <= 0 && Math.abs(p.z - pz) < SEG_LEN && overlap(this.x, myHalf, p.x, (POLICE_W / 2) * HITBOX)) {
-        this.crash();
+        this.crash({ v: 0, kg: 1800, side: this.x < p.x ? -1 : 1 });
         return;
       }
     }

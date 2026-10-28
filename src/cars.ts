@@ -540,6 +540,7 @@ export interface CarLook {
   model?: string; // trânsito: sedan, hatch, pickup, van, truck (sprites de assets/traffic)
   signal?: number; // seta ligada: -1 lado esquerdo da tela, 1 direito
   flash?: boolean; // trânsito de frente piscando o farol alto (assustado)
+  tilt?: number; // batido: o desenho fica inclinado (rad), girando em torno da base
   lamps?: { up: number; on: boolean; high?: boolean }; // faróis: quanto subiram (escamoteáveis), acesos, farol alto
 }
 
@@ -623,6 +624,15 @@ const TRAFFIC_GLOW: Record<string, { dots?: number[][]; siren?: number[][]; sire
 
 export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   if (w < 2) return;
+  if (look.tilt && Math.abs(look.tilt) > 0.01) {
+    c.save();
+    c.translate(x, y);
+    c.rotate(look.tilt);
+    c.translate(-x, -y);
+    drawCar(c, x, y, w, { ...look, tilt: 0 });
+    c.restore();
+    return;
+  }
   // trânsito e polícia: sprites em pixel art (o desenho por código fica de reserva)
   if (!look.rear && (look.police || look.model) && drawTrafficSprite(c, x, y, w, look, look.police ? (look.sv ? 'policesv' : 'police') : look.model!)) return;
   const variant = look.paint ? look.rear?.variants?.[look.paint] : undefined;

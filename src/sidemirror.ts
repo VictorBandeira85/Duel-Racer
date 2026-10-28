@@ -69,7 +69,7 @@ export function findGlass(key: string, top: HTMLCanvasElement | null, dash: HTML
       best = id;
     }
   }
-  if (bestN < 200) {
+  if (bestN < 120) { // o do 959 é cortado pela borda: vidro pequeno
     glasses.set(key, null);
     return null;
   }

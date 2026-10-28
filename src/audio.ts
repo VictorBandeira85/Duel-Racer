@@ -319,10 +319,64 @@ export function tickSound() {
   src.start();
 }
 
-// batida: estrondo grave, ruído de lataria e cacos de vidro
-export function crashSound() {
+// rajada de ruído filtrado (lata amassando, arrasto)
+function burst(at: number, dur: number, freq: number, q: number, vol: number, type: BiquadFilterType = 'bandpass', sweepTo?: number) {
+  const c = ctx!;
+  const src = c.createBufferSource();
+  src.buffer = noiseBuffer(dur + 0.05);
+  const f = c.createBiquadFilter();
+  f.type = type;
+  f.frequency.setValueAtTime(freq, at);
+  if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, at + dur);
+  f.Q.value = q;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(vol, at + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  src.connect(f).connect(g).connect(master);
+  src.start(at);
+}
+
+// batida leve: pancada seca e um amassadinho
+export function bumpSound(power = 0.5) {
   if (!ctx) return;
   const t = ctx.currentTime;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(110, t);
+  o.frequency.exponentialRampToValueAtTime(45, t + 0.18);
+  g.gain.setValueAtTime(0.35 * power, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+  o.connect(g).connect(master);
+  o.start();
+  o.stop(t + 0.25);
+  burst(t, 0.12, 700, 2.5, 0.25 * power);
+  burst(t + 0.03, 0.09, 1300, 3, 0.15 * power);
+}
+
+// vapor/fumaça do motor batido: chiado contínuo
+let steamGain: GainNode | null = null;
+export function setSteam(level: number) {
+  if (!ctx) return;
+  if (!steamGain) {
+    steamGain = ctx.createGain();
+    steamGain.gain.value = 0;
+    const f = ctx.createBiquadFilter();
+    f.type = 'highpass';
+    f.frequency.value = 2800;
+    loopNoise().connect(f).connect(steamGain).connect(master);
+  }
+  steamGain.gain.setTargetAtTime(Math.min(1, level) * 0.045, ctx.currentTime, 0.2);
+}
+
+// batida: estrondo grave, lata amassando, cacos de vidro e o carro arrastando até parar
+export function crashSound(power = 1) {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  // lata amassando: várias pancadas metálicas em sequência
+  for (let k = 0; k < 7; k++) burst(t + k * 0.035 + Math.random() * 0.02, 0.1 + Math.random() * 0.08, 380 + Math.random() * 900, 2 + Math.random() * 3, 0.32 * power);
+  // arrasto de lata no asfalto enquanto desliza
+  burst(t + 0.18, 1.3 * power + 0.3, 1800, 1.4, 0.12 * power, 'bandpass', 700);
   const thump = ctx.createOscillator();
   const tg = ctx.createGain();
   thump.type = 'sine';

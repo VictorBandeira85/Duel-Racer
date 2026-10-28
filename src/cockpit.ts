@@ -8,6 +8,7 @@ import { F40_WHEEL } from './svg/f40';
 import { spriteAspect, svgSprite } from './svgsprites';
 import { drawWipers, type DashTop } from './wipers';
 import { drawSideMirror, findGlass } from './sidemirror';
+import { drawSmoke } from './smoke';
 import { blinkOn } from './cars';
 // cabines em pixel art (tools/ref/import_cockpit.py)
 import dashF40Png from './assets/cockpit/f40-dash.png';
@@ -95,8 +96,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
       warnLamp(c, ox + 129, ART_TOP + 56, gauges.oil < 0.36);
     } },
   // 959: interior completo do Victor; os cinco mostradores redesenhados com números maiores
-  // o retrovisor da arte é cortado pela borda: o sprite completo (tools/ref/mirror_959.py) entra por cima
-  '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.2, 84.3], mirror: { img: cp('959-mirror'), x: 0, y: 74 },
+  '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.2, 84.3],
     // VDO: conta-giros 1-8 com faixa vermelha a partir de 7,5 e o manômetro do turbo (0-2,5 bar)
     // embaixo; velocímetro 20-340 com hodômetro; à esquerda o combinado de óleo (temperatura,
     // pressão e nível) e o de combustível e água
@@ -574,11 +574,11 @@ function lcdPanel(c: CanvasRenderingContext2D, ox: number, r: Race, art: Cockpit
     const rl = 41 + pixWidth(String(v), 0.5) * 0.5 * Math.abs(Math.cos(a));
     pix(c, String(v), ox + 116 + 0.5 + Math.cos(a) * rl, ART_TOP + 80 + Math.sin(a) * rl * PIX_Y, LCD.yellow, 0.5);
   }
-  seg7Number(c, ox + 110, ART_TOP + 59, kmh, 3, LCD.yellow, LCD.yellowOff);
+  seg7Number(c, ox + 114, ART_TOP + 59, kmh, 3, LCD.yellow, LCD.yellowOff); // à direita do arco (os três dígitos não encostam nas barras)
   // conta-giros: arco verde/amarelo/vermelho e giro em centenas (46 = 4.600 rpm)
   const tachArc = { x: 226, y: 86, r0: 31, r1: 37, a0: Math.PI * 1.2, a1: Math.PI * 1.49, n: 18 };
   drawArc(c, ox, tachArc, rpm, (f) => (f < 0.7 ? [LCD.green, LCD.greenOff] : f < 0.85 ? [LCD.yellow, LCD.yellowOff] : [LCD.red, LCD.redOff]));
-  seg7Number(c, ox + 218, ART_TOP + 59, rpm * 70, 2, LCD.yellow, LCD.yellowOff);
+  seg7Number(c, ox + 224, ART_TOP + 59, rpm * 70, 2, LCD.yellow, LCD.yellowOff);
   // centro: pressão do óleo, combustível, temperatura, voltímetro e luzes
   const oil = 0.35 + 0.5 * rpm, temp = 0.45 + 0.15 * Math.min(1, r.time / 90), fuel = 0.8 - 0.3 * Math.min(1, r.time / 600);
   lcdBars(c, ox + 116, ART_TOP + 30, 24, 10, 8, oil, LCD.green);
@@ -825,7 +825,61 @@ function dashTopFn(art: CockpitArt | undefined): DashTop {
   return (x) => (col ? ART_TOP + col[Math.max(0, Math.min(col.length - 1, x - dx))] : DASH_Y);
 }
 
+// batida: a cabine inteira sacode com o tranco
 export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: number, stageLabel: string, totalTime: number, dt: number) {
+  c.save();
+  if (r.jolt > 0.02) c.translate(Math.round((Math.random() - 0.5) * r.jolt * 8), Math.round((Math.random() - 0.5) * r.jolt * 6));
+  renderCockpitInner(c, r, lives, stageLabel, totalTime, dt);
+  c.restore();
+}
+
+// capô amassado subindo à frente do para-brisa e fumaça/vapor saindo do motor
+function drawDamage(c: CanvasRenderingContext2D, r: Race, vp: Viewport, art: CockpitArt | undefined) {
+  const top = dashTopFn(art);
+  const cx = coreX() + 128;
+  const grow = r.state === 'crash' ? Math.min(1, r.impactT / 0.12) : r.damage > 0.25 ? r.damage * 0.35 : 0;
+  if (grow > 0) {
+    const half = Math.round(vp.w * 0.27);
+    const rand = rng(r.crashes * 53 + 11);
+    const peaks: number[] = [];
+    for (let i = 0; i <= 12; i++) peaks.push(4 + rand() * 10 + (i % 3 === 1 ? 5 : 0));
+    const color = paintHex(r.car.id) ?? r.car.color;
+    for (let x = cx - half; x <= cx + half; x++) {
+      const u = (x - (cx - half)) / (2 * half); // 0..1 ao longo do capô
+      const k = u * 12, i0 = Math.floor(k), f = k - i0;
+      const edge = Math.sin(u * Math.PI) ** 0.6; // mais alto no meio, some nas pontas
+      const h = Math.round((peaks[i0] * (1 - f) + peaks[Math.min(12, i0 + 1)] * f) * edge * grow);
+      if (h <= 0) continue;
+      const y0 = top(x) + 1;
+      // dobras: faces claras e escuras alternadas (lata vincada), borda escura em cima
+      const facet = Math.floor(k * 1.7) % 2 === 0;
+      c.fillStyle = shade(color, facet ? 0.12 : -0.28);
+      c.fillRect(x, y0 - h, 1, h);
+      c.fillStyle = shade(color, -0.55);
+      c.fillRect(x, y0 - h, 1, 1);
+    }
+  }
+  if (r.smoke > 0.02) drawSmoke(c, cx, top(cx) + 2, vp.w * 0.5, r.smoke, r.crashes + 1);
+}
+
+// estilhaços (vidro e lata) voando do ponto do impacto
+function drawDebris(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
+  const t = r.impactT;
+  if (t > 1.1) return;
+  const rand = rng(r.crashes * 31 + 5);
+  const ox = vp.x + vp.w * r.crashPoint.x, oy = vp.y + vp.h * r.crashPoint.y;
+  const body = paintHex(r.car.id) ?? r.car.color;
+  for (let i = 0; i < 28; i++) {
+    const a = rand() * Math.PI * 2, sp = 50 + rand() * 150;
+    const x = ox + Math.cos(a) * sp * t, y = oy + Math.sin(a) * sp * t * 0.8 + 160 * t * t;
+    const glass = rand() < 0.6;
+    c.fillStyle = glass ? `rgba(225,238,248,${(1 - t / 1.1).toFixed(2)})` : body;
+    const s = rand() < 0.3 ? 2 : 1;
+    c.fillRect(Math.round(x), Math.round(y), s, s);
+  }
+}
+
+function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number, stageLabel: string, totalTime: number, dt: number) {
   const { w } = view;
   const vp = windshield();
   const art = COCKPIT_ART[r.car.dash];
@@ -834,11 +888,13 @@ export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: numbe
   renderRoad(c, r, art ? { ...vp, h: view.h - vp.y } : vp);
   weather(c, r, vp, dt);
   drawWipers(c, r, vp, dt, dashTopFn(art), coreX());
+  drawDamage(c, r, vp, art);
   if (r.state === 'crash') {
-    const t = 2.6 - r.timer;
+    const t = 3.4 - r.timer;
     drawCracks(c, r, vp, 1);
-    if (t > 1.3) {
-      c.fillStyle = `rgba(0,0,0,${Math.min(0.75, (t - 1.3) * 0.8)})`;
+    drawDebris(c, r, vp);
+    if (t > 1.9) {
+      c.fillStyle = `rgba(0,0,0,${Math.min(0.75, (t - 1.9) * 0.8)})`;
       c.fillRect(vp.x, vp.y, vp.w, vp.h);
       text(c, 'BATIDA!', w / 2, vp.y + 26, 16, '#ff4040', 'center');
       text(c, `Carros restantes: ${Math.max(0, lives - 1)}`, w / 2, vp.y + 54, 8, '#fff', 'center');

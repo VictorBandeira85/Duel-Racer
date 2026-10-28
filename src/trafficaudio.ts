@@ -15,13 +15,24 @@ const RANGE = 70; // m: além disso, nenhum motor de fora
 
 // motor de cada modelo do trânsito
 const MODEL_ENGINE: Record<string, string> = { sedan: 'V6', hatch: '4 cil.', pickup: 'V8', van: '4 cil.', truck: 'diesel' };
-// buzina: duas notas (Hz) e timbre
-const HORN: Record<string, [number, number, OscillatorType]> = {
-  sedan: [410, 515, 'square'], hatch: [460, 580, 'square'], pickup: [330, 415, 'sawtooth'], van: [370, 465, 'square'], truck: [165, 208, 'sawtooth'],
+// buzina de cada tipo de veículo: notas (Hz), timbre, filtro (tipo, frequência, Q), ataque (s)
+// e volume. Cada carro ainda tem a sua afinação (até ±9%), então dois iguais não soam idênticos.
+interface HornDef { notes: number[]; wave: OscillatorType; filter: BiquadFilterType; fq: number; q: number; attack: number; vol: number; beat: [number, number] }
+export const HORN: Record<string, HornDef> = {
+  // carro pequeno: "bip" fino e agudo, quase uma nota só
+  hatch: { notes: [520, 545], wave: 'square', filter: 'bandpass', fq: 1500, q: 2.2, attack: 0.005, vol: 0.09, beat: [0.2, 0.11] },
+  // sedã: as duas notas clássicas (terça maior), cheio
+  sedan: { notes: [405, 510], wave: 'square', filter: 'lowpass', fq: 2000, q: 0.9, attack: 0.008, vol: 0.11, beat: [0.34, 0.2] },
+  // van: fanhosa, intervalo curto e médios ressaltados
+  van: { notes: [350, 395], wave: 'square', filter: 'bandpass', fq: 1100, q: 1.6, attack: 0.01, vol: 0.11, beat: [0.38, 0.24] },
+  // picape: grave e metálica, quinta justa
+  pickup: { notes: [290, 435], wave: 'sawtooth', filter: 'lowpass', fq: 1500, q: 1.4, attack: 0.012, vol: 0.12, beat: [0.46, 0.3] },
+  // caminhão: buzina a ar, acorde de três notas bem grave, entra devagar
+  truck: { notes: [147, 185, 220], wave: 'sawtooth', filter: 'lowpass', fq: 1300, q: 0.8, attack: 0.08, vol: 0.17, beat: [0.85, 0.62] },
 };
 
 interface Voice { node: AudioWorkletNode; gain: GainNode; pan: StereoPannerNode; key: object | null; spec: string }
-interface Horn { o1: OscillatorNode; o2: OscillatorNode; gain: GainNode; pan: StereoPannerNode; key: object | null; model: string }
+interface Horn { osc: OscillatorNode[]; filter: BiquadFilterNode; gain: GainNode; pan: StereoPannerNode; key: object | null; model: string }
 interface CarState { prevDz: number; panicT: number; honkCd: number; braked: boolean; hitHonk: boolean }
 
 let voices: Voice[] = [];
@@ -44,20 +55,27 @@ function build() {
     voices.push({ node, gain, pan, key: null, spec: '' });
   }
   for (let i = 0; i < 2; i++) {
-    const o1 = ctx.createOscillator(), o2 = ctx.createOscillator();
-    const f = ctx.createBiquadFilter();
-    f.type = 'lowpass';
-    f.frequency.value = 2200;
+    const filter = ctx.createBiquadFilter();
     const gain = ctx.createGain();
     gain.gain.value = 0;
     const pan = ctx.createStereoPanner();
-    o1.connect(f);
-    o2.connect(f);
-    f.connect(gain).connect(pan).connect(audioOut());
-    o1.start();
-    o2.start();
-    horns.push({ o1, o2, gain, pan, key: null, model: '' });
+    const osc = [0, 1, 2].map(() => {
+      const o = ctx.createOscillator();
+      o.connect(filter);
+      o.start();
+      return o;
+    });
+    filter.connect(gain).connect(pan).connect(audioOut());
+    horns.push({ osc, filter, gain, pan, key: null, model: '' });
   }
+}
+
+// afinação própria de cada carro (fixa enquanto ele existir)
+const tuning = new WeakMap<object, number>();
+function tuneOf(key: object) {
+  let t = tuning.get(key);
+  if (t === undefined) tuning.set(key, (t = 0.91 + Math.random() * 0.18));
+  return t;
 }
 
 function st(key: object): CarState {
@@ -212,7 +230,8 @@ export function updateTrafficAudio(r: Race, dt: number) {
         screech(Math.max(-1, Math.min(1, s.dx / 4)), Math.min(1, 0.4 + c.panic * 0.2));
       }
       // desespero: buzina contínua bem perto; antes, toques curtos e nervosos
-      const on = c.panic > 1.5 ? true : (cs.panicT % 0.34) < 0.2;
+      const [per, dur] = (HORN[model] ?? HORN.sedan).beat;
+      const on = c.panic > 1.5 ? true : (cs.panicT % per) < dur; // ritmo de cada buzina
       hornWant.push({ key: c, model, s, on });
       continue;
     }
@@ -229,7 +248,10 @@ export function updateTrafficAudio(r: Race, dt: number) {
     }
     // fechado: o jogador passou e entrou logo à frente dele, mais devagar
     if (c.speed > 0 && s.dz < -1 && s.dz > -9 && Math.abs(s.dx) < 1.3 && s.vz > 2 && cs.honkCd <= 0) cs.honkCd = 6;
-    if (c.speed > 0 && cs.honkCd > 5.2) hornWant.push({ key: c, model, s, on: (6 - cs.honkCd) % 0.4 < 0.22 });
+    if (c.speed > 0 && cs.honkCd > 6 - 2.2 * (HORN[model] ?? HORN.sedan).beat[0]) {
+      const [per, dur] = (HORN[model] ?? HORN.sedan).beat;
+      hornWant.push({ key: c, model, s, on: (6 - cs.honkCd) % per < dur });
+    }
   }
   hornWant = hornWant.sort((a, b) => a.s.d - b.s.d).slice(0, horns.length);
   for (const h of horns) if (h.key && !hornWant.some((w) => w.key === h.key)) {
@@ -240,18 +262,22 @@ export function updateTrafficAudio(r: Race, dt: number) {
     const h = horns.find((q) => q.key === w.key) ?? horns.find((q) => !q.key);
     if (!h) break;
     h.key = w.key;
-    const [f1, f2, type] = HORN[w.model] ?? HORN.sedan;
+    const def = HORN[w.model] ?? HORN.sedan;
     if (h.model !== w.model) {
       h.model = w.model;
-      h.o1.type = type;
-      h.o2.type = type;
+      h.osc.forEach((o) => (o.type = def.wave));
+      h.filter.type = def.filter;
+      h.filter.frequency.value = def.fq;
+      h.filter.Q.value = def.q;
     }
     const vr = (w.s.dz * w.s.vz) / w.s.d;
-    const pitch = Math.max(0.7, Math.min(1.4, SOUND / (SOUND + vr)));
-    h.o1.frequency.setTargetAtTime(f1 * pitch, ctx.currentTime, 0.02);
-    h.o2.frequency.setTargetAtTime(f2 * pitch, ctx.currentTime, 0.02);
-    const g = (w.model === 'truck' ? 0.16 : 0.11) / (1 + (w.s.d / 14) ** 2);
-    h.gain.gain.setTargetAtTime(w.on ? g : 0, ctx.currentTime, 0.012);
+    const pitch = Math.max(0.7, Math.min(1.4, SOUND / (SOUND + vr))) * tuneOf(w.key);
+    h.osc.forEach((o, i) => {
+      const n = def.notes[i];
+      o.frequency.setTargetAtTime((n ?? def.notes[0] * 1.006) * pitch, ctx.currentTime, 0.02); // 2 notas: a 3ª desafina a 1ª de leve (corneta dupla)
+    });
+    const g = (def.vol * (def.notes.length === 3 ? 0.8 : 1)) / (1 + (w.s.d / 14) ** 2);
+    h.gain.gain.setTargetAtTime(w.on ? g : 0, ctx.currentTime, w.on ? def.attack : 0.015);
     h.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, (w.s.dx / w.s.d) * 1.2)), ctx.currentTime, 0.03);
   }
 }

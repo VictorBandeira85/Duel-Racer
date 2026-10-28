@@ -1139,6 +1139,67 @@ function drawTruck(c: CanvasRenderingContext2D, x: number, y: number, w: number,
 }
 
 // Vista lateral (escolha do carro e posto). x = frente do carro, y = chão.
+// Vista diagonal (3/4) para as fotos da revista, montada com os sprites que existem: a frente
+// (ou a traseira) de face, perto da câmera, e a lateral fugindo em perspectiva, em faixas
+// verticais que encolhem com a distância. x = canto da frente, y = chão no ponto mais perto.
+export function drawCarDiagonal(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string, rear = false) {
+  const side = (paint && car.sideVariants?.[paint]) || car.imgSide;
+  const faceImg = rear ? car.rear.img : car.rear.frontImg;
+  if (!side || !faceImg) return drawCarSide(c, x, y, len, car, paint);
+  const aS = spriteAspect(side), aF = spriteAspect(faceImg);
+  if (!aS || !aF) return;
+  const variant = paint ? car.rear.variants?.[paint] : undefined;
+  const sideTint = paint && car.sideMask && side === car.imgSide ? { mask: car.sideMask, color: paint } : undefined;
+  const faceMask = rear ? car.rear.imgMask : car.rear.frontMask;
+  const face = (rear ? variant?.img : variant?.frontImg) ?? faceImg;
+  const faceTint = paint && faceMask && face === faceImg ? { mask: faceMask, color: paint } : undefined;
+  const sl = len * 0.66; // lateral encurtada
+  const hN = len * 0.8 * aS; // altura da lateral no lado perto (a do carro inteiro de lado)
+  const fw = (hN / aF) * 0.82; // largura da face com a mesma altura
+  const sprS = svgSprite(side, Math.round(sl * 2), Math.round(hN * 2), sideTint);
+  const sprF = svgSprite(face, Math.round(fw), Math.round(fw * aF), faceTint);
+  if (!sprS || !sprF) return;
+  const N = 48, rise = len * 0.1, shrink = 0.36;
+  const fwC = fw * 0.64; // a face vista de lado fica mais estreita
+  const join = fwC - 1; // o canto do carro: a lateral começa ali
+  // sombra no chão
+  c.fillStyle = 'rgba(0,0,0,0.35)';
+  c.beginPath();
+  c.moveTo(x, y);
+  c.lineTo(x + join + sl, y - rise);
+  c.lineTo(x + join + sl, y - rise + 3);
+  c.lineTo(x, y + 4);
+  c.fill();
+  // lateral: frente do sprite (esquerda) encostada na face; na traseira, o sprite espelhado
+  for (let i = 0; i < N; i++) {
+    const u = i / N, u2 = (i + 1) / N;
+    const k = 1 - shrink * u;
+    const h = hN * k;
+    const dx0 = x + join + u * sl, dx1 = x + join + u2 * sl;
+    const by = y - rise * u;
+    // o bico da lateral (os primeiros 13%) fica escondido atrás da face
+    const cut = 0.13, uu = cut + (1 - cut) * u, uu2 = cut + (1 - cut) * u2;
+    const su = rear ? 1 - uu2 : uu;
+    const sx = su * sprS.width, sw = ((uu2 - uu) * sprS.width);
+    if (rear) {
+      c.save();
+      c.translate(dx0 + (dx1 - dx0), 0);
+      c.scale(-1, 1);
+      c.drawImage(sprS, sx, 0, sw, sprS.height, 0, Math.round(by - h), Math.ceil(dx1 - dx0) + 0.5, Math.round(h));
+      c.restore();
+    } else c.drawImage(sprS, sx, 0, sw, sprS.height, Math.floor(dx0), Math.round(by - h), Math.ceil(dx1 - dx0) + 0.5, Math.round(h));
+  }
+  // a face, também em perspectiva: a ponta de fora (esquerda) mais longe, o canto mais perto
+  const fh = fw * aF, NF = 24, riseF = len * 0.035;
+  for (let j = 0; j < NF; j++) {
+    const v = j / NF, v2 = (j + 1) / NF;
+    const k = 0.84 + 0.16 * v;
+    const h = fh * k;
+    const by = y - riseF * (1 - v);
+    c.drawImage(sprF, v * sprF.width, 0, sprF.width / NF, sprF.height, Math.floor(x + v * fwC), Math.round(by - h), Math.ceil((v2 - v) * fwC) + 0.5, Math.round(h));
+  }
+}
+
 // spin: ângulo das rodas (rad); com ele, cada roda é redesenhada girando no lugar
 export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string, spin?: number) {
   if (car.imgSide) {

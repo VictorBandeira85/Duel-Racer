@@ -6,11 +6,12 @@ import type { CareerSave, EventResult } from './career';
 import { drawCareerScreen, keyCareerScreen, openCareer, tapCareerScreen } from './careerScreens';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
-import { CARS, CLASS_COLOR, accelCurve, drawCar, drawCarSide, gearbox, layout, perfClass, perfIndex, type CarSpec } from './cars';
+import { CARS, CLASS_COLOR, accelCurve, drawCar, drawCarDiagonal, drawCarSide, gearbox, layout, perfClass, perfIndex, type CarSpec } from './cars';
 import { COURSES, unlockedCourses, withTimeOfDay, type Course } from './courses';
 import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import { THEMES } from './themes';
 import { dither, inside, panel, text, type Rect } from './ui';
+import { interiorPhoto } from './cockpit';
 import { BLUE, GREY, INK, RED, YELLOW, barcode, box, burst, halftone, headline, ink, kicker, logo, masthead, paper, photo, rule, specRows, stars, tag } from './mag';
 import { formatTime, shade } from './util';
 import { setEngine, setTires, shiftSound } from './audio';
@@ -94,8 +95,156 @@ const titleSigns = () => {
   ] as Rect[];
 };
 
-// carro da capa: troca a cada 5 s entre os que têm arte
-const coverCars = () => CARS.filter((c) => c.imgSide && !c.arcadeOnly);
+// carros da capa: os que têm arte (e as vistas de frente e de trás)
+const coverCars = () => CARS.filter((c) => c.imgSide && c.rear.img && c.rear.frontImg && !c.arcadeOnly);
+const SLIDE_T = 7; // s por edição da capa
+const SLIDES = ['test', 'compare', 'angles', 'interior', 'news', 'road'] as const;
+
+// manchetes da página de notícias (algumas com os números do próprio jogador)
+function newsLines(slot: number): string[] {
+  const st = loadStats();
+  const got = Object.keys(unlockedAchievements()).length;
+  const pool = [
+    'Radares novos na Serra: atenção!',
+    'Postos da rodovia abrem 24 horas',
+    'Neblina fecha o Vale de madrugada',
+    `Leitores já ultrapassaram ${st.passes}`,
+    'Chefão do Litoral chama novatos',
+    `${unlockedCourses()} roteiros liberados no Arcade`,
+    'Túneis da Serra ganham luzes novas',
+    `${got} de ${ACHIEVEMENTS.length} conquistas desbloqueadas`,
+    'Vetor GSi: o sedã mais veloz?',
+    'Pneus de inverno valem na neve?',
+    'Polícia agora tem Diablo na pista',
+    'Pôr do sol no Cânion vira atração',
+  ];
+  return [0, 1, 2, 3].map((k) => pool[(slot * 3 + k) % pool.length]);
+}
+
+// fundo de estúdio com luz atrás do carro
+function studioLight(c: CanvasRenderingContext2D, ph: Rect) {
+  const g = c.createRadialGradient(ph.x + ph.w / 2, ph.y + 50, 10, ph.x + ph.w / 2, ph.y + 50, 150);
+  g.addColorStop(0, 'rgba(255,255,255,0.35)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = g;
+  c.fillRect(ph.x, ph.y, ph.w, ph.h);
+}
+
+function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot: number, u: number) {
+  const list = coverCars();
+  if (!list.length) return;
+  const kind = SLIDES[slot % SLIDES.length];
+  const car = list[slot % list.length];
+  const other = list[(slot + 3) % list.length] === car ? list[(slot + 1) % list.length] : list[(slot + 3) % list.length];
+  const enter = Math.min(1, u * SLIDE_T / 0.5); // entra deslizando no começo de cada edição
+  const ease = 1 - (1 - enter) ** 3;
+  const p = paintHex(car.id);
+  const kmh = (cc: CarSpec) => Math.round(cc.maxSpeed * KMH);
+  const mirror = (fn: () => void, cx: number) => {
+    c.save();
+    c.translate(cx * 2, 0);
+    c.scale(-1, 1);
+    fn();
+    c.restore();
+  };
+  if (kind === 'test') {
+    photo(c, ph, () => {
+      studioLight(c, ph);
+      drawCarSide(c, ph.x + 32 + (1 - ease) * 260, ph.y + 98, 248, car, p);
+    });
+    kicker(c, 'TESTE EXCLUSIVO', ph.x + 6, ph.y + 6, RED, '#fff');
+    logo(c, car.name.toUpperCase(), ph.x + 6, ph.y + 18, 8, '#fff', INK);
+    ink(c, `${car.power} • ${kmh(car)} km/h • 0-100 em ${car.zeroTo100.toFixed(1).replace('.', ',')}s`, ph.x + 6, ph.y + 30, 5, '#fff');
+    burst(c, ph.x + ph.w - 30, ph.y + 26, 25, ['20', 'MAPAS', 'NOVOS!'], YELLOW, RED, s.t);
+  } else if (kind === 'compare') {
+    photo(c, ph, () => {
+      studioLight(c, ph);
+      const off = (1 - ease) * 160;
+      // os dois frente a frente: o da esquerda espelhado
+      mirror(() => drawCarSide(c, ph.x + 6 - off, ph.y + 100, 148, car, p), ph.x + 80 - off);
+      drawCarSide(c, ph.x + ph.w - 154 + off, ph.y + 100, 148, other, paintHex(other.id));
+    });
+    kicker(c, 'COMPARATIVO', ph.x + 6, ph.y + 6, BLUE, '#fff');
+    logo(c, `${car.name.toUpperCase()} x ${other.name.toUpperCase()}`, ph.x + 6, ph.y + 18, 8, '#fff', INK);
+    ink(c, `${car.power} contra ${other.power}: quem leva?`, ph.x + 6, ph.y + 30, 5, '#fff');
+    burst(c, ph.x + ph.w / 2, ph.y + 70, 14, ['X'], YELLOW, RED, s.t);
+  } else if (kind === 'angles') {
+    photo(c, ph, () => {
+      studioLight(c, ph);
+      drawCarDiagonal(c, ph.x + 14 + (1 - ease) * 200, ph.y + 100, 176, car, p);
+    }, ['#6a5a4a', '#d8c8b0']);
+    // quadros menores: traseira de face e diagonal de trás
+    const a: Rect = { x: ph.x + ph.w - 92, y: ph.y + 8, w: 84, h: 44 };
+    const b: Rect = { x: ph.x + ph.w - 92, y: ph.y + 58, w: 84, h: 26 };
+    photo(c, a, () => drawCar(c, a.x + a.w / 2, a.y + a.h - 3, 52, { color: car.color, rear: car.rear, paint: p }));
+    photo(c, b, () => drawCarDiagonal(c, b.x + 8, b.y + b.h - 2, 62, car, p, true));
+    kicker(c, 'POR TODOS OS ÂNGULOS', ph.x + 6, ph.y + 6, RED, '#fff');
+    logo(c, car.name.toUpperCase(), ph.x + 6, ph.y + 18, 8, '#fff', INK);
+  } else if (kind === 'interior') {
+    const img = interiorPhoto(car.id, car.dash);
+    photo(c, ph, () => {
+      if (img) {
+        // enquadra o painel inteiro e aproxima devagar (como câmera em movimento)
+        const z = 1 + u * 0.12;
+        const w = ph.w * z, h = (w * img.height) / img.width;
+        c.drawImage(img, ph.x + (ph.w - w) / 2, ph.y + ph.h - h + 6 * u, w, h);
+      } else drawCarSide(c, ph.x + 32, ph.y + 98, 248, car, p);
+    }, ['#2a2a30', '#5a5a64']);
+    kicker(c, 'POR DENTRO', ph.x + 6, ph.y + 6, INK, YELLOW);
+    logo(c, `O PAINEL DO ${car.name.toUpperCase()}`, ph.x + 6, ph.y + 18, 8, '#fff', INK);
+  } else if (kind === 'news') {
+    photo(c, ph, () => {
+      c.fillStyle = '#f8f2e4';
+      c.fillRect(ph.x, ph.y, ph.w, ph.h);
+    }, ['#f8f2e4', '#f8f2e4']);
+    kicker(c, 'NOTÍCIAS DA ESTRADA', ph.x + 6, ph.y + 6, RED, '#fff');
+    newsLines(slot).forEach((l, i) => {
+      const y = ph.y + 22 + i * 19;
+      c.fillStyle = RED;
+      c.fillRect(ph.x + 6, y + 1, 3, 3);
+      ink(c, l, ph.x + 14, y, 5, INK);
+      rule(c, ph.x + 6, y + 11, 178, 'rgba(26,22,20,0.15)');
+    });
+    const q: Rect = { x: ph.x + ph.w - 112, y: ph.y + 24, w: 104, h: 56 };
+    photo(c, q, () => drawCarDiagonal(c, q.x + 6, q.y + q.h - 6, 92, car, p));
+    ink(c, `Flagra: ${car.name}`, q.x, q.y - 12, 5, GREY);
+  } else {
+    // flagra na estrada: o carro de trás, numa reta, com o asfalto passando
+    photo(c, ph, () => {
+      const hz = ph.y + 40;
+      const g = c.createLinearGradient(0, ph.y, 0, hz);
+      g.addColorStop(0, '#5a9ae8');
+      g.addColorStop(1, '#d8e8f6');
+      c.fillStyle = g;
+      c.fillRect(ph.x, ph.y, ph.w, hz - ph.y);
+      c.fillStyle = '#2e8a2a';
+      c.fillRect(ph.x, hz, ph.w, ph.h);
+      const cx = ph.x + ph.w / 2;
+      c.fillStyle = '#3a3a3e';
+      c.beginPath();
+      c.moveTo(cx - 4, hz);
+      c.lineTo(cx + 4, hz);
+      c.lineTo(cx + 190, ph.y + ph.h);
+      c.lineTo(cx - 190, ph.y + ph.h);
+      c.fill();
+      c.fillStyle = YELLOW;
+      for (let k = 0; k < 8; k++) {
+        const f = ((k + s.t * 3) % 8) / 8, f2 = Math.min(1, f + 0.05);
+        const y1 = hz + (ph.h - 40) * f * f, y2 = hz + (ph.h - 40) * f2 * f2;
+        c.fillRect(cx - 1 - f * 2, y1, 2 + f * 4, Math.max(1, y2 - y1));
+      }
+      const bob = Math.round(Math.sin(s.t * 9) * 0.6);
+      drawCar(c, cx + Math.sin(s.t * 0.7) * 20, ph.y + 96 + bob, 96, { color: car.color, rear: car.rear, paint: p, brake: Math.floor(s.t) % 4 === 0 });
+    });
+    kicker(c, 'FLAGRA NA ESTRADA', ph.x + 6, ph.y + 6, INK, YELLOW);
+    logo(c, `${car.name.toUpperCase()} A ${kmh(car)}!`, ph.x + 6, ph.y + 18, 8, '#fff', INK);
+  }
+  // pontinhos das edições
+  SLIDES.forEach((_, i) => {
+    c.fillStyle = i === slot % SLIDES.length ? RED : 'rgba(26,22,20,0.3)';
+    c.fillRect(ph.x + ph.w / 2 - SLIDES.length * 4 + i * 8, ph.y + ph.h + 4, 5, 2);
+  });
+}
 function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
   const { w } = view;
   const x = ox();
@@ -110,33 +259,21 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
   c.fillStyle = INK;
   c.fillRect(0, 42, w, 9);
   ink(c, 'A REVISTA DO DUELO NA ESTRADA', w / 2, 44, 5, '#fff', 'center');
-  // foto da capa: o carro do mês no estúdio
-  const list = coverCars();
-  const car = list[Math.floor((s.t || 0) / 5) % list.length] ?? list[0] ?? CARS[0];
+  // foto da capa: uma "edição" diferente a cada 7 s (teste, comparativo, ângulos, interior,
+  // notícias, flagra na estrada), com o carro trocando a cada volta
   const ph: Rect = { x: x + 4, y: 56, w: SAFE_W - 8, h: 108 };
-  photo(c, ph, () => {
-    // luz de estúdio atrás do carro
-    const g = c.createRadialGradient(w / 2, ph.y + 50, 10, w / 2, ph.y + 50, 150);
-    g.addColorStop(0, 'rgba(255,255,255,0.35)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    c.fillStyle = g;
-    c.fillRect(ph.x, ph.y, ph.w, ph.h);
-    const slide = Math.min(1, (s.t % 5) / 0.5); // entra deslizando
-    drawCarSide(c, x + 36 + (1 - slide) * 260, ph.y + 98, 248, car, paintHex(car.id));
-  });
-  // chamada do carro na foto
-  kicker(c, 'TESTE EXCLUSIVO', ph.x + 6, ph.y + 6, RED, '#fff');
-  logo(c, car.name.toUpperCase(), ph.x + 6, ph.y + 18, 8, '#fff', INK);
-  ink(c, `${car.power} • ${Math.round(car.maxSpeed * KMH)} km/h`, ph.x + 6, ph.y + 30, 5, '#fff');
-  burst(c, ph.x + ph.w - 30, ph.y + 26, 25, ['20', 'MAPAS', 'NOVOS!'], YELLOW, RED, s.t);
+  const t = s.t || 0;
+  const slot = Math.floor(t / SLIDE_T);
+  drawCoverSlide(c, s, ph, slot, (t % SLIDE_T) / SLIDE_T);
   barcode(c, ph.x + ph.w - 40, ph.y + ph.h - 22);
-  // chamadas = menu
-  const calls: [string, string][] = [
-    ['OPÇÕES', 'Câmbio, som e controles'],
-    ['ARCADE', '20 roteiros para acelerar'],
-    ['CARREIRA', 'Do bairro ao chefão final'],
-    ['RECORDES', 'Os mais rápidos do país'],
+  // chamadas = menu (o subtítulo muda a cada edição da foto)
+  const alt = [
+    ['Câmbio, som e controles', 'Ligue o fantasma', 'Botões do seu tamanho'],
+    ['20 roteiros para acelerar', 'Túneis, neblina e pôr do sol', 'Libere mapa por mapa'],
+    ['Do bairro ao chefão final', 'Os rivais falam tudo', 'Oficina e classificados'],
+    ['Os mais rápidos do país', '18 conquistas para caçar', 'Medalhas de ouro em jogo'],
   ];
+  const calls: [string, string][] = ['OPÇÕES', 'ARCADE', 'CARREIRA', 'RECORDES'].map((k, i) => [k, alt[i][slot % alt[i].length]]);
   titleSigns().forEach((r, i) => {
     const hot = s.sel === i;
     if (hot) {

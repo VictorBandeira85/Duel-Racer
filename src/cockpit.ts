@@ -187,6 +187,48 @@ for (const [k, v] of Object.entries(INTERIORS)) {
 
 export const COCKPIT_IMAGES = Object.values(COCKPIT_ART).flatMap((a) => [a.dash, a.top, a.wheel, a.dashMask, a.topMask, a.mirror?.img]).filter((s): s is string => !!s);
 
+// "Foto" do interior para a revista: teto, painel e volante da arte, com uma estrada clara no
+// para-brisa (guardada por carro e cor)
+const interiorCache = new Map<string, HTMLCanvasElement>();
+export function interiorPhoto(carId: string, dash: string): HTMLCanvasElement | null {
+  const art = COCKPIT_ART[dash];
+  if (!art) return null;
+  const color = paintHex(carId);
+  const key = `${carId}:${color ?? ''}`;
+  const hit = interiorCache.get(key);
+  if (hit) return hit;
+  const tint = (mask?: string) => (color && mask ? { mask, color } : undefined);
+  const d = svgSprite(art.dash, DASH_W, 124, tint(art.dashMask));
+  const t = svgSprite(art.top, DASH_W, TOP_EXT, tint(art.topMask));
+  const wh = Math.round(CORE_W * (spriteAspect(art.wheel) ?? 124 / CORE_W));
+  const w = svgSprite(art.wheel, CORE_W, wh);
+  if (!d || !t || !w) return null;
+  const cv = document.createElement('canvas');
+  cv.width = DASH_W;
+  cv.height = TOP_EXT + 124;
+  const g = cv.getContext('2d')!;
+  g.imageSmoothingEnabled = false;
+  const sky = g.createLinearGradient(0, 0, 0, TOP_EXT + 30);
+  sky.addColorStop(0, '#5a9ae8');
+  sky.addColorStop(1, '#d8e8f6');
+  g.fillStyle = sky;
+  g.fillRect(0, 0, DASH_W, TOP_EXT + 40);
+  g.fillStyle = '#2e8a2a';
+  g.fillRect(0, TOP_EXT + 20, DASH_W, 104);
+  g.fillStyle = '#3a3a3e';
+  g.beginPath();
+  g.moveTo(DASH_W / 2 - 6, TOP_EXT + 20);
+  g.lineTo(DASH_W / 2 + 6, TOP_EXT + 20);
+  g.lineTo(DASH_W / 2 + 220, TOP_EXT + 124);
+  g.lineTo(DASH_W / 2 - 220, TOP_EXT + 124);
+  g.fill();
+  g.drawImage(t, 0, 0);
+  g.drawImage(d, 0, TOP_EXT);
+  g.drawImage(w, DASH_PAD + (art.wheelDx ?? 0), TOP_EXT);
+  interiorCache.set(key, cv);
+  return cv;
+}
+
 // Cabine a partir da arte: painel, ponteiros dinâmicos, radar e volante girando.
 function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: CockpitArt): boolean {
   const { w } = view;

@@ -53,8 +53,8 @@ const BASE: Record<string, Omit<EngineSpec, 'name' | 'turbo'>> = {
   diesel: { cyl: 6, events: even(6), banks: [0, 0, 0, 0, 0, 0], pipeMs: [5.5, 5.5], fb: 0.5, res: [[70, 1, 1.2], [300, 1.6, 0.6], [1100, 2.5, 0.4]], pulse: 4.5, drive: 2.4, rasp: 0.35, low: 600, jitter: 0.12, pops: 0, vol: 1.0, idle: 600, redline: 2600 },
   // boxer 4 a ar (Fusca, Puma): batida irregular e chocalho
   flat4: { cyl: 4, events: even(4), banks: [0, 0, 1, 1], pipeMs: [3.6, 4.4], fb: 0.5, res: [[100, 1, 1], [420, 1.8, 0.6], [1400, 2.5, 0.35]], pulse: 2.8, drive: 1.9, rasp: 0.2, low: 750, jitter: 0.14, pops: 0.2, vol: 1.15, idle: 900, redline: 5600 },
-  // boxer 6 (959): rouco e metálico
-  flat6: { cyl: 6, events: even(6), banks: [0, 1, 0, 1, 0, 1], pipeMs: [2.8, 3.1], fb: 0.42, res: [[130, 1.2, 1], [650, 2.2, 0.7], [2200, 3, 0.4]], pulse: 2.0, drive: 2, rasp: 0.2, low: 1000, jitter: 0.05, pops: 0.35, vol: 0.95, idle: 900, redline: 7600 },
+  // boxer 6 (959): rosnado grave e rouco, com o chiado dos turbos por cima
+  flat6: { cyl: 6, events: even(6), banks: [0, 1, 0, 1, 0, 1], pipeMs: [3.2, 3.7], fb: 0.46, res: [[98, 1.1, 1.2], [410, 1.8, 0.72], [1350, 2.6, 0.26]], pulse: 2.6, drive: 2.1, rasp: 0.12, low: 740, jitter: 0.06, pops: 0.35, vol: 0.95, idle: 900, redline: 7600 },
   // boxer 12 (Testarossa): encorpado com rosnado
   flat12: { cyl: 12, events: even(12), banks: alt(12), pipeMs: [2.9, 3.3], fb: 0.42, res: [[115, 1.1, 1.1], [500, 1.9, 0.7], [1700, 2.8, 0.32]], pulse: 2.1, drive: 1.9, rasp: 0.12, low: 900, jitter: 0.04, pops: 0.45, vol: 0.8, idle: 900, redline: 7000 },
 };

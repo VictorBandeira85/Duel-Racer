@@ -151,8 +151,9 @@ export function setEngine(rpm: number, throttle: boolean, on: boolean, boost = 0
     gain.gain.setTargetAtTime(0, t, 0.04);
     // turbo: assobio que acompanha a pressão; ao tirar o pé com pressão alta, a válvula de alívio chia
     const tb = spec.turbo && on ? boost * (throttle ? 1 : 0.25) : 0;
-    turbo.frequency.setTargetAtTime(2200 + boost * 2600 + r * 900, t, 0.08);
-    turboGain.gain.setTargetAtTime(tb * 0.018, t, 0.1);
+    // assobio mais baixo e discreto (antes chegava a ~5,7 kHz e deixava o som estridente)
+    turbo.frequency.setTargetAtTime(1500 + boost * 1700 + r * 600, t, 0.08);
+    turboGain.gain.setTargetAtTime(tb * 0.011, t, 0.1);
     if (spec.turbo && on && lastThrottle && !throttle && lastBoost > 0.45) blowOff(lastBoost);
     lastBoost = boost;
     lastThrottle = throttle;

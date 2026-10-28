@@ -51,6 +51,7 @@ interface Dial { x: number; y: number; r: number; max: number; labels: number[];
   labelMul?: number; // o número escrito é v × labelMul (conta-giros "× 100" da F40)
   redLabels?: boolean; // false: números da faixa vermelha continuam brancos
   yellow?: number; // começo da faixa amarela (antes da vermelha)
+  nudge?: Record<number, [number, number]>; // ajuste fino de números que se encostam (dx, dy)
 }
 
 // Mostradores auxiliares, também redesenhados: 'single' (um ponteiro), 'dual' (dois
@@ -124,7 +125,7 @@ COCKPIT_ART.patrol = {
 COCKPIT_ART.diablo = {
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'),
   pivot: [128, 103], wheelDx: 10, radar: [196, 6], speedMax: 360, needle: '#ff7a1a', hub: '#1a1a1c',
-  speed: { x: 103.5, y: 40, r: 23, max: 360, labels: [0, 40, 80, 120, 200, 240, 280, 320, 360], minor: [160], tick: 10, red: 999, labelScale: 0.7 },
+  speed: { x: 103.5, y: 40, r: 23, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], nudge: { 120: [-0.5, 0.5], 160: [-2.5, 0.5], 200: [1.5, 0], 240: [0.5, 0.5] }, tick: 10, red: 999, labelScale: 0.7 },
   tach: { x: 178.5, y: 39.5, r: 23, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], labelMul: 10, tick: 0.25, yellow: 6.8, red: 7.2, labelScale: 0.7, redLabels: false },
   aux: [
     { x: 140.5, y: 28, r: 12, kind: 'single', show: ['water'], icon: 'temp', labels: ['40', '80', '120'] },
@@ -286,7 +287,8 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
     const col = v >= d.red && d.redLabels !== false ? '#ff5a4a' : '#f2f2f2';
     if (ls === 0.7) {  // fonte 5x7 em meio pixel (tamanho intermediário)
       const [lx, ly] = at(a, r - 2.8 - Math.abs(Math.cos(a)) * pix7Width(l, true) * 0.55 - Math.abs(Math.sin(a)) * 1.9);
-      pix7(c, l, lx, ly, col, true);
+      const [nx, ny] = d.nudge?.[v] ?? [0, 0];
+      pix7(c, l, lx + nx, ly + ny, col, true);
       continue;
     }
     const [lx, ly] = at(a, r - (ls > 0.5 ? 3.2 : 2.7) - (Math.abs(Math.cos(a)) * pixWidth(l, ls) * 0.5 + Math.abs(Math.sin(a)) * 2.5 * ls) * (ls > 0.5 ? 1.3 : 1) - (ls > 0.5 ? 0.6 : 0));

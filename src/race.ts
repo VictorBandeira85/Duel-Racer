@@ -166,7 +166,7 @@ export class Race {
     this.rivalPaint = opts.rivalPaint;
     this.pt = new Powertrain(car);
     this.rivalStyleOverride = opts.rivalStyle;
-    setEngineProfile(car.engine);
+    setEngineProfile(car.engine, car.id);
     this.def = course.stages[stageIdx];
     const base = THEMES[this.def.theme];
     this.theme = this.def.night ? nightTheme(base) : this.def.weather === 'rain' ? rainTheme(base) : base;
@@ -203,6 +203,10 @@ export class Race {
     const up = night ? 1 : clamp(Math.min(t, r.flash) / 0.3, 0, 1);
     const blink = t > 0.35 && r.flash > 0.4 && Math.floor((t - 0.35) / 0.25) % 2 === 0;
     return { up, on: night || blink, high: blink };
+  }
+
+  get turboCar() {
+    return this.car.curve === 'turbo' || this.car.curve === 'seqturbo';
   }
 
   get playerZ() {
@@ -266,7 +270,7 @@ export class Race {
       this.rpm = lerp(this.rpm, input.gas ? 0.85 : 0.1, dt * 6);
       // segurando o giro na contagem o turbo já sobe pressão
       if (this.pt.boost < 1) this.pt.boost = lerp(this.pt.boost, input.gas ? LAUNCH_BOOST : 0.1, Math.min(1, dt * 2));
-      setEngine(this.rpm, input.gas, true);
+      setEngine(this.rpm, input.gas, true, this.pt.boost < 1 ? this.pt.boost : 0);
       return;
     }
 
@@ -459,7 +463,7 @@ export class Race {
     const offRoad = Math.abs(this.x) > t.roadW + 700;
     const screech = driving && !offRoad ? Math.max(this.slip * 1.4, this.spin * 1.2, this.spinOut > 0 ? 1 : 0, this.braking && speedPct > 0.3 ? 0.6 : 0) : 0;
     setTires(screech, offRoad && this.speed > 100 ? 0.4 + speedPct * 0.6 : 0);
-    setEngine(Math.max(0.1, this.rpm), this.throttle, true);
+    setEngine(Math.max(0.1, this.rpm), this.throttle, true, this.turboCar ? this.pt.boost : 0);
   }
 
   private lastGear = 0;

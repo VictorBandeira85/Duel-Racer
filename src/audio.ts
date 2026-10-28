@@ -1,3 +1,5 @@
+import { engineSpec, WORKLET, type EngineSpec } from './enginesynth';
+
 // Som sintetizado (sem arquivos de áudio): motor com timbre por tipo de motor, turbo,
 // troca de marcha, pneu cantando, batida, sirene e trilha no estilo dos 16 bits.
 let ctx: AudioContext | null = null;
@@ -6,6 +8,8 @@ let muted = false;
 let musicOn = true;
 
 // ---------- motor ----------
+// O ronco principal é sintetizado por cilindro (enginesynth.ts, AudioWorklet); os osciladores
+// abaixo ficam de reserva para navegadores sem AudioWorklet.
 interface EngineProfile { cyl: number; sub: number; rasp: number; bright: number; turbo: boolean }
 const PROFILES: Record<string, EngineProfile> = {
   v8: { cyl: 8, sub: 0.9, rasp: 0.12, bright: 0.8, turbo: false },
@@ -35,6 +39,10 @@ let raspGain: GainNode, raspFilter: BiquadFilterNode;
 let turbo: OscillatorNode, turboGain: GainNode;
 let tireGain: GainNode, rumbleGain: GainNode;
 let shiftDip = 0;
+let synth: AudioWorkletNode | null = null;
+let synthGain: GainNode;
+let spec: EngineSpec = engineSpec('V8');
+let lastBoost = 0, lastThrottle = false;
 
 function noiseBuffer(seconds: number) {
   const len = Math.floor(ctx!.sampleRate * seconds);
@@ -109,16 +117,44 @@ export function initAudio() {
   rumbleGain.gain.value = 0;
   loopNoise().connect(rf).connect(rumbleGain).connect(master);
   if (pendingMusic) startMusic(pendingMusic);
+
+  // ronco por cilindro (quando o navegador tem AudioWorklet)
+  synthGain = ctx.createGain();
+  synthGain.gain.value = 0.1;
+  synthGain.connect(master);
+  if (ctx.audioWorklet) {
+    const url = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }));
+    ctx.audioWorklet.addModule(url).then(() => {
+      synth = new AudioWorkletNode(ctx!, 'engine-synth', { numberOfInputs: 0, outputChannelCount: [1] });
+      synth.connect(synthGain);
+      synth.port.postMessage({ spec });
+    }).catch(() => { synth = null; });
+  }
 }
 
-export function setEngineProfile(desc: string) {
+export function setEngineProfile(desc: string, carId = '') {
   prof = PROFILES[engineKind(desc)] ?? PROFILES.v8;
+  spec = engineSpec(desc, carId);
+  synth?.port.postMessage({ spec });
 }
 
-export function setEngine(rpm: number, throttle: boolean, on: boolean) {
+export function setEngine(rpm: number, throttle: boolean, on: boolean, boost = 0) {
   if (!ctx) return;
   const t = ctx.currentTime;
   const r = Math.max(0, Math.min(1.1, rpm));
+  if (synth) {
+    const dip = shiftDip > t;
+    synth.port.postMessage({ rpm: r, load: throttle && !dip ? 1 : 0, on: on ? 1 : 0, boost });
+    gain.gain.setTargetAtTime(0, t, 0.04);
+    // turbo: assobio que acompanha a pressão; ao tirar o pé com pressão alta, a válvula de alívio chia
+    const tb = spec.turbo && on ? boost * (throttle ? 1 : 0.25) : 0;
+    turbo.frequency.setTargetAtTime(2200 + boost * 2600 + r * 900, t, 0.08);
+    turboGain.gain.setTargetAtTime(tb * 0.018, t, 0.1);
+    if (spec.turbo && on && lastThrottle && !throttle && lastBoost > 0.45) blowOff(lastBoost);
+    lastBoost = boost;
+    lastThrottle = throttle;
+    return;
+  }
   const rpmReal = 850 + r * 6600;
   // frequência das explosões, meia oitava abaixo para soar encorpado no estilo 16 bits
   const f = (rpmReal / 60) * (prof.cyl / 2) * 0.5;
@@ -133,6 +169,25 @@ export function setEngine(rpm: number, throttle: boolean, on: boolean) {
   const tb = prof.turbo && on && throttle ? Math.max(0, r - 0.45) * 0.022 : 0;
   turbo.frequency.setTargetAtTime(1800 + r * 2600, t, 0.08);
   turboGain.gain.setTargetAtTime(tb, t, 0.15);
+}
+
+// válvula de alívio do turbo: "tssss" curto
+function blowOff(p: number) {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuffer(0.5);
+  const f = ctx.createBiquadFilter();
+  f.type = 'bandpass';
+  f.frequency.setValueAtTime(3200, t);
+  f.frequency.exponentialRampToValueAtTime(1400, t + 0.4);
+  f.Q.value = 1.2;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.09 * p, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+  src.connect(f).connect(g).connect(master);
+  src.start();
 }
 
 // troca de marcha: o ronco cai um instante e há um "clunk" curto

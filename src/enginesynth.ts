@@ -39,12 +39,12 @@ const BASE: Record<string, Omit<EngineSpec, 'name' | 'turbo'>> = {
   v6: { cyl: 6, events: even(6), banks: alt(6), pipeMs: [2.7, 3.2], fb: 0.38, res: [[130, 1.2, 1], [700, 2.2, 0.65], [2100, 3, 0.35]], pulse: 2.1, drive: 2, rasp: 0.16, low: 1000, jitter: 0.06, pops: 0.35, vol: 1.0, idle: 850, redline: 7600 },
   // V8 virabrequim cruzado: as bancadas disparam em sequência irregular (E D E E D E D D) → batuque
   v8: { cyl: 8, events: even(8), banks: [0, 1, 0, 0, 1, 0, 1, 1], pipeMs: [3.4, 4.6], fb: 0.45, res: [[95, 1, 1.15], [380, 1.8, 0.6], [1300, 3, 0.25]], pulse: 2.8, drive: 2.2, rasp: 0.1, low: 700, jitter: 0.1, pops: 0.6, vol: 0.85, idle: 700, redline: 6600 },
-  // V8 virabrequim plano (Ferrari): bancadas alternadas, grito agudo
-  v8flat: { cyl: 8, events: even(8), banks: alt(8), pipeMs: [2.4, 2.6], fb: 0.36, res: [[150, 1.2, 0.9], [760, 2, 0.7], [2400, 3, 0.4]], pulse: 1.8, drive: 2.1, rasp: 0.16, low: 1100, jitter: 0.04, pops: 0.5, vol: 0.85, idle: 900, redline: 7750 },
+  // V8 virabrequim plano (Ferrari): bancadas alternadas, rosnado rouco que abre em giro alto
+  v8flat: { cyl: 8, events: even(8), banks: alt(8), pipeMs: [3.0, 3.4], fb: 0.44, res: [[115, 1.1, 1.15], [460, 1.8, 0.7], [1500, 2.6, 0.28]], pulse: 2.4, drive: 2.0, rasp: 0.1, low: 800, jitter: 0.05, pops: 0.5, vol: 0.85, idle: 900, redline: 7750 },
   // V10: 72°, metálico e rouco
   v10: { cyl: 10, events: even(10), banks: [0, 1, 0, 1, 1, 0, 1, 0, 0, 1], pipeMs: [3.0, 3.6], fb: 0.42, res: [[120, 1.1, 1], [560, 2, 0.7], [1900, 3, 0.4]], pulse: 2.0, drive: 2.3, rasp: 0.18, low: 950, jitter: 0.06, pops: 0.5, vol: 0.8, idle: 800, redline: 6200 },
-  // V12: 60°, liso e agudo, quase uma sirene
-  v12: { cyl: 12, events: even(12), banks: alt(12), pipeMs: [2.2, 2.4], fb: 0.32, res: [[160, 1.2, 0.85], [820, 2, 0.75], [2600, 3, 0.4]], pulse: 1.6, drive: 1.7, rasp: 0.1, low: 1200, jitter: 0.03, pops: 0.45, vol: 0.8, idle: 900, redline: 7500 },
+  // V12: 60°, liso e encorpado, cresce num uivo em giro alto
+  v12: { cyl: 12, events: even(12), banks: alt(12), pipeMs: [3.0, 3.5], fb: 0.44, res: [[105, 1.1, 1.15], [420, 1.8, 0.75], [1350, 2.6, 0.3]], pulse: 2.3, drive: 1.8, rasp: 0.07, low: 820, jitter: 0.04, pops: 0.45, vol: 0.8, idle: 850, redline: 7100 },
   // W8: duas bancadas em V estreito, firme e grave
   w8: { cyl: 8, events: even(8), banks: [0, 1, 1, 0, 1, 0, 0, 1], pipeMs: [3.0, 3.4], fb: 0.4, res: [[110, 1.1, 1], [480, 2, 0.6], [1600, 3, 0.3]], pulse: 2.4, drive: 1.9, rasp: 0.12, low: 850, jitter: 0.06, pops: 0.35, vol: 0.85, idle: 750, redline: 6500 },
   // W12: liso como V12, mais encorpado
@@ -56,7 +56,7 @@ const BASE: Record<string, Omit<EngineSpec, 'name' | 'turbo'>> = {
   // boxer 6 (959): rouco e metálico
   flat6: { cyl: 6, events: even(6), banks: [0, 1, 0, 1, 0, 1], pipeMs: [2.8, 3.1], fb: 0.42, res: [[130, 1.2, 1], [650, 2.2, 0.7], [2200, 3, 0.4]], pulse: 2.0, drive: 2, rasp: 0.2, low: 1000, jitter: 0.05, pops: 0.35, vol: 0.95, idle: 900, redline: 7600 },
   // boxer 12 (Testarossa): encorpado com rosnado
-  flat12: { cyl: 12, events: even(12), banks: alt(12), pipeMs: [2.6, 3.0], fb: 0.38, res: [[130, 1.1, 1], [640, 2, 0.7], [2200, 3, 0.4]], pulse: 1.8, drive: 1.9, rasp: 0.14, low: 1050, jitter: 0.04, pops: 0.45, vol: 0.8, idle: 900, redline: 7000 },
+  flat12: { cyl: 12, events: even(12), banks: alt(12), pipeMs: [2.9, 3.3], fb: 0.42, res: [[115, 1.1, 1.1], [500, 1.9, 0.7], [1700, 2.8, 0.32]], pulse: 2.1, drive: 1.9, rasp: 0.12, low: 900, jitter: 0.04, pops: 0.45, vol: 0.8, idle: 900, redline: 7000 },
 };
 
 // tipo de motor pela ficha ("V8 biturbo", "Boxer 6 biturbo", "12 cil. boxer", "4 cil. turbo"...)

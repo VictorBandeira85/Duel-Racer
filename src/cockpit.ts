@@ -27,6 +27,7 @@ interface CockpitArt {
   dashMask?: string; // partes na cor do carro (capô, porta, colunas), para a repintura
   topMask?: string;
   radar?: [number, number]; // canto do detector de radar no painel (padrão 206, 22)
+  dy?: number; // desce a cabine inteira (painel alto demais tapando a pista)
   wheelDx?: number; // desloca o volante para a direita (alinha com o quadro de instrumentos)
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
   tach?: Dial;
@@ -61,7 +62,7 @@ type Gauge = 'oil' | 'water' | 'oiltemp' | 'fuel' | 'boost' | 'volt';
 interface Aux { x: number; y: number; r: number; kind: 'single' | 'dual' | 'twin' | 'clock' | 'combo'; show?: Gauge[]; icon?: keyof typeof ICONS; labels?: string[] }
 
 // a arte cobre da linha 100 da tela até o fim (124 linhas); o topo transparente mostra a estrada
-const ART_TOP = 100;
+let ART_TOP = 100; // linha da tela onde começa a arte do painel (cada cabine pode descer: art.dy)
 const DASH_PAD = 102; // colunas extras de cada lado do painel (telas largas), ver import_cockpit.py
 const DASH_W = 256 + 2 * DASH_PAD;
 const TOP_EXT = 76; // linhas do teto (24) até o topo da arte
@@ -124,7 +125,7 @@ COCKPIT_ART.patrol = {
 // laranja; à esquerda temperatura e pressão do óleo, no meio a água, à direita combustível e relógio
 COCKPIT_ART.diablo = {
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'),
-  pivot: [128, 103], wheelDx: 10, radar: [196, 6], speedMax: 360, needle: '#ff7a1a', hub: '#1a1a1c',
+  pivot: [128, 103], dy: 14, wheelDx: 10, radar: [196, 6], speedMax: 360, needle: '#ff7a1a', hub: '#1a1a1c',
   speed: { x: 103.5, y: 40, r: 23, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], nudge: { 120: [-0.5, 0.5], 160: [-2.5, 0.5], 200: [1.5, 0], 240: [0.5, 0.5] }, tick: 10, red: 999, labelScale: 0.7 },
   tach: { x: 178.5, y: 39.5, r: 23, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], labelMul: 10, tick: 0.25, yellow: 6.8, red: 7.2, labelScale: 0.7, redLabels: false },
   aux: [
@@ -178,6 +179,9 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   if (top) {
     if (dx > 0) c.drawImage(top, 0, 0, 2, TOP_EXT, 0, ART_TOP - TOP_EXT, dx, TOP_EXT);
     c.drawImage(top, dx, ART_TOP - TOP_EXT);
+    // cabine rebaixada: a primeira linha do topo (colunas) sobe até o teto, sem vão
+    const gap = ART_TOP - TOP_EXT - ROOF_H;
+    if (gap > 0) c.drawImage(top, 0, 0, DASH_W, 1, dx, ROOF_H, DASH_W, gap + 1);
   }
   // retrovisor externo esquerdo funcionando (onde a arte mostra o vidro dele)
   const glass = findGlass(art.dash, svgSprite(art.top, DASH_W, TOP_EXT), svgSprite(art.dash, DASH_W, 124) ?? dash, DASH_PAD + 90);
@@ -808,6 +812,7 @@ export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: numbe
   const { w } = view;
   const vp = windshield();
   const art = COCKPIT_ART[r.car.dash];
+  ART_TOP = 100 + (art?.dy ?? 0);
   // nas cabines desenhadas, os vidros laterais vão abaixo do painel: a estrada desce até o fim
   renderRoad(c, r, art ? { ...vp, h: view.h - vp.y } : vp);
   weather(c, r, vp, dt);

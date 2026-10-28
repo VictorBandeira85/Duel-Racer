@@ -6,7 +6,7 @@ import { drawCareerScreen, keyCareerScreen, openCareer, tapCareerScreen } from '
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
 import { CARS, accelCurve, drawCar, drawCarSide, gearbox, layout, type CarSpec } from './cars';
-import { COURSES, withTimeOfDay, type Course } from './courses';
+import { COURSES, unlockedCourses, withTimeOfDay, type Course } from './courses';
 import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import { THEMES } from './themes';
 import { dither, inside, panel, text, type Rect } from './ui';
@@ -46,6 +46,8 @@ export interface AppState {
   carFilter: ClassFilter; // escolha de carro: só uma classe de desempenho (null = todas)
   oppFilter: ClassFilter; // escolha de adversário, idem
   courseTop: number; // primeiro percurso visível na lista
+  newMap: string | null; // Arcade: mapa liberado ao concluir o percurso (aviso no fim)
+  lockedT: number; // aviso de mapa bloqueado (s restantes)
 }
 
 export interface Actions {
@@ -514,8 +516,22 @@ function drawCourseStrip(c: CanvasRenderingContext2D, r: Rect, course: Course, t
   void t;
 }
 
+// cadeado de pixel (aro e corpo com o buraco da chave)
+function padlock(c: CanvasRenderingContext2D, cx: number, cy: number) {
+  c.strokeStyle = '#c8c0e8';
+  c.lineWidth = 2;
+  c.beginPath();
+  c.arc(cx, cy - 3, 5, Math.PI, 0);
+  c.stroke();
+  c.fillStyle = '#e0b030';
+  c.fillRect(cx - 7, cy - 3, 14, 11);
+  c.fillStyle = '#5a3a10';
+  c.fillRect(cx - 1, cy, 2, 5);
+}
+
 function drawCourse(c: CanvasRenderingContext2D, s: AppState) {
   const { w, h } = view;
+  const unlocked = unlockedCourses();
   c.fillStyle = '#2a2050';
   c.fillRect(0, 0, w, h);
   text(c, 'ESCOLHA O PERCURSO', ox() + 8, 8, 8, '#a8a0d8', 'left', null);
@@ -537,17 +553,36 @@ function drawCourse(c: CanvasRenderingContext2D, s: AppState) {
     const i = s.courseTop + row;
     if (i >= COURSES.length) return;
     const hot = s.sel === i;
+    const locked = i >= unlocked;
     drawCourseStrip(c, r, withTimeOfDay(COURSES[i], s.arcadeNight), s.t);
+    if (locked) { // bloqueado: apagado, com cadeado
+      c.fillStyle = 'rgba(16,10,40,0.72)';
+      c.beginPath();
+      c.roundRect(r.x, r.y, r.w, r.h, 8);
+      c.fill();
+    }
     c.strokeStyle = hot ? '#ffd400' : '#120c30';
     c.lineWidth = 2;
     c.beginPath();
     c.roundRect(r.x, r.y, r.w, r.h, 8);
     c.stroke();
-    text(c, `${COURSES[i].name} - ${COURSES[i].level}`, r.x + r.w / 2, r.y + r.h / 2 - 4, 8, '#fff', 'center', '#000');
+    const num = String(i + 1).padStart(2, '0');
+    if (locked) {
+      padlock(c, r.x + 22, r.y + r.h / 2);
+      text(c, `${num}  ${COURSES[i].name}`, r.x + r.w / 2, r.y + r.h / 2 - 9, 8, '#8a82b8', 'center', '#000');
+      text(c, 'Conclua o mapa anterior', r.x + r.w / 2, r.y + r.h / 2 + 4, 5, '#8a82b8', 'center', null);
+    } else text(c, `${num}  ${COURSES[i].name} - ${COURSES[i].level}`, r.x + r.w / 2, r.y + r.h / 2 - 4, 8, '#fff', 'center', '#000');
   });
   smallButton(c, b.up, '▲', false);
   smallButton(c, b.down, '▼', false);
   text(c, `${s.sel + 1}/${COURSES.length}`, b.up.x + b.up.w / 2, 124, 5, '#a8a0d8', 'center', null);
+  text(c, `${unlocked}/${COURSES.length} liberados`, ox() + 158, 10, 5, '#8a82b8', 'left', null);
+  if (s.lockedT > 0) {
+    s.lockedT -= 1 / 60;
+    panel(c, { x: ox() + 40, y: 100, w: SAFE_W - 80, h: 30 }, '#3a1030', '#100830');
+    text(c, 'MAPA BLOQUEADO', w / 2, 106, 8, '#ff7070', 'center', null);
+    text(c, 'Conclua o mapa anterior para liberar', w / 2, 119, 5, '#e8d8f0', 'center', null);
+  }
 }
 
 // ---------- posto de gasolina ----------
@@ -761,7 +796,8 @@ function drawEnd(c: CanvasRenderingContext2D, s: AppState) {
       text(c, `Rival: ${formatTime(rival)}`, w / 2, 106, 8, '#fff', 'center', null);
       text(c, won ? 'VOCÊ VENCEU O DUELO!' : 'O RIVAL VENCEU...', w / 2, 134, 8, won ? '#ffd400' : '#ff7070', 'center');
     }
-    text(c, `Pontuação: ${pts(s.results.reduce((a, r) => a + r.score, 0))}`, w / 2, 158, 8, '#ffd400', 'center', null);
+    text(c, `Pontuação: ${pts(s.results.reduce((a, r) => a + r.score, 0))}`, w / 2, 152, 8, '#ffd400', 'center', null);
+    if (s.newMap) text(c, `NOVO MAPA LIBERADO: ${s.newMap}`, w / 2, 170, 5, Math.floor(s.t * 4) % 2 ? '#30e060' : '#a0ffb0', 'center', null);
   } else {
     text(c, `Trechos concluídos: ${s.results.length}/${course.stages.length}`, w / 2, 100, 8, '#fff', 'center', null);
     text(c, 'Seus carros acabaram.', w / 2, 120, 8, '#fff', 'center', null);
@@ -864,6 +900,11 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
         courseRects().forEach((r, row) => {
           const i = s.courseTop + row;
           if (inside(x, y, r) && i < COURSES.length) {
+            if (i >= unlockedCourses()) {
+              s.sel = i;
+              s.lockedT = 1.6;
+              return;
+            }
             s.courseIdx = i;
             a.startCourse();
           }
@@ -931,8 +972,11 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
       s.oppIdx = oppList(s)[s.sel];
       a.go('course');
     } else if (s.screen === 'course') {
-      s.courseIdx = s.sel;
-      a.startCourse();
+      if (s.sel >= unlockedCourses()) s.lockedT = 1.6;
+      else {
+        s.courseIdx = s.sel;
+        a.startCourse();
+      }
     }
   }
 }

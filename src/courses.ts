@@ -26,7 +26,7 @@ const s = (theme: ThemeId, lanes: 2 | 4, extra: Partial<StageDef> = {}): StageDe
   theme, lanes, curviness: 1, hilliness: 0.5, sections: 14, traffic: lanes === 4 ? 6 : 4, police: 1, ...extra,
 });
 
-export const COURSES: Course[] = [
+const ALL: Course[] = [
   {
     id: 'deserto', name: 'Rajada no Deserto', level: 'Fácil', rivalSkill: 0.93,
     stages: [
@@ -168,7 +168,94 @@ export const COURSES: Course[] = [
       s('alpinesnow', 2, { curviness: 1.6, hilliness: 1, weather: 'snow' }),
     ],
   },
+  // ---- mapas novos: túneis, neblina e pôr do sol ----
+  {
+    id: 'crepusculo', name: 'Crepúsculo na Costa', level: 'Médio', rivalSkill: 0.96, seed: 41000,
+    stages: [
+      s('beach', 4, { curviness: 0.8 }),
+      s('coast', 2, { curviness: 1, hilliness: 0.6 }),
+      s('coast', 2, { curviness: 1.1, dusk: true }),
+      s('beach', 2, { curviness: 0.9, night: true, traffic: 5 }),
+      s('coast', 4, { curviness: 1, night: true, police: 2 }),
+    ],
+  },
+  {
+    id: 'neblina', name: 'Vale da Neblina', level: 'Médio', rivalSkill: 0.97, seed: 42000,
+    stages: [
+      s('forest', 2, { curviness: 1, weather: 'fog' }),
+      s('farm', 2, { curviness: 0.9, hilliness: 0.7, weather: 'fog' }),
+      s('mountain', 2, { curviness: 1.2, hilliness: 0.9 }),
+      s('forest', 2, { curviness: 1.2, weather: 'fog', night: true }),
+      s('mountain', 2, { curviness: 1.3, hilliness: 1, weather: 'fog' }),
+    ],
+  },
+  {
+    id: 'tuneis', name: 'Rota dos Túneis', level: 'Difícil', rivalSkill: 0.99, seed: 43000,
+    stages: [
+      s('mountain', 2, { curviness: 1.3, hilliness: 1 }),
+      s('canyon', 2, { curviness: 1.4, hilliness: 1 }),
+      s('alpine', 2, { curviness: 1.5, hilliness: 1, dusk: true }),
+      s('mountain', 2, { curviness: 1.6, hilliness: 1, night: true }),
+      s('coast', 2, { curviness: 1.5, hilliness: 1, weather: 'rain', night: true }),
+    ],
+  },
+  {
+    id: 'noturno', name: 'Expresso Noturno', level: 'Difícil', rivalSkill: 1.0, seed: 44000,
+    stages: [
+      s('industrial', 4, { night: true, traffic: 8, police: 2 }),
+      s('city', 4, { night: true, traffic: 9, police: 3 }),
+      s('industrial', 4, { night: true, weather: 'rain', traffic: 8, police: 2 }),
+      s('city', 4, { night: true, weather: 'rain', traffic: 9, police: 3 }),
+      s('city', 4, { night: true, weather: 'fog', traffic: 8, police: 3 }),
+    ],
+  },
+  {
+    id: 'inverno', name: 'Inverno Extremo', level: 'Expert', rivalSkill: 1.02, seed: 45000,
+    stages: [
+      s('alpinesnow', 2, { weather: 'snow', curviness: 1.5, hilliness: 1 }),
+      s('alpine', 2, { weather: 'fog', curviness: 1.6, hilliness: 1 }),
+      s('alpinesnow', 2, { weather: 'snow', curviness: 1.7, hilliness: 1, night: true }),
+      s('snow', 2, { weather: 'snow', curviness: 1.6, hilliness: 1 }),
+      s('alpinesnow', 2, { weather: 'snow', curviness: 1.8, hilliness: 1, dusk: true }),
+    ],
+  },
+  {
+    id: 'lendas', name: 'Rota das Lendas', level: 'Lenda', rivalSkill: 1.03, seed: 46000,
+    stages: [
+      s('desert', 4, { curviness: 1, police: 3 }),
+      s('canyon', 2, { curviness: 1.7, hilliness: 1, dusk: true }),
+      s('mountain', 2, { curviness: 1.8, hilliness: 1, weather: 'fog' }),
+      s('alpinesnow', 2, { curviness: 1.8, hilliness: 1, weather: 'snow' }),
+      s('coast', 2, { curviness: 1.8, hilliness: 1, weather: 'rain', night: true }),
+      s('city', 4, { night: true, traffic: 10, police: 3 }),
+    ],
+  },
 ];
+
+// ordem do Arcade, do mais fácil ao mais difícil: cada mapa concluído libera o seguinte
+const ORDER = ['deserto', 'litoral', 'savana', 'outono', 'metropole', 'canion', 'selva', 'crepusculo', 'industrial', 'neblina',
+  'serra', 'alpes', 'tuneis', 'grandemetropole', 'noturno', 'tempestade', 'penhasco', 'inverno', 'mundo', 'lendas'];
+export const COURSES: Course[] = ORDER.map((id) => ALL.find((c) => c.id === id)!);
+
+// mapas liberados no Arcade (no começo só o primeiro), guardado no aparelho
+const UNLOCK_KEY = 'duel-racer:mapas';
+export function unlockedCourses(): number {
+  try {
+    const v = Number(localStorage.getItem(UNLOCK_KEY) ?? 1);
+    return Math.max(1, Math.min(COURSES.length, Number.isFinite(v) ? v : 1));
+  } catch {
+    return 1;
+  }
+}
+// concluiu o mapa i: libera o seguinte (devolve true se liberou um novo)
+export function completeCourse(i: number): boolean {
+  const n = unlockedCourses();
+  if (i + 2 <= n || i + 1 >= COURSES.length) return false;
+  try {
+    localStorage.setItem(UNLOCK_KEY, String(i + 2));
+  } catch { /* sem armazenamento */ }
+  return true;
+}
 
 // Arcade: o jogador escolhe dia ou noite; o clima de cada trecho continua o do mapa
 export const withTimeOfDay = (course: Course, night: boolean): Course => ({

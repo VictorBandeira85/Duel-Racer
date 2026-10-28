@@ -2,7 +2,7 @@ import { stageResult } from './score';
 import '@fontsource/press-start-2p/400.css';
 import { RES, view } from './config';
 import { CARS, TRAFFIC_IMAGES } from './cars';
-import { COURSES, withTimeOfDay, type Course } from './courses';
+import { COURSES, completeCourse, unlockedCourses, withTimeOfDay, type Course } from './courses';
 import { ui as careerUi } from './careerScreens';
 import { REGIONS, carById, eventCourse, levels, loadCareer, settleEvent, tunedCar } from './career';
 import type { CarSpec } from './cars';
@@ -27,7 +27,7 @@ const state: AppState = {
   screen: 'title', t: 0, sel: 1, auto: true, sound: true, music: true,
   carIdx: 0, oppIdx: 0, courseIdx: 0, scoreCourse: 0,
   lives: 5, results: [], gameOver: false,
-  mode: 'arcade', career: loadCareer(), careerResult: null, gasPage: 0, arcadeNight: false, courseTop: 0, carFilter: null, oppFilter: null,
+  mode: 'arcade', career: loadCareer(), careerResult: null, gasPage: 0, arcadeNight: false, courseTop: 0, newMap: null, lockedT: 0, carFilter: null, oppFilter: null,
 };
 
 // corrida em andamento: percurso, carro (com melhorias, na carreira) e rival
@@ -56,7 +56,8 @@ const actions: Actions = {
   go(s: ScreenId) {
     state.screen = s;
     resize();
-    state.sel = s === 'title' ? 1 : 0;
+    state.sel = s === 'title' ? 1 : s === 'course' ? unlockedCourses() - 1 : 0; // percursos: já no mapa liberado mais novo
+    state.lockedT = 0;
     showControls(false);
     setEngine(0, false, false);
     stopTrafficAudio();
@@ -104,6 +105,7 @@ function begin(lives: number) {
   state.lives = lives;
   state.results = [];
   state.gameOver = false;
+  state.newMap = null;
   startStage(0);
 }
 
@@ -157,6 +159,8 @@ function finishCourse() {
   const total = totalTime();
   const rivalOk = state.results.every((r) => r.rival >= 0);
   const rival = state.results.reduce((a, r) => a + r.rival, 0);
+  // percurso concluído: libera o próximo mapa
+  state.newMap = completeCourse(state.courseIdx) ? COURSES[state.courseIdx + 1].name : null;
   saveScore(course, { time: total, car: CARS[state.carIdx].name, won: !rivalOk || total <= rival, score: state.results.reduce((a, r) => a + r.score, 0) });
   actions.go('end');
 }

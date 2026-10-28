@@ -398,6 +398,15 @@ export function landSound(power = 0.5) {
   }
 }
 
+// pedra no para-brisa: um "tac" seco de vidro e o estalinho da trinca abrindo
+export function stoneSound() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  burst(t, 0.03, 3200, 4, 0.3);
+  burst(t + 0.002, 0.05, 1700, 6, 0.18);
+  for (let k = 0; k < 4; k++) burst(t + 0.05 + k * 0.025 + Math.random() * 0.02, 0.015, 4200 + Math.random() * 1500, 5, 0.06);
+}
+
 // vapor/fumaça do motor batido: chiado contínuo
 let steamGain: GainNode | null = null;
 export function setSteam(level: number) {

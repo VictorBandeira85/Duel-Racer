@@ -6,7 +6,7 @@ import { THEMES, nightTheme, rainTheme, type Theme } from './themes';
 import { SPRITES } from './sprites';
 import { buildTrack, laneCenter, type Segment, type Track } from './track';
 import { input, takeShift } from './input';
-import { beep, bumpSound, crashSound, landSound, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
+import { beep, bumpSound, crashSound, landSound, stoneSound, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
 import { updateTrafficAudio } from './trafficaudio';
 
@@ -150,6 +150,11 @@ export class Race {
   jolt = 0;
   smoke = 0;
   damage = 0;
+  // marcas no para-brisa que ficam até trocar de carro: trinca de batida, estrela de pedra
+  // (x, y em fração do para-brisa; size 0..1; seed para o desenho)
+  glass: { x: number; y: number; size: number; seed: number; star: boolean }[] = [];
+  overheat = false; // motor batido esquentando: perde força e o ponteiro da água sobe
+  private stoneT = 0;
   private crashSlide = 0;
   private hitCar: TrafficCar | null = null; // com quem bateu (fica à frente, os dois arrastando juntos)
   private crashSpin = 0;
@@ -264,6 +269,28 @@ export class Race {
   get progress() {
     const t = this.track;
     return clamp((this.playerZ - t.startZ) / (t.finishZ - t.startZ), 0, 1);
+  }
+
+  // marca nova no para-brisa (pedra: estrelinha; batida: trinca maior)
+  crackGlass(size: number, star: boolean) {
+    if (this.glass.length >= 8) return;
+    const r = this.rand;
+    this.glass.push({ x: 0.15 + r() * 0.7, y: star ? 0.15 + r() * 0.55 : 0.35 + r() * 0.4, size, seed: Math.floor(r() * 1e6), star });
+  }
+
+  // pedrinha atirada pelo pneu do caminhão da frente: colado atrás dele e rápido, às vezes
+  // uma pedra estala no vidro e deixa uma estrelinha
+  private stones(dt: number) {
+    if (this.speed * KMH < 90) return;
+    const pz = this.playerZ;
+    const behindTruck = this.traffic.some((c) => c.truck && c.speed > 0 && c.z - pz > 0 && c.z - pz < SEG_LEN * 4 && Math.abs(c.x - this.x) < TRUCK_W * 0.6);
+    if (!behindTruck) return;
+    this.stoneT += dt;
+    if (this.stoneT > 1.5 && this.rand() < dt * 0.25) {
+      this.stoneT = 0;
+      this.crackGlass(0.25 + this.rand() * 0.25, true);
+      stoneSound();
+    }
   }
 
   // altura do chão em z
@@ -382,6 +409,7 @@ export class Race {
           this.landT = Math.min(0.45, 0.12 + impact / 5000);
           landSound(Math.min(1, 0.2 + impact / 2500)); // pneus quicando no asfalto
           if (impact > 2600) this.damage = Math.min(1, this.damage + (impact - 2600) / 20000);
+          if (impact > 3200 && this.rand() < 0.5) this.crackGlass(Math.min(1, (impact - 2600) / 4000), false);
           this.speed *= 1 - Math.min(0.12, impact / 30000); // a pancada rouba um pouco de embalo
         }
         this.carY = gy;
@@ -399,7 +427,14 @@ export class Race {
     this.draft = lerp(this.draft, driving ? this.draftAhead(this.playerZ, this.x, this.speed) : 0, Math.min(1, dt * 3));
     const surf = this.surface();
     const aero = aeroMul(this.car, this.speed);
-    const aDrive = this.pt.step(this.speed, this.throttle, dt, surf * (1 - this.air * 0.6), this.auto);
+    // radiador amassado: acima de 60% de dano o motor esquenta e perde até ~14% da força
+    const hurt = this.damage > 0.6 ? 1 - (this.damage - 0.6) * 0.35 : 1;
+    if (this.damage > 0.6 && !this.overheat && this.state === 'drive') {
+      this.overheat = true;
+      this.message = 'MOTOR ESQUENTANDO!';
+      this.messageT = 2.5;
+    }
+    const aDrive = this.pt.step(this.speed, this.throttle, dt, surf * (1 - this.air * 0.6), this.auto) * hurt;
     this.gear = this.pt.gear;
     const gearMax = max * this.car.gears[this.gear];
     const rpmNow = this.speed / gearMax;
@@ -530,6 +565,7 @@ export class Race {
 
     this.updateSignal(dt, driving);
     this.updateTraffic(dt);
+    if (driving) this.stones(dt);
     updateTrafficAudio(this, dt);
     this.updateRival(dt);
     this.updatePolice(dt);
@@ -649,6 +685,8 @@ export class Race {
     this.speed = 0;
     this.smoke = 0; // carro novo
     this.damage = 0;
+    this.glass = [];
+    this.overheat = false;
     this.jolt = 0;
     this.drift = 0;
     this.gear = 0;
@@ -1100,6 +1138,7 @@ export class Race {
         // batida leve: tranco, amassadinho (dano acumula e o motor começa a fumegar) e o outro fica marcado
         this.jolt = Math.max(this.jolt, Math.min(0.7, 0.25 + dv / 120));
         this.damage = Math.min(1, this.damage + Math.min(0.35, 0.08 + dv / 140));
+        if (dv > 25 && this.rand() < 0.35 + dv / 120) this.crackGlass(Math.min(1, dv / 90), false);
         if (dv > 30) c.smoke = Math.max(c.smoke, 0.4);
         bumpSound(Math.min(1, 0.3 + dv / 100));
       }

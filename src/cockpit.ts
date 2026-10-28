@@ -412,7 +412,9 @@ function updateGauges(r: Race, dt: number) {
   const k = Math.min(1, dt * 1.5);
   const rpm = Math.min(1, r.rpm);
   gauges.oil += (0.3 + 0.35 * clamp(rpm / 0.3, 0, 1) - gauges.oil) * k;
-  gauges.water = 0.3 + 0.25 * Math.min(1, r.time / 40);
+  // motor batido: a água sobe até perto da faixa vermelha
+  const hot = 0.3 + 0.25 * Math.min(1, r.time / 40) + Math.max(0, r.damage - 0.3) * 0.6;
+  gauges.water += (hot - gauges.water) * Math.min(1, dt * 0.6);
   gauges.oiltemp = 0.25 + 0.35 * Math.min(1, r.time / 80);
   gauges.fuel = 0.92 - 0.3 * clamp(r.playerZ / r.track.finishZ, 0, 1);
   const boost = r.throttle && r.car.curve.includes('turbo') ? r.pt.boost * clamp((rpm - 0.2) / 0.4, 0, 1) : 0;
@@ -798,6 +800,54 @@ function drawCracks(c: CanvasRenderingContext2D, r: Race, vp: Viewport, alpha: n
   c.restore();
 }
 
+// marcas que ficam no para-brisa: estrelinha de pedra (pontinho com raios curtos e um
+// halo leitoso) e trinca de batida (raios longos e tortos, com um anel em volta); cada traço
+// tem a sombra escura embaixo para aparecer contra o céu claro
+function drawGlassMarks(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
+  if (!r.glass.length) return;
+  for (const g of r.glass) {
+    const rand = rng(g.seed);
+    const ox = Math.round(vp.x + vp.w * g.x), oy = Math.round(vp.y + vp.h * g.y);
+    const n = g.star ? 5 + Math.floor(rand() * 3) : 7 + Math.floor(rand() * 5);
+    const lines: number[][] = [];
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rand() * 0.5;
+      const len = (g.star ? 3 + rand() * 4 : 12 + rand() * 40) * (0.5 + g.size);
+      const pts = [0, 0];
+      let px = 0, py = 0;
+      for (let d = 0; d < len; d += g.star ? 2 : 5 + rand() * 5) {
+        const aa = a + (rand() - 0.5) * (g.star ? 0.3 : 0.7);
+        px += Math.cos(aa) * (g.star ? 2 : 6);
+        py += Math.sin(aa) * (g.star ? 1.6 : 4.5);
+        pts.push(px, py);
+      }
+      lines.push(pts);
+    }
+    c.save();
+    c.lineWidth = 1;
+    for (const [col, off] of [['rgba(20,24,30,0.35)', 1], ['rgba(240,246,252,0.8)', 0]] as [string, number][]) {
+      c.strokeStyle = col;
+      for (const l of lines) {
+        c.beginPath();
+        for (let i = 0; i < l.length; i += 2) c.lineTo(ox + Math.round(l[i]) + 0.5, oy + Math.round(l[i + 1]) + 0.5 + off);
+        c.stroke();
+      }
+    }
+    if (!g.star) {
+      c.strokeStyle = 'rgba(240,246,252,0.55)';
+      for (const rr of [5, 11].map((v) => v * (0.5 + g.size))) {
+        c.beginPath();
+        c.ellipse(ox + 0.5, oy + 0.5, rr * 1.3, rr, 0, rand() * 6, rand() * 6 + 3.5);
+        c.stroke();
+      }
+    }
+    // miolo esbranquiçado (o vidro moído no ponto do impacto)
+    c.fillStyle = 'rgba(235,240,245,0.7)';
+    c.fillRect(ox - 1, oy - 1, 3, 2);
+    c.restore();
+  }
+}
+
 function weather(c: CanvasRenderingContext2D, r: Race, vp: Viewport, dt: number) {
   const w = r.def.weather;
   if (!w) return;
@@ -849,6 +899,19 @@ function dashTopFn(art: CockpitArt | undefined): DashTop {
         while (y < spr.height - 1 && d[(y * spr.width + x) * 4 + 3] === 0) y++;
         col[x] = y;
       }
+      // a arte de cima (teto, colunas e a borda do painel) pode cobrir as primeiras linhas: a
+      // borda visível é onde ela fica transparente, subindo a partir da base (colunas inteiras,
+      // como a coluna A, não contam)
+      const tp = svgSprite(art.top, DASH_W, TOP_EXT);
+      if (tp) {
+        const t = tp.getContext('2d')!.getImageData(0, 0, tp.width, tp.height).data;
+        for (let x = 0; x < Math.min(tp.width, col.length); x++) {
+          let y = tp.height - 1;
+          if (t[(y * tp.width + x) * 4 + 3] === 0) continue;
+          while (y > 0 && t[(y * tp.width + x) * 4 + 3] !== 0) y--;
+          if (y > tp.height - 30) col[x] = Math.min(col[x], y + 1 - tp.height);
+        }
+      }
       dashTops.set(art.dash, col);
     }
   }
@@ -868,7 +931,7 @@ export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: numbe
 function drawDamage(c: CanvasRenderingContext2D, r: Race, vp: Viewport, art: CockpitArt | undefined) {
   const top = dashTopFn(art);
   const cx = coreX() + 128;
-  const grow = r.state === 'crash' ? Math.min(1, r.impactT / 0.12) : r.damage > 0.25 ? r.damage * 0.35 : 0;
+  const grow = r.state === 'crash' ? Math.min(1, r.impactT / 0.12) : r.damage > 0.25 ? r.damage * 0.65 : 0;
   if (grow > 0) {
     const half = Math.round(vp.w * 0.27);
     const rand = rng(r.crashes * 53 + 11);
@@ -919,6 +982,7 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   renderRoad(c, r, art ? { ...vp, h: view.h - vp.y } : vp);
   weather(c, r, vp, dt);
   drawWipers(c, r, vp, dt, dashTopFn(art), coreX());
+  drawGlassMarks(c, r, vp);
   drawDamage(c, r, vp, art);
   if (r.state === 'crash') {
     const t = 3.4 - r.timer;

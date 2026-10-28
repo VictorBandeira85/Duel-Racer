@@ -224,6 +224,27 @@ export function interiorPhoto(carId: string, dash: string): HTMLCanvasElement | 
   g.fill();
   g.drawImage(t, 0, 0);
   g.drawImage(d, 0, TOP_EXT);
+  // instrumentos acesos como num passeio a 110 km/h: ponteiros, auxiliares e os visores
+  // digitais (Vortex), que na arte são só o fundo apagado
+  const fake = { speed: 110 / KMH, rpm: 0.42, time: 30, state: 'drive', playerZ: 0, track: { startZ: 0 }, auto: true, gear: 4, radar: 0, signal: 0, car: { id: carId } } as unknown as Race;
+  const saved = ART_TOP;
+  ART_TOP = TOP_EXT;
+  try {
+    const ox = DASH_PAD;
+    if (art.lcd) lcdPanel(g, ox, fake, art);
+    if (art.odo) odometer(g, ox, fake, art.odo);
+    if (art.prnd) leverIndicator(g, ox, fake, art.prnd);
+    if (art.tach) artDial(g, art.tach, ox, 0.06 + 0.42 * 0.82, art);
+    if (art.speed) artDial(g, art.speed, ox, 110 / art.speedMax, art);
+    for (const a of art.aux) auxDial(g, a, ox, art);
+    if (art.extra) {
+      art.extra(g, ox, fake);
+      if (art.tach) dialNeedle(g, art.tach, ox, 0.06 + 0.42 * 0.82, art);
+      if (art.speed) dialNeedle(g, art.speed, ox, 110 / art.speedMax, art);
+    }
+  } finally {
+    ART_TOP = saved;
+  }
   g.drawImage(w, DASH_PAD + (art.wheelDx ?? 0), TOP_EXT);
   interiorCache.set(key, cv);
   return cv;

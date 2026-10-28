@@ -10,6 +10,7 @@ import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, st
 import { THEMES } from './themes';
 import { dither, inside, panel, text, type Rect } from './ui';
 import { formatTime, shade } from './util';
+import { setEngine, setTires, shiftSound } from './audio';
 
 export type ScreenId = 'title' | 'options' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores'
   | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd';
@@ -521,6 +522,44 @@ function drawCourse(c: CanvasRenderingContext2D, s: AppState) {
 }
 
 // ---------- posto de gasolina ----------
+// chegada ao posto: posição (0 fora da tela .. 1 na bomba), mergulho da frente ao parar e o som
+let gasKey = -1, gasT0 = 0, gasOff = false;
+const GAS_STOP = 2.6; // s até parar na bomba
+const GAS_IDLE = 1.4; // s em marcha lenta antes de desligar
+function gasArrival(s: AppState) {
+  if (gasKey !== s.results.length) {
+    gasKey = s.results.length;
+    gasT0 = s.t;
+    gasOff = false;
+  }
+  const t = s.t - gasT0;
+  const u = Math.min(1, t / GAS_STOP);
+  const pos = 1 - (1 - u) ** 2.4; // freando: cada vez mais devagar
+  const vel = (1 - u) ** 1.4;
+  const st = t - GAS_STOP;
+  const dip = st > 0 ? Math.round(Math.sin(st * 16) * Math.exp(-st * 6) * 2) : 0; // balanço ao parar
+  if (t < GAS_STOP) {
+    // reduzindo: o giro cai com a velocidade e sobe num "punta-tacco" a cada marcha
+    let rpm = 0.06 + 0.42 * vel;
+    let blip = false;
+    for (const tb of [0.55, 1.25, 1.85]) if (t > tb && t < tb + 0.22) {
+      rpm += 0.22 * (1 - (t - tb) / 0.22);
+      blip = t < tb + 0.08;
+    }
+    setEngine(rpm, blip, true);
+    // pneu chiando de leve nos últimos metros
+    setTires(t > GAS_STOP - 0.45 ? 0.16 : 0, 0);
+  } else if (st < GAS_IDLE) {
+    setEngine(0.02, false, true);
+    setTires(0, 0);
+  } else if (!gasOff) {
+    gasOff = true;
+    setEngine(0, false, false);
+    shiftSound(); // chave virando: um "clunk" ao desligar
+  }
+  return { pos, dip };
+}
+
 function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const { w, h } = view;
   const x = ox();
@@ -589,7 +628,9 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   c.textBaseline = 'top';
   'REFRI'.split('').forEach((ch, i) => c.fillText(ch, 0, i * 11));
   c.restore();
-  drawCarSide(c, x + 80, 176, 170, car, paintHex(car.id));
+  // o carro chega freando até a bomba, reduz as marchas, fica em marcha lenta e desliga
+  const arr = gasArrival(s);
+  drawCarSide(c, Math.round(x + 80 + 320 * (1 - arr.pos)), 176 + arr.dip, 170, car, paintHex(car.id));
 
   // fala do frentista, como no Test Drive II
   c.fillStyle = '#3a3a3e';
@@ -722,7 +763,13 @@ export function drawScreen(c: CanvasRenderingContext2D, s: AppState) {
     case 'car': return drawCarSelect(c, s);
     case 'opponent': return drawOpponent(c, s);
     case 'course': return drawCourse(c, s);
-    case 'gas': return s.gasPage ? drawStageResult(c, s) : drawGas(c, s, CARS[s.carIdx]);
+    case 'gas':
+      if (s.gasPage && !gasOff) { // pulou a chegada: desliga o motor
+        gasOff = true;
+        setEngine(0, false, false);
+        setTires(0, 0);
+      }
+      return s.gasPage ? drawStageResult(c, s) : drawGas(c, s, CARS[s.carIdx]);
     case 'end': return drawEnd(c, s);
     case 'scores': return drawScores(c, s);
     default: return drawCareerScreen(c, s);

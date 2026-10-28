@@ -37,7 +37,12 @@ let prof = PROFILES.v8;
 let osc1: OscillatorNode, osc2: OscillatorNode, subGain: GainNode, filter: BiquadFilterNode, gain: GainNode;
 let raspGain: GainNode, raspFilter: BiquadFilterNode;
 let turbo: OscillatorNode, turboGain: GainNode;
-let tireGain: GainNode, rumbleGain: GainNode;
+let rumbleGain: GainNode;
+// pneus: seco = guincho alto e definido (borracha vibrando em frequências bem marcadas, com
+// trepidação); molhado = chiado largo de água sendo espirrada, sem tom; neve = esmagado granulado
+let dryGain: GainNode, wetGain: GainNode, snowGain: GainNode, sprayGain: GainNode;
+let dryBands: BiquadFilterNode[] = [];
+let dryLfo: OscillatorNode;
 let shiftDip = 0;
 let synth: AudioWorkletNode | null = null;
 let synthGain: GainNode;
@@ -106,14 +111,8 @@ export function initAudio() {
   osc2.start();
   turbo.start();
 
-  // pneu cantando (ruído agudo) e trepidação fora da pista (ruído grave)
-  const tf = ctx.createBiquadFilter();
-  tf.type = 'bandpass';
-  tf.frequency.value = 2400;
-  tf.Q.value = 6;
-  tireGain = ctx.createGain();
-  tireGain.gain.value = 0;
-  loopNoise().connect(tf).connect(tireGain).connect(master);
+  // pneus: três vozes, uma por piso (seco, molhado, neve), e o chiado da pista molhada
+  buildTires();
   const rf = ctx.createBiquadFilter();
   rf.type = 'lowpass';
   rf.frequency.value = 160;
@@ -209,10 +208,87 @@ export function shiftSound() {
   src.start();
 }
 
-export function setTires(screech: number, rumble: number) {
+function buildTires() {
+  const c = ctx!;
+  // seco: ruído em três faixas estreitas (fundamental e harmônicos) = guincho com tom
+  dryGain = c.createGain();
+  dryGain.gain.value = 0;
+  const chatter = c.createGain(); // trepidação da borracha (~20 vezes por segundo)
+  chatter.gain.value = 0.75;
+  dryLfo = c.createOscillator();
+  dryLfo.frequency.value = 21;
+  const lfoDepth = c.createGain();
+  lfoDepth.gain.value = 0.25;
+  dryLfo.connect(lfoDepth).connect(chatter.gain);
+  dryLfo.start();
+  const n1 = loopNoise();
+  dryBands = [[1, 22, 1], [2.02, 18, 0.55], [3.1, 14, 0.3]].map(([m, q, g]) => {
+    const b = c.createBiquadFilter();
+    b.type = 'bandpass';
+    b.frequency.value = 1050 * m;
+    b.Q.value = q;
+    const bg = c.createGain();
+    bg.gain.value = g * 7; // faixa estreita perde muito volume
+    n1.connect(b).connect(bg).connect(chatter);
+    return b;
+  });
+  chatter.connect(dryGain).connect(master);
+  // molhado: chiado largo
+  wetGain = c.createGain();
+  wetGain.gain.value = 0;
+  const wh = c.createBiquadFilter();
+  wh.type = 'highpass';
+  wh.frequency.value = 700;
+  const wl = c.createBiquadFilter();
+  wl.type = 'lowpass';
+  wl.frequency.value = 4200;
+  const wb = c.createBiquadFilter();
+  wb.type = 'peaking';
+  wb.frequency.value = 1600;
+  wb.gain.value = 6;
+  loopNoise().connect(wh).connect(wl).connect(wb).connect(wetGain).connect(master);
+  // neve: grave e granulado (ruído modulado por ruído lento)
+  snowGain = c.createGain();
+  snowGain.gain.value = 0;
+  const sb = c.createBiquadFilter();
+  sb.type = 'bandpass';
+  sb.frequency.value = 650;
+  sb.Q.value = 0.9;
+  const grain = c.createGain();
+  grain.gain.value = 0.5;
+  const gl = c.createBiquadFilter();
+  gl.type = 'lowpass';
+  gl.frequency.value = 35;
+  const gd = c.createGain();
+  gd.gain.value = 6;
+  loopNoise().connect(gl).connect(gd).connect(grain.gain);
+  loopNoise().connect(sb).connect(grain).connect(snowGain).connect(master);
+  // pista molhada: chiado dos pneus na água, cresce com a velocidade
+  sprayGain = c.createGain();
+  sprayGain.gain.value = 0;
+  const sh = c.createBiquadFilter();
+  sh.type = 'bandpass';
+  sh.frequency.value = 2600;
+  sh.Q.value = 0.6;
+  loopNoise().connect(sh).connect(sprayGain).connect(master);
+}
+
+export type Surface = 'dry' | 'wet' | 'snow';
+// screech 0..1 (derrapagem, freada, patinada); speed 0..1 (para o chiado da pista molhada)
+export function setTires(screech: number, rumble: number, surface: Surface = 'dry', speed = 0) {
   if (!ctx) return;
   const t = ctx.currentTime;
-  tireGain.gain.setTargetAtTime(Math.min(1, screech) * 0.07, t, 0.06);
+  const s = Math.min(1, screech);
+  // o guincho começa num limiar (pneu no limite) e cresce rápido
+  const lvl = s < 0.08 ? 0 : Math.pow((s - 0.08) / 0.92, 0.8);
+  dryGain.gain.setTargetAtTime(surface === 'dry' ? lvl * 0.3 : 0, t, 0.04);
+  wetGain.gain.setTargetAtTime(surface === 'wet' ? lvl * 0.2 : 0, t, 0.06);
+  snowGain.gain.setTargetAtTime(surface === 'snow' ? lvl * 0.28 : 0, t, 0.06);
+  // quanto mais escorrega, mais agudo e mais trêmulo o guincho
+  const f0 = 980 + 380 * s + Math.sin(t * 7.3) * 35;
+  dryBands.forEach((b, i) => b.frequency.setTargetAtTime(f0 * [1, 2.02, 3.1][i], t, 0.05));
+  dryLfo.frequency.setTargetAtTime(17 + 10 * s, t, 0.1);
+  sprayGain.gain.setTargetAtTime(surface !== 'dry' ? Math.min(1, speed) * (surface === 'wet' ? 0.05 : 0.025) : 0, t, 0.2);
   rumbleGain.gain.setTargetAtTime(Math.min(1, rumble) * 0.25, t, 0.06);
 }
 

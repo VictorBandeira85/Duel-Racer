@@ -475,6 +475,7 @@ export class Race {
         const cb = this.onArrive;
         this.onArrive = undefined;
         cb();
+        return; // o posto assume o som (senão o motor ficava ligado para sempre)
       }
     }
 
@@ -482,8 +483,9 @@ export class Race {
     if (this.gear !== this.lastGear && this.speed > 200) shiftSound();
     this.lastGear = this.gear;
     const offRoad = Math.abs(this.x) > t.roadW + 700;
-    const screech = driving && !offRoad ? Math.max(this.slip * 1.4, this.spin * 1.2, this.spinOut > 0 ? 1 : 0, this.braking && speedPct > 0.3 ? 0.6 : 0) : 0;
-    setTires(screech, offRoad && this.speed > 100 ? 0.4 + speedPct * 0.6 : 0);
+    const screech = driving && !offRoad ? Math.max(this.slip * 1.4, Math.abs(this.drift) * 2.2, this.spin * 1.2, this.spinOut > 0 ? 1 : 0, this.braking && speedPct > 0.3 ? 0.6 : 0) : 0;
+    const surface = this.def.weather === 'snow' ? 'snow' : this.def.weather === 'rain' ? 'wet' : 'dry';
+    setTires(screech, offRoad && this.speed > 100 ? 0.4 + speedPct * 0.6 : 0, surface, driving || this.state === 'arrived' ? speedPct : 0);
     setEngine(Math.max(0.1, this.rpm), this.throttle, true, this.turboCar ? this.pt.boost : 0);
   }
 

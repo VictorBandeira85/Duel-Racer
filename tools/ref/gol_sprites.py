@@ -47,48 +47,6 @@ def glass(a):
                 a[yy, xx:xx + 2, :3] = (216, 226, 234)
 
 
-def reshape_side(a, belt=30, drop=5):
-    """Proporção da lateral como no Gol de verdade: área envidraçada mais baixa (teto desce
-    drop px, comprimindo só acima da linha das janelas); a coluna C e a tampa traseira ficam
-    onde a arte desenhou."""
-    H, W = a.shape[:2]
-    H2 = H - drop
-    out = np.zeros((H2, W, 4), np.uint8)
-    nb = belt - drop
-    for ty in range(H2):
-        sy = ty + drop if ty >= nb else min(belt - 1, int((ty + 0.5) * belt / nb))
-        out[ty] = a[sy]
-    return out
-
-
-TAIL = [(4, 0), (8, 1.5), (12, 3), (13, 4), (18, 4), (22, 0), (24, 1.5), (41, 1.5), (42, 0)]
-
-
-def extend_tail(a, grow=4):
-    """A ponta da tampa traseira com o aerofólio e o painel da lanterna vão mais para trás
-    (medido na foto do GTI: o aerofólio passa da lanterna); vidro e coluna C não mexem: em cada
-    linha só o trecho de lataria atrás do vidro é esticado."""
-    H, W = a.shape[:2]
-    out = np.zeros((H, W + grow, 4), np.uint8)
-    out[:, :W] = a
-    ys, ds = zip(*TAIL)
-    for y in range(H):
-        d = int(round(np.interp(y, ys, ds, left=0, right=0)))
-        xs = np.nonzero(a[y, :, 3])[0]
-        if not d or not len(xs):
-            continue
-        xr = xs.max()
-        rgb = a[y, :, :3].astype(int)
-        gl = np.nonzero((a[y, :, 3] > 0) & (rgb[:, 2] - rgb[:, 0] >= 12) & (rgb.mean(axis=1) > 80))[0]
-        gl = gl[gl > xr - 30]
-        x0 = gl.max() + 3 if len(gl) else xr - 10
-        x0 = min(x0, xr - 2)
-        n = xr - x0 + 1
-        src = x0 + (np.arange(n + d) * n / (n + d)).astype(int)
-        out[y, x0:x0 + n + d] = a[y, src]
-    return out
-
-
 def fix_rear(a):
     """Faixa vermelha contínua logo abaixo das lanternas, de ponta a ponta (linhas 55-56)."""
     H, W = a.shape[:2]
@@ -189,12 +147,8 @@ def main():
         out = os.path.join(cars, f'br-golgti-{view}.png')
         subprocess.run([sys.executable, os.path.join(HERE, 'regrid.py'), os.path.join(src, f'src-{view}.png'), out, str(PERIOD[view])], check=True)
         a = np.array(Image.open(out).convert('RGBA'))
-        if view == 'side':
-            a = reshape_side(a)
-        glass(a)
-        if view == 'side':
-            a = extend_tail(a)
         H, W = a.shape[:2]
+        glass(a)
         if view == 'rear':
             fix_rear(a)
         # fora da pintura: lanternas (vermelhas como a lataria), a placa e o friso vermelho dos
@@ -203,7 +157,7 @@ def main():
         if view == 'rear':
             excl = [(0, 43, W, 55), (48, 55, W - 48, 58), (0, 58, W, H)]
         elif view == 'side':
-            excl = [(W - 10, 23, W, 41), (0, int(H * 0.66), W, H)]
+            excl = [(W - 10, 28, W, 46), (0, int(H * 0.66), W, H)]
         else:
             excl = [(0, 80, W, H)]
         m = red_mask(a, excl)

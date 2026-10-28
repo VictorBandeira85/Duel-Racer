@@ -328,7 +328,7 @@ const LAMPS: Record<string, LampDef> = {
 // sprite), medidas pelo aro claro acima do contato com o chão: giram na chegada ao posto
 const WHEELS: Record<string, number[][]> = {
   '959': [[0.199, 0.739, 0.08], [0.754, 0.74, 0.08]],
-  'br-golgti': [[0.201, 0.79, 0.072], [0.827, 0.79, 0.072]],
+  'br-golgti': [[0.197, 0.773, 0.086], [0.833, 0.773, 0.086]],
   'br-vectra': [[0.175, 0.788, 0.066], [0.777, 0.792, 0.064]],
   'countach': [[0.234, 0.733, 0.07], [0.827, 0.708, 0.077]],
   'diablo': [[0.204, 0.73, 0.072], [0.794, 0.72, 0.074]],

@@ -49,6 +49,8 @@ const BASE: Record<string, Omit<EngineSpec, 'name' | 'turbo'>> = {
   w8: { cyl: 8, events: even(8), banks: [0, 1, 1, 0, 1, 0, 0, 1], pipeMs: [3.0, 3.4], fb: 0.4, res: [[110, 1.1, 1], [480, 2, 0.6], [1600, 3, 0.3]], pulse: 2.4, drive: 1.9, rasp: 0.12, low: 850, jitter: 0.06, pops: 0.35, vol: 0.85, idle: 750, redline: 6500 },
   // W12: liso como V12, mais encorpado
   w12: { cyl: 12, events: even(12), banks: alt(12), pipeMs: [2.8, 3.0], fb: 0.36, res: [[120, 1.1, 1], [600, 2, 0.65], [2000, 3, 0.35]], pulse: 2.0, drive: 1.6, rasp: 0.08, low: 950, jitter: 0.03, pops: 0.3, vol: 0.8, idle: 700, redline: 6400 },
+  // diesel de caminhão: giro baixo, batida pesada e chiado de injeção
+  diesel: { cyl: 6, events: even(6), banks: [0, 0, 0, 0, 0, 0], pipeMs: [5.5, 5.5], fb: 0.5, res: [[70, 1, 1.2], [300, 1.6, 0.6], [1100, 2.5, 0.4]], pulse: 4.5, drive: 2.4, rasp: 0.35, low: 600, jitter: 0.12, pops: 0, vol: 1.0, idle: 600, redline: 2600 },
   // boxer 4 a ar (Fusca, Puma): batida irregular e chocalho
   flat4: { cyl: 4, events: even(4), banks: [0, 0, 1, 1], pipeMs: [3.6, 4.4], fb: 0.5, res: [[100, 1, 1], [420, 1.8, 0.6], [1400, 2.5, 0.35]], pulse: 2.8, drive: 1.9, rasp: 0.2, low: 750, jitter: 0.14, pops: 0.2, vol: 1.15, idle: 900, redline: 5600 },
   // boxer 6 (959): rouco e metálico
@@ -63,7 +65,8 @@ export function engineSpec(desc: string, carId = ''): EngineSpec {
   const turbo = d.includes('turbo');
   const boxer = d.includes('boxer');
   let k = 'v8';
-  if (d.includes('w12')) k = 'w12';
+  if (d.includes('diesel')) k = 'diesel';
+  else if (d.includes('w12')) k = 'w12';
   else if (d.includes('w8')) k = 'w8';
   else if (d.includes('v12')) k = 'v12';
   else if (d.includes('v10')) k = 'v10';
@@ -99,13 +102,13 @@ class Biquad {
 class Engine extends AudioWorkletProcessor {
   constructor() {
     super();
-    this.spec = null; this.rpm = 0; this.load = 0; this.on = 0; this.boost = 0;
+    this.spec = null; this.rpm = 0; this.load = 0; this.on = 0; this.boost = 0; this.pitch = 1;
     this.rpmS = 0; this.loadS = 0; this.onS = 0; this.theta = 0;
     this.pulses = []; this.seed = 1;
     this.port.onmessage = (e) => {
       const m = e.data;
       if (m.spec) this.setSpec(m.spec);
-      if (m.rpm !== undefined) { this.rpm = m.rpm; this.load = m.load; this.on = m.on; this.boost = m.boost; }
+      if (m.rpm !== undefined) { this.rpm = m.rpm; this.load = m.load; this.on = m.on; this.boost = m.boost; this.pitch = m.pitch ?? 1; }
     };
   }
   rand() { this.seed = (this.seed * 16807) % 2147483647; return this.seed / 2147483647; }
@@ -142,7 +145,7 @@ class Engine extends AudioWorkletProcessor {
         this.lp[b].low(lpf, 0.8, sr);
       }
     }
-    const degPerSample = (rpm / 60) * 360 / sr;
+    const degPerSample = (rpm / 60) * 360 / sr * this.pitch; // pitch: efeito Doppler (carros passando)
     const interval = 720 / E / degPerSample; // amostras entre explosões
     const pulseLen = Math.max(8, Math.min(s.pulse * sr / 1000, interval * 0.7));
     const amp = (0.5 + 0.5 * load) * this.onS;

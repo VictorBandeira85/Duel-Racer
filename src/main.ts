@@ -11,6 +11,7 @@ import { COCKPIT_IMAGES, renderCockpit } from './cockpit';
 import { drawScreen, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { input, pollGamepad, releaseAll, setupInput } from './input';
 import { initAudio, playMusic, setEngine, setMusicOn, setMuted, setSiren, setTires } from './audio';
+import { stopTrafficAudio } from './trafficaudio';
 import { preloadSvg } from './svgsprites';
 import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
 
@@ -56,6 +57,7 @@ const actions: Actions = {
     state.sel = s === 'title' ? 1 : 0;
     showControls(false);
     setEngine(0, false, false);
+    stopTrafficAudio();
     setSiren(false);
     setTires(0, 0);
     playMusic('menu');
@@ -209,6 +211,7 @@ function setPaused(p: boolean) {
   $('pause').classList.toggle('hidden', !p);
   if (p) {
     setEngine(0, false, false);
+    stopTrafficAudio();
     setSiren(false);
     releaseAll();
   }

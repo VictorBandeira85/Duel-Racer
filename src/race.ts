@@ -7,6 +7,7 @@ import { buildTrack, laneCenter, type Segment, type Track } from './track';
 import { input, takeShift } from './input';
 import { beep, crashSound, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
+import { updateTrafficAudio } from './trafficaudio';
 
 // curvatura da pista por unidade de curva (1/m): curva 4 = fechada (~175 km/h a 1 g)
 const CURVE_K = 0.00105;
@@ -37,6 +38,7 @@ export interface TrafficCar {
   signalT: number; // tempo de seta antes de começar a trocar de faixa
   moving: boolean;
   think: number;
+  panic: number; // contramão de frente para o jogador: 0 tranquilo .. 3 batida iminente (buzina, freia, desvia)
 }
 
 export interface Rival {
@@ -185,7 +187,7 @@ export class Race {
       this.rival.pt.boost = LAUNCH_BOOST;
     }
     for (let i = 0; i < this.def.traffic; i++) {
-      const c: TrafficCar = { z: 0, x: 0, speed: 0, color: '', truck: false, model: 'sedan', hit: false, base: 0, tx: 0, signal: 0, signalT: 0, moving: false, think: 0 };
+      const c: TrafficCar = { z: 0, x: 0, speed: 0, color: '', truck: false, model: 'sedan', hit: false, base: 0, tx: 0, signal: 0, signalT: 0, moving: false, think: 0, panic: 0 };
       this.spawn(c, this.playerZ + (45 + (i / this.def.traffic) * 300) * SEG_LEN);
       this.traffic.push(c);
     }
@@ -247,6 +249,7 @@ export class Race {
     c.signalT = 0;
     c.moving = false;
     c.think = 1 + r() * 3;
+    c.panic = 0;
   }
 
   // área de colisão um pouco menor que o desenho, para raspões não contarem
@@ -423,6 +426,7 @@ export class Race {
 
     this.updateSignal(dt, driving);
     this.updateTraffic(dt);
+    updateTrafficAudio(this, dt);
     this.updateRival(dt);
     this.updatePolice(dt);
     if (driving) this.checkCollisions();
@@ -508,6 +512,7 @@ export class Race {
     const pz = this.playerZ;
     for (const c of this.traffic) {
       if (!c.hit) this.trafficAI(c, dt);
+      else c.panic = 0;
       c.z += c.speed * dt;
       if (c.z < pz - 25 * SEG_LEN || c.z > pz + 420 * SEG_LEN) this.spawn(c, pz + (280 + this.rand() * 80) * SEG_LEN);
     }
@@ -532,7 +537,20 @@ export class Race {
     if (this.rival && dir > 0) look(this.rival.z, this.rival.x, this.rival.speed);
     let desired = c.base;
     if (gapAhead < 6 * SEG_LEN && Math.abs(aheadSpeed) < Math.abs(desired)) desired = aheadSpeed * (gapAhead < 2 * SEG_LEN ? 0.85 : 1);
-    c.speed += (desired - c.speed) * Math.min(1, dt * 1.2);
+    // contramão com o jogador vindo de frente na mesma faixa: buzina, pisca o farol e, em cima,
+    // freia forte e joga o carro para o acostamento
+    c.panic = 0;
+    if (dir < 0) {
+      const gap = c.z - this.playerZ, closing = this.speed - c.speed;
+      if (gap > 0 && closing > 500 && Math.abs(this.x - c.x) < CAR_W * 1.1) c.panic = Math.max(0, 3 - gap / closing);
+      if (c.panic > 1.5) {
+        desired = c.base * 0.2;
+        if (c.panic > 1.8) c.x = Math.max(-t.roadW - CAR_W * 0.25, c.x - dt * 1600); // até o acostamento
+      }
+    }
+    c.speed += (desired - c.speed) * Math.min(1, dt * (c.panic > 1.5 ? 3 : 1.2));
+    // passado o susto, volta devagar para a sua faixa
+    if (c.panic === 0 && !c.moving && !c.signal && Math.abs(c.x - c.tx) > 150) c.x += clamp(c.tx - c.x, -dt * 500, dt * 500);
 
     if (t.lanes < 4) return; // uma faixa por sentido: não há para onde ir
     if (c.signalT > 0) {

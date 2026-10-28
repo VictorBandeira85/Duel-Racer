@@ -539,6 +539,7 @@ export interface CarLook {
   paint?: string; // cor escolhida (troca a carroceria do sprite pela máscara)
   model?: string; // trânsito: sedan, hatch, pickup, van, truck (sprites de assets/traffic)
   signal?: number; // seta ligada: -1 lado esquerdo da tela, 1 direito
+  flash?: boolean; // trânsito de frente piscando o farol alto (assustado)
   lamps?: { up: number; on: boolean; high?: boolean }; // faróis: quanto subiram (escamoteáveis), acesos, farol alto
 }
 
@@ -578,6 +579,10 @@ function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w:
     for (const [u, f] of TRAFFIC_GLOW[model]?.dots ?? []) c.fillRect(Math.round(L + u * w - w * 0.07), Math.round(T + f * h - h * 0.05), Math.max(1, Math.round(w * 0.14)), Math.max(1, Math.round(h * 0.1)));
   }
   if (look.front && look.night) glow(c, x, y - h * 0.4, w, '255,246,192');
+  if (look.front && look.flash) { // farol alto piscando
+    glow(c, x, y - h * 0.4, w, '255,250,220');
+    glow(c, x, y - h * 0.4, w * 1.3, '255,250,220');
+  }
   // seta piscando do lado para onde o carro vai
   if (look.signal && Math.floor(performance.now() / 250) % 2 === 0) {
     const u = look.signal < 0 ? 0.04 : 0.84;

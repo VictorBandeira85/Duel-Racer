@@ -264,7 +264,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         drawCar(c, cx, cy, (p.sv ? CAR_W * 1.08 : POLICE_W) * sc * vp.K, { color: '#fff', police: true, sv: p.sv, siren, night });
       } else {
         const t = e as TrafficCar;
-        drawCar(c, cx, cy, (t.truck ? TRUCK_W : CAR_W) * sc * vp.K, { color: t.color, front: t.speed < 0, truck: t.truck, night, model: t.model, signal: t.signal });
+        drawCar(c, cx, cy, (t.truck ? TRUCK_W : CAR_W) * sc * vp.K, { color: t.color, front: t.speed < 0, truck: t.truck, night, model: t.model, signal: t.signal, flash: t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0 });
       }
     }
     c.restore();

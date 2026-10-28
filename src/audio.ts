@@ -44,7 +44,11 @@ let synthGain: GainNode;
 let spec: EngineSpec = engineSpec('V8');
 let lastBoost = 0, lastThrottle = false;
 
-function noiseBuffer(seconds: number) {
+// acesso para os sons do trânsito (trafficaudio.ts)
+export const audioCtx = () => ctx;
+export const audioOut = () => master;
+export const synthReady = () => !!synth;
+export function noiseBuffer(seconds: number) {
   const len = Math.floor(ctx!.sampleRate * seconds);
   const buf = ctx!.createBuffer(1, len, ctx!.sampleRate);
   const d = buf.getChannelData(0);

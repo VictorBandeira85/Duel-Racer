@@ -8,7 +8,8 @@ import {
 } from './career';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import type { AppState, Actions, MenuKey } from './screens';
-import { ox, purpleBg, smallButton } from './screens';
+import { accelChart, carRows, carStars, ox, padlock, stageChip, verdictBox } from './screens';
+import { BLUE, GREY, INK, RED, YELLOW, box, burst, headline, ink, kicker, masthead, paper, photo, rule, specRows, stars, tag } from './mag';
 import type { ThemeId } from './themes';
 import { inside, panel, text, type Rect } from './ui';
 import { formatTime } from './util';
@@ -18,7 +19,7 @@ const THEME_NAME: Record<ThemeId, string> = {
   canyon: 'Cânion', jungle: 'Selva', autumn: 'Outono', beach: 'Praia', savanna: 'Savana', industrial: 'Indústria', alpine: 'Alpes', alpinesnow: 'Alpes nevados',
 };
 const STYLE: Record<string, [string, string]> = {
-  agressivo: ['AGRESSIVO', '#ff7a6a'], cauteloso: ['CAUTELOSO', '#8aff8a'], imprevisivel: ['IMPREVISÍVEL', '#ffe060'],
+  agressivo: ['AGRESSIVO', RED], cauteloso: ['CAUTELOSO', '#1a6a2a'], imprevisivel: ['IMPREVISÍVEL', '#b07000'],
 };
 export const money = (v: number) => `$${Math.round(v).toLocaleString('pt-BR')}`;
 
@@ -30,65 +31,101 @@ function flash(s: AppState, msg: string) {
 }
 
 function topBar(c: CanvasRenderingContext2D, s: AppState, title: string, cs: CareerSave) {
-  const x = ox();
-  panel(c, { x: x + 4, y: 4, w: SAFE_W - 8, h: 20 }, '#2a2060', '#100830');
-  text(c, title, x + 12, 10, 8, '#ffd400', 'left', null);
-  text(c, money(cs.money), x + SAFE_W - 12, 10, 8, '#8aff8a', 'right', null);
+  masthead(c, title);
+  void s;
+  // saldo do leitor no canto, como etiqueta de preço
+  const x = ox() + SAFE_W - 4;
+  c.font = '5px "Press Start 2P", monospace';
+  const w = Math.ceil(c.measureText(money(cs.money)).width) + 30;
+  c.fillStyle = '#1a6a2a';
+  c.fillRect(x - w, 19, w, 11);
+  text(c, `SALDO ${money(cs.money)}`, x - 3, 22, 5, '#fff', 'right', null);
 }
 
 // aviso curto por cima de tudo (compra, falta de dinheiro etc.)
 function toast(c: CanvasRenderingContext2D, s: AppState) {
   if (!ui.msg || s.t >= ui.msgT) return;
   const x = ox();
-  panel(c, { x: x + 24, y: 92, w: SAFE_W - 48, h: 24 }, '#7a1010', '#300808');
-  text(c, ui.msg, view.w / 2, 100, 5, '#fff', 'center', null);
+  c.fillStyle = INK;
+  c.fillRect(x + 24, 96, SAFE_W - 48, 22);
+  c.fillStyle = YELLOW;
+  c.fillRect(x + 24, 96, 4, 22);
+  text(c, ui.msg, view.w / 2, 104, 5, '#fff', 'center', null);
+}
+
+// retrato do piloto: capacete na cor do carro dele, com a viseira e o número
+export function helmet(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string, num: number) {
+  c.fillStyle = INK;
+  c.beginPath();
+  c.ellipse(cx, cy, r + 1, r * 1.05 + 1, 0, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = color;
+  c.beginPath();
+  c.ellipse(cx, cy, r, r * 1.05, 0, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.35)';
+  c.fillRect(cx - r * 0.6, cy - r * 0.75, r * 0.5, r * 0.2);
+  c.fillStyle = '#1c2a3a';
+  c.fillRect(cx - r * 0.85, cy - r * 0.1, r * 1.7, r * 0.42);
+  c.fillStyle = 'rgba(160,200,255,0.5)';
+  c.fillRect(cx - r * 0.7, cy - r * 0.05, r * 0.5, r * 0.12);
+  c.fillStyle = '#fff';
+  c.fillRect(cx - r * 0.3, cy + r * 0.45, r * 0.6, r * 0.35);
+  text(c, String(num), cx, cy + r * 0.45, 5, INK, 'center', null);
 }
 
 // ---------- central da carreira ----------
-const hubRows = () => [0, 1, 2, 3, 4].map((i): Rect => ({ x: ox() + 6, y: 56 + i * 29, w: SAFE_W - 12, h: 27 }));
+const hubRows = () => [0, 1, 2, 3, 4].map((i): Rect => ({ x: ox() + 4, y: 58 + i * 30, w: SAFE_W - 8, h: 28 }));
 const hubButtons = () => {
   const x = ox();
   return {
-    prev: { x: x + 6, y: 28, w: 22, h: 24 }, next: { x: x + SAFE_W - 28, y: 28, w: 22, h: 24 },
-    garage: { x: x + 6, y: 205, w: 96, h: 18 }, dealer: { x: x + 112, y: 205, w: 96, h: 18 }, back: { x: x + 218, y: 205, w: 96, h: 18 },
+    prev: { x: x + 4, y: 34, w: 16, h: 20 }, next: { x: x + SAFE_W - 20, y: 34, w: 16, h: 20 },
+    garage: { x: x + 4, y: 211, w: 100, h: 15 }, dealer: { x: x + 110, y: 211, w: 100, h: 15 }, back: { x: x + 216, y: 211, w: 100, h: 15 },
   };
 };
 
 export function drawCareer(c: CanvasRenderingContext2D, s: AppState) {
   const cs = s.career!;
   const x = ox();
-  purpleBg(c, 'Carreira');
-  topBar(c, s, `CARREIRA  ${carById(cs.car).name}`, cs);
+  paper(c);
+  topBar(c, s, 'CAMPEONATO', cs);
+  kicker(c, `CARRO: ${carById(cs.car).name.toUpperCase()}`, x + 4, 20, INK);
   const ri = ui.region;
   const reg = REGIONS[ri];
   const b = hubButtons();
   const open = regionUnlocked(cs, ri);
-  panel(c, { x: x + 32, y: 28, w: SAFE_W - 64, h: 24 }, open ? '#3c2f7a' : '#2a2a3a', '#1c1440');
-  c.fillStyle = reg.color;
-  c.fillRect(x + 36, 32, 6, 16);
-  text(c, `${ri + 1}. ${reg.name}`, view.w / 2, 31, 8, open ? '#fff' : '#8a8aa0', 'center', null);
+  // a região como seção da revista: faixa na cor dela, nome e descrição
+  c.fillStyle = open ? reg.color : '#9a9286';
+  c.fillRect(x + 24, 34, SAFE_W - 48, 20);
+  text(c, `ETAPA ${ri + 1}: ${reg.name.toUpperCase()}`, view.w / 2, 37, 8, '#fff', 'center', INK);
   const prevName = (REGIONS.find((r2) => r2.id === reg.after) ?? REGIONS[ri - 1])?.name ?? '';
-  text(c, open ? reg.desc : `Vença o chefão de ${prevName}`, view.w / 2, 43, 5, '#c8c0f0', 'center', null);
-  smallButton(c, b.prev, '◀');
-  smallButton(c, b.next, '▶');
+  text(c, open ? reg.desc : `Vença o chefão de ${prevName}`, view.w / 2, 47, 5, '#fff', 'center', null);
+  tag(c, b.prev, '◀');
+  tag(c, b.next, '▶');
   hubRows().forEach((r, ei) => {
     const ev = reg.events[ei];
     const done = cs.done.includes(ev.id);
     const can = eventUnlocked(cs, ri, ei);
     const hot = s.sel === ei && can;
-    panel(c, r, hot ? '#6a5ec0' : can ? '#4e4290' : '#2c2a40', ev.boss ? '#a01818' : '#1c1440');
-    // situação: vencido, liberado ou trancado
-    c.fillStyle = done ? '#30c050' : can ? '#ffd400' : '#555566';
-    c.fillRect(r.x + 5, r.y + 7, 12, 12);
-    text(c, done ? 'V' : can ? '>' : 'X', r.x + 11, r.y + 9, 8, '#100830', 'center', null);
-    text(c, ev.boss ? `CHEFÃO: ${ev.name}` : ev.name, r.x + 24, r.y + 5, 8, can ? '#fff' : '#77778a', 'left', null);
-    text(c, `vs ${ev.driver.name} (${carById(ev.driver.car).name}) - ${ev.stages.length} trecho${ev.stages.length > 1 ? 's' : ''}`, r.x + 24, r.y + 17, 5, can ? '#d8d0ff' : '#66667a', 'left', null);
-    text(c, money(done ? ev.prize / 2 : ev.prize), r.x + r.w - 6, r.y + 5, 8, can ? '#8aff8a' : '#55665a', 'right', null);
-    if (done) text(c, 'REPETIR', r.x + r.w - 6, r.y + 17, 5, '#a8e0a8', 'right', null);
+    c.fillStyle = hot ? '#fff8e4' : can ? '#f6efdd' : '#e6dcc6';
+    c.fillRect(r.x, r.y, r.w, r.h);
+    c.strokeStyle = hot ? RED : ev.boss ? RED : 'rgba(26,22,20,0.35)';
+    c.lineWidth = hot || ev.boss ? 2 : 1;
+    c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+    // retrato do rival e o carro dele
+    helmet(c, r.x + 13, r.y + 14, 8, can ? ev.driver.paint : '#9a9286', ei + 1);
+    const rc = carById(ev.driver.car);
+    if (can) drawCarSide(c, r.x + r.w - 122, r.y + 25, 54, rc, ev.driver.paint);
+    if (ev.boss) kicker(c, 'CHEFÃO', r.x + 26, r.y + 3, RED, '#fff');
+    ink(c, ev.name.toUpperCase(), r.x + (ev.boss ? 64 : 26), r.y + 5, 5, can ? INK : GREY);
+    ink(c, `vs ${ev.driver.name} • ${ev.stages.length} trecho${ev.stages.length > 1 ? 's' : ''}`, r.x + 26, r.y + 17, 5, can ? BLUE : GREY);
+    ink(c, money(done ? ev.prize / 2 : ev.prize), r.x + r.w - 6, r.y + 5, 5, can ? '#1a6a2a' : GREY, 'right');
+    if (done) ink(c, 'VENCIDO ✓', r.x + r.w - 6, r.y + 17, 5, '#1a6a2a', 'right');
+    else if (!can) padlock(c, r.x + r.w - 14, r.y + 18);
   });
-  smallButton(c, b.garage, 'GARAGEM');
-  smallButton(c, b.dealer, 'LOJA');
-  smallButton(c, b.back, 'VOLTAR');
+  tag(c, b.garage, 'OFICINA');
+  tag(c, b.dealer, 'CLASSIFICADOS');
+  tag(c, b.back, '◀ CAPA');
   toast(c, s);
 }
 
@@ -110,7 +147,7 @@ function tapCareer(s: AppState, a: Actions, x: number, y: number) {
 }
 
 // ---------- evento (antes da corrida) ----------
-const eventButtons = () => ({ go: { x: ox() + 200, y: 208, w: 112, h: 20 }, back: { x: ox() + 8, y: 208, w: 96, h: 20 } });
+const eventButtons = () => ({ go: { x: ox() + 216, y: 211, w: 100, h: 15 }, back: { x: ox() + 4, y: 211, w: 100, h: 15 } });
 
 export function drawEvent(c: CanvasRenderingContext2D, s: AppState) {
   const cs = s.career!;
@@ -118,32 +155,38 @@ export function drawEvent(c: CanvasRenderingContext2D, s: AppState) {
   const ev = reg.events[ui.event];
   const d = ev.driver;
   const x = ox();
-  purpleBg(c, d.name);
-  topBar(c, s, ev.boss ? 'CHEFÃO DA REGIÃO' : reg.name.toUpperCase(), cs);
-  panel(c, { x: x + 6, y: 28, w: SAFE_W - 12, h: 176 }, '#2a2060', ev.boss ? '#a01818' : '#100830');
-  text(c, ev.name, view.w / 2, 34, 8, '#ffd400', 'center', null);
-  text(c, d.name, view.w / 2, 48, 16, ev.boss ? '#ff6a5a' : '#fff', 'center', '#100830');
-  text(c, `"${d.quote}"`, view.w / 2, 68, 5, '#d8d0ff', 'center', null);
-  const rc = carById(d.car);
-  drawCarSide(c, x + 70, 132, 180, rc, d.paint);
+  paper(c);
+  topBar(c, s, 'ENTREVISTA EXCLUSIVA', cs);
+  kicker(c, ev.boss ? 'CHEFÃO DA REGIÃO' : reg.name.toUpperCase(), x + 4, 20, ev.boss ? RED : INK, ev.boss ? '#fff' : YELLOW);
+  // o piloto: retrato, nome, a frase dele
+  helmet(c, x + 20, 50, 14, d.paint, ui.event + 1);
+  headline(c, d.name.toUpperCase(), x + 40, 36, 16, ev.boss ? RED : INK);
+  text(c, '"', x + 40, 52, 16, RED, 'left', null);
+  ink(c, d.quote, x + 54, 56, 5, INK);
   const [label, col] = STYLE[d.style];
-  text(c, `${rc.name}  •  ${label}`, view.w / 2, 138, 5, col, 'center', null);
-  // nível do piloto em estrelas (habilidade 0,88 a 1,02)
-  const stars = Math.max(1, Math.min(5, Math.round((d.skill - 0.86) / 0.032)));
-  text(c, 'NÍVEL', view.w / 2 - 34, 148, 5, '#ffd400', 'left', null);
-  for (let k = 0; k < 5; k++) {
-    c.fillStyle = k < stars ? '#ffd400' : '#3a3060';
-    c.fillRect(view.w / 2 - 4 + k * 8, 148, 6, 6);
-  }
-  const trechos = ev.stages.map((st) => THEME_NAME[st.theme] + (st.night ? ' (noite)' : st.weather === 'rain' ? ' (chuva)' : st.weather === 'snow' ? ' (neve)' : st.weather === 'fog' ? ' (neblina)' : st.dusk ? ' (pôr do sol)' : '')).join(' > ');
-  text(c, trechos, view.w / 2, 162, 5, '#c8c0f0', 'center', null);
+  ink(c, 'ESTILO', x + 40, 68, 5, GREY);
+  ink(c, label, x + 76, 68, 5, col);
+  const lvl = Math.max(1, Math.min(5, Math.round((d.skill - 0.86) / 0.032)));
+  ink(c, 'NÍVEL', x + 160, 68, 5, GREY);
+  stars(c, x + 190, 67, lvl, 6);
+  // o carro dele, em foto de estúdio, e a ficha
+  const rc = carById(d.car);
+  const ph: Rect = { x: x + 4, y: 80, w: 190, h: 76 };
+  photo(c, ph, () => drawCarSide(c, ph.x + 8, ph.y + 70, 174, rc, d.paint));
+  ink(c, `O ${rc.name} de ${d.name}`, ph.x, ph.y + ph.h + 5, 5, GREY);
+  const fr: Rect = { x: x + 200, y: 77, w: 116, h: 82 };
+  box(c, fr, `FICHA: ${rc.name.toUpperCase()}`);
+  specRows(c, fr, carRows(rc).filter(([k]) => k !== 'Preço' && k !== 'Layout'), 11, 15);
+  // o roteiro e o prêmio
+  ink(c, 'ROTEIRO', x + 4, 172, 5, GREY);
+  ev.stages.forEach((st, k) => stageChip(c, x + 44 + k * 42, 169, st));
   const done = cs.done.includes(ev.id);
-  text(c, `Prêmio: ${money(done ? ev.prize / 2 : ev.prize)}${done ? ' (repetição)' : ''}`, view.w / 2, 176, 8, '#8aff8a', 'center', null);
+  burst(c, x + 290, 182, 22, ['PRÊMIO', money(done ? ev.prize / 2 : ev.prize)], YELLOW, '#1a6a2a', s.t);
   const lv = levels(cs, cs.car);
-  text(c, `Seu carro: ${carById(cs.car).name}  M${lv.motor} C${lv.cambio} P${lv.pneus}`, view.w / 2, 190, 5, '#d8d0ff', 'center', null);
+  ink(c, `Seu carro: ${carById(cs.car).name} (motor ${lv.motor}, câmbio ${lv.cambio}, pneus ${lv.pneus})`, x + 4, 197, 5, INK);
   const b = eventButtons();
-  smallButton(c, b.back, '◀ VOLTAR');
-  smallButton(c, b.go, 'CORRER ▶', Math.floor(s.t * 2) % 2 === 0);
+  tag(c, b.back, '◀ VOLTAR');
+  tag(c, b.go, 'CORRER ▶', Math.floor(s.t * 2) % 2 === 0);
   toast(c, s);
 }
 
@@ -154,13 +197,13 @@ function tapEvent(s: AppState, a: Actions, x: number, y: number) {
 }
 
 // ---------- garagem ----------
-const swatchRects = (): Rect[] => PAINTS.map((_, i) => ({ x: ox() + 12 + i * 20, y: 112, w: 16, h: 10 }));
-const upgradeRows = () => [0, 1, 2].map((i): Rect => ({ x: ox() + 6, y: 130 + i * 24, w: SAFE_W - 12, h: 22 }));
+const swatchRects = (): Rect[] => PAINTS.map((_, i) => ({ x: ox() + 44 + i * 12, y: 128, w: 10, h: 7 }));
+const upgradeRows = () => [0, 1, 2].map((i): Rect => ({ x: ox() + 4, y: 142 + i * 22, w: SAFE_W - 8, h: 20 }));
 const garageButtons = () => {
   const x = ox();
   return {
-    prev: { x: x + 6, y: 50, w: 22, h: 30 }, next: { x: x + SAFE_W - 28, y: 50, w: 22, h: 30 },
-    use: { x: x + 112, y: 206, w: 96, h: 18 }, back: { x: x + 8, y: 206, w: 96, h: 18 }, dealer: { x: x + 216, y: 206, w: 96, h: 18 },
+    prev: { x: x + 4, y: 64, w: 16, h: 30 }, next: { x: x + 186, y: 64, w: 16, h: 30 },
+    use: { x: x + 110, y: 211, w: 100, h: 15 }, back: { x: x + 4, y: 211, w: 100, h: 15 }, dealer: { x: x + 216, y: 211, w: 100, h: 15 },
   };
 };
 const ownedCars = (cs: CareerSave) => CARS.filter((c) => cs.owned.includes(c.id));
@@ -177,48 +220,61 @@ function tunedFor(car: CarSpec, lv: Record<Upgrade, number>) {
 export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   const cs = s.career!;
   const x = ox();
-  purpleBg(c, 'Garagem');
-  topBar(c, s, 'GARAGEM', cs);
+  paper(c);
+  topBar(c, s, 'OFICINA DO LEITOR', cs);
   const cars = ownedCars(cs);
   ui.garage = Math.min(ui.garage, cars.length - 1);
   const car = cars[ui.garage]!;
   const active = car.id === cs.car;
-  drawCarSide(c, x + 50, 104, 220, car, paintHex(car.id));
-  text(c, car.name, view.w / 2, 28, 8, '#fff', 'center', '#100830');
-  text(c, active ? 'EM USO' : `${ui.garage + 1}/${cars.length}`, view.w / 2, 40, 5, active ? '#8aff8a' : '#c8c0f0', 'center', null);
+  const tuned = tunedFor(car, levels(cs, car.id));
+  kicker(c, active ? 'EM USO' : `${ui.garage + 1} DE ${cars.length} NA GARAGEM`, x + 4, 20, active ? '#1a6a2a' : INK, '#fff');
+  headline(c, car.name.toUpperCase(), x + 4, 33, 8, INK);
   // classe com as melhorias instaladas (as melhorias podem subir o carro de classe)
-  classBadge(c, x + 34, 52, tunedFor(car, levels(cs, car.id)), true);
+  classBadge(c, x + 150, 32, tuned, true, 9);
+  const ph: Rect = { x: x + 4, y: 46, w: 198, h: 74 };
+  photo(c, ph, () => drawCarSide(c, ph.x + 8, ph.y + 68, 182, car, paintHex(car.id)), ['#4a4238', '#a89a86']);
   const b = garageButtons();
   if (cars.length > 1) {
-    smallButton(c, b.prev, '◀');
-    smallButton(c, b.next, '▶');
+    tag(c, b.prev, '◀');
+    tag(c, b.next, '▶');
   }
+  const fr: Rect = { x: x + 208, y: 43, w: 108, h: 80 };
+  box(c, fr, 'COM AS MELHORIAS');
+  specRows(c, fr, [['Potência', `${Math.round(parseInt(car.power) * tuned.accel)} cv`], ['0-100', `${tuned.zeroTo100.toFixed(1).replace('.', ',')} s`], ['Máxima', `${Math.round(tuned.maxSpeed * KMH)} km/h`], ['Curva', `${tuned.lateralG.toFixed(2).replace('.', ',')} g`], ['Revenda', money(sellValue(car))]], 12, 15);
+  ink(c, 'PINTURA', x + 4, 129, 5, GREY);
   const cur = paintIdx(car.id) ?? nearestPaint(car.color);
   swatchRects().forEach((r, i) => {
-    c.fillStyle = i === cur ? '#fff' : '#1a1040';
+    c.fillStyle = i === cur ? RED : INK;
     c.fillRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
     c.fillStyle = PAINTS[i].hex;
     c.fillRect(r.x, r.y, r.w, r.h);
   });
+  // peças à venda, como num catálogo
   const lv = levels(cs, car.id);
   upgradeRows().forEach((r, i) => {
     const u = UPGRADES[i];
     const l = lv[u.id];
-    panel(c, r, '#4e4290', '#1c1440');
-    text(c, u.name, r.x + 6, r.y + 4, 8, '#fff', 'left', null);
-    text(c, u.desc, r.x + 6, r.y + 14, 5, '#c8c0f0', 'left', null);
+    c.fillStyle = '#f6efdd';
+    c.fillRect(r.x, r.y, r.w, r.h);
+    c.strokeStyle = 'rgba(26,22,20,0.35)';
+    c.lineWidth = 1;
+    c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+    ink(c, u.name.toUpperCase(), r.x + 5, r.y + 4, 5, INK);
+    ink(c, u.desc, r.x + 5, r.y + 12, 5, GREY);
     for (let k = 0; k < MAX_LEVEL; k++) {
-      c.fillStyle = k < l ? '#30e060' : '#2a2050';
-      c.fillRect(r.x + 152 + k * 13, r.y + 6, 10, 10);
+      c.fillStyle = INK;
+      c.fillRect(r.x + 150 + k * 11, r.y + 5, 9, 10);
+      c.fillStyle = k < l ? RED : '#f8f2e4';
+      c.fillRect(r.x + 151 + k * 11, r.y + 6, 7, 8);
     }
     const cost = upgradeCost(car, l + 1);
     const can = l < MAX_LEVEL;
-    panel(c, { x: r.x + r.w - 106, y: r.y + 3, w: 100, h: 16 }, can ? (cs.money >= cost ? '#2a8a3a' : '#5a3a3a') : '#3a3a4a', '#100830');
-    text(c, can ? `+ ${money(cost)}` : 'MÁXIMO', r.x + r.w - 56, r.y + 7, 5, '#fff', 'center', null);
+    const afford = cs.money >= cost;
+    tag(c, { x: r.x + r.w - 84, y: r.y + 3, w: 80, h: 14 }, can ? `INSTALAR ${money(cost)}` : 'NO MÁXIMO', can && afford, 5);
   });
-  smallButton(c, b.back, '◀ VOLTAR');
-  smallButton(c, b.use, active ? 'EM USO' : 'USAR ESTE', !active);
-  smallButton(c, b.dealer, 'LOJA ▶');
+  tag(c, b.back, '◀ VOLTAR');
+  tag(c, b.use, active ? 'EM USO' : 'USAR ESTE', !active);
+  tag(c, b.dealer, 'CLASSIFICADOS ▶');
   toast(c, s);
 }
 
@@ -254,7 +310,7 @@ function tapGarage(s: AppState, a: Actions, x: number, y: number) {
 }
 
 // ---------- concessionária ----------
-const dealerFilterRects = () => filterRects(ox() + SAFE_W - 152, 27, 144, 12);
+const dealerFilterRects = () => filterRects(ox() + SAFE_W - 148, 33, 144, 11);
 function setDealerFilter(f: ClassFilter) {
   ui.filter = f;
   if (!filtered(DEALER_CARS, f).includes(ui.dealer)) ui.dealer = filtered(DEALER_CARS, f)[0] ?? ui.dealer;
@@ -263,8 +319,8 @@ function setDealerFilter(f: ClassFilter) {
 const dealerButtons = () => {
   const x = ox();
   return {
-    prev: { x: x + 6, y: 50, w: 22, h: 30 }, next: { x: x + SAFE_W - 28, y: 50, w: 22, h: 30 },
-    buy: { x: x + 180, y: 206, w: 132, h: 18 }, back: { x: x + 8, y: 206, w: 96, h: 18 },
+    prev: { x: x + 4, y: 74, w: 16, h: 30 }, next: { x: x + 186, y: 74, w: 16, h: 30 },
+    buy: { x: x + 186, y: 211, w: 130, h: 15 }, back: { x: x + 4, y: 211, w: 100, h: 15 },
   };
 };
 
@@ -272,38 +328,37 @@ export function drawDealer(c: CanvasRenderingContext2D, s: AppState) {
   const cs = s.career!;
   const x = ox();
   const first = cs.owned.length === 0;
-  purpleBg(c, 'Loja');
-  topBar(c, s, first ? 'ESCOLHA SEU PRIMEIRO CARRO' : 'CONCESSIONÁRIA', cs);
+  paper(c);
+  topBar(c, s, first ? 'SEU PRIMEIRO CARRO' : 'CLASSIFICADOS', cs);
   const car = DEALER_CARS[ui.dealer];
   const owned = cs.owned.includes(car.id);
-  drawCarSide(c, x + 50, 108, 220, car, paintHex(car.id));
-  text(c, car.name, x + 10, 29, 8, '#fff', 'left', '#100830');
-  // filtro por classe de desempenho e selo do carro
+  kicker(c, first ? 'COMECE POR AQUI' : 'VENDE-SE', x + 4, 20, RED, '#fff');
+  headline(c, car.name.toUpperCase(), x + 4, 33, 8, INK);
   drawFilter(c, dealerFilterRects(), ui.filter, (k) => filtered(DEALER_CARS, k).length);
   const ids = filtered(DEALER_CARS, ui.filter);
-  text(c, `${ids.indexOf(ui.dealer) + 1}/${ids.length}`, x + 10, 41, 5, '#c8c0f0', 'left', null);
-  classBadge(c, x + 34, 52, car, true);
+  ink(c, `${ids.indexOf(ui.dealer) + 1} de ${ids.length}`, x + 4, 45, 5, GREY);
+  classBadge(c, x + 60, 43, car, true, 9);
+  stars(c, x + 130, 45, carStars(car), 5);
+  const ph: Rect = { x: x + 4, y: 56, w: 198, h: 70 };
+  photo(c, ph, () => drawCarSide(c, ph.x + 8, ph.y + 64, 182, car, paintHex(car.id)));
   const b = dealerButtons();
-  smallButton(c, b.prev, '◀');
-  smallButton(c, b.next, '▶');
-  panel(c, { x: x + 6, y: 112, w: SAFE_W - 12, h: 88 }, '#8c84c8', '#2a2060');
-  const rows: [string, string][] = [
-    ['Preço', car.price], ['Motor', `${car.engine}, ${car.power}`], ['Layout', layout(car)],
-    ['Peso', `${car.mass.toLocaleString('pt-BR')} kg`], ['Câmbio', gearbox(car)],
-    ['0-100', `${car.zeroTo100.toFixed(1).replace('.', ',')} s`], ['Máxima', `${Math.round(car.maxSpeed * KMH)} km/h`],
-  ];
-  rows.forEach(([k, v], i) => {
-    text(c, k + ':', x + 100, 118 + i * 11, 8, '#2a2060', 'right', null);
-    text(c, v, x + 106, 118 + i * 11, 8, '#100830', 'left', null);
-  });
+  tag(c, b.prev, '◀');
+  tag(c, b.next, '▶');
+  const fr: Rect = { x: x + 208, y: 50, w: 108, h: 80 };
+  box(c, fr, 'FICHA');
+  specRows(c, fr, carRows(car).filter(([k]) => k !== 'Preço'), 9.4);
+  accelChart(c, { x: x + 4, y: 136, w: 150, h: 66 }, car);
+  verdictBox(c, { x: x + 160, y: 136, w: 156, h: 66 }, car);
   const price = priceOf(car);
-  smallButton(c, b.back, first ? '◀ SAIR' : '◀ VOLTAR');
+  // preço em destaque, como anúncio
+  burst(c, x + 170, 76, 20, ['SÓ', money(price)], YELLOW, RED, s.t);
+  tag(c, b.back, first ? '◀ CAPA' : '◀ VOLTAR');
   if (owned) {
     const canSell = cs.owned.length > 1 && cs.car !== car.id;
-    smallButton(c, b.buy, canSell ? `VENDER ${money(sellValue(car))}` : car.id === cs.car ? 'EM USO' : 'NA GARAGEM');
+    tag(c, b.buy, canSell ? `VENDER POR ${money(sellValue(car))}` : car.id === cs.car ? 'EM USO' : 'NA SUA GARAGEM');
   } else {
     const ok = cs.money >= price;
-    smallButton(c, b.buy, ok ? `COMPRAR ${money(price)}` : `FALTA ${money(price - cs.money)}`, ok && Math.floor(s.t * 2) % 2 === 0);
+    tag(c, b.buy, ok ? `COMPRAR ${money(price)}` : `FALTA ${money(price - cs.money)}`, ok && Math.floor(s.t * 2) % 2 === 0);
   }
   toast(c, s);
 }
@@ -351,32 +406,37 @@ export function drawCareerEnd(c: CanvasRenderingContext2D, s: AppState) {
   const reg = REGIONS[ui.region];
   const ev = reg.events[ui.event];
   const x = ox();
-  purpleBg(c, 'Resultado');
-  topBar(c, s, reg.name.toUpperCase(), cs);
-  panel(c, { x: x + 20, y: 30, w: SAFE_W - 40, h: 176 }, '#2a2060', '#100830');
+  paper(c);
+  topBar(c, s, 'RESULTADO DO DESAFIO', cs);
+  kicker(c, ev.name.toUpperCase(), x + 4, 20, INK);
   const title = res.gameOver ? 'SEUS CARROS ACABARAM' : res.won ? 'VOCÊ VENCEU!' : `${ev.driver.name.toUpperCase()} VENCEU`;
-  text(c, title, view.w / 2, 38, 8, res.won ? '#ffd400' : '#ff6a5a', 'center');
-  text(c, ev.name, view.w / 2, 52, 5, '#c8c0f0', 'center', null);
+  headline(c, title, x + 4, 34, 8, res.won ? '#1a6a2a' : RED);
+  helmet(c, x + SAFE_W - 20, 40, 10, ev.driver.paint, ui.event + 1);
   const total = s.results.reduce((a2, r) => a2 + r.time, 0);
   const rival = s.results.reduce((a2, r) => a2 + Math.max(0, r.rival), 0);
-  if (!res.gameOver) text(c, `Você ${formatTime(total)}   Rival ${formatTime(rival)}`, view.w / 2, 64, 5, '#fff', 'center', null);
+  if (!res.gameOver) ink(c, `Você ${formatTime(total)}  •  ${ev.driver.name} ${formatTime(rival)}`, x + 4, 48, 5, INK);
+  const t: Rect = { x: x + 4, y: 60, w: 200, h: 92 };
+  box(c, t, 'EXTRATO');
   const lines: [string, number][] = [[res.won ? 'Prêmio' : 'Participação', res.prize], ['Bônus trecho limpo', res.clean], ['Multas', -res.fines], ['Conserto', -res.repairs]];
   lines.forEach(([k, v], i) => {
-    text(c, k, x + 44, 82 + i * 14, 8, '#d8d0ff', 'left', null);
-    text(c, (v < 0 ? '-' : '') + money(Math.abs(v)), x + SAFE_W - 44, 82 + i * 14, 8, v < 0 ? '#ff8a7a' : '#8aff8a', 'right', null);
+    const y = t.y + 16 + i * 13;
+    ink(c, k, t.x + 6, y, 5, GREY);
+    ink(c, (v < 0 ? '-' : '') + money(Math.abs(v)), t.x + t.w - 6, y, 5, v < 0 ? RED : '#1a6a2a', 'right');
   });
-  c.fillStyle = '#6a5ec0';
-  c.fillRect(x + 44, 138, SAFE_W - 88, 1);
-  text(c, 'Total', x + 44, 144, 8, '#fff', 'left', null);
-  text(c, (res.total < 0 ? '-' : '') + money(Math.abs(res.total)), x + SAFE_W - 44, 144, 8, res.total < 0 ? '#ff8a7a' : '#ffd400', 'right', null);
+  rule(c, t.x + 6, t.y + 70, t.w - 12, RED);
+  ink(c, 'TOTAL', t.x + 6, t.y + 77, 8, INK);
+  ink(c, (res.total < 0 ? '-' : '') + money(Math.abs(res.total)), t.x + t.w - 6, t.y + 77, 8, res.total < 0 ? RED : '#1a6a2a', 'right');
+  const car = carById(cs.car);
+  photo(c, { x: x + 214, y: 64, w: 102, h: 62 }, () => drawCarSide(c, x + 218, 120, 94, car, paintHex(car.id)));
   let note = `Saldo: ${money(cs.money)}`;
   if (res.firstWin && ev.boss) {
     const next = regionsAfter(ui.region);
     const champion = REGIONS.every((r) => r.events.some((e) => e.boss && cs.done.includes(e.id)));
     note = next.length ? `LIBERADA: ${next.map((r) => r.name.toUpperCase()).join(' E ')}!` : champion ? 'VOCÊ É O CAMPEÃO DA CARREIRA!' : 'REGIÃO CONCLUÍDA!';
+    burst(c, x + 266, 170, 30, ['CHEFÃO', 'DERROTADO!'], YELLOW, RED, s.t);
   }
-  text(c, note, view.w / 2, 166, res.firstWin && ev.boss ? 8 : 5, res.firstWin && ev.boss ? '#30e060' : '#d8d0ff', 'center', null);
-  if (Math.floor(s.t * 2) % 2) text(c, 'TOQUE PARA CONTINUAR', view.w / 2, 190, 5, '#ffd400', 'center', null);
+  headline(c, note, x + 4, 166, res.firstWin && ev.boss ? 8 : 5, res.firstWin && ev.boss ? '#1a6a2a' : INK);
+  if (Math.floor(s.t * 2) % 2) ink(c, 'TOQUE PARA CONTINUAR ▶', x + 160, 222, 5, RED, 'center');
   toast(c, s);
 }
 

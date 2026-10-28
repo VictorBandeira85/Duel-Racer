@@ -94,87 +94,6 @@ const titleSigns = () => {
   ] as Rect[];
 };
 
-function sky(c: CanvasRenderingContext2D, top: string, bottom: string, y1: number) {
-  const g = c.createLinearGradient(0, 0, 0, y1);
-  g.addColorStop(0, top);
-  g.addColorStop(1, bottom);
-  c.fillStyle = g;
-  c.fillRect(0, 0, view.w, y1);
-}
-
-function cloud(c: CanvasRenderingContext2D, x: number, y: number, s: number) {
-  c.fillStyle = '#f4f8ff';
-  for (const [dx, dy, r] of [[0, 0, 10], [12, -4, 12], [26, 0, 9], [14, 4, 10], [-10, 3, 7]]) {
-    c.beginPath();
-    c.ellipse(x + dx * s, y + dy * s, r * s * 1.6, r * s * 0.7, 0, 0, Math.PI * 2);
-    c.fill();
-  }
-}
-
-export function drawRoadScene(c: CanvasRenderingContext2D, t: number) {
-  const { w, h } = view;
-  const hz = 158;
-  sky(c, '#5a9ae8', '#dce8f6', hz);
-  cloud(c, w * 0.25 - ((t * 4) % 60), 30, 1.2);
-  cloud(c, w * 0.7 - ((t * 3) % 60), 22, 1.6);
-  cloud(c, w * 0.5 - ((t * 5) % 60), 70, 0.9);
-  // montanhas nevadas
-  for (let i = -1; i < w / 34 + 1; i++) {
-    const mx = i * 34 + 10, mh = 18 + ((i * 37) % 13);
-    c.fillStyle = '#8a8e98';
-    c.beginPath();
-    c.moveTo(mx - 24, hz);
-    c.lineTo(mx, hz - mh);
-    c.lineTo(mx + 24, hz);
-    c.fill();
-    c.fillStyle = '#e8ecf2';
-    c.beginPath();
-    c.moveTo(mx - 7, hz - mh + 6);
-    c.lineTo(mx, hz - mh);
-    c.lineTo(mx + 7, hz - mh + 6);
-    c.fill();
-  }
-  c.fillStyle = dither(c, '#1e6a1e', '#2e8a2a');
-  c.fillRect(0, hz, w, h - hz);
-  c.fillStyle = '#1e1e22';
-  c.beginPath();
-  c.moveTo(w / 2 - 4, hz);
-  c.lineTo(w / 2 + 4, hz);
-  c.lineTo(w / 2 + w * 0.62, h);
-  c.lineTo(w / 2 - w * 0.62, h);
-  c.fill();
-  c.strokeStyle = '#8a8a8a';
-  c.lineWidth = 2;
-  for (const s of [-1, 1]) {
-    c.beginPath();
-    c.moveTo(w / 2 + s * 3, hz);
-    c.lineTo(w / 2 + s * w * 0.5, h);
-    c.stroke();
-  }
-  // faixa central animada
-  c.fillStyle = '#e8b818';
-  for (let i = 0; i < 12; i++) {
-    const f = ((i + t * 2) % 12) / 12;
-    const f2 = Math.min(1, f + 0.04);
-    const y1 = hz + (h - hz) * f * f, y2 = hz + (h - hz) * f2 * f2;
-    const w1 = 0.5 + f * 4, w2 = 0.5 + f2 * 4;
-    c.beginPath();
-    c.moveTo(w / 2 - w1, y1);
-    c.lineTo(w / 2 + w1, y1);
-    c.lineTo(w / 2 + w2, y2);
-    c.lineTo(w / 2 - w2, y2);
-    c.fill();
-  }
-}
-
-function sign(c: CanvasRenderingContext2D, r: Rect, lines: string[], hot: boolean) {
-  panel(c, r, '#3c2f7a', hot ? '#ffd400' : '#1c1440', 'rgba(255,255,255,0.3)');
-  c.strokeStyle = '#c8c0f0';
-  c.lineWidth = 1;
-  c.strokeRect(r.x + 3.5, r.y + 3.5, r.w - 7, r.h - 7);
-  lines.forEach((l, i) => text(c, l, r.x + r.w / 2, r.y + r.h / 2 - lines.length * 6 + i * 13 + 2, 8, '#e8e4ff', 'center', null));
-}
-
 // carro da capa: troca a cada 5 s entre os que têm arte
 const coverCars = () => CARS.filter((c) => c.imgSide && !c.arcadeOnly);
 function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
@@ -316,40 +235,7 @@ const carButtons = () => {
   };
 };
 
-// marca d'água em pixels duros (texto do canvas sai com antialias, que parece borrado)
-const marks = new Map<string, HTMLCanvasElement>();
-function watermark(label: string): HTMLCanvasElement {
-  let cv = marks.get(label);
-  if (cv) return cv;
-  cv = document.createElement('canvas');
-  cv.width = 80;
-  cv.height = 16;
-  const m = cv.getContext('2d')!;
-  m.font = 'italic 12px Georgia, serif';
-  m.fillStyle = '#6a5eb0';
-  m.fillText(label, 1, 12);
-  const img = m.getImageData(0, 0, cv.width, cv.height);
-  for (let i = 3; i < img.data.length; i += 4) img.data[i] = img.data[i] >= 100 ? 255 : 0;
-  m.putImageData(img, 0, 0);
-  marks.set(label, cv);
-  return cv;
-}
-
-export function purpleBg(c: CanvasRenderingContext2D, label: string) {
-  const { w, h } = view;
-  c.fillStyle = '#4e4290';
-  c.fillRect(0, 0, w, h);
-  const mark = watermark(label);
-  for (let row = 0; row < 12; row++) for (let col = -1; col < w / 86 + 1; col++) c.drawImage(mark, col * 86 + (row % 2) * 43 - 1, 2 + row * 15);
-}
-
-export function smallButton(c: CanvasRenderingContext2D, r: Rect, label: string, hot = false) {
-  panel(c, r, hot ? '#ffd400' : '#2a2060', '#120c30');
-  text(c, label, r.x + r.w / 2, r.y + r.h / 2 - 4, 8, hot ? '#200' : '#fff', 'center', null);
-}
-
-// quadradinhos de cor, à direita do nome do carro
-// 15 cores em duas fileiras, à direita do nome
+// as 15 cores, numa fileira embaixo da foto
 const swatches = (): Rect[] => PAINTS.map((_, i) => ({ x: ox() + 30 + i * 12, y: 159, w: 10, h: 7 }));
 
 // ---- página de teste (ficha técnica, gráfico e o veredito), usada também na carreira ----
@@ -653,7 +539,7 @@ function drawCourseStrip(c: CanvasRenderingContext2D, r: Rect, course: Course, t
 }
 
 // cadeado de pixel (aro e corpo com o buraco da chave)
-function padlock(c: CanvasRenderingContext2D, cx: number, cy: number) {
+export function padlock(c: CanvasRenderingContext2D, cx: number, cy: number) {
   c.strokeStyle = INK;
   c.lineWidth = 2;
   c.beginPath();
@@ -673,7 +559,7 @@ const PLACE: Record<string, string> = {
   canyon: 'Cânion', jungle: 'Selva', autumn: 'Outono', beach: 'Praia', savanna: 'Savana', industrial: 'Indústria', alpine: 'Alpes', alpinesnow: 'Alpes',
 };
 // um trecho do roteiro: etiqueta com a cor do bioma e o nome; lua (noite), gotas/flocos/neblina e o sol se pondo
-function stageChip(c: CanvasRenderingContext2D, x: number, y: number, st: Course['stages'][number]) {
+export function stageChip(c: CanvasRenderingContext2D, x: number, y: number, st: Course['stages'][number]) {
   const th = THEMES[st.theme];
   const W = 38, H = 14;
   c.fillStyle = INK;

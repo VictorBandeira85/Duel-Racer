@@ -4,7 +4,7 @@ import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from '
 import { CARS, drawCar } from './cars';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
 import { SPRITES } from './sprites';
-import type { BgLayer } from './themes';
+import { FOG_COLOR, type BgLayer } from './themes';
 import type { Point, Segment } from './track';
 import { dither } from './ui';
 import { PANO_H, PANO_W, panorama } from './bgart';
@@ -95,11 +95,12 @@ function laneLine(c: CanvasRenderingContext2D, s: Segment, at: number, width: nu
   quad(c, x1 + at * w1 - l1, y1, x1 + at * w1 + l1, y1, x2 + at * w2 + l2, y2, x2 + at * w2 - l2, y2);
 }
 
-function drawSegment(c: CanvasRenderingContext2D, s: Segment, r: Race, vp: Viewport, ground: CanvasPattern) {
+function drawSegment(c: CanvasRenderingContext2D, s: Segment, r: Race, vp: Viewport, ground: CanvasPattern, fogK: number) {
   const th = r.theme;
   const { x: x1, y: y1, w: w1 } = s.p1.screen;
   const { x: x2, y: y2, w: w2 } = s.p2.screen;
-  c.fillStyle = ground;
+  // no túnel, o que fica além do acostamento é o pé da parede
+  c.fillStyle = s.tunnel ? wallColor(s, 1) : ground;
   c.fillRect(vp.x, y2, vp.w, y1 - y2);
   const sh1 = w1 * 0.1, sh2 = w2 * 0.1;
   c.fillStyle = th.shoulder;
@@ -117,6 +118,99 @@ function drawSegment(c: CanvasRenderingContext2D, s: Segment, r: Race, vp: Viewp
       laneLine(c, s, 0.5, 0.014, '#e8e8e8');
     }
   }
+  if (s.tunnel) { // asfalto na penumbra (só as luzes do teto)
+    c.fillStyle = 'rgba(8,6,4,0.38)';
+    c.fillRect(vp.x, y2, vp.w, y1 - y2);
+  }
+  if (fogK > 0.01) {
+    c.fillStyle = fogFill(fogK);
+    c.fillRect(vp.x, y2, vp.w, y1 - y2);
+  }
+}
+
+// ---- neblina e túnel ----
+const FOG_D = 34; // segmentos: a ~40 m quase tudo já some
+export const fogAt = (dist: number) => 1 - Math.exp(-dist / FOG_D);
+const fogRgb = [1, 3, 5].map((i) => parseInt(FOG_COLOR.slice(i, i + 2), 16)).join(',');
+const fogFill = (k: number) => `rgba(${fogRgb},${Math.min(0.96, k).toFixed(3)})`;
+const TUN_W = 1300; // além da meia largura da pista, até a parede
+const TUN_H = 2300; // altura do teto (a profundidade do jogo é comprimida: medido no olho)
+// concreto em faixas (a cada 4 segmentos), mais escuro com a distância e no teto
+function wallColor(s: Segment, k: number) {
+  const band = (s.index >> 2) & 1 ? 0 : 10;
+  const v = Math.round((70 + band) * k);
+  return `rgb(${v + 6},${v + 2},${v - 4 > 0 ? v - 4 : 0})`;
+}
+// fatia de túnel entre p1 (perto) e p2 (longe): paredes, teto e as luminárias
+function tunnelSlice(c: CanvasRenderingContext2D, s: Segment, vp: Viewport, roadW: number, dist: number) {
+  const pts = [s.p1.screen, s.p2.screen].map((p) => {
+    const tw = p.w * ((roadW + TUN_W) / roadW), h = p.scale * TUN_H * vp.K;
+    return { x: p.x, y: p.y, tw, h };
+  });
+  const [a, b] = pts;
+  const light = Math.max(0.35, 1 - dist / 140);
+  c.fillStyle = wallColor(s, light);
+  quad(c, a.x - a.tw, a.y, a.x - a.tw, a.y - a.h, b.x - b.tw, b.y - b.h, b.x - b.tw, b.y);
+  quad(c, a.x + a.tw, a.y, a.x + a.tw, a.y - a.h, b.x + b.tw, b.y - b.h, b.x + b.tw, b.y);
+  c.fillStyle = wallColor(s, light * 0.7);
+  quad(c, a.x - a.tw, a.y - a.h, a.x + a.tw, a.y - a.h, b.x + b.tw, b.y - b.h, b.x - b.tw, b.y - b.h);
+  // faixa refletiva na base das paredes
+  c.fillStyle = (s.index >> 1) & 1 ? '#d8c020' : '#202020';
+  const fy = (p: typeof a) => p.y - p.h * 0.06;
+  quad(c, a.x - a.tw, fy(a), a.x - a.tw, fy(a) - Math.max(1, a.h * 0.03), b.x - b.tw, fy(b) - Math.max(1, b.h * 0.03), b.x - b.tw, fy(b));
+  quad(c, a.x + a.tw, fy(a), a.x + a.tw, fy(a) - Math.max(1, a.h * 0.03), b.x + b.tw, fy(b) - Math.max(1, b.h * 0.03), b.x + b.tw, fy(b));
+  // luminárias de sódio no alto das paredes, a cada 6 segmentos
+  if (s.index % 6 === 0) {
+    const lw = Math.max(1, a.tw * 0.07), lh = Math.max(1, a.h * 0.025);
+    c.fillStyle = '#ffd27a';
+    for (const side of [-1, 1]) c.fillRect(Math.round(a.x + side * a.tw * 0.9 - lw / 2), Math.round(a.y - a.h * 0.93), Math.round(lw), Math.round(lh));
+    if (a.tw > 30) {
+      c.fillStyle = 'rgba(255,200,110,0.12)';
+      for (const side of [-1, 1]) c.fillRect(Math.round(a.x + side * a.tw * 0.9 - lw * 1.5), Math.round(a.y - a.h * 0.97), Math.round(lw * 3), Math.round(lh * 4));
+    }
+  }
+}
+// boca do túnel na encosta: a pedra em volta da abertura e a moldura de concreto
+function tunnelPortal(c: CanvasRenderingContext2D, s: Segment, vp: Viewport, roadW: number) {
+  const p = s.p1.screen;
+  const tw = p.w * ((roadW + TUN_W) / roadW), h = p.scale * TUN_H * vp.K;
+  const x0 = p.x - tw, x1 = p.x + tw, top = p.y - h;
+  // encosta: um morro largo em volta (para não tapar o céu inteiro de longe)
+  c.fillStyle = dither(c, '#5a5046', '#4a4038');
+  c.beginPath();
+  c.moveTo(p.x - tw * 6, p.y);
+  c.lineTo(p.x - tw * 3.2, top - h * 1.1);
+  c.lineTo(p.x - tw * 1.2, top - h * 1.6);
+  c.lineTo(p.x + tw * 1.4, top - h * 1.5);
+  c.lineTo(p.x + tw * 3.4, top - h * 1.0);
+  c.lineTo(p.x + tw * 6, p.y);
+  c.lineTo(x1, p.y);
+  c.lineTo(x1, top);
+  c.lineTo(x0, top);
+  c.lineTo(x0, p.y);
+  c.closePath();
+  c.fill();
+  // moldura de concreto da boca
+  const fw = Math.max(1, tw * 0.12);
+  c.fillStyle = '#9a968e';
+  c.fillRect(Math.round(x0 - fw), Math.round(top - fw), Math.round(x1 - x0 + 2 * fw), Math.round(fw));
+  c.fillRect(Math.round(x0 - fw), Math.round(top), Math.round(fw), Math.round(p.y - top));
+  c.fillRect(Math.round(x1), Math.round(top), Math.round(fw), Math.round(p.y - top));
+  c.fillStyle = '#6a665e';
+  c.fillRect(Math.round(x0 - fw), Math.round(top - fw), Math.round(x1 - x0 + 2 * fw), Math.max(1, Math.round(fw * 0.25)));
+}
+// dentro do túnel: do para-brisa até a primeira fatia desenhada também é parede e teto (abaixo
+// da base dela as laterais já saem cor de parede, drawSegment)
+function tunnelFrame(c: CanvasRenderingContext2D, s: Segment, vp: Viewport, roadW: number) {
+  const a = s.p1.screen;
+  const ta = a.w * ((roadW + TUN_W) / roadW), ha = a.scale * TUN_H * vp.K;
+  const l = Math.max(vp.x, Math.round(a.x - ta)), r = Math.min(vp.x + vp.w, Math.round(a.x + ta));
+  const top = Math.max(vp.y, Math.round(a.y - ha)), base = Math.min(vp.y + vp.h, Math.round(a.y));
+  c.fillStyle = wallColor(s, 0.85);
+  c.fillRect(vp.x, vp.y, l - vp.x, base - vp.y);
+  c.fillRect(r, vp.y, vp.x + vp.w - r, base - vp.y);
+  c.fillStyle = wallColor(s, 0.6);
+  c.fillRect(l, vp.y, r - l, top - vp.y);
 }
 
 function hash(n: number) {
@@ -150,6 +244,18 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
     c.arc(vp.x + vp.w * 0.78, vp.y + 12, 5, 0, Math.PI * 2);
     c.fill();
   }
+  // pôr do sol: o disco descendo atrás dos morros
+  if (r.def.dusk && r.sun > 0) {
+    const sy = vp.horizon - 4 - r.sun * 46, sx = vp.x + vp.w * 0.32 - yawPx * 0.5;
+    c.fillStyle = 'rgba(255,170,80,0.25)';
+    c.beginPath();
+    c.arc(sx, sy, 16, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = r.sun > 0.5 ? '#fff0b0' : '#ffb050';
+    c.beginPath();
+    c.arc(sx, sy, 8, 0, Math.PI * 2);
+    c.fill();
+  }
   const seed = r.course.id.length * 31 + r.stageIdx;
   const [far, near] = th.bg;
   const layer = (kind: BgLayer, isNear: boolean, speed: number) => {
@@ -161,6 +267,16 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   };
   layer(far, false, 0.3);
   layer(near, true, 0.6);
+  // luz alaranjada do fim de tarde por cima dos morros; neblina apaga o fundo quase todo
+  if (r.def.dusk && !night) {
+    const k = Math.max(0, 1 - Math.abs(r.progress - 0.5) / 0.45);
+    c.fillStyle = `rgba(255,110,40,${(k * 0.22).toFixed(3)})`;
+    c.fillRect(vp.x, vp.y, vp.w, vp.horizon + 2 - vp.y);
+  }
+  if (r.def.weather === 'fog') {
+    c.fillStyle = fogFill(0.86);
+    c.fillRect(vp.x, vp.y, vp.w, vp.horizon + 2 - vp.y);
+  }
 }
 
 // mistura de duas cores #rrggbb
@@ -179,6 +295,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   const segs = r.track.segments;
   const roadW = r.track.roadW;
   const night = !!r.def.night;
+  const fog = r.def.weather === 'fog';
   c.save();
   c.beginPath();
   c.rect(vp.x, vp.y, vp.w, vp.h);
@@ -220,10 +337,11 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
     x += dx;
     dx += s.curve;
     if (s.p1.camera.z <= CAM_DEPTH || s.p2.screen.y >= s.p1.screen.y || s.p2.screen.y >= maxy) continue;
-    drawSegment(c, s, r, vp, ground);
+    drawSegment(c, s, r, vp, ground, fog ? fogAt(i - base.index) : 0);
     maxy = s.p1.screen.y;
   }
 
+  let nearTunnel: Segment | null = null;
   for (let i = end - 1; i > base.index; i--) {
     const s = segs[i];
     if (s.p1.camera.z <= CAM_DEPTH * 4) continue;
@@ -232,6 +350,18 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
     c.rect(vp.x, vp.y, vp.w, s.clip - vp.y);
     c.clip();
     const dist = i - base.index;
+    if (s.tunnel) {
+      tunnelSlice(c, s, vp, roadW, dist);
+      if (!segs[i - 1]?.tunnel) tunnelPortal(c, s, vp, roadW);
+      nearTunnel = s;
+    }
+    // neblina: o que está longe vai sumindo no cinza
+    const fk = fog ? fogAt(dist) : 0;
+    if (fk > 0.97) {
+      c.restore();
+      continue;
+    }
+    c.globalAlpha = 1 - fk;
     for (const sp of s.sprites) {
       // objetos pequenos e distantes só poluem o horizonte
       if (dist > (sp.kind === 'post' || sp.kind === 'rail' ? 90 : FAR_KINDS.includes(sp.kind) ? 400 : 170)) continue;
@@ -260,7 +390,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         const gc = ghostCar(r);
         if (gc) {
           c.save();
-          c.globalAlpha = 0.42;
+          c.globalAlpha *= 0.42;
           drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: gc.color, rear: gc.rear, night, paint: r.ghostRun!.paint });
           c.restore();
         }
@@ -275,13 +405,15 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       } else {
         const t = e as TrafficCar;
         const tw = (t.truck ? TRUCK_W : CAR_W) * sc * vp.K;
-        drawCar(c, cx, cy, tw, trafficLook(t, t.base < 0, night, t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0));
+        drawCar(c, cx, cy, tw, trafficLook(t, t.base < 0, night || fog || !!s.tunnel, t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0));
         // batido: fumaça saindo do motor (frente: em cima do capô; de trás: por cima do carro)
         if (t.smoke > 0) drawSmoke(c, cx, cy - tw * (t.base < 0 ? 0.35 : 0.55), tw, t.smoke, Math.round(t.base));
       }
     }
     c.restore();
   }
+  // dentro do túnel: parede e teto entre o para-brisa e a fatia mais próxima
+  if (nearTunnel && (base.tunnel || segs[base.index + 1]?.tunnel)) tunnelFrame(c, nearTunnel, vp, roadW);
 
   // escuridão da noite: faróis iluminam só a frente
   if (night) {

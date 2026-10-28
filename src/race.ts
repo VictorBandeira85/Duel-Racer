@@ -2,11 +2,11 @@ import { CAR_W, KMH, LANE_W, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './conf
 import { aeroMul, CARS, G, LAUNCH_BOOST, Powertrain, perfClass, resistAcc, toGame, toMs, type CarLook, type CarSpec, type PerfClass } from './cars';
 import { PAINTS } from './paint';
 import type { Course, StageDef } from './courses';
-import { THEMES, nightTheme, rainTheme, type Theme } from './themes';
+import { THEMES, blendTheme, fogTheme, nightTheme, rainTheme, sunsetTheme, type Theme } from './themes';
 import { SPRITES } from './sprites';
 import { buildTrack, laneCenter, type Segment, type Track } from './track';
 import { input, takeShift } from './input';
-import { beep, bumpSound, crashSound, landSound, stoneSound, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
+import { beep, bumpSound, crashSound, landSound, stoneSound, setTunnel, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
 import { updateTrafficAudio } from './trafficaudio';
 import { GHOST_DT, ghostAt, type Ghost } from './records';
@@ -130,6 +130,10 @@ export type RaceState = 'countdown' | 'drive' | 'crash' | 'pullover' | 'ticket' 
 export class Race {
   def: StageDef;
   theme: Theme;
+  private dayTheme: Theme;
+  private duskStep = -1;
+  sun = 0; // pôr do sol: 1 = sol alto no começo, 0 = já se pôs
+  inTunnel = 0; // 0..1, sobe ao entrar no túnel (eco do ronco, luz)
   track: Track;
   state: RaceState = 'countdown';
   timer = 3.999;
@@ -222,9 +226,11 @@ export class Race {
     this.pt = new Powertrain(car);
     this.rivalStyleOverride = opts.rivalStyle;
     setEngineProfile(car.engine, car.id);
-    this.def = course.stages[stageIdx];
+    // cópia: o pôr do sol acende a noite no meio do trecho sem mexer na definição do percurso
+    this.def = { ...course.stages[stageIdx] };
     const base = THEMES[this.def.theme];
-    this.theme = this.def.night ? nightTheme(base) : this.def.weather === 'rain' ? rainTheme(base) : base;
+    this.dayTheme = base;
+    this.theme = this.def.night ? nightTheme(base) : this.def.weather === 'rain' ? rainTheme(base) : this.def.weather === 'fog' ? fogTheme(base) : base;
     const seed = (course.seed ?? course.id.length * 1000) + stageIdx * 97 + 11;
     this.track = buildTrack(this.def, this.theme, seed);
     this.rand = rng(seed + 5);
@@ -296,6 +302,26 @@ export class Race {
       this.crackGlass(0.25 + this.rand() * 0.25, true);
       stoneSound();
     }
+  }
+
+  // pôr do sol ao longo do trecho (céu, chão, faróis) e o túnel (eco no ronco)
+  private updateAmbient(dt: number, seg: Segment) {
+    if (this.def.dusk) {
+      const p = this.progress;
+      // dia -> pôr do sol (até 55%) -> noite (a partir de 85%); em degraus, para não recriar texturas a cada quadro
+      const step = Math.round(p * 24);
+      if (step !== this.duskStep) {
+        this.duskStep = step;
+        const q = step / 24;
+        const sunset = sunsetTheme(this.dayTheme), night = nightTheme(this.dayTheme);
+        this.theme = q < 0.55 ? blendTheme(this.dayTheme, sunset, q / 0.55) : blendTheme(sunset, night, Math.min(1, (q - 0.55) / 0.3));
+        this.def.night = q > 0.72;
+      }
+      this.sun = clamp(1 - p / 0.75, 0, 1);
+    }
+    const inT = seg.tunnel ? 1 : 0;
+    this.inTunnel += (inT - this.inTunnel) * Math.min(1, dt * 4);
+    setTunnel(this.inTunnel);
   }
 
   // altura do chão em z
@@ -373,6 +399,7 @@ export class Race {
 
     const driving = this.state === 'drive';
     if (this.state !== 'arrived') this.time += dt;
+    this.updateAmbient(dt, pSeg);
     while (this.state !== 'arrived' && this.trace.z.length * GHOST_DT <= this.time) {
       this.trace.z.push(Math.round(this.playerZ));
       this.trace.x.push(Math.round(this.x));
@@ -409,8 +436,13 @@ export class Race {
     // voa em parábola e cai com uma pancada proporcional à velocidade de queda ----
     if (dt > 0) {
       const gy = this.groundY(this.position);
+      // posição mudada de uma vez (reinício, teste): recomeça colado no chão
+      if (this.prevGy !== null && Math.abs(gy - this.prevGy) > 400) this.prevGy = null;
       const vyG = this.prevGy === null ? 0 : (gy - this.prevGy) / dt;
-      if (this.prevGy === null) this.carY = gy;
+      if (this.prevGy === null) {
+        this.carY = gy;
+        this.vy = 0;
+      }
       this.prevGy = gy;
       this.vy -= GRAV * dt;
       this.carY += this.vy * dt;

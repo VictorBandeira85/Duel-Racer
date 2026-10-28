@@ -851,7 +851,7 @@ function drawGlassMarks(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
 
 function weather(c: CanvasRenderingContext2D, r: Race, vp: Viewport, dt: number) {
   const w = r.def.weather;
-  if (!w) return;
+  if (!w || w === 'fog') return;
   const n = w === 'rain' ? 70 : 60;
   while (drops.length < n) drops.push({ x: Math.random() * vp.w, y: Math.random() * vp.h, v: 0.6 + Math.random() * 0.6 });
   const sp = r.speed / r.car.maxSpeed;

@@ -96,7 +96,7 @@ export function drawWipers(c: CanvasRenderingContext2D, r: Race, vp: Viewport, d
     film = new Float32Array(0);
   }
   const w = r.def.weather;
-  const on = !!w && r.state !== 'arrived';
+  const on = (w === 'rain' || w === 'snow') && r.state !== 'arrived';
   // eixos: um no meio-esquerdo, outro à direita do centro (sistema tandem)
   // o eixo fica rente à borda do painel; parada, a palheta acompanha a borda até a ponta
   const L = 96;

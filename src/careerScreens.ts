@@ -135,7 +135,7 @@ export function drawEvent(c: CanvasRenderingContext2D, s: AppState) {
     c.fillStyle = k < stars ? '#ffd400' : '#3a3060';
     c.fillRect(view.w / 2 - 4 + k * 8, 148, 6, 6);
   }
-  const trechos = ev.stages.map((st) => THEME_NAME[st.theme] + (st.night ? ' (noite)' : st.weather === 'rain' ? ' (chuva)' : st.weather === 'snow' ? ' (neve)' : '')).join(' > ');
+  const trechos = ev.stages.map((st) => THEME_NAME[st.theme] + (st.night ? ' (noite)' : st.weather === 'rain' ? ' (chuva)' : st.weather === 'snow' ? ' (neve)' : st.weather === 'fog' ? ' (neblina)' : st.dusk ? ' (pôr do sol)' : '')).join(' > ');
   text(c, trechos, view.w / 2, 162, 5, '#c8c0f0', 'center', null);
   const done = cs.done.includes(ev.id);
   text(c, `Prêmio: ${money(done ? ev.prize / 2 : ev.prize)}${done ? ' (repetição)' : ''}`, view.w / 2, 176, 8, '#8aff8a', 'center', null);

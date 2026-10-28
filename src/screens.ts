@@ -482,7 +482,10 @@ function drawCourseStrip(c: CanvasRenderingContext2D, r: Rect, course: Course, t
       c.ellipse(cx - 12, r.y + 10, 10, 5, 0, 0, Math.PI * 2);
       c.fill();
       c.fillStyle = st.weather === 'snow' ? '#fff' : '#9ac0ff';
-      for (let k = 0; k < 4; k++) c.fillRect(cx - 18 + k * 4, r.y + 17 + (k % 2) * 3, 1, 3);
+      if (st.weather === 'fog') { // neblina: faixas cinzentas no lugar das gotas
+        c.fillStyle = '#c8ccd2';
+        for (let k = 0; k < 3; k++) c.fillRect(cx - 22 + k * 3, r.y + 17 + k * 3, 16, 1);
+      } else for (let k = 0; k < 4; k++) c.fillRect(cx - 18 + k * 4, r.y + 17 + (k % 2) * 3, 1, 3);
     }
     if (st.theme === 'city') {
       c.fillStyle = st.night ? '#ffd86b' : '#d8d0e8';

@@ -24,6 +24,7 @@ export interface Segment {
   sprites: SpriteInst[];
   cars: { z: number; x: number }[];
   clip: number;
+  tunnel?: boolean; // dentro de um túnel (paredes e teto, sem cenário)
 }
 
 export interface Track {
@@ -45,6 +46,8 @@ export function laneCenter(track: Track, lane: number) {
   const lw = (track.roadW * 2) / track.lanes;
   return -track.roadW + lw * (lane + 0.5);
 }
+
+const TUNNELS: Partial<Record<string, number>> = { mountain: 2, alpine: 2, alpinesnow: 1, coast: 1, canyon: 1 };
 
 export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
   const rand = rng(seed);
@@ -138,6 +141,25 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
     if (segments[i].curve !== 0 || segments[i - 10]?.curve !== 0 || segments[i].sprites.some((sp) => sp.kind === 'bridge')) continue;
     segments[i].sprites.push({ kind: 'bridge', x: 0, seed: 0 });
     b++;
+  }
+
+  // túneis nas serras, no litoral e no cânion: 1 ou 2 por trecho, de 45 a 110 segmentos (com
+  // sorteio próprio, para não mudar o resto da pista)
+  const nTunnels = TUNNELS[def.theme] ?? 0;
+  const tr = rng(seed * 31 + 7);
+  for (let k = 0, tries = 0; k < nTunnels && tries < 60; tries++) {
+    const len = 45 + Math.floor(tr() * 65);
+    const a = Math.floor(startIndex + 120 + tr() * (finishIndex - startIndex - 360));
+    const b = a + len;
+    if (segments.slice(a - 40, b + 40).some((sg) => sg.tunnel || sg.sprites.some((sp) => sp.kind === 'bridge'))) continue;
+    for (let i = a; i < b; i++) {
+      segments[i].tunnel = true;
+      segments[i].sprites = [];
+    }
+    // a boca do túnel fica na encosta: nada de árvore ou placa logo antes e logo depois
+    for (let i = a - 8; i < a; i++) segments[i].sprites = segments[i].sprites.filter((sp) => sp.kind === 'post');
+    for (let i = b; i < b + 4; i++) segments[i].sprites = segments[i].sprites.filter((sp) => sp.kind === 'post');
+    k++;
   }
 
   // pontos onde a polícia fica escondida

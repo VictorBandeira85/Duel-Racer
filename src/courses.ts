@@ -4,7 +4,8 @@ export interface StageDef {
   theme: ThemeId;
   lanes: 2 | 4;
   night?: boolean;
-  weather?: 'rain' | 'snow';
+  weather?: 'rain' | 'snow' | 'fog';
+  dusk?: boolean; // o sol se põe durante o trecho: começa de dia e termina de noite
   curviness: number;
   hilliness: number;
   sections: number;
@@ -51,9 +52,9 @@ export const COURSES: Course[] = [
     stages: [
       s('snow', 2, { weather: 'snow', curviness: 1.2, hilliness: 0.9 }),
       s('mountain', 2, { curviness: 1.4, hilliness: 1 }),
-      s('forest', 2, { night: true, curviness: 1.2 }),
+      s('forest', 2, { weather: 'fog', curviness: 1.2 }),
       s('coast', 2, { weather: 'rain', curviness: 1.1 }),
-      s('coast', 4, { police: 2 }),
+      s('coast', 4, { police: 2, dusk: true }),
     ],
   },
   {
@@ -74,7 +75,7 @@ export const COURSES: Course[] = [
       s('beach', 2, { curviness: 0.8, hilliness: 0.4 }),
       s('coast', 2, { curviness: 0.9 }),
       s('beach', 4, { curviness: 0.7, traffic: 6 }),
-      s('coast', 4, { curviness: 0.8, police: 2 }),
+      s('coast', 4, { curviness: 0.8, police: 2, dusk: true }),
     ],
   },
   {
@@ -84,7 +85,7 @@ export const COURSES: Course[] = [
       s('savanna', 2, { curviness: 0.7, hilliness: 0.6, traffic: 3 }),
       s('savanna', 4, { curviness: 0.5, traffic: 4 }),
       s('desert', 2, { curviness: 0.9, traffic: 3 }),
-      s('savanna', 2, { curviness: 1, hilliness: 0.8, traffic: 3 }),
+      s('savanna', 2, { curviness: 1, hilliness: 0.8, traffic: 3, dusk: true }),
     ],
   },
   {
@@ -94,7 +95,7 @@ export const COURSES: Course[] = [
       s('autumn', 2, { curviness: 1, hilliness: 0.8 }),
       s('farm', 2, { curviness: 0.9 }),
       s('autumn', 4, { curviness: 0.8 }),
-      s('mountain', 2, { curviness: 1.2, hilliness: 0.9 }),
+      s('mountain', 2, { curviness: 1.2, hilliness: 0.9, weather: 'fog' }),
     ],
   },
   {
@@ -104,7 +105,7 @@ export const COURSES: Course[] = [
       s('canyon', 2, { curviness: 1.3, hilliness: 0.9, traffic: 3 }),
       s('desert', 4, { curviness: 0.6, police: 2 }),
       s('canyon', 2, { curviness: 1.4, hilliness: 1, traffic: 3 }),
-      s('canyon', 4, { curviness: 1, police: 2 }),
+      s('canyon', 4, { curviness: 1, police: 2, dusk: true }),
     ],
   },
   {
@@ -131,7 +132,7 @@ export const COURSES: Course[] = [
     id: 'alpes', name: 'Alpes Nevados', level: 'Difícil', rivalSkill: 0.99,
     stages: [
       s('alpine', 2, { curviness: 1.2, hilliness: 0.9 }),
-      s('alpine', 2, { curviness: 1.4, hilliness: 1 }),
+      s('alpine', 2, { curviness: 1.4, hilliness: 1, weather: 'fog' }),
       s('alpinesnow', 2, { weather: 'snow', curviness: 1.3, hilliness: 1 }),
       s('alpine', 2, { curviness: 1.5, hilliness: 1, weather: 'rain' }),
       s('alpinesnow', 2, { weather: 'snow', curviness: 1.5, hilliness: 1 }),
@@ -151,10 +152,10 @@ export const COURSES: Course[] = [
     id: 'penhasco', name: 'Estrada do Penhasco', level: 'Expert', rivalSkill: 1.01,
     stages: [
       s('mountain', 2, { curviness: 1.7, hilliness: 1 }),
-      s('coast', 2, { curviness: 1.6, hilliness: 1 }),
+      s('coast', 2, { curviness: 1.6, hilliness: 1, weather: 'fog' }),
       s('canyon', 2, { curviness: 1.7, hilliness: 1 }),
       s('mountain', 2, { curviness: 1.8, hilliness: 1, weather: 'rain' }),
-      s('coast', 2, { curviness: 1.7, hilliness: 1 }),
+      s('coast', 2, { curviness: 1.7, hilliness: 1, dusk: true }),
     ],
   },
   {
@@ -172,5 +173,5 @@ export const COURSES: Course[] = [
 // Arcade: o jogador escolhe dia ou noite; o clima de cada trecho continua o do mapa
 export const withTimeOfDay = (course: Course, night: boolean): Course => ({
   ...course,
-  stages: course.stages.map((st) => ({ ...st, night })),
+  stages: course.stages.map((st) => ({ ...st, night, dusk: night ? false : st.dusk })),
 });

@@ -121,10 +121,29 @@ export function initAudio() {
   loopNoise().connect(rf).connect(rumbleGain).connect(master);
   if (pendingMusic) startMusic(pendingMusic);
 
+  // eco de túnel: o ronco e os pneus voltam das paredes (dois atrasos curtos com realimentação,
+  // abafados), misturados conforme setTunnel
+  echoIn = ctx.createGain();
+  echoWet = ctx.createGain();
+  echoWet.gain.value = 0;
+  for (const [t, fb] of [[0.067, 0.42], [0.113, 0.36]]) {
+    const d = ctx.createDelay(0.5), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+    d.delayTime.value = t;
+    lp.type = 'lowpass';
+    lp.frequency.value = 1800;
+    g.gain.value = fb;
+    echoIn.connect(d);
+    d.connect(lp).connect(g).connect(d);
+    lp.connect(echoWet);
+  }
+  echoWet.connect(master);
+  gain.connect(echoIn);
+
   // ronco por cilindro (quando o navegador tem AudioWorklet)
   synthGain = ctx.createGain();
   synthGain.gain.value = 0.1;
   synthGain.connect(master);
+  synthGain.connect(echoIn);
   if (ctx.audioWorklet) {
     const url = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }));
     ctx.audioWorklet.addModule(url).then(() => {
@@ -405,6 +424,17 @@ export function stoneSound() {
   burst(t, 0.03, 3200, 4, 0.3);
   burst(t + 0.002, 0.05, 1700, 6, 0.18);
   for (let k = 0; k < 4; k++) burst(t + 0.05 + k * 0.025 + Math.random() * 0.02, 0.015, 4200 + Math.random() * 1500, 5, 0.06);
+}
+
+let echoIn: GainNode | null = null, echoWet: GainNode | null = null;
+let lastTunnel = -1;
+// dentro do túnel (0..1): o eco das paredes
+export function setTunnel(k: number) {
+  if (!ctx || !echoWet) return;
+  const v = Math.round(k * 20) / 20;
+  if (v === lastTunnel) return;
+  lastTunnel = v;
+  echoWet.gain.setTargetAtTime(v * 0.75, ctx.currentTime, 0.08);
 }
 
 // vapor/fumaça do motor batido: chiado contínuo

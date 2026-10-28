@@ -95,6 +95,48 @@ export function nightTheme(t: Theme): Theme {
   };
 }
 
+// neblina: céu e fundo cinza-leitoso, cores apagadas (o resto some com a distância, render3d)
+export const FOG_COLOR = '#b4bac0';
+export function fogTheme(t: Theme): Theme {
+  return {
+    ...t,
+    sky: ['#9aa2aa', FOG_COLOR],
+    ground: [shade(t.ground[0], -0.08), shade(t.ground[1], -0.08)],
+    road: shade(t.road, -0.05),
+    bgColors: [shade(t.bgColors[0], 0.2), shade(t.bgColors[1], 0.2)],
+  };
+}
+
+// pôr do sol: céu do roxo ao laranja e o chão aquecido e mais escuro
+export function sunsetTheme(t: Theme): Theme {
+  return {
+    ...t,
+    sky: ['#3a3278', '#ff9a52'],
+    ground: [shade(t.ground[0], -0.18), shade(t.ground[1], -0.18)],
+    shoulder: shade(t.shoulder, -0.15),
+    road: shade(t.road, -0.08),
+    bgColors: [shade(t.bgColors[0], -0.2), shade(t.bgColors[1], -0.22)],
+  };
+}
+
+// mistura de dois temas (as cores; o resto vem do primeiro)
+export function blendTheme(a: Theme, b: Theme, k: number): Theme {
+  // as cores vêm como #rrggbb ou rgb(r,g,b) (shade devolve rgb); a saída é sempre #rrggbb
+  const rgb = (x: string) => x.startsWith('#') ? [0, 8, 16].map((sh) => (parseInt(x.slice(1), 16) >> (16 - sh)) & 255) : (x.match(/\d+/g) ?? ['0', '0', '0']).map(Number);
+  const m = (x: string, y: string) => {
+    const pa = rgb(x), pb = rgb(y);
+    return '#' + pa.map((v, i) => Math.round(v * (1 - k) + pb[i] * k).toString(16).padStart(2, '0')).join('');
+  };
+  return {
+    ...a,
+    sky: [m(a.sky[0], b.sky[0]), m(a.sky[1], b.sky[1])],
+    ground: [m(a.ground[0], b.ground[0]), m(a.ground[1], b.ground[1])],
+    shoulder: m(a.shoulder, b.shoulder),
+    road: m(a.road, b.road),
+    bgColors: [m(a.bgColors[0], b.bgColors[0]), m(a.bgColors[1], b.bgColors[1])],
+  };
+}
+
 export function rainTheme(t: Theme): Theme {
   return {
     ...t,

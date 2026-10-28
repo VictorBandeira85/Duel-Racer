@@ -47,6 +47,29 @@ def glass(a):
                 a[yy, xx:xx + 2, :3] = (216, 226, 234)
 
 
+def reshape_side(a, belt=30, drop=5):
+    """Proporção da lateral como no Gol de verdade: área envidraçada mais baixa (teto desce
+    drop px, comprimindo só acima da linha das janelas) e o teto mais comprido atrás, com a
+    tampa traseira mais curta e inclinada até o aerofólio (a arte deixava a traseira recuada)."""
+    H, W = a.shape[:2]
+    H2 = H - drop
+    out = np.zeros((H2, W, 4), np.uint8)
+    nb = belt - drop
+    for ty in range(H2):
+        sy = ty + drop if ty >= nb else min(belt - 1, int((ty + 0.5) * belt / nb))
+        out[ty] = a[sy]
+    # teto para trás: 150 fica, 172 (fim do teto) vai a 183, 200 (aerofólio) a 202
+    src = np.array([0, 150, 172, 200, W - 1], float)
+    dst = np.array([0, 150, 183, 202, W - 1], float)
+    xs = np.arange(W) + 0.5
+    for y in range(nb):
+        w = 1.0 if y < nb - 8 else (nb - y) / 8  # some até a linha das janelas
+        d = src + (dst - src) * w
+        sx = np.interp(xs, d, src).astype(int).clip(0, W - 1)
+        out[y] = out[y, sx]
+    return out
+
+
 def fix_rear(a):
     """Faixa vermelha contínua logo abaixo das lanternas, de ponta a ponta (linhas 55-56)."""
     H, W = a.shape[:2]
@@ -147,6 +170,8 @@ def main():
         out = os.path.join(cars, f'br-golgti-{view}.png')
         subprocess.run([sys.executable, os.path.join(HERE, 'regrid.py'), os.path.join(src, f'src-{view}.png'), out, str(PERIOD[view])], check=True)
         a = np.array(Image.open(out).convert('RGBA'))
+        if view == 'side':
+            a = reshape_side(a)
         H, W = a.shape[:2]
         glass(a)
         if view == 'rear':
@@ -157,7 +182,7 @@ def main():
         if view == 'rear':
             excl = [(0, 43, W, 55), (48, 55, W - 48, 58), (0, 58, W, H)]
         elif view == 'side':
-            excl = [(W - 10, 28, W, 46), (0, int(H * 0.66), W, H)]
+            excl = [(W - 10, 23, W, 41), (0, int(H * 0.66), W, H)]
         else:
             excl = [(0, 80, W, H)]
         m = red_mask(a, excl)

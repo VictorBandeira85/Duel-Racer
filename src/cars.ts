@@ -318,6 +318,7 @@ const LAMPS: Record<string, LampDef> = {
   countach: { pop: [0.09, 0.57, 0.26, 0.62], sigRear: [0.125, 0.55, 0.2, 0.69], sigFront: [0.05, 0.64, 0.14, 0.7] },
   viper: { head: [0.165, 0.54, 0.06], sigRear: [0.08, 0.46, 0.16, 0.5], sigRed: true, sigFront: [0.04, 0.6, 0.1, 0.65] },
   '959': { head: [0.17, 0.49, 0.05], sigRear: [0.083, 0.51, 0.183, 0.57], sigFront: [0.05, 0.65, 0.13, 0.68] },
+  'br-vectra': { head: [0.2, 0.56, 0.05], sigRear: [0.065, 0.415, 0.14, 0.475], sigFront: [0.07, 0.515, 0.105, 0.605] },
   patrol: { head: [0.145, 0.53, 0.07], sigRear: [0.035, 0.503, 0.26, 0.568], sigRed: true, sigFront: [0.05, 0.6, 0.24, 0.645] },
 };
 

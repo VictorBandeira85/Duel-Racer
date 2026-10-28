@@ -61,6 +61,15 @@ CARS = {
         'hub_fill': ((40, 42, 52), 560),
         'wheel_rows': 230, 'paint': 'column', 'rim_margin': 7, 'hole_sky_above': 140,
     },
+    # Vectra GSi: interior desenhado (volante de 4 raios, quadro com conta-giros, velocímetro e 4 auxiliares)
+    'br-vectra': {
+        'scale': 0.46, 'x0': 240, 'y0': 250,
+        'gauges': {'tach': (433, 375, 43), 'speed': (544, 372, 51), 'g1': (628, 356, 12), 'g2': (664, 354, 11),
+                   'g3': (628, 392, 13), 'g4': (669, 394, 13)},
+        'top_art': [], 'sky_left': True, 'despeckle': True,
+        'hub_fill': ((30, 31, 36), 560),
+        'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 268,
+    },
     # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
     'zr1': {
         'scale': 0.35, 'x0': 153, 'y0': 175,

@@ -317,7 +317,7 @@ const LAMPS: Record<string, LampDef> = {
   countach: { pop: [0.09, 0.57, 0.26, 0.62], sigRear: [0.125, 0.55, 0.2, 0.69], sigFront: [0.05, 0.64, 0.14, 0.7] },
   viper: { head: [0.165, 0.54, 0.06], sigRear: [0.08, 0.46, 0.16, 0.5], sigRed: true, sigFront: [0.04, 0.6, 0.1, 0.65] },
   '959': { head: [0.17, 0.49, 0.05], sigRear: [0.083, 0.51, 0.183, 0.57], sigFront: [0.05, 0.65, 0.13, 0.68] },
-  patrol: { head: [0.145, 0.53, 0.07], sigRear: [0.035, 0.477, 0.135, 0.568], sigRed: true, sigFront: [0.05, 0.6, 0.24, 0.645] },
+  patrol: { head: [0.145, 0.53, 0.07], sigRear: [0.035, 0.503, 0.26, 0.568], sigRed: true, sigFront: [0.05, 0.6, 0.24, 0.645] },
 };
 
 // Sprites de cada carro pela chave `art`: <art>-side/-rear/-front.png e as máscaras
@@ -721,8 +721,13 @@ function drawLamps(c: CanvasRenderingContext2D, L: number, T: number, w: number,
       c.fillStyle = '#ffe0a0';
       c.fillRect(Math.round(cx - q[2] * w * 0.4), Math.round(T + q[1] * h - q[2] * w * 0.4), Math.max(0.5, Math.round(q[2] * w * 0.5)), Math.max(0.5, Math.round(q[2] * w * 0.5)));
     } else {
+      // retangular: a própria lente da lanterna acende (luz somada, mantém o desenho dela)
       const u0 = right ? 1 - q[2] : q[0], u1 = right ? 1 - q[0] : q[2];
+      c.save();
+      c.globalCompositeOperation = 'lighter';
+      c.fillStyle = !front && d.sigRed ? 'rgba(255,110,60,0.75)' : 'rgba(255,150,30,0.8)';
       c.fillRect(Math.round(L + u0 * w), Math.round(T + q[1] * h), Math.max(1, Math.round((u1 - u0) * w)), Math.max(1, Math.round((q[3] - q[1]) * h)));
+      c.restore();
     }
     c.fillStyle = 'rgba(255,170,40,0.2)';
     // brilho no centro da lâmpada (redonda: o próprio centro; retangular: o meio do retângulo)

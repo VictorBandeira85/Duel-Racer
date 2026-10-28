@@ -26,6 +26,7 @@ interface CockpitArt {
   wheel: string;
   dashMask?: string; // partes na cor do carro (capô, porta, colunas), para a repintura
   topMask?: string;
+  radar?: [number, number]; // canto do detector de radar no painel (padrão 206, 22)
   wheelDx?: number; // desloca o volante para a direita (alinha com o quadro de instrumentos)
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
   tach?: Dial;
@@ -119,7 +120,7 @@ COCKPIT_ART.patrol = {
 // Diablo SV: interior do Victor; velocímetro 0-340, conta-giros 0-9 e cinco auxiliares funcionando
 COCKPIT_ART.diablo = {
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'),
-  pivot: [128, 103], wheelDx: 10, speedMax: 340, needle: '#ff2a1a', hub: '#1a1a1c',
+  pivot: [128, 103], wheelDx: 10, radar: [196, 6], speedMax: 340, needle: '#ff2a1a', hub: '#1a1a1c',
   speed: { x: 103.5, y: 40, r: 23, max: 340, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320], tick: 20, red: 999, labelScale: 0.7 },
   tach: { x: 178.5, y: 39.5, r: 23, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.5, red: 7.5, labelScale: 1 },
   aux: [
@@ -189,9 +190,11 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     if (art.tach) dialNeedle(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, art);
     if (art.speed) dialNeedle(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
   }
-  rect(c, ox + 206, ART_TOP + 22, 30, 6, '#0c0c0e');
-  radarLeds(c, ox + 208, ART_TOP + 23, 26, r.radar);
-  signalArrows(c, ox + 206, ART_TOP + 22, 30, r.signal);
+  // detector de radar (com as luzes do pisca dos lados); cada cabine pode pô-lo num lugar livre
+  const [rx, ry] = art.radar ?? [206, 22];
+  rect(c, ox + rx, ART_TOP + ry, 30, 6, '#0c0c0e');
+  radarLeds(c, ox + rx + 2, ART_TOP + ry + 1, 26, r.radar);
+  signalArrows(c, ox + rx, ART_TOP + ry, 30, r.signal);
   const wdx = art.wheelDx ?? 0;
   const px = ox + wdx + art.pivot[0], py = ART_TOP + art.pivot[1];
   withRotation(c, px, py, steerAngle(r, dt), () => c.drawImage(wheelImg, ox + wdx, ART_TOP));

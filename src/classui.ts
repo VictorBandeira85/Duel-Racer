@@ -4,14 +4,14 @@ import { text, type Rect } from './ui';
 // Selo da classe de desempenho (letra num quadrado colorido) e, opcional, o índice ao lado
 export function classBadge(c: CanvasRenderingContext2D, x: number, y: number, car: CarSpec, pi = false, size = 12) {
   const k = perfClass(car);
-  c.fillStyle = '#100830';
+  c.fillStyle = '#1a1614';
   c.fillRect(x - 1, y - 1, size + 2, size + 2);
   c.fillStyle = CLASS_COLOR[k];
   c.fillRect(x, y, size, size);
   c.fillStyle = 'rgba(255,255,255,0.35)';
   c.fillRect(x, y, size, 1);
-  text(c, k, x + size / 2 + 0.5, y + size / 2 - 3.5, 8, '#fff', 'center', null);
-  if (pi) text(c, `PI ${perfIndex(car)}`, x + size + 4, y + size / 2 - 2.5, 5, '#100830', 'left', null);
+  text(c, k, x + size / 2 + 0.5, y + size / 2 - (size >= 12 ? 3.5 : 2.5), size >= 12 ? 8 : 5, '#fff', 'center', null);
+  if (pi) text(c, `PI ${perfIndex(car)}`, x + size + 4, y + size / 2 - 2.5, 5, '#1a1614', 'left', null);
 }
 
 // Filtro por classe: TODOS e uma ficha para cada classe
@@ -29,11 +29,17 @@ export function drawFilter(c: CanvasRenderingContext2D, rects: Rect[], cur: Clas
     const k = OPTIONS[i];
     const on = cur === k;
     const empty = k !== null && counts(k) === 0;
-    c.fillStyle = on ? '#ffffff' : '#100830';
+    // fichas de papel com contorno de tinta; a escolhida ganha borda vermelha e sublinhado
+    c.fillStyle = on ? '#d01f26' : '#1a1614';
     c.fillRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
-    c.fillStyle = k ? (empty ? '#3a3650' : CLASS_COLOR[k]) : on ? '#ffd400' : '#2a2060';
+    c.fillStyle = k ? (empty ? '#e4d9c0' : CLASS_COLOR[k]) : on ? '#ffd21a' : '#f6efdd';
     c.fillRect(r.x, r.y, r.w, r.h);
-    text(c, k ?? 'TODOS', r.x + r.w / 2 + 0.5, r.y + r.h / 2 - (k ? 3.5 : 2.5), k ? 8 : 5, k ? (empty ? '#6a6680' : '#fff') : on ? '#200' : '#fff', 'center', null);
+    if (on) {
+      c.fillStyle = '#d01f26';
+      c.fillRect(r.x - 1, r.y + r.h + 1, r.w + 2, 2);
+    }
+    const col = k ? (empty ? '#b0a690' : '#fff') : '#1a1614';
+    text(c, k ?? 'TODOS', r.x + r.w / 2 + 0.5, r.y + r.h / 2 - (k ? 3.5 : 2.5), k ? 8 : 5, col, 'center', k && !empty ? '#1a1614' : null);
   });
 }
 

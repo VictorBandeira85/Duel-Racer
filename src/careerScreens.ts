@@ -9,7 +9,7 @@ import {
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import type { AppState, Actions, MenuKey } from './screens';
 import { accelChart, carRows, carStars, ox, padlock, stageChip, verdictBox } from './screens';
-import { BLUE, GREY, INK, RED, YELLOW, box, burst, headline, ink, kicker, masthead, paper, photo, rule, specRows, stars, tag } from './mag';
+import { BLUE, GREY, INK, RED, YELLOW, arrow, box, burst, headline, ink, kicker, masthead, paper, photo, rule, specRows, stars, tag } from './mag';
 import type { ThemeId } from './themes';
 import { inside, panel, text, type Rect } from './ui';
 import { formatTime } from './util';
@@ -100,8 +100,8 @@ export function drawCareer(c: CanvasRenderingContext2D, s: AppState) {
   text(c, `ETAPA ${ri + 1}: ${reg.name.toUpperCase()}`, view.w / 2, 37, 8, '#fff', 'center', INK);
   const prevName = (REGIONS.find((r2) => r2.id === reg.after) ?? REGIONS[ri - 1])?.name ?? '';
   text(c, open ? reg.desc : `Vença o chefão de ${prevName}`, view.w / 2, 47, 5, '#fff', 'center', null);
-  tag(c, b.prev, '◀');
-  tag(c, b.next, '▶');
+  arrow(c, b.prev, 'left');
+  arrow(c, b.next, 'right');
   hubRows().forEach((r, ei) => {
     const ev = reg.events[ei];
     const done = cs.done.includes(ev.id);
@@ -202,7 +202,7 @@ const upgradeRows = () => [0, 1, 2].map((i): Rect => ({ x: ox() + 4, y: 142 + i 
 const garageButtons = () => {
   const x = ox();
   return {
-    prev: { x: x + 4, y: 64, w: 16, h: 30 }, next: { x: x + 186, y: 64, w: 16, h: 30 },
+    prev: { x: x + 4, y: 70, w: 12, h: 28 }, next: { x: x + 190, y: 70, w: 12, h: 28 },
     use: { x: x + 110, y: 211, w: 100, h: 15 }, back: { x: x + 4, y: 211, w: 100, h: 15 }, dealer: { x: x + 216, y: 211, w: 100, h: 15 },
   };
 };
@@ -235,8 +235,8 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   photo(c, ph, () => drawCarSide(c, ph.x + 8, ph.y + 68, 182, car, paintHex(car.id)), ['#4a4238', '#a89a86']);
   const b = garageButtons();
   if (cars.length > 1) {
-    tag(c, b.prev, '◀');
-    tag(c, b.next, '▶');
+    arrow(c, b.prev, 'left');
+    arrow(c, b.next, 'right');
   }
   const fr: Rect = { x: x + 208, y: 43, w: 108, h: 80 };
   box(c, fr, 'COM AS MELHORIAS');
@@ -319,7 +319,7 @@ function setDealerFilter(f: ClassFilter) {
 const dealerButtons = () => {
   const x = ox();
   return {
-    prev: { x: x + 4, y: 74, w: 16, h: 30 }, next: { x: x + 186, y: 74, w: 16, h: 30 },
+    prev: { x: x + 4, y: 77, w: 12, h: 28 }, next: { x: x + 190, y: 77, w: 12, h: 28 },
     buy: { x: x + 186, y: 211, w: 130, h: 15 }, back: { x: x + 4, y: 211, w: 100, h: 15 },
   };
 };
@@ -342,8 +342,8 @@ export function drawDealer(c: CanvasRenderingContext2D, s: AppState) {
   const ph: Rect = { x: x + 4, y: 56, w: 198, h: 70 };
   photo(c, ph, () => drawCarSide(c, ph.x + 8, ph.y + 64, 182, car, paintHex(car.id)));
   const b = dealerButtons();
-  tag(c, b.prev, '◀');
-  tag(c, b.next, '▶');
+  arrow(c, b.prev, 'left');
+  arrow(c, b.next, 'right');
   const fr: Rect = { x: x + 208, y: 50, w: 108, h: 80 };
   box(c, fr, 'FICHA');
   specRows(c, fr, carRows(car).filter(([k]) => k !== 'Preço'), 9.4);
@@ -351,7 +351,7 @@ export function drawDealer(c: CanvasRenderingContext2D, s: AppState) {
   verdictBox(c, { x: x + 160, y: 136, w: 156, h: 66 }, car);
   const price = priceOf(car);
   // preço em destaque, como anúncio
-  burst(c, x + 170, 76, 20, ['SÓ', money(price)], YELLOW, RED, s.t);
+  burst(c, x + 168, 80, 27, ['SÓ', money(price)], YELLOW, RED, s.t);
   tag(c, b.back, first ? '◀ CAPA' : '◀ VOLTAR');
   if (owned) {
     const canSell = cs.owned.length > 1 && cs.car !== car.id;

@@ -258,7 +258,18 @@ const STEP = 1 / 60;
 let last = performance.now();
 let acc = 0;
 function frame(now: number) {
-  const dt = Math.min(0.25, (now - last) / 1000);
+  // um erro num quadro (desenho, áudio) não pode parar o jogo: registra e segue no próximo
+  try {
+    frameInner(now);
+  } catch (e) {
+    if (!frameErr) console.error(e);
+    frameErr = true;
+  }
+  requestAnimationFrame(frame);
+}
+let frameErr = false;
+function frameInner(now: number) {
+  const dt = Math.max(0, Math.min(0.25, (now - last) / 1000)); // o primeiro quadro pode vir antes de `last`
   last = now;
   state.t += dt;
   // controle Bluetooth: na corrida mexe direto nos comandos; nos menus vira navegação
@@ -295,7 +306,6 @@ function frame(now: number) {
     drawScreen(ctx, state);
   }
   drawToast(ctx, dt);
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 

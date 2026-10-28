@@ -2,7 +2,7 @@
 // logotipo, manchetes, foto de estúdio emoldurada, ficha técnica, selos estourados, estrelas,
 // botões como etiquetas e o código de barras da capa. Usado por todas as telas de menu.
 import { SAFE_W, view } from './config';
-import { inside, text, type Rect } from './ui';
+import { fixGlyphs, inside, text, type Rect } from './ui';
 
 export const INK = '#1a1614';
 export const PAPER = '#efe6d2';
@@ -74,7 +74,7 @@ export function masthead(c: CanvasRenderingContext2D, section: string, page?: st
 // chapéu (rótulo da seção, branco no preto) e manchete
 export function kicker(c: CanvasRenderingContext2D, s: string, x: number, y: number, bg = INK, fg = YELLOW) {
   c.font = '5px "Press Start 2P", monospace';
-  const tw = Math.ceil(c.measureText(s).width);
+  const tw = Math.ceil(c.measureText(fixGlyphs(s)).width);
   c.fillStyle = bg;
   c.fillRect(x, y, tw + 6, 9);
   text(c, s, x + 3, y + 2, 5, fg, 'left', null);
@@ -129,7 +129,7 @@ export function specRows(c: CanvasRenderingContext2D, r: Rect, rows: [string, st
     const y = r.y + y0 + i * step;
     ink(c, k, r.x + 3, y, 5, GREY);
     c.font = '5px "Press Start 2P", monospace';
-    const kw = c.measureText(k).width, vw = c.measureText(v).width;
+    const kw = c.measureText(fixGlyphs(k)).width, vw = c.measureText(fixGlyphs(v)).width;
     c.fillStyle = 'rgba(26,22,20,0.35)';
     for (let x = r.x + 5 + kw; x < r.x + r.w - 5 - vw; x += 3) c.fillRect(Math.round(x), y + 4, 1, 1);
     ink(c, v, r.x + r.w - 3, y, 5, INK, 'right');
@@ -186,6 +186,21 @@ export function tag(c: CanvasRenderingContext2D, r: Rect, label: string, hot = f
   text(c, label, r.x + r.w / 2, r.y + Math.round((r.h - size) / 2), size, hot ? YELLOW : '#fff', 'center', null);
 }
 export const hit = inside;
+
+// seta de folhear (sobre fotos): fundo de tinta translúcido e um triângulo nítido
+export function arrow(c: CanvasRenderingContext2D, r: Rect, dir: 'left' | 'right' | 'up' | 'down', solid = false) {
+  c.fillStyle = solid ? INK : 'rgba(26,22,20,0.55)';
+  c.fillRect(r.x, r.y, r.w, r.h);
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2, k = Math.max(2, Math.min(r.w, r.h) * 0.28);
+  c.fillStyle = '#fff';
+  c.beginPath();
+  if (dir === 'left') { c.moveTo(cx - k * 0.7, cy); c.lineTo(cx + k * 0.6, cy - k); c.lineTo(cx + k * 0.6, cy + k); }
+  else if (dir === 'right') { c.moveTo(cx + k * 0.7, cy); c.lineTo(cx - k * 0.6, cy - k); c.lineTo(cx - k * 0.6, cy + k); }
+  else if (dir === 'up') { c.moveTo(cx, cy - k * 0.7); c.lineTo(cx - k, cy + k * 0.6); c.lineTo(cx + k, cy + k * 0.6); }
+  else { c.moveTo(cx, cy + k * 0.7); c.lineTo(cx - k, cy - k * 0.6); c.lineTo(cx + k, cy - k * 0.6); }
+  c.closePath();
+  c.fill();
+}
 
 // código de barras e preço da capa
 export function barcode(c: CanvasRenderingContext2D, x: number, y: number) {

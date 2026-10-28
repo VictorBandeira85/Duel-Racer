@@ -1,5 +1,5 @@
 import { drawCrisp } from './crisp';
-import { KMH } from './config';
+import { KMH, RES } from './config';
 import { clamp, shade } from './util';
 import { BR_CARS } from './carsbr';
 import { PAINTS } from './paint';
@@ -605,6 +605,10 @@ function glow(c: CanvasRenderingContext2D, x: number, y: number, w: number, rgb:
   }
 }
 
+// carros grandes na tela são rasterizados na resolução real (RES pixels por pixel do jogo);
+// os pequenos e distantes, na do jogo (economiza memória e tempo na corrida)
+const hiRes = (w: number) => (w >= 40 ? RES : 1);
+
 // Carro visto de trás (ou de frente, se vier na contramão). (x, y) = centro da base.
 // Trânsito e viatura em pixel art (tools/art/traffic.py); a cor de cada carro vem da máscara
 const TPNG = import.meta.glob('./assets/traffic/*.png', { eager: true, import: 'default' }) as Record<string, string>;
@@ -618,7 +622,8 @@ function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w:
   if (!img || !aspect) return false;
   const h = w * aspect;
   const mask = tpng(`${model}-${view}-mask`);
-  const spr = svgSprite(img, w, h, !model.startsWith('police') && mask ? { mask, color: look.color } : undefined);
+  const q = hiRes(w);
+  const spr = svgSprite(img, w * q, h * q, !model.startsWith('police') && mask ? { mask, color: look.color } : undefined);
   if (!spr) return false;
   c.fillStyle = 'rgba(0,0,0,0.35)';
   c.fillRect(Math.round(x - w * 0.53), Math.round(y - h * 0.04), Math.round(w * 1.06), Math.max(1, Math.round(h * 0.06)));
@@ -690,7 +695,7 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
   const frontImg = variant?.frontImg ?? look.rear?.frontImg;
   if (look.front && look.rear && frontImg) {
     const h = w * (spriteAspect(frontImg) ?? look.rear.h);
-    const spr = svgSprite(frontImg, w, h, tint(look.rear.frontMask));
+    const spr = svgSprite(frontImg, w * hiRes(w), h * hiRes(w), tint(look.rear.frontMask));
     if (spr) {
       c.drawImage(spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
       if (look.rear.lamps) drawLamps(c, x - w / 2, y - h, w, h, look, look.rear.lamps, true);
@@ -700,7 +705,8 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
   const art = variant?.img ?? look.rear?.img ?? look.rear?.svg;
   if (art && look.rear && !look.front) {
     const h = w * ((look.rear.img && spriteAspect(art)) || look.rear.h);
-    const spr = svgSprite(art, w, h, tint(look.rear.img ? look.rear.imgMask : undefined)) ?? (look.rear.svg ? svgSprite(look.rear.svg, w, h) : null);
+    const q = look.rear.img ? hiRes(w) : 1;
+    const spr = svgSprite(art, w * q, h * q, tint(look.rear.img ? look.rear.imgMask : undefined)) ?? (look.rear.svg ? svgSprite(look.rear.svg, w, h) : null);
     if (spr) {
       c.fillStyle = 'rgba(0,0,0,0.35)';
       c.fillRect(x - w * 0.53, y - h * 0.05, w * 1.06, h * 0.08);
@@ -1156,8 +1162,8 @@ export function drawCarDiagonal(c: CanvasRenderingContext2D, x: number, y: numbe
   const sl = len * 0.66; // lateral encurtada
   const hN = len * 0.8 * aS; // altura da lateral no lado perto (a do carro inteiro de lado)
   const fw = (hN / aF) * 0.82; // largura da face com a mesma altura
-  const sprS = svgSprite(side, Math.round(sl * 2), Math.round(hN * 2), sideTint);
-  const sprF = svgSprite(face, Math.round(fw), Math.round(fw * aF), faceTint);
+  const sprS = svgSprite(side, Math.round(sl * 2 * RES), Math.round(hN * 2 * RES), sideTint);
+  const sprF = svgSprite(face, Math.round(fw * RES), Math.round(fw * aF * RES), faceTint);
   if (!sprS || !sprF) return;
   const N = 48, rise = len * 0.1, shrink = 0.36;
   const fwC = fw * 0.64; // a face vista de lado fica mais estreita
@@ -1206,7 +1212,9 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
     const img = (paint && car.sideVariants?.[paint]) || car.imgSide;
     const aspect = spriteAspect(img);
     const tint = paint && car.sideMask && img === car.imgSide ? { mask: car.sideMask, color: paint } : undefined;
-    const spr = aspect ? svgSprite(img, len, len * aspect, tint) : null;
+    // na resolução real da tela (o canvas tem RES pixels por pixel do jogo): reduzir a arte
+    // na resolução do jogo e depois ampliar apagava linhas e colunas de pixels (traço quebrado)
+    const spr = aspect ? svgSprite(img, len * RES, len * aspect * RES, tint) : null;
     if (spr && aspect) {
       c.fillStyle = 'rgba(0,0,0,0.45)';
       c.beginPath();

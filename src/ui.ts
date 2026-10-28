@@ -1,10 +1,16 @@
 // Utilidades de desenho da interface (fonte pixelada, painéis, pontilhado)
 export const FONT = '"Press Start 2P", monospace';
 
+// símbolos que a fonte de pixel não tem (o navegador os desenharia com outra fonte, pequenos
+// e borrados): trocados por equivalentes que ela tem
+const GLYPH_FIX: Record<string, string> = { '◀': '<', '▶': '>', '▲': '^', '▼': 'v', '•': '·', '✓': '', '—': '-', '−': '-', '→': '>', '×': 'x', '≈': '~', '★': '*' };
+export const fixGlyphs = (s: string) => s.replace(/[◀▶▲▼•✓—−→×≈★]/g, (ch) => GLYPH_FIX[ch] ?? ch).trimEnd();
+
 export function text(
   c: CanvasRenderingContext2D, s: string, x: number, y: number,
   size = 8, color = '#fff', align: CanvasTextAlign = 'left', shadow: string | null = '#000',
 ) {
+  s = fixGlyphs(s);
   c.font = `${size}px ${FONT}`;
   // posição inteira, para a fonte de pixel não sair com antialias
   const tw = align === 'left' ? 0 : c.measureText(s).width;

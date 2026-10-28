@@ -26,6 +26,7 @@ interface CockpitArt {
   wheel: string;
   dashMask?: string; // partes na cor do carro (capô, porta, colunas), para a repintura
   topMask?: string;
+  wheelDx?: number; // desloca o volante para a direita (alinha com o quadro de instrumentos)
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
   tach?: Dial;
   speed?: Dial;
@@ -67,10 +68,10 @@ function cp(n: string) {
 }
 const COCKPIT_ART: Record<string, CockpitArt> = {
   f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, dashMask: cp('f40-dash-mask'), topMask: cp('f40-top-mask'), pivot: [127.4, 80], 
-    // Veglia Borletti: conta-giros 0-100 (× 100 rpm), velocímetro 0-360 com os intermediários
+    // Veglia Borletti: velocímetro à esquerda e conta-giros à direita; conta-giros 0-100 (× 100 rpm), velocímetro 0-360 com os intermediários
     // pequenos, hodômetro e parcial dentro dele; água 60/90/120 e turbo 0/0,8/1,5 bar embaixo
-    tach: { x: 109, y: 46, r: 17, max: 10, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], labelMul: 10, tick: 0.25, red: 7.75, redLabels: false },
-    speed: { x: 149, y: 46, r: 17, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], tick: 10, red: 999 },
+    tach: { x: 149, y: 46, r: 17, max: 10, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], labelMul: 10, tick: 0.25, red: 7.75, redLabels: false },
+    speed: { x: 109, y: 46, r: 17, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], tick: 10, red: 999 },
     speedMax: 360, needle: '#f4f4f0', hub: '#1a1a1a',
     aux: [
       { x: 79, y: 45, r: 6.5, kind: 'single', show: ['oil'], icon: 'oil' },
@@ -79,8 +80,8 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
       { x: 176, y: 65, r: 8, kind: 'single', show: ['boost'], icon: 'turbo', labels: ['0', '0,8', '1,5'] },
     ],
     extra: (c, ox, r) => {
-      odometer(c, ox, r, { x: 143, y: 40.5, w: 12, h: 3.5 }, 18373, 6, 0.5);
-      odometer(c, ox, r, { x: 145, y: 51.5, w: 8, h: 3.5 }, 425.7, 4, 0.5, true);
+      odometer(c, ox, r, { x: 103, y: 40.5, w: 12, h: 3.5 }, 18373, 6, 0.5);
+      odometer(c, ox, r, { x: 105, y: 51.5, w: 8, h: 3.5 }, 425.7, 4, 0.5, true);
       // luzes-espia entre os mostradores: "slow down" (pisca no corte de giro) e óleo
       warnLamp(c, ox + 129, ART_TOP + 38, r.rpm > 0.97 && Math.floor(performance.now() / 160) % 2 === 0);
       warnLamp(c, ox + 129, ART_TOP + 56, gauges.oil < 0.36);
@@ -118,7 +119,7 @@ COCKPIT_ART.patrol = {
 // Diablo SV: interior do Victor; velocímetro 0-340, conta-giros 0-9 e cinco auxiliares funcionando
 COCKPIT_ART.diablo = {
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'),
-  pivot: [128, 103], speedMax: 340, needle: '#ff2a1a', hub: '#1a1a1c',
+  pivot: [128, 103], wheelDx: 10, speedMax: 340, needle: '#ff2a1a', hub: '#1a1a1c',
   speed: { x: 103.5, y: 40, r: 23, max: 340, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320], tick: 20, red: 999, labelScale: 0.7 },
   tach: { x: 178.5, y: 39.5, r: 23, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.5, red: 7.5, labelScale: 1 },
   aux: [
@@ -186,8 +187,9 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   rect(c, ox + 206, ART_TOP + 22, 30, 6, '#0c0c0e');
   radarLeds(c, ox + 208, ART_TOP + 23, 26, r.radar);
   signalArrows(c, ox + 206, ART_TOP + 22, 30, r.signal);
-  const px = ox + art.pivot[0], py = ART_TOP + art.pivot[1];
-  withRotation(c, px, py, steerAngle(r, dt), () => c.drawImage(wheelImg, ox, ART_TOP));
+  const wdx = art.wheelDx ?? 0;
+  const px = ox + wdx + art.pivot[0], py = ART_TOP + art.pivot[1];
+  withRotation(c, px, py, steerAngle(r, dt), () => c.drawImage(wheelImg, ox + wdx, ART_TOP));
   return true;
 }
 

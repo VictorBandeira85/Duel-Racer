@@ -116,6 +116,14 @@ export function svgSprite(svg: string, w: number, h: number, paint?: Paint): HTM
     big.getContext('2d')!.drawImage(img, 0, 0, bw * 4, bh * 4);
     c.drawImage(big, 0, 0, bw, bh);
   } else {
+    // muito reduzido (carro longe, retrovisor): vizinho mais próximo pularia linhas inteiras e
+    // o vidro, os bancos e as lanternas sumiriam (o carro vira um bloco da cor da lataria);
+    // aí a redução faz a média dos pixels, e o contorno continua nítido pelo corte do alfa
+    const srcW = 'naturalWidth' in img ? (img as HTMLImageElement).naturalWidth : (img as HTMLCanvasElement).width;
+    if (srcW > bw * 2.5) {
+      c.imageSmoothingEnabled = true;
+      c.imageSmoothingQuality = 'high';
+    }
     c.drawImage(img, 0, 0, bw, bh);
   }
   const data = c.getImageData(0, 0, bw, bh);

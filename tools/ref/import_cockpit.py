@@ -70,6 +70,16 @@ CARS = {
         'hub_fill': ((30, 31, 36), 560),
         'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 268,
     },
+    # Gol GTI: interior desenhado (volante de 4 raios); o quadro inteiro é redesenhado no jogo
+    # (velocímetro 20-240 e conta-giros 0-7 com números laranja, como o VDO do GTI de verdade)
+    'br-golgti': {
+        'scale': 0.46, 'x0': 242, 'y0': 247,
+        'gauges': {'speed': (437, 357, 62), 'tach': (632, 357, 62)},
+        'lcd': [((20, 20, 22), (366, 286, 704, 396))],
+        'top_art': [(690, 0, 990, 115)], 'sky_left': True, 'despeckle': True,
+        'hub_fill': ((30, 30, 33), 396),
+        'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 238,
+    },
     # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
     'zr1': {
         'scale': 0.35, 'x0': 153, 'y0': 175,

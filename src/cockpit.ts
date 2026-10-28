@@ -35,6 +35,7 @@ interface CockpitArt {
   mirror?: { img: string; x: number; y: number };
   dy?: number; // desce a cabine inteira (painel alto demais tapando a pista)
   wheelDx?: number; // desloca o volante para a direita (alinha com o quadro de instrumentos)
+  wheelTop?: number; // linhas do PNG do volante acima do topo da arte (aro inteiro sobre o para-brisa)
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
   tach?: Dial;
   speed?: Dial;
@@ -45,6 +46,7 @@ interface CockpitArt {
   needle: string;
   hub: string;
   aux: Aux[];
+  under?: (c: CanvasRenderingContext2D, ox: number, r: Race) => void; // fundo do quadro, antes dos mostradores
   extra?: (c: CanvasRenderingContext2D, ox: number, r: Race) => void; // detalhes próprios (hodômetros, luzes-espia, submostradores)
 }
 
@@ -59,6 +61,10 @@ interface Dial { x: number; y: number; r: number; max: number; labels: number[];
   redLabels?: boolean; // false: números da faixa vermelha continuam brancos
   yellow?: number; // começo da faixa amarela (antes da vermelha)
   nudge?: Record<number, [number, number]>; // ajuste fino de números que se encostam (dx, dy)
+  ink?: string; // cor dos números e marcações (padrão branco; laranja no VDO do Gol GTI)
+  bg?: string; // cor do fundo do mostrador
+  redInk?: string; // cor da faixa vermelha
+  redW?: number; // largura da faixa vermelha (px)
 }
 
 // Mostradores auxiliares, também redesenhados: 'single' (um ponteiro), 'dual' (dois
@@ -168,6 +174,97 @@ COCKPIT_ART['br-vectra'] = {
   },
 };
 
+// Gol GTI: quadro VDO como o de verdade — velocímetro 20-240 à esquerda e conta-giros 0-7 à
+// direita (faixa vermelha de 6,5 a 7), números e marcações laranja, ponteiros creme; hodômetro
+// 020285 e parcial no velocímetro, água e combustível nos cantos de baixo do conta-giros e, no
+// meio, o logotipo GTi, as luzes-espia e o relógio de cristal líquido
+const GTI_INK = '#ff7a1e';
+const GTI_LOGO = [
+  ['.111.', '1....', '1.11.', '1..1.', '.111.'], // G
+  ['111', '.1.', '.1.', '.1.', '.1.'], // T
+];
+function golMini(c: CanvasRenderingContext2D, x: number, y: number, R: number, a0: number, a1: number, v: number, red: number, art: CockpitArt) {
+  const at = (a: number, rr: number): [number, number] => [x + Math.cos(a) * rr, y + Math.sin(a) * rr * PIX_Y];
+  for (let i = 0; i <= 4; i++) {
+    const a = a0 + ((a1 - a0) * i) / 4;
+    const hot = red > 0 ? i / 4 >= red : i / 4 <= -red;
+    c.fillStyle = hot ? '#e82818' : GTI_INK;
+    for (const k of [0, 0.5, 1]) half(c, ...at(a, R - k));
+    if (hot) half(c, ...at(a + (a1 - a0) / 16, R - 0.5));
+  }
+  hand(c, x, y, a0 + (a1 - a0) * clamp(v, 0, 1), R - 0.5, art.needle);
+  c.fillStyle = '#2a2a2e';
+  c.fillRect(Math.round(x) - 1, Math.round(y) - 1, 2, 2);
+}
+function golCluster(c: CanvasRenderingContext2D, ox: number, r: Race, art: CockpitArt) {
+  const T = ART_TOP;
+  // água (canto de baixo à esquerda) e combustível (à direita) dentro do conta-giros
+  const t = art.tach!;
+  golMini(c, ox + t.x - 13.5, T + t.y + 14, 7, Math.PI * 1.02, Math.PI * 1.55, gauges.water, 0.75, art);
+  drawIcon(c, 'temp', ox + t.x - 6, T + t.y + 9, GTI_INK);
+  golMini(c, ox + t.x + 14.5, T + t.y + 14, 7, Math.PI * 1.98, Math.PI * 1.45, gauges.fuel, -0.25, art);
+  drawIcon(c, 'fuel', ox + t.x + 7, T + t.y + 9, GTI_INK);
+  // velocímetro: hodômetro em cima do eixo e parcial embaixo (último tambor vermelho)
+  odometer(c, ox, r, { x: 82, y: 45.5, w: 15, h: 4 }, 20285, 6, 0.5);
+  odometer(c, ox, r, { x: 84.5, y: 63, w: 10, h: 4 }, 116.0, 4, 0.5, true);
+  // módulo do meio
+  const mx = ox + 121, my = T + 25;
+  rect(c, mx, my, 28, 50, '#0e0e10');
+  rect(c, mx, my, 28, 0.5, '#2e2e32');
+  // logotipo GTi: cromado inclinado com o i vermelho, numa placa preta
+  rect(c, mx + 3, my + 2, 22, 9, '#050506');
+  rect(c, mx + 3, my + 10.5, 22, 0.5, '#3a3a40');
+  let gx = mx + 6.5;
+  for (const g of GTI_LOGO) {
+    g.forEach((row, j) => [...row].forEach((ch, i) => {
+      if (ch !== '1') return;
+      c.fillStyle = j < 2 ? '#f4f6f8' : j < 4 ? '#c4c8ce' : '#8e949c';
+      c.fillRect(gx + i + (4 - j) * 0.5, my + 4 + j, 1, 1);
+    }));
+    gx += g[0].length + 1;
+  }
+  c.fillStyle = '#ff2a1a';
+  for (const j of [0, 2, 3, 4]) c.fillRect(gx + (4 - j) * 0.5, my + 4 + j, 1.5, 1);
+  // luzes-espia: duas fileiras de cinco (seta verde, freio de mão, óleo, bateria, farol alto...)
+  const blink = r.signal !== 0 && blinkOn();
+  const stop = r.state === 'ticket' || r.state === 'pullover';
+  const leds: [string, string, boolean][][] = [
+    [['#1a5a20', '#3cf040', blink], ['#5e1a16', '#ff3020', stop], ['#3a1a14', '#ff4020', false], ['#5e1a16', '#ff3020', r.damage > 0.6], ['#1a2a6a', '#4a7cff', !!r.def?.night]],
+    [['#1a5a20', '#3cf040', false], ['#5e5014', '#ffd020', gauges.fuel < 0.68], ['#5e1a16', '#ff3020', gauges.water > 0.8], ['#6a3810', '#ffa030', r.speed < 1 && !r.throttle], ['#3a1a14', '#ff4020', false]],
+  ];
+  rect(c, mx + 3, my + 13, 22, 1, '#26262a');
+  leds.forEach((row, j) => row.forEach(([off, on, lit], i) => {
+    const lx = mx + 4.5 + i * 4, ly = my + 16 + j * 4;
+    rect(c, lx - 0.5, ly - 0.5, 3, 3, '#050506');
+    rect(c, lx, ly, 2, 2, lit ? on : off);
+    if (lit) rect(c, lx, ly, 1, 0.5, '#ffffff');
+  }));
+  rect(c, mx + 3, my + 25, 22, 1, '#26262a');
+  // relógio digital: cristal líquido esverdeado, hora de verdade
+  rect(c, mx + 3, my + 29, 22, 10, '#2a2a2e');
+  rect(c, mx + 4, my + 30, 20, 8, '#a8b48a');
+  rect(c, mx + 4, my + 30, 20, 1, '#bcc69e');
+  const now = new Date();
+  const hh = now.getHours() % 12 || 12;
+  pix(c, `${hh}:${String(now.getMinutes()).padStart(2, '0')}`, mx + 14, my + 34.5, '#1e2616', 1);
+  // parafusos do quadro
+  rect(c, mx + 2, my + 44, 1, 1, '#3a3a40');
+  rect(c, mx + 25, my + 47, 1, 1, '#3a3a40');
+}
+COCKPIT_ART['br-golgti'] = {
+  dash: cp('br-golgti-dash'), top: cp('br-golgti-top'), wheel: cp('br-golgti-wheel'),
+  pivot: [128, 99.9], wheelTop: 28, speedMax: 240, needle: '#f4eedc', hub: '#1a1a1c', radar: [222, 8],
+  speed: { x: 89.5, y: 57.5, r: 28, max: 240, labels: [20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240], tick: 10, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, ink: GTI_INK, bg: '#121214', cut: 20 },
+  tach: { x: 179.5, y: 57.5, r: 28, max: 7, labels: [1, 2, 3, 4, 5, 6, 7], tick: 0.25, red: 6.5, a0: Math.PI * 0.917, sweep: Math.PI * 1.167, labelScale: 0.7, redLabels: false, ink: GTI_INK, bg: '#121214', cut: 20, redInk: '#ff4a18', redW: 2.5 },
+  aux: [],
+  under: (c, ox) => {
+    // face do quadro (cinza quase preto) e a borda de cima, sob a viseira
+    rect(c, ox + 58, ART_TOP + 22, 154, 56, '#161618');
+    rect(c, ox + 58, ART_TOP + 22, 154, 1, '#08080a');
+  },
+  extra: (c, ox, r) => golCluster(c, ox, r, COCKPIT_ART['br-golgti']),
+};
+
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
 COCKPIT_ART.zr1 = {
   dash: cp('zr1-dash'), top: cp('zr1-top'), wheel: cp('zr1-wheel'),
@@ -234,6 +331,7 @@ export function interiorPhoto(carId: string, dash: string): HTMLCanvasElement | 
     if (art.lcd) lcdPanel(g, ox, fake, art);
     if (art.odo) odometer(g, ox, fake, art.odo);
     if (art.prnd) leverIndicator(g, ox, fake, art.prnd);
+    art.under?.(g, ox, fake);
     if (art.tach) artDial(g, art.tach, ox, 0.06 + 0.42 * 0.82, art);
     if (art.speed) artDial(g, art.speed, ox, 110 / art.speedMax, art);
     for (const a of art.aux) auxDial(g, a, ox, art);
@@ -245,7 +343,7 @@ export function interiorPhoto(carId: string, dash: string): HTMLCanvasElement | 
   } finally {
     ART_TOP = saved;
   }
-  g.drawImage(w, DASH_PAD + (art.wheelDx ?? 0), TOP_EXT);
+  g.drawImage(w, DASH_PAD + (art.wheelDx ?? 0), TOP_EXT - (art.wheelTop ?? 0));
   interiorCache.set(key, cv);
   return cv;
 }
@@ -294,6 +392,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   if (art.lcd) lcdPanel(c, ox, r, art);
   if (art.odo) odometer(c, ox, r, art.odo);
   if (art.prnd) leverIndicator(c, ox, r, art.prnd);
+  art.under?.(c, ox, r);
   if (art.tach) artDial(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, art);
   if (art.speed) artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
   updateGauges(r, dt);
@@ -311,7 +410,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   signalArrows(c, ox + rx, ART_TOP + ry, 30, r.signal);
   const wdx = art.wheelDx ?? 0;
   const px = ox + wdx + art.pivot[0], py = ART_TOP + art.pivot[1];
-  withRotation(c, px, py, steerAngle(r, dt), () => c.drawImage(wheelImg, ox + wdx, ART_TOP));
+  withRotation(c, px, py, steerAngle(r, dt), () => c.drawImage(wheelImg, ox + wdx, ART_TOP - (art.wheelTop ?? 0)));
   return true;
 }
 
@@ -356,7 +455,7 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
   if (d.face === false) return needle(c, cx, cy, r, a0 + sweep * Math.max(0, Math.min(1.02, frac)), art);
   // fundo preto (por linhas, sem antialias), por cima do mostrador da arte; cut: o mostrador
   // da arte é cortado embaixo pela borda do painel, o fundo para ali
-  c.fillStyle = '#050506';
+  c.fillStyle = d.bg ?? '#050506';
   for (let dy = -Math.floor(ry); dy <= Math.min(Math.floor(ry), d.cut ?? 99); dy++) {
     const hw = Math.round(r * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
     c.fillRect(cx - hw, cy + dy, hw * 2 + 1, 1);
@@ -371,21 +470,23 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
       for (const k of [0.75, 1.25, 1.75, 2.25]) half(...at(a, r - k));
   }
   if (d.red < d.max) {
-    c.fillStyle = '#d81818';
+    c.fillStyle = d.redInk ?? '#d81818';
+    const ks = [];
+    for (let k = 0.75; k <= (d.redW ?? 2) + 0.25 + 1e-6; k += 0.5) ks.push(k);
     for (let a = fr(d.red); a <= a0 + sweep + 0.001; a += 0.02)
-      for (const k of [0.75, 1.25, 1.75, 2.25]) half(...at(a, r - k));
+      for (const k of ks) half(...at(a, r - k));
   }
   // marcações: traço de 1,5 px nos números, meio pixel no meio (resolução interna 2x)
   for (let v = 0; v <= d.max + 1e-6; v += d.tick) {
     const major = d.labels.some((l) => Math.abs(l - v) < 1e-6);
-    c.fillStyle = v >= d.red ? '#ffd0d0' : '#ececec';
+    c.fillStyle = d.ink ?? (v >= d.red ? '#ffd0d0' : '#ececec');
     half(...at(fr(v), r - 0.75));
     if (major) for (const k of [1.25, 1.75]) half(...at(fr(v), r - k));
   }
   for (const v of d.minor ?? []) {
     const l = String(v), a = fr(v);
     const [lx, ly] = at(a, r - 2.6 - Math.abs(Math.cos(a)) * pixWidth(l, 0.5) * 0.5 - Math.abs(Math.sin(a)) * 1.3);
-    pix(c, l, lx, ly, '#b8b8b8', 0.5);
+    pix(c, l, lx, ly, d.ink ?? '#b8b8b8', 0.5);
   }
   for (const v of d.labels) {
     const l = String(Math.round(v * (d.labelMul ?? 1)));
@@ -393,7 +494,7 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
     // altura no alto), para os de cima não se encostarem
     const a = fr(v);
     const ls = d.labelScale ?? 0.5;
-    const col = v >= d.red && d.redLabels !== false ? '#ff5a4a' : '#f2f2f2';
+    const col = v >= d.red && d.redLabels !== false ? '#ff5a4a' : d.ink ?? '#f2f2f2';
     if (ls === 0.7) {  // fonte 5x7 em meio pixel (tamanho intermediário)
       const [lx, ly] = at(a, r - 2.8 - Math.abs(Math.cos(a)) * pix7Width(l, true) * 0.55 - Math.abs(Math.sin(a)) * 1.9);
       const [nx, ny] = d.nudge?.[v] ?? [0, 0];
@@ -436,10 +537,10 @@ const ICONS = {
   turbo: ['...11111.....', '..1.....1111.', '.1..111......', '1..1...1.....', '1..1.1.1.111.', '1..1...1.1...', '.1..111..1...', '..1.....1....', '...11111.....'],
   volt: ['..11....11...', '1111111111111', '1...........1', '1..1........1', '1.111...111.1', '1..1........1', '1...........1', '1111111111111', '.............'],
 };
-function drawIcon(c: CanvasRenderingContext2D, name: keyof typeof ICONS, cx: number, top: number) {
+function drawIcon(c: CanvasRenderingContext2D, name: keyof typeof ICONS, cx: number, top: number, color = '#f4f4f4') {
   const ic = ICONS[name];
   const x0 = Math.round((cx - 3.25) * 2) / 2, y0 = Math.round(top * 2) / 2;
-  c.fillStyle = '#f4f4f4';
+  c.fillStyle = color;
   ic.forEach((row, j) => [...row].forEach((ch, i) => ch === '1' && c.fillRect(x0 + i * 0.5, y0 + j * 0.5, 0.5, 0.5)));
 }
 

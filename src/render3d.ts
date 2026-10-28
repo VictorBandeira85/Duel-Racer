@@ -2,7 +2,7 @@ import { drawSmoke } from './smoke';
 import { drawCrisp } from './crisp';
 import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { drawCar } from './cars';
-import type { Officer, Race, TrafficCar } from './race';
+import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
 import { SPRITES } from './sprites';
 import type { BgLayer } from './themes';
 import type { Point, Segment } from './track';
@@ -266,7 +266,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       } else {
         const t = e as TrafficCar;
         const tw = (t.truck ? TRUCK_W : CAR_W) * sc * vp.K;
-        drawCar(c, cx, cy, tw, { color: t.color, front: t.speed < 0, truck: t.truck, night, model: t.model, signal: t.signal, flash: t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0, tilt: t.tilt });
+        drawCar(c, cx, cy, tw, trafficLook(t, t.speed < 0, night, t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0));
         // batido: fumaça saindo do motor (frente: em cima do capô; de trás: por cima do carro)
         if (t.smoke > 0) drawSmoke(c, cx, cy - tw * (t.speed < 0 ? 0.35 : 0.55), tw, t.smoke, Math.round(t.base));
       }
@@ -313,7 +313,7 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
   const D = 2000;
   const behind: { z: number; x: number; w: number; look: Parameters<typeof drawCar>[4] }[] = [];
   const night = !!r.def.night;
-  for (const t of r.traffic) behind.push({ z: t.z, x: t.x, w: t.truck ? TRUCK_W : CAR_W, look: { color: t.color, front: t.speed > 0, truck: t.truck, night, model: t.model } });
+  for (const t of r.traffic) behind.push({ z: t.z, x: t.x, w: t.truck ? TRUCK_W : CAR_W, look: trafficLook(t, t.speed > 0, night) });
   if (r.rival) behind.push({ z: r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint, signal: r.rival.signal, lamps: r.rivalLamps() } });
   for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') behind.push({ z: p.z, x: p.x, w: p.sv ? CAR_W * 1.08 : POLICE_W, look: { color: '#fff', police: true, sv: p.sv, siren: true, front: true, night } });
   behind.sort((a, b) => a.z - b.z);

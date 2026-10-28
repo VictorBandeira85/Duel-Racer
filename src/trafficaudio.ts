@@ -5,6 +5,7 @@
 // e buzina longa de quem levou uma batida.
 import { audioCtx, audioOut, noiseBuffer, synthReady } from './audio';
 import { CAR_W, KMH } from './config';
+import { perfClass } from './cars';
 import { engineSpec, type EngineSpec } from './enginesynth';
 import type { Race, TrafficCar } from './race';
 
@@ -28,6 +29,8 @@ export const HORN: Record<string, HornDef> = {
   // picape: grave e metálica, quinta justa
   pickup: { notes: [290, 435], wave: 'sawtooth', filter: 'lowpass', fq: 1500, q: 1.4, attack: 0.012, vol: 0.12, beat: [0.46, 0.3] },
   // caminhão: buzina a ar, acorde de três notas bem grave, entra devagar
+  // esportivo (classes B, A e S): duas cornetas brilhantes e rápidas
+  sport: { notes: [440, 554], wave: 'sawtooth', filter: 'bandpass', fq: 1800, q: 1.3, attack: 0.006, vol: 0.12, beat: [0.26, 0.15] },
   truck: { notes: [147, 185, 220], wave: 'sawtooth', filter: 'lowpass', fq: 1300, q: 0.8, attack: 0.08, vol: 0.17, beat: [0.85, 0.62] },
 };
 
@@ -171,7 +174,9 @@ export function updateTrafficAudio(r: Race, dt: number) {
   };
   for (const c of r.traffic) {
     const kmh = Math.abs(c.speed) * KMH;
-    add(c, c.z, c.x, c.speed, MODEL_ENGINE[c.model] ?? 'V6', c.hit ? 0.05 : rpmFor(kmh, c.truck ? 110 : 160, c.truck ? 8 : 5), c.hit ? 0 : 0.55, c.truck ? 1.25 : 0.9, c);
+    // modelo do jogo: o ronco dele de verdade
+    if (c.car) add(c, c.z, c.x, c.speed, `${c.car.engine}|${c.car.id}`, c.hit ? 0.05 : rpmFor(kmh, c.car.maxSpeed * KMH, c.car.gears.length), c.hit ? 0 : 0.55, 0.95, c);
+    else add(c, c.z, c.x, c.speed, MODEL_ENGINE[c.model] ?? 'V6', c.hit ? 0.05 : rpmFor(kmh, c.truck ? 110 : 160, c.truck ? 8 : 5), c.hit ? 0 : 0.55, c.truck ? 1.25 : 0.9, c);
   }
   if (r.rival && r.rivalCar) {
     const kmh = r.rival.speed * KMH;
@@ -221,7 +226,7 @@ export function updateTrafficAudio(r: Race, dt: number) {
     cs.prevDz = s.dz;
     const c = s.car;
     if (!c) continue;
-    const model = c.truck ? 'truck' : c.model;
+    const model = c.truck ? 'truck' : c.car ? ({ D: 'hatch', C: 'sedan' } as Record<string, string>)[perfClass(c.car)] ?? 'sport' : c.model;
     // contramão vindo de frente na faixa do jogador: buzina (e freia em cima)
     if (c.panic > 0) {
       cs.panicT += dt;

@@ -1,5 +1,6 @@
 import { CAR_W, KMH, LANE_W, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
-import { aeroMul, G, LAUNCH_BOOST, Powertrain, perfClass, resistAcc, toGame, toMs, type CarSpec } from './cars';
+import { aeroMul, CARS, G, LAUNCH_BOOST, Powertrain, perfClass, resistAcc, toGame, toMs, type CarLook, type CarSpec, type PerfClass } from './cars';
+import { PAINTS } from './paint';
 import type { Course, StageDef } from './courses';
 import { THEMES, nightTheme, rainTheme, type Theme } from './themes';
 import { SPRITES } from './sprites';
@@ -23,6 +24,25 @@ const TRUCK_KG = 9000;
 
 export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck';
 const CAR_MODELS: TrafficModel[] = ['sedan', 'sedan', 'hatch', 'hatch', 'pickup', 'van'];
+// Carros do jogo no meio do trânsito: quanto mais caro, mais raro (como na rua). Peso de cada
+// classe no sorteio; GAME_SHARE = fração dos carros (fora caminhões) que são modelos do jogo.
+const CLASS_WEIGHT: Record<PerfClass, number> = { D: 10, C: 6, B: 2.2, A: 0.8, S: 0.3 };
+const GAME_SHARE = 0.45;
+let gamePool: { car: CarSpec; acc: number }[] | null = null;
+function pickGameCar(u: number): CarSpec | undefined {
+  if (!gamePool) {
+    let acc = 0;
+    gamePool = CARS.filter((c) => !c.arcadeOnly && !c.pendingArt && c.rear.img && c.rear.frontImg).map((car) => ({ car, acc: (acc += CLASS_WEIGHT[perfClass(car)]) }));
+  }
+  const total = gamePool[gamePool.length - 1]?.acc ?? 0;
+  return gamePool.find((g) => g.acc >= u * total)?.car;
+}
+// aparência de um carro do trânsito (genérico ou modelo do jogo, com faróis e piscas próprios)
+export function trafficLook(t: TrafficCar, front: boolean, night: boolean, flash = false): CarLook {
+  const look: CarLook = { color: t.color, front, truck: t.truck, night, model: t.model, signal: t.signal, flash, tilt: t.tilt };
+  if (t.car) Object.assign(look, { rear: t.car.rear, paint: t.color, lamps: { up: night || flash ? 1 : 0, on: night || flash, high: flash } });
+  return look;
+}
 export const TRAFFIC_COLORS = ['#2a6fdb', '#e8e8e8', '#3d9b47', '#c9a227', '#7a3db8', '#d9542b', '#555566', '#80c0e0', '#8a2a2a'];
 
 export interface TrafficCar {
@@ -32,6 +52,7 @@ export interface TrafficCar {
   color: string;
   truck: boolean;
   model: TrafficModel;
+  car?: CarSpec; // um dos carros do jogo no trânsito (sorteado pela raridade da classe)
   hit: boolean;
   base: number; // velocidade que o motorista gosta de manter
   tx: number; // faixa para onde está indo
@@ -255,6 +276,13 @@ export class Race {
     c.color = TRAFFIC_COLORS[Math.floor(r() * TRAFFIC_COLORS.length)];
     c.truck = r() < 0.18;
     c.model = c.truck ? 'truck' : CAR_MODELS[Math.floor(r() * CAR_MODELS.length)];
+    c.car = !c.truck && r() < GAME_SHARE ? pickGameCar(r()) : undefined;
+    if (c.car) {
+      // metade na cor de fábrica, o resto numa cor qualquer da paleta
+      c.color = r() < 0.5 ? c.car.color : PAINTS[Math.floor(r() * PAINTS.length)].hex;
+      // dono de esportivo anda um pouco mais rápido
+      c.speed *= { D: 1, C: 1.03, B: 1.08, A: 1.12, S: 1.16 }[perfClass(c.car)];
+    }
     if (c.truck) c.speed *= 0.85; // caminhão anda mais devagar
     c.hit = false;
     c.base = c.speed;

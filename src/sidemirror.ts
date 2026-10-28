@@ -1,6 +1,6 @@
 import { CAM_H, CAR_W, POLICE_W, RES, SEG_LEN, TRUCK_W } from './config';
 import { drawCar } from './cars';
-import type { Race } from './race';
+import { trafficLook, type Race } from './race';
 
 // Retrovisor externo do lado do motorista, funcionando: o vidro das cabines desenhadas a partir
 // da arte é encontrado pela cor (claro e azulado, à esquerda do painel) e, no lugar dele, entra
@@ -179,7 +179,7 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
   // quem vem atrás (do mais longe para o mais perto)
   const behind: { dz: number; x: number; w: number; look: Parameters<typeof drawCar>[4] }[] = [];
   const pz = r.position;
-  for (const t of r.traffic) behind.push({ dz: pz - t.z, x: t.x, w: t.truck ? TRUCK_W : CAR_W, look: { color: t.color, front: t.speed > 0, truck: t.truck, night, model: t.model } });
+  for (const t of r.traffic) behind.push({ dz: pz - t.z, x: t.x, w: t.truck ? TRUCK_W : CAR_W, look: trafficLook(t, t.speed > 0, night) });
   if (r.rival) behind.push({ dz: pz - r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint, signal: r.rival.signal, lamps: r.rivalLamps() } });
   for (const p of r.police) if (p.state !== 'done') behind.push({ dz: pz - p.z, x: p.x, w: p.sv ? CAR_W * 1.08 : POLICE_W, look: { color: '#fff', police: true, sv: p.sv, siren: p.state === 'chase' || p.state === 'pull', front: true, night } });
   behind.sort((a, b) => b.dz - a.dz);

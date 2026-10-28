@@ -196,17 +196,40 @@ function activateTitle(s: AppState, i: number, a: Actions) {
 }
 
 // ---------- opções ----------
-const optionRects = () => [0, 1, 2, 3].map((i): Rect => ({ x: ox() + 40, y: 58 + i * 42, w: 240, h: 34 }));
+const optionRects = () => [0, 1, 2, 3, 4].map((i): Rect => ({ x: ox() + 40, y: 50 + i * 36, w: 240, h: 30 }));
+// tamanho dos botões de toque (direção, acelerador, freio, marchas), salvo no aparelho
+const BTN_SIZES = [{ label: 'PEQUENOS', k: 0.8 }, { label: 'MÉDIOS', k: 1 }, { label: 'GRANDES', k: 1.22 }, { label: 'ENORMES', k: 1.45 }];
+const BTN_KEY = 'duel-racer:botoes';
+function btnSizeIdx() {
+  try {
+    const raw = localStorage.getItem(BTN_KEY);
+    const v = raw === null ? 1 : Number(raw);
+    return Number.isInteger(v) && v >= 0 && v < BTN_SIZES.length ? v : 1;
+  } catch {
+    return 1;
+  }
+}
+export function applyBtnSize() {
+  document.documentElement.style.setProperty('--btn', String(BTN_SIZES[btnSizeIdx()].k));
+}
+function setBtnSize(i: number) {
+  try {
+    localStorage.setItem(BTN_KEY, String(i));
+  } catch { /* sem armazenamento: vale só nesta sessão */ }
+  document.documentElement.style.setProperty('--btn', String(BTN_SIZES[i].k));
+}
+
 function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
   drawRoadScene(c, s.t);
   text(c, 'OPÇÕES', view.w / 2, 30, 16, '#ffd400', 'center', '#3a1060');
-  const labels = [`CÂMBIO: ${s.auto ? 'AUTOMÁTICO' : 'MANUAL'}`, `SOM: ${s.sound ? 'LIGADO' : 'DESLIGADO'}`, `MÚSICA: ${s.music ? 'LIGADA' : 'DESLIGADA'}`, 'VOLTAR'];
+  const labels = [`CÂMBIO: ${s.auto ? 'AUTOMÁTICO' : 'MANUAL'}`, `SOM: ${s.sound ? 'LIGADO' : 'DESLIGADO'}`, `MÚSICA: ${s.music ? 'LIGADA' : 'DESLIGADA'}`, `BOTÕES: ${BTN_SIZES[btnSizeIdx()].label}`, 'VOLTAR'];
   optionRects().forEach((r, i) => sign(c, r, [labels[i]], s.sel === i));
 }
 function activateOption(s: AppState, a: Actions, i: number) {
   if (i === 0) s.auto = !s.auto;
   else if (i === 1) a.toggleSound();
   else if (i === 2) a.toggleMusic();
+  else if (i === 3) setBtnSize((btnSizeIdx() + 1) % BTN_SIZES.length);
   else a.go('title');
 }
 
@@ -854,7 +877,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (['career', 'event', 'garage', 'dealer', 'careerEnd'].includes(s.screen)) return keyCareerScreen(s, a, k);
-  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 4, opponent: oppList(s).length, course: COURSES.length };
+  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 5, opponent: oppList(s).length, course: COURSES.length };
   // percursos: cima/baixo escolhem, esquerda/direita trocam dia e noite
   if (s.screen === 'course' && (k === 'left' || k === 'right')) {
     s.arcadeNight = !s.arcadeNight;

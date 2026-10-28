@@ -14,6 +14,7 @@ const CURVE_K = 0.00105;
 const TRAFFIC_KG = 1300;
 const COP_KMH = 245; // máxima da viatura na perseguição
 const COP_ACC = 1300; // aceleração da viatura parada (unidades/s², ~32 km/h por segundo)
+const BRAKE_BOOST = 1.2; // freios 20% mais fortes que a ficha (pedido de jogabilidade)
 const SIGNAL_LEAD = 0.8; // s de pisca antes de trocar de faixa (mão dupla)
 const FLASH_T = 2.2; // s do pedido de passagem: sobe o farol, pisca três vezes, abaixa
 const COP_SV_KMH = 300;
@@ -344,7 +345,7 @@ export class Race {
     if (this.braking) {
       if (this.state === 'crash') { /* a batida desacelera em updateCrash (arrastando) */ }
       else if (pulling) this.speed -= max * 0.17 * dt;
-      else this.speed -= toGame(G * this.car.brakeG * surf * aero * (1 - this.air * 0.5)) * dt;
+      else this.speed -= toGame(G * this.car.brakeG * BRAKE_BOOST * surf * aero * (1 - this.air * 0.5)) * dt;
     }
     // acima do corte de giro (reduziu marcha ou embalou na descida): o motor segura
     if (this.speed > gearMax) this.speed -= (this.speed - gearMax) * (slope < -0.05 ? 0.4 : 1.5) * dt;
@@ -504,7 +505,8 @@ export class Race {
     if (this.gear !== this.lastGear && this.speed > 200) shiftSound();
     this.lastGear = this.gear;
     const offRoad = Math.abs(this.x) > t.roadW + 700;
-    const screech = driving && !offRoad ? Math.max(this.slip * 1.4, Math.abs(this.drift) * 2.2, this.spin * 1.2, this.spinOut > 0 ? 1 : 0, this.braking && speedPct > 0.3 ? 0.6 : 0) : 0;
+    // pneu canta só escorregando (derrapagem, rodada, patinando); frear em linha reta não
+    const screech = driving && !offRoad ? Math.max(this.slip * 1.4, Math.abs(this.drift) * 2.2, this.spin * 1.2, this.spinOut > 0 ? 1 : 0) : 0;
     const surface = this.def.weather === 'snow' ? 'snow' : this.def.weather === 'rain' ? 'wet' : 'dry';
     setTires(screech, offRoad && this.speed > 100 ? 0.4 + speedPct * 0.6 : 0, surface, driving || this.state === 'arrived' ? speedPct : 0);
     setEngine(Math.max(0.1, this.rpm), this.throttle, true, this.turboCar ? this.pt.boost : 0);
@@ -856,7 +858,7 @@ export class Race {
     if (accel) {
       const acc = toGame(aDrive - resistAcc(this.rivalCar, r.speed, 1 - 0.35 * this.draftAhead(r.z, r.x, r.speed)));
       r.speed = Math.min(target, r.speed + Math.max(0, acc) * dt);
-    } else r.speed = Math.max(target, r.speed - toGame(G * this.rivalCar.brakeG * this.surface(this.rivalCar) * aeroMul(this.rivalCar, r.speed)) * dt);
+    } else r.speed = Math.max(target, r.speed - toGame(G * this.rivalCar.brakeG * BRAKE_BOOST * this.surface(this.rivalCar) * aeroMul(this.rivalCar, r.speed)) * dt);
     r.x += clamp(r.targetX - r.x, -dt * (r.style === 'agressivo' ? 3000 : 2600), dt * (r.style === 'agressivo' ? 3000 : 2600));
     r.z += r.speed * dt;
     if (r.finishTime < 0) this.rivalTop = Math.max(this.rivalTop, r.speed);

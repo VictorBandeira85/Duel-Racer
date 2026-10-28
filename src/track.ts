@@ -71,12 +71,17 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
       for (let n = first + Math.floor(enter / 2); n < first + total - Math.floor(leave / 2); n += 2)
         segments[n].sprites.push({ kind: 'rail', x: side * (roadW + 700), seed: 0 });
     }
-    if (Math.abs(curve) >= 3) {
-      for (let i = 0; i < 1; i++) {
-        const s = segments[first + Math.max(0, enter - 24) + i * 7];
-        const x = (roadW + 1400) * (curve > 0 ? -1 : 1);
-        if (s) s.sprites.push({ kind: curve > 0 ? 'signR' : 'signL', x, seed: 0 });
-      }
+    // aviso antes da curva, no acostamento da direita: curva suave ou acentuada, para o lado dela
+    if (Math.abs(curve) >= 1 && first > 70) {
+      const sharp = Math.abs(curve) >= 2.5;
+      const kind: SpriteKind = sharp ? (curve > 0 ? 'sharpR' : 'sharpL') : curve > 0 ? 'warnR' : 'warnL';
+      const at = segments[first - 55];
+      if (!at.sprites.some((sp) => sp.x > 0 && Math.abs(sp.x - (roadW + 1300)) < 1500)) at.sprites.push({ kind, x: roadW + 1300, seed: 0 });
+    }
+    // curvas fechadas: placas de chevrons ao longo do lado de fora
+    if (Math.abs(curve) >= 2.5) {
+      const x = (roadW + 1400) * (curve > 0 ? -1 : 1);
+      for (let n = first + Math.max(0, enter - 24); n < first + enter + hold; n += 16) segments[n]?.sprites.push({ kind: curve > 0 ? 'signR' : 'signL', x, seed: 0 });
     }
   };
 

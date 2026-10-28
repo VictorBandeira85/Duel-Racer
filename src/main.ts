@@ -8,7 +8,7 @@ import { REGIONS, carById, eventCourse, levels, loadCareer, settleEvent, tunedCa
 import type { CarSpec } from './cars';
 import { Race } from './race';
 import { COCKPIT_IMAGES, renderCockpit } from './cockpit';
-import { drawScreen, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
+import { applyBtnSize, drawScreen, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { input, pollGamepad, releaseAll, setupInput } from './input';
 import { initAudio, playMusic, setEngine, setMusicOn, setMuted, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
@@ -269,3 +269,4 @@ Object.assign(window, { app: { state, actions, get race() { return race; } }, in
 if ('serviceWorker' in navigator && import.meta.env.MODE !== 'single' && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
+applyBtnSize(); // tamanho dos botões escolhido nas opções

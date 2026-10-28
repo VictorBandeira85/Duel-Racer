@@ -23,14 +23,14 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
 }
 #controls .side { display: flex; gap: 2vw; align-items: flex-end; }
 #controls button {
-  pointer-events: auto; width: 17vh; height: 17vh; border-radius: 50%;
-  background: rgba(255,255,255,0.14); border: 0.4vh solid rgba(255,255,255,0.35); font-size: 4.5vh;
+  pointer-events: auto; width: calc(17vh * var(--btn, 1)); height: calc(17vh * var(--btn, 1)); border-radius: 50%;
+  background: rgba(255,255,255,0.14); border: 0.4vh solid rgba(255,255,255,0.35); font-size: calc(4.5vh * var(--btn, 1));
 }
 #controls button.on { background: rgba(255,255,255,0.4); }
-#controls .gas { background: rgba(48,224,96,0.25); width: 21vh; height: 21vh; font-size: 3vh; }
-#controls .brake { background: rgba(255,60,60,0.25); font-size: 2.6vh; }
+#controls .gas { background: rgba(48,224,96,0.25); width: calc(21vh * var(--btn, 1)); height: calc(21vh * var(--btn, 1)); font-size: calc(3vh * var(--btn, 1)); }
+#controls .brake { background: rgba(255,60,60,0.25); font-size: calc(2.6vh * var(--btn, 1)); }
 #gearBtns { display: flex; flex-direction: column; gap: 1.5vh; }
-#controls .small { width: 11vh; height: 11vh; font-size: 3vh; }
+#controls .small { width: calc(11vh * var(--btn, 1)); height: calc(11vh * var(--btn, 1)); font-size: calc(3vh * var(--btn, 1)); }
 
 #pauseBtn {
   position: absolute; top: calc(0.5vh + env(safe-area-inset-top)); left: calc(1vw + env(safe-area-inset-left));

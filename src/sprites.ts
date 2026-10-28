@@ -9,7 +9,8 @@ export type SpriteKind =
   | 'building' | 'house' | 'fence' | 'lamp' | 'signL' | 'signR' | 'gasSign' | 'station'
   | 'rail' | 'billboard' | 'bridge' | 'barn' | 'stop'
   | 'autumn' | 'acacia' | 'umbrella' | 'kiosk' | 'factory' | 'silo' | 'banana' | 'spire' | 'lighthouse' | 'chalet'
-  | 'snowrock' | 'snowchalet' | 'snowman';
+  | 'snowrock' | 'snowchalet' | 'snowman'
+  | 'warnL' | 'warnR' | 'sharpL' | 'sharpR';
 
 type Draw = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, seed: number) => void;
 
@@ -222,6 +223,45 @@ const sign = (dir: 1 | -1): Draw => (c, x, y, w, h) => {
     const cx = x + w * off * dir, cy = y - h * 0.725, s = w * 0.16;
     poly(c, '#111', cx - s * dir, cy - s * 1.2, cx + s * 0.4 * dir, cy, cx - s * dir, cy + s * 1.2, cx - s * 0.4 * dir, cy);
   }
+};
+
+// placa de advertência de curva (losango amarelo com borda preta, como as do Brasil):
+// curva suave = seta encurvada; curva acentuada = seta que dobra em ângulo reto
+const warn = (dir: 1 | -1, sharp: boolean): Draw => (c, x, y, w, h) => {
+  rect(c, '#6a6a6a', x - w * 0.05, y - h * 0.6, w * 0.1, h * 0.6);
+  rect(c, '#9a9a9a', x - w * 0.05, y - h * 0.6, w * 0.035, h * 0.6);
+  const cy = y - h * 0.78, r = w * 0.5;
+  poly(c, '#111', x, cy - r, x + r, cy, x, cy + r, x - r, cy);
+  const k = 0.84;
+  poly(c, '#ffcc00', x, cy - r * k, x + r * k, cy, x, cy + r * k, x - r * k, cy);
+  // seta (traço grosso) e ponta
+  const lw = Math.max(1, w * 0.1);
+  c.strokeStyle = '#111';
+  c.lineWidth = lw;
+  c.lineCap = 'butt';
+  c.beginPath();
+  const bx = x - dir * r * 0.12, by = cy + r * 0.5;
+  c.moveTo(bx, by);
+  let tipX: number, tipY: number, ang: number;
+  if (sharp) {
+    const ty = cy - r * 0.08;
+    c.lineTo(bx, ty);
+    tipX = bx + dir * r * 0.42;
+    tipY = ty;
+    c.lineTo(tipX, tipY);
+    ang = dir > 0 ? 0 : Math.PI;
+  } else {
+    tipX = bx + dir * r * 0.32;
+    tipY = cy - r * 0.42;
+    c.quadraticCurveTo(bx, cy - r * 0.15, tipX, tipY);
+    ang = Math.atan2(tipY - (cy - r * 0.15), tipX - bx);
+  }
+  c.stroke();
+  const hs = r * 0.28;
+  poly(c, '#111',
+    tipX + Math.cos(ang) * hs, tipY + Math.sin(ang) * hs,
+    tipX + Math.cos(ang + 2.2) * hs, tipY + Math.sin(ang + 2.2) * hs,
+    tipX + Math.cos(ang - 2.2) * hs, tipY + Math.sin(ang - 2.2) * hs);
 };
 
 const gasSign: Draw = (c, x, y, w, h) => {
@@ -516,6 +556,10 @@ export const SPRITES: Record<SpriteKind, { w: number; h: number; draw: Draw; sol
   lamp: { w: 300, h: 2800, draw: lamp, solid: true },
   signL: { w: 650, h: 850, draw: sign(-1), solid: true },
   signR: { w: 650, h: 850, draw: sign(1), solid: true },
+  warnL: { w: 760, h: 1500, draw: warn(-1, false), solid: true },
+  warnR: { w: 760, h: 1500, draw: warn(1, false), solid: true },
+  sharpL: { w: 760, h: 1500, draw: warn(-1, true), solid: true },
+  sharpR: { w: 760, h: 1500, draw: warn(1, true), solid: true },
   gasSign: { w: 1600, h: 2600, draw: gasSign, solid: true },
   station: { w: 6500, h: 3200, draw: station, solid: true },
   stop: { w: 900, h: 1900, draw: stop, solid: false },

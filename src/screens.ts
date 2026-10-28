@@ -6,7 +6,7 @@ import type { CareerSave, EventResult } from './career';
 import { drawCareerScreen, keyCareerScreen, openCareer, tapCareerScreen } from './careerScreens';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
-import { CARS, CLASS_COLOR, accelCurve, drawCar, drawCarDiagonal, drawCarSide, gearbox, layout, perfClass, perfIndex, type CarSpec } from './cars';
+import { CARS, CLASS_COLOR, accelCurve, drawCar, drawCarSide, gearbox, layout, perfClass, perfIndex, type CarSpec } from './cars';
 import { COURSES, unlockedCourses, withTimeOfDay, type Course } from './courses';
 import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import { THEMES } from './themes';
@@ -161,20 +161,19 @@ function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot
   if (kind === 'test') {
     photo(c, ph, () => {
       studioLight(c, ph);
-      drawCarSide(c, ph.x + 32 + (1 - ease) * 260, ph.y + 98, 248, car, p);
+      drawCarSide(c, ph.x + 40 + (1 - ease) * 260, ph.y + 100, 232, car, p);
     });
     captionShade(c, ph);
     kicker(c, 'TESTE EXCLUSIVO', ph.x + 6, ph.y + 6, RED, '#fff');
     logo(c, car.name.toUpperCase(), ph.x + 6, ph.y + 18, 8, '#fff', INK);
     kicker(c, `${car.power} • ${kmh(car)} km/h • 0-100 em ${car.zeroTo100.toFixed(1).replace('.', ',')}s`, ph.x + 6, ph.y + 29, 'rgba(26,22,20,0.82)', '#fff');
-    burst(c, ph.x + ph.w - 30, ph.y + 26, 25, ['20', 'MAPAS', 'NOVOS!'], YELLOW, RED, s.t);
   } else if (kind === 'compare') {
     photo(c, ph, () => {
       studioLight(c, ph);
       const off = (1 - ease) * 160;
       // os dois frente a frente: o da esquerda espelhado
-      mirror(() => drawCarSide(c, ph.x + 6 - off, ph.y + 100, 148, car, p), ph.x + 80 - off);
-      drawCarSide(c, ph.x + ph.w - 154 + off, ph.y + 100, 148, other, paintHex(other.id));
+      mirror(() => drawCarSide(c, ph.x + 8 - off, ph.y + 100, 140, car, p), ph.x + 78 - off);
+      drawCarSide(c, ph.x + ph.w - 148 + off, ph.y + 100, 140, other, paintHex(other.id));
     });
     captionShade(c, ph);
     kicker(c, 'COMPARATIVO', ph.x + 6, ph.y + 6, BLUE, '#fff');
@@ -182,15 +181,17 @@ function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot
     kicker(c, `${car.power} contra ${other.power}: quem leva?`, ph.x + 6, ph.y + 29, 'rgba(26,22,20,0.82)', '#fff');
     burst(c, ph.x + ph.w / 2, ph.y + 70, 14, ['X'], YELLOW, RED, s.t);
   } else if (kind === 'angles') {
+    // os ângulos que existem desenhados: de lado (grande), de frente e de trás (quadros menores)
     photo(c, ph, () => {
       studioLight(c, ph);
-      drawCarDiagonal(c, ph.x + 14 + (1 - ease) * 200, ph.y + 100, 176, car, p);
+      drawCarSide(c, ph.x + 8 + (1 - ease) * 200, ph.y + 100, 198, car, p);
     }, ['#6a5a4a', '#d8c8b0']);
-    // quadros menores: traseira de face e diagonal de trás
-    const a: Rect = { x: ph.x + ph.w - 92, y: ph.y + 8, w: 84, h: 44 };
-    const b: Rect = { x: ph.x + ph.w - 92, y: ph.y + 58, w: 84, h: 26 };
-    photo(c, a, () => drawCar(c, a.x + a.w / 2, a.y + a.h - 3, 52, { color: car.color, rear: car.rear, paint: p }));
-    photo(c, b, () => drawCarDiagonal(c, b.x + 8, b.y + b.h - 2, 62, car, p, true));
+    const a: Rect = { x: ph.x + ph.w - 92, y: ph.y + 6, w: 86, h: 46 };
+    const b: Rect = { x: ph.x + ph.w - 92, y: ph.y + 58, w: 86, h: 46 };
+    photo(c, a, () => drawCar(c, a.x + a.w / 2, a.y + a.h - 4, 56, { color: car.color, rear: car.rear, paint: p, front: true }));
+    photo(c, b, () => drawCar(c, b.x + b.w / 2, b.y + b.h - 4, 56, { color: car.color, rear: car.rear, paint: p }));
+    kicker(c, 'FRENTE', a.x, a.y, INK, '#fff');
+    kicker(c, 'TRASEIRA', b.x, b.y, INK, '#fff');
     captionShade(c, ph);
     kicker(c, 'POR TODOS OS ÂNGULOS', ph.x + 6, ph.y + 6, RED, '#fff');
     logo(c, car.name.toUpperCase(), ph.x + 6, ph.y + 18, 8, '#fff', INK);
@@ -221,7 +222,7 @@ function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot
       rule(c, ph.x + 6, y + 11, 178, 'rgba(26,22,20,0.15)');
     });
     const q: Rect = { x: ph.x + ph.w - 112, y: ph.y + 24, w: 104, h: 56 };
-    photo(c, q, () => drawCarDiagonal(c, q.x + 6, q.y + q.h - 6, 92, car, p));
+    photo(c, q, () => drawCar(c, q.x + q.w / 2, q.y + q.h - 4, 66, { color: car.color, rear: car.rear, paint: p, front: true }));
     ink(c, `Flagra: ${car.name}`, q.x, q.y - 12, 5, GREY);
   } else {
     // flagra na estrada: o carro de trás, numa reta, com o asfalto passando
@@ -281,7 +282,9 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
   const t = Math.max(0, s.t || 0);
   const slot = Math.floor(t / SLIDE_T);
   drawCoverSlide(c, s, ph, slot, (t % SLIDE_T) / SLIDE_T);
-  barcode(c, ph.x + ph.w - 40, ph.y + ph.h - 22);
+  // código de barras no canto (menos onde há quadros pequenos ali)
+  const kind = SLIDES[Math.max(0, slot) % SLIDES.length];
+  if (kind !== 'angles' && kind !== 'news') barcode(c, ph.x + ph.w - 40, ph.y + ph.h - 22);
   // chamadas = menu (o subtítulo muda a cada edição da foto)
   const alt = [
     ['Câmbio, som e controles', 'Ligue o fantasma', 'Botões do seu tamanho'],

@@ -154,7 +154,7 @@ function tapEvent(s: AppState, a: Actions, x: number, y: number) {
 }
 
 // ---------- garagem ----------
-const swatchRects = (): Rect[] => PAINTS.map((_, i) => ({ x: ox() + 40 + i * 24, y: 112, w: 18, h: 10 }));
+const swatchRects = (): Rect[] => PAINTS.map((_, i) => ({ x: ox() + 12 + i * 20, y: 112, w: 16, h: 10 }));
 const upgradeRows = () => [0, 1, 2].map((i): Rect => ({ x: ox() + 6, y: 130 + i * 24, w: SAFE_W - 12, h: 22 }));
 const garageButtons = () => {
   const x = ox();

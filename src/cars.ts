@@ -2,6 +2,7 @@ import { drawCrisp } from './crisp';
 import { KMH } from './config';
 import { clamp, shade } from './util';
 import { BR_CARS } from './carsbr';
+import { PAINTS } from './paint';
 import { F40_REAR, F40_SIDE } from './svg/f40';
 import { spriteAspect, svgSprite } from './svgsprites';
 // sprites derivados de fotos (ver assets/cars/LEIA-ME.md)
@@ -42,6 +43,21 @@ export interface RearDef {
   glow?: { dots?: number[][]; bar?: number[] }; // onde acendem as luzes de freio (frações u, f)
   imgMask?: string; // máscaras da carroceria (onde a cor pode ser trocada)
   frontMask?: string;
+  // pinturas com arte própria (decalques na cor certa): cor da paleta -> sprites
+  variants?: Record<string, { img?: string; frontImg?: string }>;
+  lamps?: LampDef;
+}
+
+// Faróis e piscas de cada modelo, em frações do sprite (lado esquerdo da tela; o direito é o
+// espelho). Escamoteável: centro u, base f e largura do farol que sobe do capô; fixo: u, f e raio.
+// Piscas: [u0, f0, u1, f1] retangular ou [u, f, r] redondo, sobre a lanterna/farol de cada carro.
+export interface LampDef {
+  pop?: [number, number, number];
+  head?: [number, number, number];
+  sigRear: number[];
+  sigFront: number[];
+  sigRed?: boolean; // pisca vermelho atrás (carros americanos)
+  podColor?: string; // cor da tampa do farol (senão a da carroceria)
 }
 
 export interface CarSpec {
@@ -77,6 +93,7 @@ export interface CarSpec {
   svgSide?: string; // arte vetorial do perfil (viewBox com chão na base)
   imgSide?: string; // sprite do perfil (pixel art)
   sideMask?: string;
+  sideVariants?: Record<string, string>; // pinturas com arte própria: cor da paleta -> lateral
   art?: string; // prefixo dos sprites em assets/cars (<art>-side/-rear/-front.png e máscaras)
 }
 
@@ -148,9 +165,10 @@ export const CARS: CarSpec[] = [
     imgSide: s959SidePng,
   },
   {
-    id: 'toro-v12', name: 'Toro V12', basedOn: 'Lamborghini Diablo', color: '#f0c010',
-    price: '$240.000', position: 'central', drive: 'traseira', engine: 'V12 48v',
-    displacement: '5.707 cc', power: '492 cv', maxSpeed: kmh(325), zeroTo100: 4.5, accel: 1, mass: 1576, gears: G5, curve: 'v12', lateralG: 0.92, brakeG: 1.0, handling: 0.9, aero: 0.04,
+    id: 'toro-v12', name: 'Toro V12', basedOn: 'Lamborghini Diablo SV', color: '#f2c200',
+    // SV: versão leve e mais forte (sem tração integral), câmbio mais curto, asa regulável
+    price: '$260.000', position: 'central', drive: 'traseira', engine: 'V12 48v',
+    displacement: '5.707 cc', power: '517 cv', maxSpeed: kmh(300), zeroTo100: 4.0, accel: 1, mass: 1530, gears: [0.3, 0.47, 0.64, 0.82, 1], curve: 'v12', lateralG: 0.95, brakeG: 1.02, handling: 0.93, aero: 0.08,
     dash: 'diablo', hood: '#d8a808', art: 'diablo',
     side: {
       body: [0, 0.055, 0, 0.085, 0.03, 0.115, 0.2, 0.145, 0.3, 0.162, 0.47, 0.246, 0.58, 0.25, 0.64, 0.236, 0.85, 0.198, 0.96, 0.19, 1, 0.17, 1, 0.08, 0.985, 0.055],
@@ -162,7 +180,7 @@ export const CARS: CarSpec[] = [
         { fill: 'shade', pts: [0.9, 0.193, 1, 0.188, 1, 0.198, 0.92, 0.2] },
       ],
     },
-    rear: { h: 0.52, roof: 0.5, lights: 'rect', wing: 1, mesh: true, glow: { dots: [[0.14, 0.587], [0.86, 0.587]] } },
+    rear: { h: 0.43, roof: 0.5, lights: 'quadRound', wing: 1, glow: { dots: [[0.152, 0.335], [0.232, 0.335], [0.772, 0.335], [0.845, 0.335]] } },
   },
   {
     id: 'vortex-zr', name: 'Vortex ZR', basedOn: 'Corvette ZR-1 (C4)', color: '#d81a12',
@@ -258,6 +276,19 @@ export const CARS: CarSpec[] = [
     },
     rear: { h: 0.78, roof: 0.6, lights: 'rect', wing: 0, glow: { dots: [[0.17, 0.6], [0.83, 0.6]] } },
   },
+  {
+    // Diablo SV da polícia: adversária nos eventos de classe S da carreira e pilotável no Arcade
+    id: 'patrol-sv', name: 'Toro V12 Polícia', basedOn: 'Lamborghini Diablo SV (polícia)', color: '#f2f2f2', arcadeOnly: true,
+    price: '$260.000', position: 'central', drive: 'traseira', engine: 'V12 48v',
+    displacement: '5.707 cc', power: '517 cv', maxSpeed: kmh(300), zeroTo100: 4.0, accel: 1, mass: 1560, gears: [0.3, 0.47, 0.64, 0.82, 1], curve: 'v12', lateralG: 0.95, brakeG: 1.02, handling: 0.93, aero: 0.08,
+    dash: 'diablo', hood: '#e8e8ea', art: 'patrolsv',
+    side: {
+      body: [0, 0.055, 0, 0.085, 0.03, 0.115, 0.2, 0.145, 0.3, 0.162, 0.47, 0.246, 0.58, 0.25, 0.64, 0.236, 0.85, 0.198, 0.96, 0.19, 1, 0.17, 1, 0.08, 0.985, 0.055],
+      glass: [0.33, 0.168, 0.47, 0.24, 0.575, 0.243, 0.615, 0.2],
+      wheels: [0.2, 0.8], shoulder: 0.15,
+    },
+    rear: { h: 0.475, roof: 0.5, lights: 'quadRound', wing: 1, glow: { dots: [[0.152, 0.39], [0.242, 0.39], [0.769, 0.39], [0.847, 0.39]] } },
+  },
 ];
 
 // carros nacionais: entram no jogo quando a arte deles existir (lateral e traseira)
@@ -272,6 +303,22 @@ for (const car of BR_CARS) {
 // carros à venda na carreira (a viatura fica de fora)
 export const DEALER_CARS = CARS.filter((c) => !c.arcadeOnly);
 
+// nome do arquivo da variante -> nome da cor na paleta
+const VARIANT_PAINT: Record<string, string> = { nero: 'Deep Black', rosso: 'Rosso Lucido', blu: 'Blu Le Mans', verde: 'Verde Ithaca', giallo: 'Giallo' };
+
+const LAMPS: Record<string, LampDef> = {
+  diablo: { pop: [0.24, 0.45, 0.13], sigRear: [0.152, 0.335, 0.045], sigFront: [0.168, 0.655, 0.212, 0.705] },
+  patrolsv: { pop: [0.24, 0.475, 0.13], podColor: '#1c1c1e', sigRear: [0.152, 0.39, 0.042], sigFront: [0.168, 0.67, 0.21, 0.74] },
+  f40: { pop: [0.185, 0.41, 0.12], sigRear: [0.155, 0.43, 0.05], sigFront: [0.1, 0.615, 0.17, 0.65] },
+  zr1: { pop: [0.2, 0.39, 0.18], sigRear: [0.135, 0.39, 0.05], sigRed: true, sigFront: [0.03, 0.66, 0.07, 0.73] },
+  testarossa: { pop: [0.16, 0.53, 0.18], sigRear: [0.05, 0.44, 0.13, 0.58], sigFront: [0.04, 0.67, 0.125, 0.72] },
+  nsx: { pop: [0.16, 0.56, 0.2], sigRear: [0.04, 0.53, 0.12, 0.62], sigFront: [0.07, 0.67, 0.17, 0.73] },
+  countach: { pop: [0.175, 0.6, 0.17], sigRear: [0.125, 0.55, 0.2, 0.69], sigFront: [0.05, 0.64, 0.14, 0.7] },
+  viper: { head: [0.165, 0.54, 0.06], sigRear: [0.08, 0.46, 0.16, 0.5], sigRed: true, sigFront: [0.04, 0.6, 0.1, 0.65] },
+  '959': { head: [0.17, 0.49, 0.05], sigRear: [0.083, 0.51, 0.183, 0.57], sigFront: [0.05, 0.65, 0.13, 0.68] },
+  patrol: { head: [0.145, 0.53, 0.07], sigRear: [0.04, 0.37, 0.25, 0.43], sigRed: true, sigFront: [0.05, 0.6, 0.24, 0.645] },
+};
+
 // Sprites de cada carro pela chave `art`: <art>-side/-rear/-front.png e as máscaras
 const PNG = import.meta.glob('./assets/cars/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 const png = (n: string) => PNG[`./assets/cars/${n}.png`];
@@ -284,6 +331,15 @@ for (const car of CARS) {
   car.rear.imgMask = png(`${k}-rear-mask`);
   car.rear.frontImg = png(`${k}-front`) ?? car.rear.frontImg;
   car.rear.frontMask = png(`${k}-front-mask`);
+  car.rear.lamps = LAMPS[k];
+  // <art>-side-<cor>.png: a arte daquela pintura (usada no lugar da repintura pela máscara)
+  for (const [name, paintName] of Object.entries(VARIANT_PAINT)) {
+    const side = png(`${k}-side-${name}`);
+    if (!side) continue;
+    const hex = PAINTS.find((p) => p.name === paintName)!.hex;
+    (car.sideVariants ??= {})[hex] = side;
+    (car.rear.variants ??= {})[hex] = { img: png(`${k}-rear-${name}`), frontImg: png(`${k}-front-${name}`) };
+  }
 }
 
 // ---------- física compartilhada (corrida e gráfico de aceleração) ----------
@@ -406,7 +462,7 @@ export function prepareCar(car: CarSpec) {
 export type PerfClass = 'D' | 'C' | 'B' | 'A' | 'S';
 export const PERF_CLASSES: PerfClass[] = ['D', 'C', 'B', 'A', 'S'];
 export const CLASS_COLOR: Record<PerfClass, string> = { D: '#3a9ad8', C: '#30b050', B: '#e0b020', A: '#e8641a', S: '#d02a8a' };
-const CLASS_MIN: Record<PerfClass, number> = { D: 0, C: 230, B: 630, A: 700, S: 800 };
+const CLASS_MIN: Record<PerfClass, number> = { D: 0, C: 230, B: 630, A: 700, S: 770 };
 const piCache = new WeakMap<CarSpec, number>();
 export function perfIndex(car: CarSpec) {
   let pi = piCache.get(car);
@@ -476,11 +532,13 @@ export interface CarLook {
   truck?: boolean;
   police?: boolean;
   siren?: boolean;
+  sv?: boolean; // polícia: a Diablo SV em vez do sedã
   brake?: boolean;
   night?: boolean;
   paint?: string; // cor escolhida (troca a carroceria do sprite pela máscara)
   model?: string; // trânsito: sedan, hatch, pickup, van, truck (sprites de assets/traffic)
   signal?: number; // seta ligada: -1 lado esquerdo da tela, 1 direito
+  lamps?: { up: number; on: boolean; high?: boolean }; // faróis: quanto subiram (escamoteáveis), acesos, farol alto
 }
 
 const GENERIC: RearDef = { h: 0.5, roof: 0.56, lights: 'rect', wing: 0 };
@@ -507,7 +565,7 @@ function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w:
   if (!img || !aspect) return false;
   const h = w * aspect;
   const mask = tpng(`${model}-${view}-mask`);
-  const spr = svgSprite(img, w, h, model !== 'police' && mask ? { mask, color: look.color } : undefined);
+  const spr = svgSprite(img, w, h, !model.startsWith('police') && mask ? { mask, color: look.color } : undefined);
   if (!spr) return false;
   c.fillStyle = 'rgba(0,0,0,0.35)';
   c.fillRect(Math.round(x - w * 0.53), Math.round(y - h * 0.04), Math.round(w * 1.06), Math.max(1, Math.round(h * 0.06)));
@@ -526,43 +584,56 @@ function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w:
     c.fillStyle = '#ffb020';
     c.fillRect(Math.round(L + u * w), Math.round(T + f * h), Math.max(1, Math.round(w * 0.12)), Math.max(1, Math.round(h * 0.08)));
   }
-  if (model === 'police' && look.siren) {
+  const tg = TRAFFIC_GLOW[model];
+  if (look.siren && tg?.siren) {
     const on = Math.floor(performance.now() / 120) % 2 === 0;
-    const bar = TRAFFIC_GLOW.police.siren!;
+    const bar = (look.front && tg.sirenFront) || tg.siren;
+    // cores de cada lâmpada (esquerda, direita) nesta vista; a da esquerda acende primeiro
+    const cols = (look.front ? tg.sirenColorsFront : tg.sirenColors) ?? ['blue', 'red'];
+    const lit: Record<string, [string, string]> = { blue: ['#4a7aff', '#10184a'], red: ['#ff3a3a', '#4a1010'] };
     const lamp = (i: number, col: string) => {
       const [u0, f0, u1, f1] = bar[i];
       c.fillStyle = col;
       c.fillRect(Math.round(L + u0 * w), Math.round(T + f0 * h), Math.max(1, Math.round((u1 - u0) * w)), Math.max(1, Math.round((f1 - f0) * h)));
     };
-    lamp(0, on ? '#4a7aff' : '#10184a');
-    lamp(1, on ? '#4a1010' : '#ff3a3a');
+    lamp(0, lit[cols[0]][on ? 0 : 1]);
+    lamp(1, lit[cols[1]][on ? 1 : 0]);
   }
   return true;
 }
-const TRAFFIC_GLOW: Record<string, { dots?: number[][]; siren?: number[][] }> = {
+const TRAFFIC_GLOW: Record<string, { dots?: number[][]; siren?: number[][]; sirenFront?: number[][]; sirenColors?: string[]; sirenColorsFront?: string[] }> = {
   sedan: { dots: [[0.15, 0.6], [0.85, 0.6]] }, hatch: { dots: [[0.11, 0.62], [0.89, 0.62]] },
   pickup: { dots: [[0.06, 0.6], [0.94, 0.6]] }, van: { dots: [[0.06, 0.71], [0.94, 0.71]] },
   truck: { dots: [[0.08, 0.79], [0.92, 0.79]] },
   // giroflex da arte: azul à esquerda, vermelho à direita (u0, f0, u1, f1 em fração do sprite)
   police: { dots: [[0.17, 0.6], [0.83, 0.6]], siren: [[0.23, 0.0, 0.42, 0.075], [0.52, 0.0, 0.77, 0.075]] },
+  // Diablo SV: barra baixa no teto; de trás azul|vermelho, de frente vermelho|azul
+  policesv: {
+    dots: [[0.197, 0.39], [0.808, 0.39]],
+    siren: [[0.315, 0.02, 0.485, 0.075], [0.515, 0.02, 0.715, 0.075]], sirenColors: ['blue', 'red'],
+    sirenFront: [[0.305, 0.02, 0.48, 0.058], [0.515, 0.02, 0.685, 0.058]], sirenColorsFront: ['red', 'blue'],
+  },
 };
 
 export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   if (w < 2) return;
   // trânsito e polícia: sprites em pixel art (o desenho por código fica de reserva)
-  if (!look.rear && (look.police || look.model) && drawTrafficSprite(c, x, y, w, look, look.police ? 'police' : look.model!)) return;
-  const tint = (mask?: string) => (look.paint && mask ? { mask, color: look.paint } : undefined);
-  if (look.front && look.rear?.frontImg) {
-    const h = w * (spriteAspect(look.rear.frontImg) ?? look.rear.h);
-    const spr = svgSprite(look.rear.frontImg, w, h, tint(look.rear.frontMask));
+  if (!look.rear && (look.police || look.model) && drawTrafficSprite(c, x, y, w, look, look.police ? (look.sv ? 'policesv' : 'police') : look.model!)) return;
+  const variant = look.paint ? look.rear?.variants?.[look.paint] : undefined;
+  const tint = (mask?: string) => (look.paint && mask && !variant ? { mask, color: look.paint } : undefined);
+  const frontImg = variant?.frontImg ?? look.rear?.frontImg;
+  if (look.front && look.rear && frontImg) {
+    const h = w * (spriteAspect(frontImg) ?? look.rear.h);
+    const spr = svgSprite(frontImg, w, h, tint(look.rear.frontMask));
     if (spr) {
       c.drawImage(spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
+      if (look.rear.lamps) drawLamps(c, x - w / 2, y - h, w, h, look, look.rear.lamps, true);
       return;
     }
   }
-  const art = look.rear?.img ?? look.rear?.svg;
+  const art = variant?.img ?? look.rear?.img ?? look.rear?.svg;
   if (art && look.rear && !look.front) {
-    const h = w * ((look.rear.img && spriteAspect(look.rear.img)) || look.rear.h);
+    const h = w * ((look.rear.img && spriteAspect(art)) || look.rear.h);
     const spr = svgSprite(art, w, h, tint(look.rear.img ? look.rear.imgMask : undefined)) ?? (look.rear.svg ? svgSprite(look.rear.svg, w, h) : null);
     if (spr) {
       c.fillStyle = 'rgba(0,0,0,0.35)';
@@ -578,12 +649,78 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
         }
         if (gl.bar) c.fillRect(x - w / 2 + gl.bar[0] * w, y - h + gl.bar[1] * h, (gl.bar[2] - gl.bar[0]) * w, (gl.bar[3] - gl.bar[1]) * h);
       }
+      if (look.rear.lamps) drawLamps(c, x - w / 2, y - h, w, h, look, look.rear.lamps, false);
       return;
     }
   }
   if (look.rear?.custom === 'f40' && !look.front) return drawRearF40(c, x, y, w, look);
   if (look.rear?.custom === '959' && !look.front) return drawRear959(c, x, y, w, look);
   drawCarCrisp(c, x, y, w, look);
+}
+
+// pisca: ~1,4 Hz, como o relé de verdade
+export const blinkOn = () => Math.floor(performance.now() / 350) % 2 === 0;
+
+// faróis escamoteáveis subindo/acesos, faróis fixos acesos e piscas, sobre o sprite (L, T, w, h)
+function drawLamps(c: CanvasRenderingContext2D, L: number, T: number, w: number, h: number, look: CarLook, d: LampDef, front: boolean) {
+  const st = look.lamps ?? { up: look.night ? 1 : 0, on: !!look.night };
+  const halo = (hx: number, hy: number, r: number, a: number) => {
+    const g = c.createRadialGradient(hx, hy, 0, hx, hy, r);
+    g.addColorStop(0, `rgba(255,248,215,${a})`);
+    g.addColorStop(1, 'rgba(255,248,215,0)');
+    c.fillStyle = g;
+    c.fillRect(hx - r, hy - r, r * 2, r * 2);
+  };
+  if (front && d.pop && st.up > 0) {
+    const [u, f, pw] = d.pop;
+    const bw = Math.max(1, Math.round(pw * w)), bh = Math.max(1, Math.round(w * 0.055 * st.up));
+    for (const cu of [u, 1 - u]) {
+      const x0 = Math.round(L + cu * w - bw / 2), y1 = Math.round(T + f * h);
+      c.fillStyle = '#0a0a0c'; // contorno
+      c.fillRect(x0 - 0.5, y1 - bh - 0.5, bw + 1, bh + 0.5);
+      c.fillStyle = d.podColor ?? look.paint ?? look.color; // tampa (cor do carro)
+      c.fillRect(x0, y1 - bh, bw, Math.max(0.5, bh * 0.4));
+      if (bh >= 1.5) { // lente (só aparece quando o farol já subiu)
+        c.fillStyle = st.on ? '#fff8d8' : '#a8b0bc';
+        c.fillRect(x0 + 0.5, y1 - bh * 0.55, bw - 1, bh * 0.55);
+        c.fillStyle = st.on ? '#ffffff' : '#d8dee6';
+        c.fillRect(x0 + 0.5, y1 - bh * 0.55, Math.max(0.5, bw * 0.3), 0.5);
+      }
+      if (st.on && st.up >= 1) halo(x0 + bw / 2, y1 - bh * 0.3, w * (st.high ? 0.2 : 0.13), st.high ? 0.6 : 0.38);
+    }
+  }
+  if (front && d.head && st.on) {
+    const [u, f, r] = d.head;
+    for (const cu of [u, 1 - u]) {
+      const hx = L + cu * w, hy = T + f * h;
+      halo(hx, hy, w * (st.high ? 0.2 : 0.13), st.high ? 0.65 : 0.4);
+      c.fillStyle = '#fffbe8';
+      c.beginPath();
+      c.arc(hx, hy, Math.max(0.6, r * w * 0.8), 0, Math.PI * 2);
+      c.fill();
+    }
+  }
+  if (look.signal && blinkOn()) {
+    const q = front ? d.sigFront : d.sigRear;
+    // de frente, o lado esquerdo do carro fica à direita do sprite; no retrovisor (espelho)
+    // volta para a esquerda: nos dois casos o lado na tela é o sinal da seta
+    const right = look.signal > 0;
+    c.fillStyle = !front && d.sigRed ? '#ff4030' : '#ffb020';
+    if (q.length === 3) {
+      const cx = L + (right ? 1 - q[0] : q[0]) * w;
+      c.beginPath();
+      c.arc(cx, T + q[1] * h, Math.max(0.7, q[2] * w), 0, Math.PI * 2);
+      c.fill();
+    } else {
+      const u0 = right ? 1 - q[2] : q[0], u1 = right ? 1 - q[0] : q[2];
+      c.fillRect(Math.round(L + u0 * w), Math.round(T + q[1] * h), Math.max(1, Math.round((u1 - u0) * w)), Math.max(1, Math.round((q[3] - q[1]) * h)));
+    }
+    c.fillStyle = 'rgba(255,170,40,0.25)';
+    const sx = L + (right ? 1 - q[0] : q[0]) * w, sy = T + q[1] * h;
+    c.beginPath();
+    c.arc(sx, sy, w * 0.07, 0, Math.PI * 2);
+    c.fill();
+  }
 }
 
 // Trânsito, polícia e rivais sem sprite: desenho vetorial convertido em pixel art nítida
@@ -923,9 +1060,10 @@ function drawTruck(c: CanvasRenderingContext2D, x: number, y: number, w: number,
 // Vista lateral (escolha do carro e posto). x = frente do carro, y = chão.
 export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string) {
   if (car.imgSide) {
-    const aspect = spriteAspect(car.imgSide);
-    const tint = paint && car.sideMask ? { mask: car.sideMask, color: paint } : undefined;
-    const spr = aspect ? svgSprite(car.imgSide, len, len * aspect, tint) : null;
+    const img = (paint && car.sideVariants?.[paint]) || car.imgSide;
+    const aspect = spriteAspect(img);
+    const tint = paint && car.sideMask && img === car.imgSide ? { mask: car.sideMask, color: paint } : undefined;
+    const spr = aspect ? svgSprite(img, len, len * aspect, tint) : null;
     if (spr && aspect) {
       c.fillStyle = 'rgba(0,0,0,0.45)';
       c.beginPath();

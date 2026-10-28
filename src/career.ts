@@ -54,7 +54,7 @@ export const REGIONS: Region[] = [
       { id: 'd1', name: 'Miragem', prize: 26000, driver: drv('Sol Escaldante', 'toro-lp5', 'agressivo', 0.94, '#f0c000', 'O asfalto derrete, eu não.'), stages: [st('desert', 4, { police: 2 })] },
       { id: 'd2', name: 'Cânion', prize: 32000, driver: drv('Kiko Poeira', 'furia-tr', 'imprevisivel', 0.94, '#d8c49a', 'Cuidado com a poeira!'), stages: [st('desert', 2, { curviness: 1.2, hilliness: 0.8 }), st('desert', 2, { police: 2 })] },
       { id: 'd3', name: 'Oásis Noturno', prize: 38000, driver: drv('Vera Lua', 'furia-tr', 'cauteloso', 0.95, '#7a3ac8', 'A noite é minha aliada.'), stages: [st('desert', 4, { night: true }), st('desert', 2, { night: true, curviness: 1.1 })] },
-      { id: 'd4', name: 'Tempestade de Areia', prize: 45000, driver: drv('Gil Cascavel', 'toro-v12', 'agressivo', 0.95, '#1a9a3a', 'Morde e não solta.'), stages: [st('desert', 2, { curviness: 1.3 }), st('desert', 4, { police: 2 })] },
+      { id: 'd4', name: 'Tempestade de Areia', prize: 45000, driver: drv('Tenente Brasa', 'patrol-sv', 'agressivo', 0.95, '#f2f2f2', 'Racha na minha rodovia? Então vamos correr.'), stages: [st('desert', 2, { curviness: 1.3 }), st('desert', 4, { police: 2 })] },
       { id: 'd5', name: 'O Escorpião', prize: 90000, boss: true, driver: drv('Escorpião', 'toro-v12', 'agressivo', 0.96, '#1c1c20', 'Ninguém atravessa o deserto na minha frente.'), stages: [st('desert', 4, { police: 2 }), st('desert', 2, { curviness: 1.3, hilliness: 0.9 }), st('desert', 2, { night: true, curviness: 1.2 })] },
     ],
   },
@@ -63,7 +63,7 @@ export const REGIONS: Region[] = [
     events: [
       { id: 'm1', name: 'Hora do Rush', prize: 42000, driver: drv('Táxi Veloz', 'furia-tr', 'imprevisivel', 0.95, '#f0c000', 'Corrida até o aeroporto?'), stages: [st('city', 4, { traffic: 8, police: 2 })] },
       { id: 'm2', name: 'Avenida Neon', prize: 50000, driver: drv('Dani Neon', 'silber-95', 'cauteloso', 0.96, '#18b8d0', 'Luzes, câmera, aceleração.'), stages: [st('city', 4, { night: true, traffic: 7 }), st('city', 4, { night: true, police: 2 })] },
-      { id: 'm3', name: 'Túnel do Centro', prize: 58000, driver: drv('Rato de Garagem', 'toro-v12', 'agressivo', 0.96, '#8a8c92', 'Conheço cada atalho.'), stages: [st('city', 4, { traffic: 8 }), st('forest', 4, { night: true })] },
+      { id: 'm3', name: 'Túnel do Centro', prize: 58000, driver: drv('Capitã Sirene', 'patrol-sv', 'agressivo', 0.96, '#f2f2f2', 'Se ganhar de mim, a multa fica pra outro dia.'), stages: [st('city', 4, { traffic: 8 }), st('forest', 4, { night: true })] },
       { id: 'm4', name: 'Chuva no Asfalto', prize: 66000, driver: drv('Iara Tormenta', 'silber-95', 'imprevisivel', 0.97, '#1f4fd0', 'Chuva é meu clima favorito.'), stages: [st('city', 4, { weather: 'rain', traffic: 7 }), st('city', 4, { weather: 'rain', night: true, police: 2 })] },
       { id: 'm5', name: 'Dama da Noite', prize: 140000, boss: true, driver: drv('Dama da Noite', 'silber-95', 'cauteloso', 0.965, '#d01818', 'A cidade dorme. Eu não.'), stages: [st('city', 4, { night: true, traffic: 8, police: 2 }), st('city', 4, { weather: 'rain', night: true }), st('city', 4, { night: true, police: 3 })] },
     ],

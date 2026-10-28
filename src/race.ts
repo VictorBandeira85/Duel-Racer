@@ -1,11 +1,11 @@
 import { CAR_W, KMH, LANE_W, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
-import { aeroMul, G, LAUNCH_BOOST, Powertrain, resistAcc, toGame, toMs, type CarSpec } from './cars';
+import { aeroMul, G, LAUNCH_BOOST, Powertrain, perfClass, resistAcc, toGame, toMs, type CarSpec } from './cars';
 import type { Course, StageDef } from './courses';
 import { THEMES, nightTheme, rainTheme, type Theme } from './themes';
 import { SPRITES } from './sprites';
 import { buildTrack, laneCenter, type Segment, type Track } from './track';
 import { input, takeShift } from './input';
-import { beep, crashSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
+import { beep, crashSound, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
 
 // curvatura da pista por unidade de curva (1/m): curva 4 = fechada (~175 km/h a 1 g)
@@ -13,6 +13,10 @@ const CURVE_K = 0.00105;
 const TRAFFIC_KG = 1300;
 const COP_KMH = 245; // máxima da viatura na perseguição
 const COP_ACC = 1300; // aceleração da viatura parada (unidades/s², ~32 km/h por segundo)
+const SIGNAL_LEAD = 0.8; // s de pisca antes de trocar de faixa (mão dupla)
+const FLASH_T = 2.2; // s do pedido de passagem: sobe o farol, pisca três vezes, abaixa
+const COP_SV_KMH = 300;
+const COP_SV_ACC = 2300;
 const TRUCK_KG = 9000;
 
 export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck';
@@ -48,13 +52,18 @@ export interface Rival {
   wasAhead?: boolean;
   boost: number; // tempo restante de uma arrancada (imprevisível)
   pt: Powertrain;
+  signal: number; // pisca ligado: -1 esquerdo, 1 direito
+  pendX?: number; // faixa para onde vai assim que o pisca tiver dado o aviso
+  sigT: number;
+  flash: number; // tempo restante do pedido de passagem (farol piscando)
+  flashCd: number;
 }
 
 // Jeito de pilotar de cada adversário
 export type RivalStyle = 'agressivo' | 'cauteloso' | 'imprevisivel';
 export const RIVAL_STYLE: Record<string, RivalStyle> = {
   'furia-f4': 'agressivo', 'silber-95': 'cauteloso', 'toro-v12': 'agressivo', 'vortex-zr': 'imprevisivel',
-  'furia-tr': 'cauteloso', 'toro-lp5': 'imprevisivel', 'kaze-nx': 'cauteloso', 'serpe-v10': 'agressivo', patrol: 'agressivo',
+  'furia-tr': 'cauteloso', 'toro-lp5': 'imprevisivel', 'kaze-nx': 'cauteloso', 'serpe-v10': 'agressivo', patrol: 'agressivo', 'patrol-sv': 'agressivo',
 };
 
 export interface Police {
@@ -65,6 +74,7 @@ export interface Police {
   // parado escondido → perseguindo → encostando o jogador → parado no acostamento → indo embora
   state: 'parked' | 'chase' | 'pull' | 'stopped' | 'leaving' | 'done';
   chaseT: number;
+  sv?: boolean; // Diablo SV da polícia (carreira, carros de classe S): bem mais rápida
 }
 
 // Policial que desce da viatura e mostra a multa
@@ -138,6 +148,8 @@ export class Race {
   fine: Fine | null = null;
   private stopX = 0; // onde o jogador encosta
   radar = 0;
+  signal = 0; // pisca do jogador (automático ao ultrapassar em mão dupla): -1 esquerdo, 1 direito
+  private sigX = 0;
   rand: () => number;
 
   onArrive?: () => void;
@@ -168,7 +180,8 @@ export class Race {
     this.x = laneCenter(t, myLane);
     if (rivalCar) {
       this.rival = { z: this.playerZ, x: laneCenter(t, myLane - 1), targetX: laneCenter(t, myLane - 1), speed: 0, recover: 0, think: 0, finishTime: -1,
-        style: this.rivalStyleOverride ?? RIVAL_STYLE[this.rivalCar!.id] ?? 'cauteloso', mistake: 0, boost: 0, pt: new Powertrain(rivalCar) };
+        style: this.rivalStyleOverride ?? RIVAL_STYLE[this.rivalCar!.id] ?? 'cauteloso', mistake: 0, boost: 0, pt: new Powertrain(rivalCar),
+        signal: 0, sigT: 0, flash: 0, flashCd: 4 };
       this.rival.pt.boost = LAUNCH_BOOST;
     }
     for (let i = 0; i < this.def.traffic; i++) {
@@ -176,7 +189,20 @@ export class Race {
       this.spawn(c, this.playerZ + (45 + (i / this.def.traffic) * 300) * SEG_LEN);
       this.traffic.push(c);
     }
-    this.police = t.policeSpots.map((z) => ({ spotZ: z, z, x: t.roadW + 1500, speed: 0, state: 'parked' as const, chaseT: 0 }));
+    // na carreira, quem corre de carro classe S é perseguido pela Diablo SV da polícia
+    const sv = course.id.startsWith('car-') && perfClass(car) === 'S';
+    this.police = t.policeSpots.map((z) => ({ spotZ: z, z, x: t.roadW + 1500, speed: 0, state: 'parked' as const, chaseT: 0, sv }));
+  }
+
+  // faróis do rival: à noite ficam acesos (escamoteáveis em cima); de dia sobem só para pedir passagem
+  rivalLamps(): { up: number; on: boolean; high: boolean } {
+    const night = !!this.def.night;
+    const r = this.rival;
+    if (!r || r.flash <= 0) return { up: night ? 1 : 0, on: night, high: false };
+    const t = FLASH_T - r.flash;
+    const up = night ? 1 : clamp(Math.min(t, r.flash) / 0.3, 0, 1);
+    const blink = t > 0.35 && r.flash > 0.4 && Math.floor((t - 0.35) / 0.25) % 2 === 0;
+    return { up, on: night || blink, high: blink };
   }
 
   get playerZ() {
@@ -391,6 +417,7 @@ export class Race {
     this.bgOffset += (pSeg.curve * this.speed * dt) / SEG_LEN;
     if (this.ghost > 0) this.ghost -= dt;
 
+    this.updateSignal(dt, driving);
     this.updateTraffic(dt);
     this.updateRival(dt);
     this.updatePolice(dt);
@@ -582,6 +609,24 @@ export class Race {
     return best;
   }
 
+  // pisca automático do jogador, só em mão dupla: esquerdo ao sair rumo à contramão para
+  // ultrapassar, direito ao voltar para a sua faixa; desliga quando a manobra termina
+  private updateSignal(dt: number, driving: boolean) {
+    const vx = dt > 0 ? (this.x - this.sigX) / dt : 0;
+    this.sigX = this.x;
+    const prev = this.signal;
+    if (this.track.lanes !== 2 || !driving || this.speed * KMH < 30) this.signal = 0;
+    else {
+      const x = this.x, lw = this.track.roadW; // na mão dupla cada faixa tem roadW
+      if (this.signal === 0) {
+        // indo em direção à faixa central (não só corrigindo dentro da faixa)
+        if (x > 0 && x < lw * 0.42 && vx < -500) this.signal = -1;
+        else if (x < 0 && x > -lw * 0.42 && vx > 500) this.signal = 1;
+      } else if (this.signal < 0 ? x < -lw * 0.25 || x > lw * 0.6 : x > lw * 0.25 || x < -lw * 0.6) this.signal = 0;
+    }
+    if (this.signal !== prev) tickSound();
+  }
+
   private updateRival(dt: number) {
     const r = this.rival;
     if (!r || !this.rivalCar) return;
@@ -655,8 +700,31 @@ export class Race {
           bestX = lx;
         }
       }
-      r.targetX = bestX;
+      if (bestX !== r.targetX && lanes === 2 && r.pendX === undefined) {
+        // mão dupla: liga o pisca antes de sair para ultrapassar (esquerdo) e antes de voltar (direito)
+        r.pendX = bestX;
+        r.sigT = SIGNAL_LEAD;
+        r.signal = Math.sign(bestX - r.x);
+      } else if (r.pendX === undefined) r.targetX = bestX;
       if (bestScore < 1) target = Math.min(target, max * 0.35);
+    }
+    if (r.pendX !== undefined) {
+      r.sigT -= dt;
+      if (r.sigT <= 0 || r.mistake > 0) {
+        r.targetX = r.pendX;
+        r.pendX = undefined;
+      } else if (this.laneTTC(r.targetX) < 1) target = Math.min(target, max * 0.5); // esperando o aviso: não encosta em ninguém
+    }
+    // desliga o pisca ao terminar a troca de faixa
+    if (r.signal && r.pendX === undefined && Math.abs(r.targetX - r.x) < 120) r.signal = 0;
+    // pedido de passagem: colado atrás do jogador, na mesma faixa e mais rápido, pisca o farol
+    r.flash = Math.max(0, r.flash - dt);
+    r.flashCd = Math.max(0, r.flashCd - dt);
+    const behindGap = (this.playerZ - r.z) / SEG_LEN;
+    if (r.flashCd <= 0 && r.finishTime < 0 && this.state === 'drive' && behindGap > 1.2 && behindGap < 9 &&
+        Math.abs(r.x - this.x) < CAR_W && r.speed > this.speed * 0.97 && target > this.speed) {
+      r.flash = FLASH_T;
+      r.flashCd = 7 + this.rand() * 5;
     }
     if (r.recover > 0) {
       r.recover -= dt;
@@ -686,7 +754,7 @@ export class Race {
         // a viatura sai do esconderijo logo depois que o jogador passa
         if (d <= -3 * SEG_LEN) {
           // de viatura o jogador é colega: o radar não persegue
-          if (this.speed * KMH > 150 && this.state === 'drive' && this.car.id !== 'patrol') {
+          if (this.speed * KMH > 150 && this.state === 'drive' && !this.car.id.startsWith('patrol')) {
             this.caughtKmh = Math.round(this.speed * KMH); // velocidade da infração (vale para a multa)
             p.state = 'chase';
             p.chaseT = 0;
@@ -700,9 +768,10 @@ export class Race {
         p.chaseT += dt;
         // viatura preparada (V8 de interceptador): ~245 km/h de máxima e aceleração de sedã,
         // que cai com a velocidade; um esportivo de pé no fundo consegue fugir
-        const copMax = COP_KMH / KMH;
+        // a SV: ~300 km/h e o dobro do fôlego (o sedã continua como está)
+        const copMax = (p.sv ? COP_SV_KMH : COP_KMH) / KMH;
         const target = Math.min(copMax, this.speed + 2500);
-        const acc = COP_ACC * Math.max(0.15, 1 - p.speed / copMax);
+        const acc = (p.sv ? COP_SV_ACC : COP_ACC) * Math.max(0.15, 1 - p.speed / copMax);
         p.speed += clamp(target - p.speed, -4000 * dt, acc * dt);
         const gapNow = pz - p.z;
         if (gapNow < SEG_LEN * 1.5) p.speed = Math.min(p.speed, this.speed); // não ultrapassa antes da abordagem

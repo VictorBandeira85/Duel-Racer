@@ -170,6 +170,20 @@ export function beep(freq: number, dur = 0.15) {
   o.stop(ctx.currentTime + dur);
 }
 
+// relé do pisca: um clique seco
+export function tickSound() {
+  if (!ctx) return;
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuffer(0.012);
+  const f = ctx.createBiquadFilter();
+  f.type = 'bandpass';
+  f.frequency.value = 2400;
+  const g = ctx.createGain();
+  g.gain.value = 0.18;
+  src.connect(f).connect(g).connect(master);
+  src.start();
+}
+
 // batida: estrondo grave, ruído de lataria e cacos de vidro
 export function crashSound() {
   if (!ctx) return;

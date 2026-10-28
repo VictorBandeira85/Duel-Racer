@@ -52,6 +52,15 @@ CARS = {
         'wheel_rows': 220, 'paint': 'column', 'rim_margin': 9,
         'sky_left': True, 'hole_sky_above': 228,
     },
+    # Diablo SV: interior desenhado pelo Victor (mostradores redesenhados no jogo, retrovisor funcional)
+    'diablo': {
+        'scale': 0.33, 'x0': 330, 'y0': 209,
+        'gauges': {'speed': (644, 315, 71), 'tach': (871, 314, 70), 'water': (756, 284, 38),
+                   'oil': (1000, 290, 34), 'clock': (1052, 350, 40), 'fuel': (537, 315, 30), 'volt': (487, 370, 26)},
+        'top_art': [], 'sky_left': True, 'despeckle': True,
+        'hub_fill': ((40, 42, 52), 560),
+        'wheel_rows': 230, 'paint': 'column', 'rim_margin': 7, 'hole_sky_above': 140,
+    },
     # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
     'zr1': {
         'scale': 0.35, 'x0': 153, 'y0': 175,
@@ -367,6 +376,11 @@ def main():
     for q in (sp if isinstance(sp[0][0], list) else [sp]):  # um por vez (sobrepostos não se anulam)
         cv2.fillPoly(m_sp, [shift(q)], 1)
     wheel = (m_out > 0) & ((m_in == 0) | (m_sp > 0))
+    if geo.get('holes'):  # vãos entre raios e aro: o painel aparece por eles (não giram)
+        m_h = np.zeros((h, w), np.uint8)
+        for q in geo['holes']:
+            cv2.fillPoly(m_h, [shift(q)], 1)
+        wheel &= m_h == 0
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
     # ponteiros vermelhos/laranja dentro dos mostradores principais
@@ -517,6 +531,10 @@ def main():
         wsky = np.zeros((hw_, w), bool)
         wsky[:h] = sky0
         wmask = (wo > 0) & ((wi == 0) | (ws > 0)) & ~wsky
+        for q in geo.get('holes', []):
+            wh = np.zeros((hw_, w), np.uint8)
+            cv2.fillPoly(wh, [shift(q)], 1)
+            wmask &= wh == 0
         w_rgb = sample(cv2.cvtColor(imgw, cv2.COLOR_BGR2RGB), nw, wrows)
         w_a = sample(wmask.astype(np.uint8) * 255, nw, wrows)
     else:

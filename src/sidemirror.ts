@@ -180,8 +180,8 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
   const behind: { dz: number; x: number; w: number; look: Parameters<typeof drawCar>[4] }[] = [];
   const pz = r.position;
   for (const t of r.traffic) behind.push({ dz: pz - t.z, x: t.x, w: t.truck ? TRUCK_W : CAR_W, look: { color: t.color, front: t.speed > 0, truck: t.truck, night, model: t.model } });
-  if (r.rival) behind.push({ dz: pz - r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint } });
-  for (const p of r.police) if (p.state !== 'done') behind.push({ dz: pz - p.z, x: p.x, w: POLICE_W, look: { color: '#fff', police: true, siren: p.state === 'chase' || p.state === 'pull', front: true, night } });
+  if (r.rival) behind.push({ dz: pz - r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint, signal: r.rival.signal, lamps: r.rivalLamps() } });
+  for (const p of r.police) if (p.state !== 'done') behind.push({ dz: pz - p.z, x: p.x, w: p.sv ? CAR_W * 1.08 : POLICE_W, look: { color: '#fff', police: true, sv: p.sv, siren: p.state === 'chase' || p.state === 'pull', front: true, night } });
   behind.sort((a, b) => b.dz - a.dz);
   for (const b of behind) {
     if (b.dz < near * 0.5 || b.dz > far) continue;

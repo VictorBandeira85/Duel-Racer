@@ -8,6 +8,7 @@ import { F40_WHEEL } from './svg/f40';
 import { spriteAspect, svgSprite } from './svgsprites';
 import { drawWipers, type DashTop } from './wipers';
 import { drawSideMirror, findGlass } from './sidemirror';
+import { blinkOn } from './cars';
 // cabines em pixel art (tools/ref/import_cockpit.py)
 import dashF40Png from './assets/cockpit/f40-dash.png';
 import wheelF40Png from './assets/cockpit/f40-wheel.png';
@@ -35,6 +36,7 @@ interface CockpitArt {
   needle: string;
   hub: string;
   aux: Aux[];
+  extra?: (c: CanvasRenderingContext2D, ox: number, r: Race) => void; // detalhes próprios (hodômetros, luzes-espia, submostradores)
 }
 
 // Mostrador redesenhado em pixels (os números da arte ficam ilegíveis em 256 px):
@@ -42,13 +44,17 @@ interface CockpitArt {
 // fração da escala onde começa a faixa vermelha
 // face: false = o mostrador da arte já é legível, o jogo só desenha o ponteiro;
 // a0/sweep: onde começa a escala e quanto ela abre (padrão 135° e 270°)
-interface Dial { x: number; y: number; r: number; max: number; labels: number[]; tick: number; red: number; face?: boolean; a0?: number; sweep?: number; labelScale?: number; cut?: number }
+interface Dial { x: number; y: number; r: number; max: number; labels: number[]; tick: number; red: number; face?: boolean; a0?: number; sweep?: number; labelScale?: number; cut?: number;
+  minor?: number[]; // números pequenos entre os principais (Veglia, VDO)
+  labelMul?: number; // o número escrito é v × labelMul (conta-giros "× 100" da F40)
+  redLabels?: boolean; // false: números da faixa vermelha continuam brancos
+}
 
 // Mostradores auxiliares, também redesenhados: 'single' (um ponteiro), 'dual' (dois
 // ponteiros no mesmo eixo, em V), 'twin' (dois eixos lado a lado) e 'clock' (relógio)
 // oil = pressão do óleo, boost = pressão do turbo, volt = voltímetro
 type Gauge = 'oil' | 'water' | 'oiltemp' | 'fuel' | 'boost' | 'volt';
-interface Aux { x: number; y: number; r: number; kind: 'single' | 'dual' | 'twin' | 'clock'; show?: Gauge[]; icon?: keyof typeof ICONS }
+interface Aux { x: number; y: number; r: number; kind: 'single' | 'dual' | 'twin' | 'clock' | 'combo'; show?: Gauge[]; icon?: keyof typeof ICONS; labels?: string[] }
 
 // a arte cobre da linha 100 da tela até o fim (124 linhas); o topo transparente mostra a estrada
 const ART_TOP = 100;
@@ -61,25 +67,41 @@ function cp(n: string) {
 }
 const COCKPIT_ART: Record<string, CockpitArt> = {
   f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, dashMask: cp('f40-dash-mask'), topMask: cp('f40-top-mask'), pivot: [127.4, 80], 
-    tach: { x: 109, y: 46, r: 17, max: 10, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], tick: 0.5, red: 7.75 },
-    speed: { x: 149, y: 46, r: 17, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], tick: 20, red: 999 },
-    speedMax: 360, needle: '#ff2a1a', hub: '#ff2a1a',
+    // Veglia Borletti: conta-giros 0-100 (× 100 rpm), velocímetro 0-360 com os intermediários
+    // pequenos, hodômetro e parcial dentro dele; água 60/90/120 e turbo 0/0,8/1,5 bar embaixo
+    tach: { x: 109, y: 46, r: 17, max: 10, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], labelMul: 10, tick: 0.25, red: 7.75, redLabels: false },
+    speed: { x: 149, y: 46, r: 17, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], tick: 10, red: 999 },
+    speedMax: 360, needle: '#f4f4f0', hub: '#1a1a1a',
     aux: [
-      { x: 79, y: 45, r: 6.5, kind: 'single', show: ['boost'], icon: 'turbo' },
-      { x: 79, y: 65, r: 8, kind: 'single', show: ['water'], icon: 'temp' },
-      { x: 176, y: 45, r: 6.5, kind: 'single', show: ['oil'], icon: 'oil' },
-      { x: 176, y: 65, r: 8, kind: 'single', show: ['fuel'], icon: 'fuel' },
-    ] },
+      { x: 79, y: 45, r: 6.5, kind: 'single', show: ['oil'], icon: 'oil' },
+      { x: 79, y: 65, r: 8, kind: 'single', show: ['water'], icon: 'temp', labels: ['60', '90', '120'] },
+      { x: 176, y: 45, r: 6.5, kind: 'single', show: ['fuel'], icon: 'fuel' },
+      { x: 176, y: 65, r: 8, kind: 'single', show: ['boost'], icon: 'turbo', labels: ['0', '0,8', '1,5'] },
+    ],
+    extra: (c, ox, r) => {
+      odometer(c, ox, r, { x: 143, y: 40.5, w: 12, h: 3.5 }, 18373, 6, 0.5);
+      odometer(c, ox, r, { x: 145, y: 51.5, w: 8, h: 3.5 }, 425.7, 4, 0.5, true);
+      // luzes-espia entre os mostradores: "slow down" (pisca no corte de giro) e óleo
+      warnLamp(c, ox + 129, ART_TOP + 38, r.rpm > 0.97 && Math.floor(performance.now() / 160) % 2 === 0);
+      warnLamp(c, ox + 129, ART_TOP + 56, gauges.oil < 0.36);
+    } },
   // 959: interior completo do Victor; os cinco mostradores redesenhados com números maiores
   '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.2, 84.3],
-    tach: { x: 129, y: 49, r: 24, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6.5, a0: 2.53, sweep: 4.45, labelScale: 1 },
-    speed: { x: 176, y: 53, r: 19, max: 300, labels: [0, 50, 100, 150, 200, 250, 300], tick: 10, red: 999, a0: 2.46, sweep: 4.4, labelScale: 0.7 },
-    speedMax: 300, needle: '#ff6a1a', hub: '#1a1a1a',
+    // VDO: conta-giros 1-8 com faixa vermelha a partir de 7,5 e o manômetro do turbo (0-2,5 bar)
+    // embaixo; velocímetro 20-340 com hodômetro; à esquerda o combinado de óleo (temperatura,
+    // pressão e nível) e o de combustível e água
+    tach: { x: 129, y: 49, r: 24, max: 8, labels: [1, 2, 3, 4, 5, 6, 7, 8], tick: 0.25, red: 7.5, a0: 2.53, sweep: 4.45, labelScale: 1, redLabels: false },
+    speed: { x: 176, y: 53, r: 19, max: 340, labels: [20, 60, 100, 140, 220, 260, 300, 340], minor: [180], tick: 10, red: 999, a0: 2.46, sweep: 4.4, labelScale: 0.5 },
+    speedMax: 340, needle: '#ff6a1a', hub: '#1a1a1a',
     aux: [
-      { x: 38, y: 53, r: 16, kind: 'twin', show: ['oil', 'oiltemp'], icon: 'oil' },
-      { x: 83, y: 53, r: 17.5, kind: 'twin', show: ['boost', 'fuel'], icon: 'turbo' },
+      { x: 38, y: 53, r: 16, kind: 'combo', show: ['oiltemp', 'oil'] },
+      { x: 83, y: 53, r: 17.5, kind: 'twin', show: ['fuel', 'water'], icon: 'fuel' },
       { x: 223, y: 53, r: 18, kind: 'clock' },
-    ] },
+    ],
+    extra: (c, ox, r) => {
+      boostSubdial(c, ox + 129.5, ART_TOP + 66, 6.5, '#ff6a1a');
+      odometer(c, ox, r, { x: 170.5, y: 45, w: 12, h: 3.5 }, 14250, 6, 0.5);
+    } },
 };
 
 // Viatura: painel de sedã com hodômetro e indicador da alavanca funcionando
@@ -91,6 +113,21 @@ COCKPIT_ART.patrol = {
   tach: { x: 87, y: 65, r: 26.5, cut: 20, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6, a0: 2.6, sweep: 4.22, labelScale: 1 },
   speed: { x: 179, y: 65, r: 25.5, cut: 20, max: 240, labels: [0, 40, 80, 120, 160, 200, 240], tick: 10, red: 999, a0: 2.55, sweep: 4.25, labelScale: 1 },
   odo: { x: 118, y: 43, w: 32, h: 11 }, prnd: { x: 118, y: 59, w: 32, h: 8 },
+};
+
+// Diablo SV: interior do Victor; velocímetro 0-340, conta-giros 0-9 e cinco auxiliares funcionando
+COCKPIT_ART.diablo = {
+  dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'),
+  pivot: [128, 103], speedMax: 340, needle: '#ff2a1a', hub: '#1a1a1c',
+  speed: { x: 103.5, y: 40, r: 23, max: 340, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320], tick: 20, red: 999, labelScale: 0.7 },
+  tach: { x: 178.5, y: 39.5, r: 23, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.5, red: 7.5, labelScale: 1 },
+  aux: [
+    { x: 140.5, y: 28, r: 12, kind: 'single', show: ['water'], icon: 'temp' },
+    { x: 221, y: 30.5, r: 11, kind: 'single', show: ['oiltemp'], icon: 'oil' },
+    { x: 238, y: 53, r: 12.5, kind: 'clock' },
+    { x: 68, y: 40, r: 9.5, kind: 'single', show: ['fuel'], icon: 'fuel' },
+    { x: 52, y: 60.5, r: 8, kind: 'single', show: ['volt'], icon: 'volt' },
+  ],
 };
 
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
@@ -145,8 +182,10 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   if (art.speed) artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
   updateGauges(r, dt);
   for (const g of art.aux) auxDial(c, g, ox, art);
+  art.extra?.(c, ox, r);
   rect(c, ox + 206, ART_TOP + 22, 30, 6, '#0c0c0e');
   radarLeds(c, ox + 208, ART_TOP + 23, 26, r.radar);
+  signalArrows(c, ox + 206, ART_TOP + 22, 30, r.signal);
   const px = ox + art.pivot[0], py = ART_TOP + art.pivot[1];
   withRotation(c, px, py, steerAngle(r, dt), () => c.drawImage(wheelImg, ox, ART_TOP));
   return true;
@@ -156,15 +195,19 @@ interface Box { x: number; y: number; w: number; h: number }
 
 // hodômetro: quilometragem do carro + o que já andou neste trecho
 const ODO_BASE = 62487;
-function odometer(c: CanvasRenderingContext2D, ox: number, r: Race, b: Box) {
+function odometer(c: CanvasRenderingContext2D, ox: number, r: Race, b: Box, base = ODO_BASE, digits = 6, scale = 1, lastRed = false) {
   const km = Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600);
-  const v = String(Math.floor(ODO_BASE + km) % 1e6).padStart(6, '0');
+  // parcial (trip) com décimos: o último tambor gira de verdade
+  const n = digits === 6 ? Math.floor(base + km) : Math.floor((base + km) * 10);
+  const v = String(n % 10 ** digits).padStart(digits, '0');
   // cada dígito numa janelinha, como os tambores de um hodômetro mecânico
-  const cw = b.w / 6;
-  for (let i = 0; i < 6; i++) {
+  const cw = b.w / digits;
+  const pad = scale < 1 ? 0.5 : 2;
+  for (let i = 0; i < digits; i++) {
     const x = ox + b.x + i * cw;
-    rect(c, x + 0.5, ART_TOP + b.y + 2, cw - 0.5, b.h - 4, '#0c0c0e');
-    pix(c, v[i], x + cw / 2 + 0.25, ART_TOP + b.y + b.h / 2, '#d8dcd8', 1);
+    const red = lastRed && i === digits - 1;
+    rect(c, x + (scale < 1 ? 0 : 0.5), ART_TOP + b.y + pad, cw - (scale < 1 ? 0 : 0.5), b.h - pad * 2, red ? '#7a1010' : '#0c0c0e');
+    pix(c, v[i], x + cw / 2 + (scale < 1 ? 0 : 0.25), ART_TOP + b.y + b.h / 2, '#d8dcd8', scale);
   }
 }
 
@@ -210,13 +253,18 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
     half(...at(fr(v), r - 0.75));
     if (major) for (const k of [1.25, 1.75]) half(...at(fr(v), r - k));
   }
+  for (const v of d.minor ?? []) {
+    const l = String(v), a = fr(v);
+    const [lx, ly] = at(a, r - 2.6 - Math.abs(Math.cos(a)) * pixWidth(l, 0.5) * 0.5 - Math.abs(Math.sin(a)) * 1.3);
+    pix(c, l, lx, ly, '#b8b8b8', 0.5);
+  }
   for (const v of d.labels) {
-    const l = String(v);
+    const l = String(Math.round(v * (d.labelMul ?? 1)));
     // recua do aro só o quanto o número ocupa na direção do centro (largura nas laterais,
     // altura no alto), para os de cima não se encostarem
     const a = fr(v);
     const ls = d.labelScale ?? 0.5;
-    const col = v >= d.red ? '#ff5a4a' : '#f2f2f2';
+    const col = v >= d.red && d.redLabels !== false ? '#ff5a4a' : '#f2f2f2';
     if (ls === 0.7) {  // fonte 5x7 em meio pixel (tamanho intermediário)
       const [lx, ly] = at(a, r - 2.8 - Math.abs(Math.cos(a)) * pix7Width(l, true) * 0.55 - Math.abs(Math.sin(a)) * 1.9);
       pix7(c, l, lx, ly, col, true);
@@ -249,6 +297,7 @@ const ICONS = {
   temp: ['...1...', '...11..', '...1...', '1111111'],
   fuel: ['1111.1.', '1..1.1.', '1111.1.', '1111...'],
   turbo: ['.111...', '1...111', '1...1..', '.111...'],
+  volt: ['.1...1.', '1111111', '1.....1', '1111111'],
 };
 
 // fundo preto do mostrador, por linhas (centro no meio do pixel cx, cy)
@@ -325,6 +374,11 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
     // arco de cima, da esquerda (frio/baixo) para a direita
     const a0 = PI * 0.95, a1 = PI * 2.05;
     ticks(mx, my, R - 0.75, a0, a1, 4);
+    // números nas pontas e no meio (água 60/90/120, turbo 0/0,8/1,5 da F40)
+    g.labels?.forEach((l, i) => {
+      const a = a0 + ((a1 - a0) * i) / (g.labels!.length - 1);
+      pix(c, l, ...at(mx, my, a, R - 2.6 - Math.abs(Math.cos(a)) * pixWidth(l, 0.5) * 0.45), '#f2f2f2', 0.5);
+    });
     hand(c, mx, my, a0 + (a1 - a0) * val(k1), R - 1.5, art.needle);
   } else if (g.kind === 'dual') {
     // dois ponteiros no mesmo eixo: o da esquerda sobe pela esquerda, o da direita pela direita
@@ -332,6 +386,29 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
     ticks(mx, my, R - 0.75, PI * 1.6, PI * 2.2, 3);
     hand(c, mx, my, PI * 0.8 + PI * 0.6 * val(k1), R - 1.5, art.needle);
     hand(c, mx, my, PI * 2.2 - PI * 0.6 * val(k2), R - 1.5, art.needle);
+  } else if (g.kind === 'combo') {
+    // combinado VDO do 959: temperatura do óleo na esquerda (faixa vermelha no alto), pressão
+    // na direita, ponteiros saindo das bordas; no meio a luz-espia do nível do óleo
+    const lx = mx - R * 0.95, rx = mx + R * 0.95;
+    c.fillStyle = '#d81818';
+    for (let a = -0.62; a <= -0.42; a += 0.04) half(c, ...at(lx, my, a, R * 0.8));
+    ticks(lx, my, R * 0.86, -0.62, 0.62, 6);
+    ticks(rx, my, R * 0.86, PI - 0.62, PI + 0.62, 5);
+    pix(c, '170', ...at(lx, my, -0.62, R * 0.58), '#f2f2f2', 0.5);
+    pix(c, '60', ...at(lx, my, 0.62, R * 0.62), '#f2f2f2', 0.5);
+    pix(c, '5', ...at(rx, my, PI + 0.62, R * 0.66), '#f2f2f2', 0.5);
+    pix(c, '0', ...at(rx, my, PI - 0.62, R * 0.66), '#f2f2f2', 0.5);
+    hand(c, lx + 1, my, 0.62 - 1.24 * val(k1), R * 0.55, art.needle);
+    hand(c, rx - 1, my, PI - 0.62 + 1.24 * val(k2), R * 0.55, art.needle);
+    const lowOil = gauges.oil < 0.36; // acende na partida, até a pressão subir
+    c.fillStyle = lowOil ? '#ff3020' : '#3a0c0c';
+    c.fillRect(cx - 1, cy - 1, 3, 2.5);
+    c.fillStyle = '#e8e8e8';
+    const ic = ICONS.oil;
+    ic.forEach((row, j) => [...row].forEach((ch, i) => ch === '1' && c.fillRect(mx - 1.75 + i * 0.5, my - R * 0.55 + j * 0.5, 0.5, 0.5)));
+    c.fillStyle = '#5a1010'; // triângulo de alerta e bateria, apagados
+    c.fillRect(cx - 0.5, cy + R * 0.45, 2, 1.5);
+    return;
   } else {
     // dois eixos lado a lado, cada um com sua escala do lado de fora
     const d = R * 0.3;
@@ -547,6 +624,48 @@ function smallGauge(c: CanvasRenderingContext2D, cx: number, cy: number, r: numb
   c.moveTo(cx, cy);
   c.lineTo(cx + Math.cos(a) * (r - 2), cy + Math.sin(a) * (r - 2));
   c.stroke();
+}
+
+// luz-espia vermelha redonda (apagada: vermelho escuro)
+function warnLamp(c: CanvasRenderingContext2D, x: number, y: number, on: boolean) {
+  c.fillStyle = '#0a0a0c';
+  c.fillRect(x - 1.5, y - 1.5, 4, 4);
+  c.fillStyle = on ? '#ff3020' : '#4a1010';
+  c.fillRect(x - 1, y - 1, 3, 3);
+  c.fillStyle = on ? '#ffb0a0' : '#6a2020';
+  c.fillRect(x - 0.5, y - 0.5, 1, 0.5);
+}
+
+// manômetro do turbo dentro do conta-giros do 959: arco de cima, 0 / 0,5 / 1,5 / 2,5 bar
+function boostSubdial(c: CanvasRenderingContext2D, x: number, y: number, R: number, color: string) {
+  const a0 = Math.PI * 1.2, a1 = Math.PI * 1.8;
+  const at = (a: number, rr: number): [number, number] => [x + Math.cos(a) * rr, y + Math.sin(a) * rr * PIX_Y];
+  c.fillStyle = '#e8e8e8';
+  for (let i = 0; i <= 5; i++) {
+    const a = a0 + ((a1 - a0) * i) / 5;
+    half(c, ...at(a, R));
+    half(c, ...at(a, R - 0.5));
+  }
+  for (const [l, v] of [['0', 0], ['1,5', 0.6], ['2,5', 1]] as [string, number][])
+    pix(c, l, ...at(a0 + (a1 - a0) * v, R + 1.8), '#f2f2f2', 0.5);
+  hand(c, x, y, a0 + (a1 - a0) * clamp(gauges.boost / 1.25, 0, 1), R - 0.5, color);
+}
+
+// luzes-espia do pisca, verdes, dos dois lados do radar
+function signalArrows(c: CanvasRenderingContext2D, x: number, y: number, w: number, signal: number) {
+  const lit = signal !== 0 && blinkOn();
+  for (const side of [-1, 1]) {
+    const on = lit && side === signal;
+    const ax = side < 0 ? x - 6 : x + w + 1.5; // ponta da seta para fora
+    c.fillStyle = '#0c0c0e';
+    c.fillRect(ax - 0.5, y - 0.5, 5.5, 7);
+    c.fillStyle = on ? '#38f048' : '#123a18';
+    for (let i = 0; i < 3; i++) {
+      const hw = 1 + i; // largura da coluna (triângulo)
+      const cx = side < 0 ? ax + 0.5 + i * 1.5 : ax + 3.5 - i * 1.5;
+      c.fillRect(cx, y + 3 - hw + 0.5, 1.5, hw * 2 - 1);
+    }
+  }
 }
 
 function radarLeds(c: CanvasRenderingContext2D, x: number, y: number, w: number, level: number) {

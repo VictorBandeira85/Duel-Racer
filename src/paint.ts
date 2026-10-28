@@ -10,6 +10,12 @@ export const PAINTS = [
   { name: 'Violeta', hex: '#7a3ac8' },
   { name: 'Ciano', hex: '#18b8d0' },
   { name: 'Bege', hex: '#d8c49a' },
+  // cores de fábrica da Diablo SV (valem para todos os carros)
+  { name: 'Giallo', hex: '#f2c200' },
+  { name: 'Deep Black', hex: '#141418' },
+  { name: 'Rosso Lucido', hex: '#e01810' },
+  { name: 'Blu Le Mans', hex: '#1a50d8' },
+  { name: 'Verde Ithaca', hex: '#38b828' },
 ];
 
 const KEY = 'duel-racer:paint';

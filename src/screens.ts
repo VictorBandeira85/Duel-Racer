@@ -260,7 +260,8 @@ export function smallButton(c: CanvasRenderingContext2D, r: Rect, label: string,
 }
 
 // quadradinhos de cor, à direita do nome do carro
-const swatches = (): Rect[] => PAINTS.map((_, i) => ({ x: ox() + 4 + 180 + i * 12, y: 116 + 8, w: 9, h: 11 }));
+// 15 cores em duas fileiras, à direita do nome
+const swatches = (): Rect[] => PAINTS.map((_, i) => ({ x: ox() + 182 + (i % 8) * 16, y: 118 + Math.floor(i / 8) * 9, w: 13, h: 7 }));
 
 function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
   const car = CARS[s.carIdx];

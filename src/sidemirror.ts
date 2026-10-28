@@ -69,7 +69,7 @@ export function findGlass(key: string, top: HTMLCanvasElement | null, dash: HTML
       best = id;
     }
   }
-  if (bestN < 300) {
+  if (bestN < 200) {
     glasses.set(key, null);
     return null;
   }

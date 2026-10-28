@@ -183,7 +183,12 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   if (art.speed) artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
   updateGauges(r, dt);
   for (const g of art.aux) auxDial(c, g, ox, art);
-  art.extra?.(c, ox, r);
+  if (art.extra) {
+    art.extra(c, ox, r);
+    // hodômetros e submostradores ficam no fundo do mostrador: o ponteiro passa por cima
+    if (art.tach) dialNeedle(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, art);
+    if (art.speed) dialNeedle(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
+  }
   rect(c, ox + 206, ART_TOP + 22, 30, 6, '#0c0c0e');
   radarLeds(c, ox + 208, ART_TOP + 23, 26, r.radar);
   signalArrows(c, ox + 206, ART_TOP + 22, 30, r.signal);
@@ -278,6 +283,11 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
   needle(c, cx, cy, r, a0 + sweep * Math.max(0, Math.min(1.02, frac)), art);
 }
 
+function dialNeedle(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number, art: CockpitArt) {
+  const a0 = d.a0 ?? Math.PI * 0.75, sweep = d.sweep ?? Math.PI * 1.5;
+  needle(c, ox + d.x, ART_TOP + d.y, d.r, a0 + sweep * Math.max(0, Math.min(1.02, frac)), art);
+}
+
 // ponteiro: do centro exato, traçado em meio pixel (1 px de espessura)
 function needle(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, a: number, art: CockpitArt) {
   const len = r - 2.5;
@@ -293,14 +303,20 @@ function needle(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, 
   c.fillRect(cx, cy, 1, 1);
 }
 
-// ícones de 7x4 em meio pixel (óleo, temperatura, combustível)
+// ícones de 7x5 em pixel inteiro (nítidos): óleo, temperatura, combustível, turbo, bateria
 const ICONS = {
-  oil: ['1......', '1111.1.', '.11111.', '.1111..'],
-  temp: ['...1...', '...11..', '...1...', '1111111'],
-  fuel: ['1111.1.', '1..1.1.', '1111.1.', '1111...'],
-  turbo: ['.111...', '1...111', '1...1..', '.111...'],
-  volt: ['.1...1.', '1111111', '1.....1', '1111111'],
+  oil: ['1..11..', '.111111', '..11111', '..11111', '1......'],
+  temp: ['...11..', '...1...', '...11..', '..111..', '1.1.1.1'],
+  fuel: ['1111...', '1..1.1.', '1111..1', '1111..1', '1111.11'],
+  turbo: ['.111...', '1...111', '1.1.1..', '1...1..', '.111...'],
+  volt: ['.1...1.', '1111111', '1.....1', '1.....1', '1111111'],
 };
+function drawIcon(c: CanvasRenderingContext2D, name: keyof typeof ICONS, cx: number, top: number) {
+  const ic = ICONS[name];
+  const x0 = Math.round(cx - 3.5), y0 = Math.round(top);
+  c.fillStyle = '#f4f4f4';
+  ic.forEach((row, j) => [...row].forEach((ch, i) => ch === '1' && c.fillRect(x0 + i, y0 + j, 1, 1)));
+}
 
 // fundo preto do mostrador, por linhas (centro no meio do pixel cx, cy)
 function face(c: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
@@ -405,9 +421,7 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
     const lowOil = gauges.oil < 0.36; // acende na partida, até a pressão subir
     c.fillStyle = lowOil ? '#ff3020' : '#3a0c0c';
     c.fillRect(cx - 1, cy - 1, 3, 2.5);
-    c.fillStyle = '#e8e8e8';
-    const ic = ICONS.oil;
-    ic.forEach((row, j) => [...row].forEach((ch, i) => ch === '1' && c.fillRect(mx - 1.75 + i * 0.5, my - R * 0.55 + j * 0.5, 0.5, 0.5)));
+    drawIcon(c, 'oil', mx, my - R * 0.75);
     c.fillStyle = '#5a1010'; // triângulo de alerta e bateria, apagados
     c.fillRect(cx - 0.5, cy + R * 0.45, 2, 1.5);
     return;
@@ -427,11 +441,9 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
     c.fillStyle = art.needle;
     c.fillRect(cx - 0.5, cy - 0.5, 2, 2);
   }
-  // ícone embaixo do eixo
-  const ic = ICONS[g.icon ?? 'oil'];
-  c.fillStyle = '#e8e8e8';
-  const ix = mx - 1.75, iy = my + R * PIX_Y * (g.kind === 'twin' ? 0.5 : 0.42);
-  ic.forEach((row, j) => [...row].forEach((ch, i) => ch === '1' && c.fillRect(ix + i * 0.5, iy + j * 0.5, 0.5, 0.5)));
+  // ícone na metade de baixo (o ponteiro só varre a de cima), em pixel inteiro
+  const iy = g.kind === 'twin' ? my + R * PIX_Y * 0.42 : my + Math.max(1.5, Math.min(R * PIX_Y * 0.3, R * PIX_Y - 6.5));
+  drawIcon(c, g.icon ?? 'oil', mx, iy);
 }
 
 // ---------- painel digital (LCD) do Corvette C4 ----------

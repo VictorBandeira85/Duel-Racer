@@ -49,10 +49,11 @@ export interface RearDef {
 }
 
 // Faróis e piscas de cada modelo, em frações do sprite (lado esquerdo da tela; o direito é o
-// espelho). Escamoteável: centro u, base f e largura do farol que sobe do capô; fixo: u, f e raio.
+// espelho). Escamoteável: a tampa fechada desenhada no sprite [u0, f0, u1, f1]; aberto, o farol
+// ocupa a tampa inteira e sobe a partir dela (sem um segundo farol ao lado). Fixo: u, f e raio.
 // Piscas: [u0, f0, u1, f1] retangular ou [u, f, r] redondo, sobre a lanterna/farol de cada carro.
 export interface LampDef {
-  pop?: [number, number, number];
+  pop?: [number, number, number, number];
   head?: [number, number, number];
   sigRear: number[];
   sigFront: number[];
@@ -307,16 +308,16 @@ export const DEALER_CARS = CARS.filter((c) => !c.arcadeOnly);
 const VARIANT_PAINT: Record<string, string> = { nero: 'Deep Black', rosso: 'Rosso Lucido', blu: 'Blu Le Mans', verde: 'Verde Ithaca', giallo: 'Giallo' };
 
 const LAMPS: Record<string, LampDef> = {
-  diablo: { pop: [0.24, 0.45, 0.13], sigRear: [0.152, 0.335, 0.045], sigFront: [0.168, 0.655, 0.212, 0.705] },
-  patrolsv: { pop: [0.24, 0.475, 0.13], podColor: '#1c1c1e', sigRear: [0.152, 0.39, 0.042], sigFront: [0.168, 0.67, 0.21, 0.74] },
-  f40: { pop: [0.185, 0.41, 0.12], sigRear: [0.155, 0.43, 0.05], sigFront: [0.1, 0.615, 0.17, 0.65] },
-  zr1: { pop: [0.2, 0.39, 0.18], sigRear: [0.135, 0.39, 0.05], sigRed: true, sigFront: [0.03, 0.66, 0.07, 0.73] },
-  testarossa: { pop: [0.16, 0.53, 0.18], sigRear: [0.05, 0.44, 0.13, 0.58], sigFront: [0.04, 0.67, 0.125, 0.72] },
-  nsx: { pop: [0.16, 0.56, 0.2], sigRear: [0.04, 0.53, 0.12, 0.62], sigFront: [0.07, 0.67, 0.17, 0.73] },
-  countach: { pop: [0.175, 0.6, 0.17], sigRear: [0.125, 0.55, 0.2, 0.69], sigFront: [0.05, 0.64, 0.14, 0.7] },
+  diablo: { pop: [0.15, 0.42, 0.31, 0.54], sigRear: [0.152, 0.328, 0.03], sigFront: [0.168, 0.655, 0.212, 0.705] },
+  patrolsv: { pop: [0.16, 0.46, 0.32, 0.58], podColor: '#1c1c1e', sigRear: [0.152, 0.381, 0.03], sigFront: [0.168, 0.67, 0.21, 0.74] },
+  f40: { pop: [0.09, 0.41, 0.24, 0.47], sigRear: [0.155, 0.43, 0.04], sigFront: [0.1, 0.615, 0.17, 0.65] },
+  zr1: { pop: [0.105, 0.385, 0.29, 0.505], sigRear: [0.135, 0.39, 0.045], sigRed: true, sigFront: [0.03, 0.66, 0.07, 0.73] },
+  testarossa: { pop: [0.135, 0.52, 0.255, 0.565], sigRear: [0.05, 0.44, 0.13, 0.58], sigFront: [0.04, 0.67, 0.125, 0.72] },
+  nsx: { pop: [0.06, 0.545, 0.26, 0.59], sigRear: [0.04, 0.53, 0.12, 0.62], sigFront: [0.07, 0.67, 0.17, 0.73] },
+  countach: { pop: [0.09, 0.57, 0.26, 0.62], sigRear: [0.125, 0.55, 0.2, 0.69], sigFront: [0.05, 0.64, 0.14, 0.7] },
   viper: { head: [0.165, 0.54, 0.06], sigRear: [0.08, 0.46, 0.16, 0.5], sigRed: true, sigFront: [0.04, 0.6, 0.1, 0.65] },
   '959': { head: [0.17, 0.49, 0.05], sigRear: [0.083, 0.51, 0.183, 0.57], sigFront: [0.05, 0.65, 0.13, 0.68] },
-  patrol: { head: [0.145, 0.53, 0.07], sigRear: [0.04, 0.37, 0.25, 0.43], sigRed: true, sigFront: [0.05, 0.6, 0.24, 0.645] },
+  patrol: { head: [0.145, 0.53, 0.07], sigRear: [0.035, 0.477, 0.135, 0.568], sigRed: true, sigFront: [0.05, 0.6, 0.24, 0.645] },
 };
 
 // Sprites de cada carro pela chave `art`: <art>-side/-rear/-front.png e as máscaras
@@ -672,21 +673,27 @@ function drawLamps(c: CanvasRenderingContext2D, L: number, T: number, w: number,
     c.fillRect(hx - r, hy - r, r * 2, r * 2);
   };
   if (front && d.pop && st.up > 0) {
-    const [u, f, pw] = d.pop;
-    const bw = Math.max(1, Math.round(pw * w)), bh = Math.max(1, Math.round(w * 0.055 * st.up));
-    for (const cu of [u, 1 - u]) {
-      const x0 = Math.round(L + cu * w - bw / 2), y1 = Math.round(T + f * h);
-      c.fillStyle = '#0a0a0c'; // contorno
-      c.fillRect(x0 - 0.5, y1 - bh - 0.5, bw + 1, bh + 0.5);
-      c.fillStyle = d.podColor ?? look.paint ?? look.color; // tampa (cor do carro)
-      c.fillRect(x0, y1 - bh, bw, Math.max(0.5, bh * 0.4));
-      if (bh >= 1.5) { // lente (só aparece quando o farol já subiu)
+    // o farol ocupa a tampa (mesma largura e lugar) e sobe a partir da borda da frente dela
+    const [u0, f0, u1, f1] = d.pop;
+    const bw = Math.max(1, Math.round((u1 - u0) * w));
+    const yb = Math.round(T + f1 * h);
+    const rise = Math.max(1, Math.round(w * 0.035)) * st.up;
+    const bh = Math.max(1, Math.round((f1 - f0) * h + rise));
+    for (const lu of [u0, 1 - u1]) {
+      const x0 = Math.round(L + lu * w);
+      c.fillStyle = '#0a0a0c'; // contorno (e o vão da tampa aberta)
+      c.fillRect(x0, yb - bh, bw, bh);
+      c.fillStyle = d.podColor ?? look.paint ?? look.color; // tampa, agora em pé
+      c.fillRect(x0 + 0.5, yb - bh + 0.5, bw - 1, Math.max(0.5, Math.round(bh * 0.35 * 2) / 2));
+      const ly = yb - bh + 0.5 + Math.max(0.5, Math.round(bh * 0.35 * 2) / 2) + 0.5;
+      const lh = yb - 0.5 - ly;
+      if (lh > 0) { // lente
         c.fillStyle = st.on ? '#fff8d8' : '#a8b0bc';
-        c.fillRect(x0 + 0.5, y1 - bh * 0.55, bw - 1, bh * 0.55);
+        c.fillRect(x0 + 0.5, ly, bw - 1, lh);
         c.fillStyle = st.on ? '#ffffff' : '#d8dee6';
-        c.fillRect(x0 + 0.5, y1 - bh * 0.55, Math.max(0.5, bw * 0.3), 0.5);
+        c.fillRect(x0 + 0.5, ly, Math.max(0.5, Math.round(bw * 0.3)), 0.5);
       }
-      if (st.on && st.up >= 1) halo(x0 + bw / 2, y1 - bh * 0.3, w * (st.high ? 0.2 : 0.13), st.high ? 0.6 : 0.38);
+      if (st.on && st.up >= 1) halo(x0 + bw / 2, ly + lh / 2, w * (st.high ? 0.2 : 0.13), st.high ? 0.6 : 0.38);
     }
   }
   if (front && d.head && st.on) {
@@ -705,20 +712,24 @@ function drawLamps(c: CanvasRenderingContext2D, L: number, T: number, w: number,
     // de frente, o lado esquerdo do carro fica à direita do sprite; no retrovisor (espelho)
     // volta para a esquerda: nos dois casos o lado na tela é o sinal da seta
     const right = look.signal > 0;
-    c.fillStyle = !front && d.sigRed ? '#ff4030' : '#ffb020';
-    if (q.length === 3) {
+    c.fillStyle = !front && d.sigRed ? '#ff7058' : '#ffa018';
+    if (q.length === 3) { // lanterna redonda: acende a própria lâmpada, do tamanho dela
       const cx = L + (right ? 1 - q[0] : q[0]) * w;
       c.beginPath();
       c.arc(cx, T + q[1] * h, Math.max(0.7, q[2] * w), 0, Math.PI * 2);
       c.fill();
+      c.fillStyle = '#ffe0a0';
+      c.fillRect(Math.round(cx - q[2] * w * 0.4), Math.round(T + q[1] * h - q[2] * w * 0.4), Math.max(0.5, Math.round(q[2] * w * 0.5)), Math.max(0.5, Math.round(q[2] * w * 0.5)));
     } else {
       const u0 = right ? 1 - q[2] : q[0], u1 = right ? 1 - q[0] : q[2];
       c.fillRect(Math.round(L + u0 * w), Math.round(T + q[1] * h), Math.max(1, Math.round((u1 - u0) * w)), Math.max(1, Math.round((q[3] - q[1]) * h)));
     }
-    c.fillStyle = 'rgba(255,170,40,0.25)';
-    const sx = L + (right ? 1 - q[0] : q[0]) * w, sy = T + q[1] * h;
+    c.fillStyle = 'rgba(255,170,40,0.2)';
+    // brilho no centro da lâmpada (redonda: o próprio centro; retangular: o meio do retângulo)
+    const qu = q.length === 3 ? q[0] : (q[0] + q[2]) / 2, qf = q.length === 3 ? q[1] : (q[1] + q[3]) / 2;
+    const sx = L + (right ? 1 - qu : qu) * w, sy = T + qf * h;
     c.beginPath();
-    c.arc(sx, sy, w * 0.07, 0, Math.PI * 2);
+    c.arc(sx, sy, w * 0.045, 0, Math.PI * 2);
     c.fill();
   }
 }

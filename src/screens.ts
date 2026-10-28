@@ -268,10 +268,26 @@ function setBtnSize(i: number) {
 }
 
 function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
-  drawRoadScene(c, s.t);
-  text(c, 'OPÇÕES', view.w / 2, 30, 16, '#ffd400', 'center', '#3a1060');
-  const labels = [`CÂMBIO: ${s.auto ? 'AUTOMÁTICO' : 'MANUAL'}`, `SOM: ${s.sound ? 'LIGADO' : 'DESLIGADO'}`, `MÚSICA: ${s.music ? 'LIGADA' : 'DESLIGADA'}`, `BOTÕES: ${BTN_SIZES[btnSizeIdx()].label}`, `FANTASMA: ${ghostOn() ? 'LIGADO' : 'DESLIGADO'}`, 'VOLTAR'];
-  optionRects().forEach((r, i) => sign(c, r, [labels[i]], s.sel === i));
+  const x = ox();
+  paper(c);
+  masthead(c, 'AJUSTES DO LEITOR');
+  kicker(c, 'EXPEDIENTE', x + 4, 22, RED, '#fff');
+  ink(c, 'Toque num item para mudar', x + 70, 24, 5, GREY);
+  const items: [string, string][] = [
+    ['CÂMBIO', s.auto ? 'AUTOMÁTICO' : 'MANUAL'], ['SOM', s.sound ? 'LIGADO' : 'DESLIGADO'], ['MÚSICA', s.music ? 'LIGADA' : 'DESLIGADA'],
+    ['BOTÕES', BTN_SIZES[btnSizeIdx()].label], ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'], ['', ''],
+  ];
+  optionRects().forEach((r, i) => {
+    const hot = s.sel === i;
+    if (i === 5) return tag(c, { x: r.x + 60, y: r.y + 6, w: r.w - 120, h: 16 }, '◀ VOLTAR À CAPA', hot, 5);
+    c.fillStyle = hot ? '#fff8e4' : '#f6efdd';
+    c.fillRect(r.x, r.y, r.w, r.h);
+    c.strokeStyle = hot ? RED : 'rgba(26,22,20,0.35)';
+    c.lineWidth = hot ? 2 : 1;
+    c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+    ink(c, items[i][0], r.x + 10, r.y + 10, 8, INK);
+    ink(c, items[i][1], r.x + r.w - 10, r.y + 11, 5, hot ? RED : BLUE, 'right');
+  });
 }
 function activateOption(s: AppState, a: Actions, i: number) {
   if (i === 0) s.auto = !s.auto;
@@ -873,56 +889,56 @@ const pts = (n: number) => Math.round(n).toLocaleString('pt-BR');
 
 // ---------- resultado do trecho (você x rival, como no Test Drive II) ----------
 function drawStageResult(c: CanvasRenderingContext2D, s: AppState) {
-  const { w } = view;
-  purpleBg(c, 'Duel Racer');
   const x = ox();
+  paper(c);
+  masthead(c, 'RESULTADO DO TRECHO');
   const r = s.results[s.results.length - 1];
   const n = s.results.length;
   const hasRival = r.rival >= 0;
   const sum = (f: (r: StageResult) => number) => s.results.reduce((a, q) => a + f(q), 0);
   const myTotal = sum((q) => q.time), rivalTotal = sum((q) => Math.max(0, q.rival));
-  panel(c, { x: x + 8, y: 8, w: SAFE_W - 16, h: 26 }, '#2a2060', '#100830');
-  text(c, s.mode === 'career' ? `TRECHO ${n}` : `TRECHO ${n}/${COURSES[s.courseIdx].stages.length}`, x + 16, 13, 8, '#fff', 'left', null);
-  text(c, `${r.km.toFixed(1).replace('.', ',')} km`, x + SAFE_W - 16, 13, 8, '#c8c0f0', 'right', null);
+  kicker(c, s.mode === 'career' ? `TRECHO ${n}` : `TRECHO ${n}/${COURSES[s.courseIdx].stages.length}`, x + 4, 22, INK);
+  ink(c, `${r.km.toFixed(1).replace('.', ',')} km`, x + SAFE_W - 4, 24, 5, GREY, 'right');
   const ahead = myTotal <= rivalTotal;
-  text(c, !hasRival ? 'CONTRA O RELÓGIO' : ahead ? 'VOCÊ ESTÁ VENCENDO O DUELO!' : 'O RIVAL ESTÁ NA FRENTE...', w / 2, 23, 8, !hasRival ? '#ffd400' : ahead ? '#30e060' : '#ff7070', 'center', null);
-
-  panel(c, { x: x + 8, y: 40, w: SAFE_W - 16, h: 160 }, '#2a2060', '#100830');
-  const colYou = x + 214, colRival = x + SAFE_W - 18;
-  text(c, 'VOCÊ', colYou, 46, 8, '#ffd400', 'right', null);
-  if (hasRival) text(c, 'RIVAL', colRival, 46, 8, '#ff9a6a', 'right', null);
-  const kmh = (v: number) => `${Math.round(v)}`;
+  headline(c, !hasRival ? 'CONTRA O RELÓGIO' : ahead ? 'VOCÊ NA FRENTE!' : 'O RIVAL LIDERA...', x + 4, 36, 8, !hasRival ? INK : ahead ? '#1a6a2a' : RED);
+  // tabela do teste
+  const t: Rect = { x: x + 4, y: 50, w: SAFE_W - 8, h: 132 };
+  box(c, t, 'MEDIÇÕES');
+  const colYou = t.x + 200, colRival = t.x + t.w - 6;
+  ink(c, 'VOCÊ', colYou, t.y + 14, 5, RED, 'right');
+  if (hasRival) ink(c, 'RIVAL', colRival, t.y + 14, 5, BLUE, 'right');
+  const kmh = (v: number) => `${Math.round(v)} km/h`;
   const rows: [string, string, string][] = [
     ['Tempo', formatTime(r.time), hasRival ? formatTime(r.rival) : ''],
     ['Batidas', `${r.crashes}`, hasRival ? '0' : ''],
     ['Multas', `${r.tickets}`, hasRival ? '0' : ''],
-    ['Vel. máx.', kmh(r.top), hasRival ? kmh(r.rivalTop) : ''],
+    ['Vel. máxima', kmh(r.top), hasRival ? kmh(r.rivalTop) : ''],
     ['Vel. média', kmh(r.avg), hasRival ? kmh(r.rivalAvg) : ''],
     ['Pontos', pts(r.score), hasRival ? pts(r.rivalScore) : ''],
   ];
   rows.forEach(([k, a, b], i) => {
-    const y = 62 + i * 13;
-    text(c, k, x + 18, y, 8, '#c8c0f0', 'left', null);
-    text(c, a, colYou, y, 8, '#fff', 'right', null);
-    if (b) text(c, b, colRival, y, 8, '#fff', 'right', null);
+    const y = t.y + 26 + i * 11;
+    if (i % 2 === 0) {
+      c.fillStyle = 'rgba(26,22,20,0.05)';
+      c.fillRect(t.x + 1, y - 2, t.w - 2, 10);
+    }
+    ink(c, k, t.x + 6, y, 5, GREY);
+    ink(c, a, colYou, y, 5, INK, 'right');
+    if (b) ink(c, b, colRival, y, 5, INK, 'right');
   });
-  c.fillStyle = '#6a5ab0';
-  c.fillRect(x + 16, 142, SAFE_W - 32, 1);
-  const totals: [string, string, string][] = [
-    ['Tempo total', formatTime(myTotal), hasRival ? formatTime(rivalTotal) : ''],
-    ['Pontuação', pts(sum((q) => q.score)), hasRival ? pts(sum((q) => q.rivalScore)) : ''],
-  ];
-  totals.forEach(([k, a, b], i) => {
-    const y = 150 + i * 13;
-    text(c, k, x + 18, y, 8, '#ffd400', 'left', null);
-    text(c, a, colYou, y, 8, '#fff', 'right', null);
-    if (b) text(c, b, colRival, y, 8, '#fff', 'right', null);
+  rule(c, t.x + 4, t.y + 94, t.w - 8, RED);
+  [['Tempo total', formatTime(myTotal), hasRival ? formatTime(rivalTotal) : ''], ['Pontuação', pts(sum((q) => q.score)), hasRival ? pts(sum((q) => q.rivalScore)) : '']].forEach(([k, a, b], i) => {
+    const y = t.y + 100 + i * 11;
+    ink(c, k, t.x + 6, y, 5, RED);
+    ink(c, a, colYou, y, 5, INK, 'right');
+    if (b) ink(c, b, colRival, y, 5, INK, 'right');
   });
-  text(c, `Carros restantes: ${s.lives}`, x + 18, 180, 8, '#c8c0f0', 'left', null);
-  // recorde do trecho com este carro
-  if (r.record) text(c, r.best === undefined ? 'PRIMEIRO RECORDE!' : `NOVO RECORDE! -${(r.best - r.time).toFixed(2).replace('.', ',')}s`, x + 18, 190, 8, Math.floor(s.t * 4) % 2 ? '#30e060' : '#a0ffb0', 'left', null);
-  else if (r.best !== undefined) text(c, `Recorde: ${formatTime(r.best)}`, x + 18, 190, 8, '#c8c0f0', 'left', null);
-  if (Math.floor(s.t * 2) % 2) text(c, 'TOQUE PARA SEGUIR', w / 2, 214, 8, '#ffd400', 'center', null);
+  ink(c, `Carros restantes: ${s.lives}`, x + 4, 188, 5, INK);
+  if (r.record) {
+    const lines = r.best === undefined ? ['PRIMEIRO', 'RECORDE!'] : ['NOVO', 'RECORDE!', `-${(r.best - r.time).toFixed(2).replace('.', ',')}s`];
+    burst(c, x + SAFE_W - 40, 196, 30, lines, YELLOW, RED, s.t);
+  } else if (r.best !== undefined) ink(c, `Recorde: ${formatTime(r.best)}`, x + 4, 198, 5, GREY);
+  if (Math.floor(s.t * 2) % 2) ink(c, 'TOQUE PARA SEGUIR ▶', x + 160, 222, 5, RED, 'center');
 }
 
 // posto: chegada -> resultado -> desafios -> próximo trecho
@@ -934,11 +950,11 @@ function gasNext(s: AppState, a: Actions) {
 
 // medalha: fita e disco com brilho
 function medal(c: CanvasRenderingContext2D, cx: number, cy: number, n: number, r = 9) {
-  c.fillStyle = '#c02030';
+  c.fillStyle = RED;
   c.fillRect(cx - 5, cy - r - 9, 4, 10);
-  c.fillStyle = '#2040c0';
+  c.fillStyle = BLUE;
   c.fillRect(cx + 1, cy - r - 9, 4, 10);
-  c.fillStyle = '#000';
+  c.fillStyle = INK;
   c.beginPath();
   c.arc(cx, cy, r + 1, 0, Math.PI * 2);
   c.fill();
@@ -955,31 +971,35 @@ function medal(c: CanvasRenderingContext2D, cx: number, cy: number, n: number, r
 }
 
 function drawChallenges(c: CanvasRenderingContext2D, s: AppState) {
-  const { w } = view;
-  purpleBg(c, 'Duel Racer');
   const x = ox();
+  paper(c);
+  masthead(c, 'DESAFIOS DO TRECHO');
   const r = s.results[s.results.length - 1];
   const list = r.challenges ?? [];
   const n = r.medal ?? 0;
-  panel(c, { x: x + 8, y: 8, w: SAFE_W - 16, h: 192 }, '#2a2060', '#100830');
-  text(c, 'DESAFIOS DO TRECHO', w / 2, 16, 8, '#ffd400', 'center', null);
+  kicker(c, 'NOSSA AVALIAÇÃO', x + 4, 22, RED, '#fff');
+  const t: Rect = { x: x + 4, y: 36, w: SAFE_W - 8, h: 82 };
+  box(c, t, 'METAS');
   list.forEach((ch, i) => {
-    const y = 40 + i * 24;
-    c.fillStyle = ch.done ? '#30e060' : '#5a4a8a';
-    c.fillRect(x + 20, y, 10, 10);
+    const y = t.y + 16 + i * 22;
+    c.fillStyle = INK;
+    c.fillRect(t.x + 8, y - 1, 12, 12);
+    c.fillStyle = ch.done ? '#2a9a3a' : '#f8f2e4';
+    c.fillRect(t.x + 9, y, 10, 10);
     if (ch.done) {
-      c.fillStyle = '#0a3a14';
-      c.fillRect(x + 22, y + 5, 2, 2);
-      c.fillRect(x + 24, y + 6, 2, 2);
-      c.fillRect(x + 26, y + 2, 2, 4);
+      c.fillStyle = '#fff';
+      c.fillRect(t.x + 11, y + 5, 2, 2);
+      c.fillRect(t.x + 13, y + 6, 2, 2);
+      c.fillRect(t.x + 15, y + 2, 2, 4);
     }
-    text(c, ch.label, x + 38, y + 1, 8, ch.done ? '#fff' : '#9a90c8', 'left', null);
+    ink(c, ch.label, t.x + 26, y + 2, 5, ch.done ? INK : GREY);
+    ink(c, ch.done ? 'CUMPRIDO' : 'NÃO FOI DESTA VEZ', t.x + t.w - 6, y + 2, 5, ch.done ? '#1a6a2a' : RED, 'right');
   });
-  medal(c, w / 2, 140, n, 13);
-  text(c, n ? `MEDALHA DE ${medalName(n)}` : 'SEM MEDALHA', w / 2, 162, 8, n ? MEDAL_COLOR[n] : '#9a90c8', 'center', null);
-  if (r.medalNew && n) text(c, 'Melhor medalha neste trecho!', w / 2, 175, 5, '#c8c0f0', 'center', null);
-  if (r.prize) text(c, `Prêmio dos desafios: $${pts(r.prize)}`, w / 2, 186, 8, '#30e060', 'center', null);
-  if (Math.floor(s.t * 2) % 2) text(c, 'TOQUE PARA SEGUIR', w / 2, 214, 8, '#ffd400', 'center', null);
+  medal(c, x + 160, 150, n, 14);
+  headline(c, n ? `MEDALHA DE ${medalName(n)}` : 'SEM MEDALHA', x + 160, 172, 8, n ? INK : GREY, 'center');
+  if (r.medalNew && n) ink(c, 'Sua melhor medalha neste trecho!', x + 160, 184, 5, GREY, 'center');
+  if (r.prize) ink(c, `Prêmio dos desafios: $${pts(r.prize)}`, x + 160, 196, 5, '#1a6a2a', 'center');
+  if (Math.floor(s.t * 2) % 2) ink(c, 'TOQUE PARA SEGUIR ▶', x + 160, 222, 5, RED, 'center');
 }
 
 // aviso no alto da tela (conquista ou desafio cumprido), em qualquer tela
@@ -997,85 +1017,99 @@ export function drawToast(c: CanvasRenderingContext2D, dt: number) {
 
 // ---------- fim do percurso ----------
 function drawEnd(c: CanvasRenderingContext2D, s: AppState) {
-  const { w, h } = view;
-  purpleBg(c, 'Duel Racer');
+  const x = ox();
   const course = COURSES[s.courseIdx];
   const total = s.results.reduce((a, r) => a + r.time, 0);
   const rival = s.results.every((r) => r.rival >= 0) ? s.results.reduce((a, r) => a + r.rival, 0) : -1;
   const won = rival < 0 ? true : total <= rival;
-  const x = ox();
-  panel(c, { x: x + 20, y: 30, w: SAFE_W - 40, h: 180 }, '#2a2060', '#100830');
-  text(c, s.gameOver ? 'FIM DE JOGO' : 'PERCURSO COMPLETO!', w / 2, 44, 8, s.gameOver ? '#ff5050' : '#30e060', 'center');
-  text(c, course.name, w / 2, 62, 8, '#a8a0e0', 'center', null);
+  paper(c);
+  masthead(c, s.gameOver ? 'FIM DE JOGO' : 'REPORTAGEM DE CAPA');
+  kicker(c, course.name.toUpperCase(), x + 4, 22, INK);
   if (!s.gameOver) {
-    text(c, `Seu tempo: ${formatTime(total)}`, w / 2, 90, 8, '#fff', 'center', null);
-    if (rival >= 0) {
-      text(c, `Rival: ${formatTime(rival)}`, w / 2, 106, 8, '#fff', 'center', null);
-      text(c, won ? 'VOCÊ VENCEU O DUELO!' : 'O RIVAL VENCEU...', w / 2, 134, 8, won ? '#ffd400' : '#ff7070', 'center');
+    headline(c, rival < 0 ? 'ROTEIRO CONCLUÍDO!' : won ? 'VITÓRIA NO DUELO!' : 'O RIVAL VENCEU...', x + 4, 36, 8, won ? '#1a6a2a' : RED);
+    const t: Rect = { x: x + 4, y: 52, w: 200, h: 70 };
+    box(c, t, 'PLACAR FINAL');
+    specRows(c, t, [['Seu tempo', formatTime(total)], ...(rival >= 0 ? [['Rival', formatTime(rival)] as [string, string]] : []), ['Pontuação', pts(s.results.reduce((a, r) => a + r.score, 0))], ['Trechos', `${s.results.length}`]], 11, 16);
+    const car = CARS[s.carIdx];
+    photo(c, { x: x + 214, y: 56, w: 102, h: 62 }, () => drawCarSide(c, x + 218, 112, 94, car, paintHex(car.id)));
+    if (s.newMap) {
+      burst(c, x + 270, 160, 32, ['NOVO', 'ROTEIRO', 'LIBERADO!'], YELLOW, RED, s.t);
+      ink(c, s.newMap, x + 4, 134, 8, RED);
+      ink(c, 'já está no Guia de Roteiros.', x + 4, 148, 5, INK);
     }
-    text(c, `Pontuação: ${pts(s.results.reduce((a, r) => a + r.score, 0))}`, w / 2, 152, 8, '#ffd400', 'center', null);
-    if (s.newMap) text(c, `NOVO MAPA LIBERADO: ${s.newMap}`, w / 2, 170, 5, Math.floor(s.t * 4) % 2 ? '#30e060' : '#a0ffb0', 'center', null);
   } else {
-    text(c, `Trechos concluídos: ${s.results.length}/${course.stages.length}`, w / 2, 100, 8, '#fff', 'center', null);
-    text(c, 'Seus carros acabaram.', w / 2, 120, 8, '#fff', 'center', null);
+    headline(c, 'SEUS CARROS ACABARAM', x + 4, 36, 8, RED);
+    ink(c, `Trechos concluídos: ${s.results.length} de ${course.stages.length}`, x + 4, 56, 5, INK);
+    ink(c, 'Volte mais forte na próxima edição.', x + 4, 68, 5, GREY);
   }
-  if (Math.floor(s.t * 2) % 2) text(c, 'TOQUE PARA CONTINUAR', w / 2, 190, 8, '#ffd400', 'center', null);
-  void h;
+  if (Math.floor(s.t * 2) % 2) ink(c, 'TOQUE PARA CONTINUAR ▶', x + 160, 222, 5, RED, 'center');
 }
 
 // ---------- conquistas e medalhas ----------
-const achButton = (): Rect => ({ x: ox() + 90, y: 172, w: 140, h: 20 });
+const achButton = (): Rect => ({ x: ox() + 210, y: 212, w: 106, h: 15 });
 function drawAchievements(c: CanvasRenderingContext2D, s: AppState) {
-  const { w } = view;
-  drawRoadScene(c, s.t);
   const x = ox();
+  paper(c);
+  masthead(c, 'GALERIA DE CONQUISTAS');
   const got = unlockedAchievements();
   const n = ACHIEVEMENTS.filter((q) => got[q.id]).length;
-  panel(c, { x: x + 4, y: 4, w: SAFE_W - 8, h: 232 }, '#2a2060', '#100830');
-  text(c, `CONQUISTAS ${n}/${ACHIEVEMENTS.length}`, x + 14, 10, 8, '#ffd400', 'left', null);
+  kicker(c, `${n} DE ${ACHIEVEMENTS.length} CONQUISTAS`, x + 4, 21, RED, '#fff');
   // medalhas ganhas nos desafios
   const m = Object.values(medals());
   [3, 2, 1].forEach((k, i) => {
-    const cx = x + SAFE_W - 80 + i * 26;
+    const cx = x + SAFE_W - 74 + i * 26;
+    c.fillStyle = INK;
+    c.beginPath();
+    c.arc(cx, 25, 5, 0, Math.PI * 2);
+    c.fill();
     c.fillStyle = MEDAL_COLOR[k];
     c.beginPath();
-    c.arc(cx, 14, 4, 0, Math.PI * 2);
+    c.arc(cx, 25, 4, 0, Math.PI * 2);
     c.fill();
-    text(c, String(m.filter((v) => v === k).length), cx + 6, 11, 5, '#fff', 'left', null);
+    ink(c, String(m.filter((v) => v === k).length), cx + 7, 23, 5, INK);
   });
   ACHIEVEMENTS.forEach((ach, i) => {
-    const ax = x + 12, ay = 26 + i * 11;
+    const ax = x + 6, ay = 34 + i * 10.5;
     const ok = !!got[ach.id];
-    // troféu (aceso se conquistado)
-    c.fillStyle = ok ? '#ffd23a' : '#4a3e78';
+    if (i % 2 === 0) {
+      c.fillStyle = 'rgba(26,22,20,0.05)';
+      c.fillRect(x + 4, Math.round(ay) - 1, SAFE_W - 8, 10);
+    }
+    // troféu (dourado se conquistado)
+    c.fillStyle = ok ? '#e0a800' : 'rgba(26,22,20,0.2)';
     c.fillRect(ax, ay, 7, 4);
     c.fillRect(ax + 2, ay + 4, 3, 2);
     c.fillRect(ax + 1, ay + 6, 5, 2);
-    text(c, ach.name, ax + 11, ay + 1, 5, ok ? '#ffffff' : '#8a80b8', 'left', null);
-    text(c, ach.desc, ax + 96, ay + 1, 5, ok ? '#c8c0f0' : '#6a6098', 'left', null);
+    ink(c, ach.name, ax + 11, ay + 1, 5, ok ? INK : GREY);
+    ink(c, ach.desc, ax + 96, ay + 1, 5, ok ? BLUE : 'rgba(26,22,20,0.4)');
   });
   const st = loadStats();
-  text(c, `${st.stages} trechos  ${st.passes} ultrapassagens  ${st.tunnels} túneis`, w / 2, 228, 5, '#a8a0d8', 'center', null);
+  ink(c, `${st.stages} trechos • ${st.passes} ultrapassagens • ${st.tunnels} túneis`, x + 160, 226, 5, GREY, 'center');
 }
 
 // ---------- recordes ----------
 function drawScores(c: CanvasRenderingContext2D, s: AppState) {
-  const { w } = view;
-  drawRoadScene(c, s.t);
   const x = ox();
-  panel(c, { x: x + 20, y: 16, w: SAFE_W - 40, h: 150 }, '#3c2f7a', '#1c1440');
-  text(c, 'RECORDES', w / 2, 24, 8, '#ffd400', 'center', null);
+  paper(c);
+  masthead(c, 'RANKING DOS LEITORES');
   const course = COURSES[s.scoreCourse];
-  text(c, `◀ ${course.name} ▶`, w / 2, 40, 8, '#d8d0ff', 'center', null);
+  kicker(c, `ROTEIRO ${String(s.scoreCourse + 1).padStart(2, '0')}`, x + 4, 22, RED, '#fff');
+  headline(c, `◀ ${course.name.toUpperCase()} ▶`, x + 160, 36, 8, INK, 'center');
+  const t: Rect = { x: x + 4, y: 50, w: SAFE_W - 8, h: 156 };
+  box(c, t, 'OS MAIS RÁPIDOS');
   const list = loadScores(course);
-  if (!list.length) text(c, 'Nenhum recorde ainda', w / 2, 90, 8, '#a8a0d8', 'center', null);
+  if (!list.length) ink(c, 'Ninguém completou este roteiro ainda.', x + 160, 110, 5, GREY, 'center');
   list.forEach((e, i) => {
-    const y = 60 + i * 18;
-    text(c, `${i + 1}. ${formatTime(e.time)}`, x + 36, y, 8, e.won ? '#fff' : '#a8a0d8', 'left', null);
-    if (e.score) text(c, `${pts(e.score)} pts`, x + 52, y + 9, 5, '#ffd400', 'left', null);
-    text(c, e.car, x + SAFE_W - 36, y, 8, '#d8d0ff', 'right', null);
+    const y = t.y + 18 + i * 27;
+    text(c, `${i + 1}º`, t.x + 8, y, 16, i === 0 ? RED : GREY, 'left', null);
+    ink(c, formatTime(e.time), t.x + 56, y + 1, 8, INK);
+    ink(c, e.car, t.x + 56, y + 13, 5, BLUE);
+    if (e.score) ink(c, `${pts(e.score)} pts`, t.x + t.w - 8, y + 1, 5, INK, 'right');
+    ink(c, e.won ? 'VENCEU O DUELO' : 'PERDEU O DUELO', t.x + t.w - 8, y + 13, 5, e.won ? '#1a6a2a' : RED, 'right');
+    if (i < list.length - 1) rule(c, t.x + 6, y + 23, t.w - 12, 'rgba(26,22,20,0.15)');
   });
-  smallButton(c, achButton(), 'CONQUISTAS', false);
+  ink(c, 'Toque fora para voltar à capa', x + 4, 216, 5, GREY);
+  tag(c, achButton(), 'CONQUISTAS ▶', false);
 }
 
 // ---------- roteamento ----------

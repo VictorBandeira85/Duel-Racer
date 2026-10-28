@@ -20,13 +20,52 @@ GLYPH = {
 
 
 def clean(a):
-    """Tira pixels claros e acinzentados encostados no fundo (sobra do fundo branco)."""
-    for _ in range(2):
+    """Polimento: tira a franja clara (bege, misturada com o fundo branco) e os pixels soltos da
+    borda, fecha a silhueta com contorno escuro de 1 pixel e reduz a paleta (sem cores
+    intermediárias borradas entre uma faixa e outra)."""
+    k8 = np.ones((3, 3), np.uint8)
+    for _ in range(3):
         al = a[..., 3] > 0
-        border = al & (cv2.dilate((~al).astype(np.uint8), np.ones((3, 3), np.uint8)) > 0)
-        rgb = a[..., :3].astype(int)
-        light = (rgb.min(axis=2) > 185) & (rgb.max(axis=2) - rgb.min(axis=2) < 40)
-        a[border & light, 3] = 0
+        border = al & (cv2.dilate((~al).astype(np.uint8), k8) > 0)
+        hsv = cv2.cvtColor(np.ascontiguousarray(a[..., :3]), cv2.COLOR_RGB2HSV).astype(int)
+        # claros e pouco saturados na borda = mistura com o fundo branco
+        washed = (hsv[..., 2] > 150) & (hsv[..., 1] < 140)
+        # pixel solto: menos de 3 vizinhos opacos
+        nb = cv2.filter2D(al.astype(np.uint8), -1, k8, borderType=cv2.BORDER_CONSTANT) - al
+        a[(border & washed) | (al & (nb < 3)), 3] = 0
+    al = a[..., 3] > 0
+    # paleta curta (em Lab), como pixel art desenhada à mão
+    lab = cv2.cvtColor(np.ascontiguousarray(a[..., :3]), cv2.COLOR_RGB2LAB).astype(np.float32)
+    pts = lab[al]
+    crit = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 50, 0.3)
+    _, lbl, cen = cv2.kmeans(pts, 22, None, crit, 4, cv2.KMEANS_PP_CENTERS)
+    L = np.full(al.shape, -1, np.int32)
+    L[al] = lbl.ravel()
+    # pixel isolado (cor que nenhum vizinho tem): vira a cor mais comum em volta (tira o chuvisco)
+    H, W = L.shape
+    for _ in range(2):
+        out = L.copy()
+        for y in range(1, H - 1):
+            for x in range(1, W - 1):
+                v = L[y, x]
+                if v < 0:
+                    continue
+                nb = [L[y - 1, x], L[y + 1, x], L[y, x - 1], L[y, x + 1]]
+                if v not in nb:
+                    n8 = [t for t in L[y - 1:y + 2, x - 1:x + 2].ravel() if t >= 0 and t != v]
+                    if n8:
+                        out[y, x] = max(set(n8), key=n8.count)
+        L = out
+    q = lab.copy()
+    q[al] = cen[L[al]]
+    a[..., :3] = cv2.cvtColor(np.clip(q, 0, 255).astype(np.uint8), cv2.COLOR_LAB2RGB)
+    # contorno: a borda da silhueta fica escura (o que já é escuro continua como está)
+    border = al & (cv2.erode(al.astype(np.uint8), np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], np.uint8)) == 0)
+    rgb = a[..., :3].astype(np.float32)
+    dark = rgb.max(axis=2) < 70
+    sel = border & ~dark
+    rgb[sel] = rgb[sel] * 0.25 + np.array([24, 20, 14]) * 0.75
+    a[..., :3] = rgb.astype(np.uint8)
     return a
 
 

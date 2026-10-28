@@ -124,7 +124,7 @@ COCKPIT_ART.patrol = {
 COCKPIT_ART.diablo = {
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'),
   pivot: [128, 103], wheelDx: 10, radar: [196, 6], speedMax: 360, needle: '#ff7a1a', hub: '#1a1a1c',
-  speed: { x: 103.5, y: 40, r: 23, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], minor: [20, 60, 100, 260, 300, 340], tick: 10, red: 999, labelScale: 0.7 },
+  speed: { x: 103.5, y: 40, r: 23, max: 360, labels: [0, 40, 80, 120, 200, 240, 280, 320, 360], minor: [160], tick: 10, red: 999, labelScale: 0.7 },
   tach: { x: 178.5, y: 39.5, r: 23, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], labelMul: 10, tick: 0.25, yellow: 6.8, red: 7.2, labelScale: 0.7, redLabels: false },
   aux: [
     { x: 140.5, y: 28, r: 12, kind: 'single', show: ['water'], icon: 'temp', labels: ['40', '80', '120'] },

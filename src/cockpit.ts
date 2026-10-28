@@ -44,6 +44,8 @@ interface CockpitArt {
   prnd?: Box; // indicador da alavanca P R N D 2 1 (viatura)
   speedMax: number;
   needle: string;
+  needleW?: number; // espessura do ponteiro (padrão 1 px)
+  needleTail?: number; // contrapeso do ponteiro, além do eixo (px)
   hub: string;
   aux: Aux[];
   under?: (c: CanvasRenderingContext2D, ox: number, r: Race) => void; // fundo do quadro, antes dos mostradores
@@ -65,6 +67,8 @@ interface Dial { x: number; y: number; r: number; max: number; labels: number[];
   bg?: string; // cor do fundo do mostrador
   redInk?: string; // cor da faixa vermelha
   redW?: number; // largura da faixa vermelha (px)
+  redHatch?: boolean; // faixa vermelha listrada (VDO do GTI)
+  boldTicks?: boolean; // marcações grossas (traço de 1 px, os principais mais compridos)
 }
 
 // Mostradores auxiliares, também redesenhados: 'single' (um ponteiro), 'dual' (dois
@@ -183,37 +187,56 @@ const GTI_LOGO = [
   ['.111.', '1....', '1.11.', '1..1.', '.111.'], // G
   ['111', '.1.', '.1.', '.1.', '.1.'], // T
 ];
-function golMini(c: CanvasRenderingContext2D, x: number, y: number, R: number, a0: number, a1: number, v: number, red: number, art: CockpitArt) {
+function golMini(c: CanvasRenderingContext2D, x: number, y: number, R: number, a0: number, a1: number, v: number, art: CockpitArt) {
+  // mostrador de canto do conta-giros: marcações grossas laranja, as duas últimas da ponta
+  // de alerta (água quente / reserva) vermelhas, ponteiro creme com eixo preto
   const at = (a: number, rr: number): [number, number] => [x + Math.cos(a) * rr, y + Math.sin(a) * rr * PIX_Y];
   for (let i = 0; i <= 4; i++) {
-    const a = a0 + ((a1 - a0) * i) / 4;
-    const hot = red > 0 ? i / 4 >= red : i / 4 <= -red;
-    c.fillStyle = hot ? '#e82818' : GTI_INK;
-    for (const k of [0, 0.5, 1]) half(c, ...at(a, R - k));
-    if (hot) half(c, ...at(a + (a1 - a0) / 16, R - 0.5));
+    const a = a0 + ((a1 - a0) * i) / 4, px = -Math.sin(a) * 0.5, py = Math.cos(a) * 0.5;
+    c.fillStyle = i >= 3 ? '#ff3a18' : GTI_INK;
+    for (const k of i === 0 || i === 4 ? [0, 0.5, 1, 1.5] : [0, 0.5, 1]) {
+      const [xx, yy] = at(a, R - k);
+      half(c, xx, yy);
+      half(c, xx + px, yy + py);
+    }
   }
-  hand(c, x, y, a0 + (a1 - a0) * clamp(v, 0, 1), R - 0.5, art.needle);
-  c.fillStyle = '#2a2a2e';
-  c.fillRect(Math.round(x) - 1, Math.round(y) - 1, 2, 2);
+  hand(c, x, y, a1 + (a0 - a1) * clamp(v, 0, 1), R - 2.5, art.needle);
+  c.fillStyle = '#060607';
+  c.fillRect(Math.round(x * 2) / 2 - 1, Math.round(y * 2) / 2 - 1, 2, 2);
+}
+// rótulo pequeno (letras em meio pixel), centrado
+const tiny = (c: CanvasRenderingContext2D, s: string, x: number, y: number, color = '#c8c8c8') => pix(c, s, x, y, color, 0.5);
+// tambores do hodômetro com a moldura prateada
+function golDrums(c: CanvasRenderingContext2D, ox: number, r: Race, b: Box, base: number, digits: number, lastRed: boolean) {
+  rect(c, ox + b.x - 1, ART_TOP + b.y - 0.5, b.w + 2, b.h + 1, '#5a5a60');
+  rect(c, ox + b.x - 0.5, ART_TOP + b.y, b.w + 1, b.h, '#020203');
+  odometer(c, ox, r, b, base, digits, 0.5, lastRed);
 }
 function golCluster(c: CanvasRenderingContext2D, ox: number, r: Race, art: CockpitArt) {
   const T = ART_TOP;
-  // água (canto de baixo à esquerda) e combustível (à direita) dentro do conta-giros
-  const t = art.tach!;
-  golMini(c, ox + t.x - 13.5, T + t.y + 14, 7, Math.PI * 1.02, Math.PI * 1.55, gauges.water, 0.75, art);
-  drawIcon(c, 'temp', ox + t.x - 6, T + t.y + 9, GTI_INK);
-  golMini(c, ox + t.x + 14.5, T + t.y + 14, 7, Math.PI * 1.98, Math.PI * 1.45, gauges.fuel, -0.25, art);
-  drawIcon(c, 'fuel', ox + t.x + 7, T + t.y + 9, GTI_INK);
-  // velocímetro: hodômetro em cima do eixo e parcial embaixo (último tambor vermelho)
-  odometer(c, ox, r, { x: 82, y: 45.5, w: 15, h: 4 }, 20285, 6, 0.5);
-  odometer(c, ox, r, { x: 84.5, y: 63, w: 10, h: 4 }, 116.0, 4, 0.5, true);
+  const sp = art.speed!, t = art.tach!;
+  // velocímetro: "vdo km", hodômetro, parcial com o botão de zerar e "km/h"
+  tiny(c, 'vdo', ox + sp.x + 1, T + sp.y - 15);
+  tiny(c, 'km', ox + sp.x + 1, T + sp.y - 12);
+  golDrums(c, ox, r, { x: sp.x - 7.5, y: sp.y - 10, w: 15, h: 4 }, 20285, 6, false);
+  golDrums(c, ox, r, { x: sp.x - 8, y: sp.y + 5, w: 10, h: 4 }, 116.0, 4, true);
+  tiny(c, 'km/h', ox + sp.x - 4, T + sp.y + 13);
+  rect(c, ox + sp.x - 6, T + sp.y + 15.5, 2.5, 2.5, '#2a2a2e');
+  rect(c, ox + sp.x - 5.5, T + sp.y + 16, 1, 1, '#6a6a70');
+  // conta-giros: "VDO" acima do eixo, "1/min x1000" abaixo, água e combustível nos cantos
+  tiny(c, 'VDO', ox + t.x + 1, T + t.y - 8);
+  tiny(c, '1/min x1000', ox + t.x + 1, T + t.y + 9);
+  golMini(c, ox + t.x - 8, T + t.y + 17, 9, Math.PI * 1.2, Math.PI * 0.74, 1 - gauges.water, art);
+  drawIcon(c, 'temp', ox + t.x - 3, T + t.y + 13, GTI_INK);
+  golMini(c, ox + t.x + 9, T + t.y + 17, 9, -Math.PI * 0.2, Math.PI * 0.26, gauges.fuel, art);
+  drawIcon(c, 'fuel', ox + t.x + 4.5, T + t.y + 13, GTI_INK);
   // módulo do meio
-  const mx = ox + 121, my = T + 25;
-  rect(c, mx, my, 28, 50, '#0e0e10');
+  const mx = ox + 121, my = T + 24;
+  rect(c, mx, my, 28, 52, '#0c0c0e');
   rect(c, mx, my, 28, 0.5, '#2e2e32');
-  // logotipo GTi: cromado inclinado com o i vermelho, numa placa preta
-  rect(c, mx + 3, my + 2, 22, 9, '#050506');
-  rect(c, mx + 3, my + 10.5, 22, 0.5, '#3a3a40');
+  // logotipo GTi: placa preta com moldura cinza, letras cromadas inclinadas e o i vermelho
+  rect(c, mx + 2, my + 1.5, 24, 10, '#3a3a40');
+  rect(c, mx + 2.5, my + 2, 23, 9, '#030304');
   let gx = mx + 6.5;
   for (const g of GTI_LOGO) {
     g.forEach((row, j) => [...row].forEach((ch, i) => {
@@ -223,39 +246,67 @@ function golCluster(c: CanvasRenderingContext2D, ox: number, r: Race, art: Cockp
     }));
     gx += g[0].length + 1;
   }
-  c.fillStyle = '#ff2a1a';
+  c.fillStyle = '#ff3a1a';
   for (const j of [0, 2, 3, 4]) c.fillRect(gx + (4 - j) * 0.5, my + 4 + j, 1.5, 1);
-  // luzes-espia: duas fileiras de cinco (seta verde, freio de mão, óleo, bateria, farol alto...)
+  // faixa de símbolos de cima: setas, bateria, farol alto
+  const strip = (y: number) => {
+    rect(c, mx + 2, y, 24, 4, '#232327');
+    rect(c, mx + 2, y + 4, 24, 0.5, '#050506');
+  };
+  strip(my + 13);
+  const ink = '#d8d8d8';
+  c.fillStyle = ink;
+  // setas ⇦⇨
+  for (const [x, d] of [[mx + 4, -1], [mx + 8, 1]] as [number, number][]) {
+    c.fillRect(x, my + 14.5, 2, 0.5);
+    c.fillRect(x + (d > 0 ? 2 : -0.5), my + 14, 0.5, 1.5);
+  }
+  c.fillRect(mx + 12, my + 14, 3, 2); // bateria
+  c.fillStyle = '#232327';
+  c.fillRect(mx + 12.5, my + 14.5, 2, 1);
+  c.fillStyle = ink;
+  c.fillRect(mx + 19, my + 14, 1, 2); // farol alto
+  c.fillRect(mx + 20.5, my + 14, 2, 0.5);
+  c.fillRect(mx + 20.5, my + 15, 2, 0.5);
+  c.fillRect(mx + 20.5, my + 15.75, 2, 0.5);
+  // luzes-espia: duas fileiras de cinco lentes coloridas (apagadas ficam escuras na cor)
   const blink = r.signal !== 0 && blinkOn();
   const stop = r.state === 'ticket' || r.state === 'pullover';
   const leds: [string, string, boolean][][] = [
-    [['#1a5a20', '#3cf040', blink], ['#5e1a16', '#ff3020', stop], ['#3a1a14', '#ff4020', false], ['#5e1a16', '#ff3020', r.damage > 0.6], ['#1a2a6a', '#4a7cff', !!r.def?.night]],
-    [['#1a5a20', '#3cf040', false], ['#5e5014', '#ffd020', gauges.fuel < 0.68], ['#5e1a16', '#ff3020', gauges.water > 0.8], ['#6a3810', '#ffa030', r.speed < 1 && !r.throttle], ['#3a1a14', '#ff4020', false]],
+    [['#1e6a24', '#3cf040', blink], ['#6a1c18', '#ff3020', stop], ['#3e1814', '#ff4020', false], ['#6a1c18', '#ff3020', r.damage > 0.6], ['#1e2e78', '#4a7cff', !!r.def?.night]],
+    [['#14401a', '#3cf040', false], ['#6a5a16', '#ffd020', gauges.fuel < 0.68], ['#6a1c18', '#ff3020', gauges.water > 0.8], ['#7a4012', '#ffa030', r.speed < 1 && !r.throttle], ['#3e1814', '#ff4020', false]],
   ];
-  rect(c, mx + 3, my + 13, 22, 1, '#26262a');
+  rect(c, mx + 2, my + 18, 24, 10, '#08080a');
   leds.forEach((row, j) => row.forEach(([off, on, lit], i) => {
-    const lx = mx + 4.5 + i * 4, ly = my + 16 + j * 4;
-    rect(c, lx - 0.5, ly - 0.5, 3, 3, '#050506');
-    rect(c, lx, ly, 2, 2, lit ? on : off);
-    if (lit) rect(c, lx, ly, 1, 0.5, '#ffffff');
+    const lx = mx + 3.5 + i * 4.5, ly = my + 19 + j * 4.5;
+    rect(c, lx, ly, 3, 3, lit ? on : off);
+    rect(c, lx + 0.5, ly + 0.5, 1, 0.5, lit ? '#ffffff' : 'rgba(255,255,255,0.35)');
   }));
-  rect(c, mx + 3, my + 25, 22, 1, '#26262a');
-  // relógio digital: cristal líquido esverdeado, hora de verdade
-  rect(c, mx + 3, my + 29, 22, 10, '#2a2a2e');
-  rect(c, mx + 4, my + 30, 20, 8, '#a8b48a');
-  rect(c, mx + 4, my + 30, 20, 1, '#bcc69e');
+  // faixa de símbolos de baixo: óleo, água, freio
+  strip(my + 28.5);
+  c.fillStyle = ink;
+  c.fillRect(mx + 5, my + 30, 3, 1.5); c.fillRect(mx + 8, my + 30, 1, 0.5); // almotolia
+  c.fillRect(mx + 13.5, my + 29.5, 0.5, 2); c.fillRect(mx + 12.5, my + 31.5, 2.5, 0.5); // termômetro
+  c.fillRect(mx + 19.5, my + 29.5, 2, 0.5); c.fillRect(mx + 19.5, my + 31.5, 2, 0.5); // freio (O)
+  c.fillRect(mx + 19, my + 30, 0.5, 1.5); c.fillRect(mx + 21.5, my + 30, 0.5, 1.5);
+  c.fillRect(mx + 20.5, my + 30, 0.5, 1);
+  // relógio digital: cristal líquido esverdeado numa moldura, hora de verdade
+  rect(c, mx + 3, my + 36, 22, 11, '#3a3a40');
+  rect(c, mx + 3.5, my + 36.5, 21, 10, '#141416');
+  rect(c, mx + 4.5, my + 37.5, 19, 8, '#a8b48a');
+  rect(c, mx + 4.5, my + 37.5, 19, 1, '#bcc69e');
   const now = new Date();
   const hh = now.getHours() % 12 || 12;
-  pix(c, `${hh}:${String(now.getMinutes()).padStart(2, '0')}`, mx + 14, my + 34.5, '#1e2616', 1);
+  pix(c, `${hh}:${String(now.getMinutes()).padStart(2, '0')}`, mx + 14, my + 42, '#1e2616', 1);
   // parafusos do quadro
-  rect(c, mx + 2, my + 44, 1, 1, '#3a3a40');
-  rect(c, mx + 25, my + 47, 1, 1, '#3a3a40');
+  rect(c, mx + 1, my + 49, 1.5, 1.5, '#4a4a50');
+  rect(c, mx + 25.5, my + 50, 1.5, 1.5, '#4a4a50');
 }
 COCKPIT_ART['br-golgti'] = {
   dash: cp('br-golgti-dash'), top: cp('br-golgti-top'), wheel: cp('br-golgti-wheel'),
-  pivot: [128, 99.9], wheelTop: 28, speedMax: 240, needle: '#f4eedc', hub: '#1a1a1c', radar: [222, 8],
-  speed: { x: 89.5, y: 57.5, r: 28, max: 240, labels: [20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240], tick: 10, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, ink: GTI_INK, bg: '#121214', cut: 20 },
-  tach: { x: 179.5, y: 57.5, r: 28, max: 7, labels: [1, 2, 3, 4, 5, 6, 7], tick: 0.25, red: 6.5, a0: Math.PI * 0.917, sweep: Math.PI * 1.167, labelScale: 0.7, redLabels: false, ink: GTI_INK, bg: '#121214', cut: 20, redInk: '#ff4a18', redW: 2.5 },
+  pivot: [128, 99.9], wheelTop: 28, speedMax: 240, needle: '#f4eedc', needleW: 1.5, needleTail: 4, hub: '#1a1a1c', radar: [222, 8],
+  speed: { x: 89.5, y: 57.5, r: 28, max: 240, labels: [20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240], tick: 10, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, ink: GTI_INK, bg: '#121214', cut: 20, boldTicks: true },
+  tach: { x: 179.5, y: 57.5, r: 28, max: 7, labels: [1, 2, 3, 4, 5, 6, 7], tick: 0.25, red: 6.5, a0: Math.PI * 0.917, sweep: Math.PI * 1.167, labelScale: 0.7, redLabels: false, ink: GTI_INK, bg: '#121214', cut: 20, redInk: '#ff4a18', redW: 2.5, redHatch: true, boldTicks: true },
   aux: [],
   under: (c, ox) => {
     // face do quadro (cinza quase preto) e a borda de cima, sob a viseira
@@ -473,13 +524,24 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
     c.fillStyle = d.redInk ?? '#d81818';
     const ks = [];
     for (let k = 0.75; k <= (d.redW ?? 2) + 0.25 + 1e-6; k += 0.5) ks.push(k);
-    for (let a = fr(d.red); a <= a0 + sweep + 0.001; a += 0.02)
-      for (const k of ks) half(...at(a, r - k));
+    for (let a = fr(d.red), i = 0; a <= a0 + sweep + 0.001; a += 0.02, i++)
+      if (!d.redHatch || Math.floor((a - fr(d.red)) * r / 1.1) % 2 === 0) for (const k of ks) half(...at(a, r - k));
   }
   // marcações: traço de 1,5 px nos números, meio pixel no meio (resolução interna 2x)
   for (let v = 0; v <= d.max + 1e-6; v += d.tick) {
     const major = d.labels.some((l) => Math.abs(l - v) < 1e-6);
     c.fillStyle = d.ink ?? (v >= d.red ? '#ffd0d0' : '#ececec');
+    if (d.boldTicks) {
+      // traço de 1 px: a linha do raio e outra meio pixel ao lado (na perpendicular)
+      const a = fr(v), px = -Math.sin(a) * 0.5, py = Math.cos(a) * 0.5;
+      const len = major ? [0.75, 1.25, 1.75, 2.25, 2.75] : [0.75, 1.25];
+      for (const k of len) {
+        const [x, y] = at(a, r - k);
+        half(x, y);
+        half(x + px, y + py);
+      }
+      continue;
+    }
     half(...at(fr(v), r - 0.75));
     if (major) for (const k of [1.25, 1.75]) half(...at(fr(v), r - k));
   }
@@ -516,12 +578,15 @@ function dialNeedle(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: numb
 function needle(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, a: number, art: CockpitArt) {
   const len = r - 2.5;
   const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y;
+  const w = art.needleW ?? 1;
   c.fillStyle = art.needle;
-  for (let t = 0; t <= len; t += 0.25) {
+  for (let t = -(art.needleTail ?? 0); t <= len; t += 0.25) {
     const x = Math.round((cx + 0.5 + ca * t) * 2) / 2, y = Math.round((cy + 0.5 + sa * t) * 2) / 2;
-    c.fillRect(x - 0.5, y - 0.5, 1, 1);
+    const ww = t > len - 3 ? Math.min(w, 1) : w; // ponta mais fina
+    c.fillRect(x - ww / 2, y - ww / 2, ww, ww);
   }
   c.fillStyle = art.hub;
+  if (w > 1) c.fillRect(cx - 1.5, cy - 1.5, 4, 4);
   c.fillRect(cx - 1, cy - 1, 3, 3);
   c.fillStyle = '#000';
   c.fillRect(cx, cy, 1, 1);

@@ -101,6 +101,31 @@ def fog_lights(a):
     return a
 
 
+def emblem(a):
+    """Troca o emblema da marca na grade por um fictício: anel cromado com três traços de
+    velocidade dentro. Antes, a grade (listras horizontais) é refeita por baixo."""
+    x0, x1, y0, y1 = 80, 96, 59, 74
+    for y in range(y0, y1 + 1):
+        a[y, x0:x1] = a[y, 77]
+    cx, cy = 88.0, 67.0
+    yy, xx = np.mgrid[0:a.shape[0], 0:a.shape[1]]
+    d = np.sqrt((xx + 0.5 - cx) ** 2 + (yy + 0.5 - cy) ** 2)
+    a[d <= 6.6] = INK
+    ring = (d <= 6.0) & (d > 4.6)
+    t = np.clip((yy + 0.5 - (cy - 6)) / 12, 0, 1)
+    chrome = (np.array([244, 244, 246]) * (1 - t[..., None]) + np.array([150, 152, 158]) * t[..., None]).astype(np.uint8)
+    a[ring, :3] = chrome[ring]
+    inner = d <= 4.6
+    a[inner, :3] = (14, 14, 18)
+    # traços de velocidade, alinhados à direita (o de cima maior)
+    for dy, n in ((-2, 6), (0, 4), (2, 2)):
+        y = int(cy + dy)
+        for x in range(int(cx + 3) - n, int(cx + 3)):
+            if inner[y, x]:
+                a[y, x, :3] = chrome[y, x]
+    return a
+
+
 def red_mask(a, exclude=()):
     hsv = cv2.cvtColor(np.ascontiguousarray(a[..., :3]), cv2.COLOR_RGB2HSV_FULL).astype(float)
     hue = hsv[..., 0] * 360 / 256
@@ -138,6 +163,7 @@ def main():
         m = red_mask(a, excl)
         flatten(a, m)
         if view == 'front':
+            emblem(a)
             fog_lights(a)
             m = red_mask(a, excl)  # os faróis novos cobriram parte da faixa vermelha
         outline(a)

@@ -6,11 +6,12 @@ import type { CareerSave, EventResult } from './career';
 import { drawCareerScreen, keyCareerScreen, openCareer, tapCareerScreen } from './careerScreens';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
-import { CARS, accelCurve, drawCar, drawCarSide, gearbox, layout, type CarSpec } from './cars';
+import { CARS, CLASS_COLOR, accelCurve, drawCar, drawCarSide, gearbox, layout, perfClass, perfIndex, type CarSpec } from './cars';
 import { COURSES, unlockedCourses, withTimeOfDay, type Course } from './courses';
 import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import { THEMES } from './themes';
 import { dither, inside, panel, text, type Rect } from './ui';
+import { BLUE, GREY, INK, RED, YELLOW, barcode, box, burst, halftone, headline, ink, kicker, logo, masthead, paper, photo, rule, specRows, stars, tag } from './mag';
 import { formatTime, shade } from './util';
 import { setEngine, setTires, shiftSound } from './audio';
 
@@ -81,10 +82,16 @@ export function saveScore(course: Course, e: ScoreEntry) {
   return list;
 }
 
-// ---------- tela título: placas de rodovia ----------
+// ---------- tela título: capa da revista ----------
+// chamadas da capa (o índice segue a ordem antiga: 0 opções, 1 arcade, 2 carreira, 3 recordes)
 const titleSigns = () => {
   const x = ox();
-  return [0, 1, 2, 3].map((i): Rect => ({ x: x + 6 + i * 78, y: 104, w: 74, h: 52 }));
+  return [
+    { x: x + 166, y: 204, w: 150, h: 30 }, // opções
+    { x: x + 4, y: 172, w: 158, h: 30 }, // arcade
+    { x: x + 4, y: 204, w: 158, h: 30 }, // carreira
+    { x: x + 166, y: 172, w: 150, h: 30 }, // recordes
+  ] as Rect[];
 };
 
 function sky(c: CanvasRenderingContext2D, top: string, bottom: string, y1: number) {
@@ -168,26 +175,61 @@ function sign(c: CanvasRenderingContext2D, r: Rect, lines: string[], hot: boolea
   lines.forEach((l, i) => text(c, l, r.x + r.w / 2, r.y + r.h / 2 - lines.length * 6 + i * 13 + 2, 8, '#e8e4ff', 'center', null));
 }
 
+// carro da capa: troca a cada 5 s entre os que têm arte
+const coverCars = () => CARS.filter((c) => c.imgSide && !c.arcadeOnly);
 function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
   const { w } = view;
-  drawRoadScene(c, s.t);
-  // pórtico
-  c.fillStyle = '#b8b8c0';
-  c.fillRect(0, 118, w, 4);
-  c.fillRect(0, 138, w, 4);
-  for (let x = 0; x < w; x += 16) {
-    c.fillRect(x, 118, 2, 24);
-    c.beginPath();
-    c.moveTo(x, 122);
-    c.lineTo(x + 16, 138);
-    c.lineTo(x + 16, 140);
-    c.lineTo(x, 124);
-    c.fill();
-  }
-  const labels = [['OPÇÕES'], ['ARCADE'], ['CARREIRA'], ['RECORDES']];
-  titleSigns().forEach((r, i) => sign(c, r, labels[i], s.sel === i && Math.floor(s.t * 3) % 2 === 0));
-  text(c, 'DUEL RACER', w / 2, 44, 24, '#ffd400', 'center', '#7a1010');
-  text(c, 'O DUELO NA ESTRADA', w / 2, 76, 8, '#fff', 'center', '#203060');
+  const x = ox();
+  paper(c);
+  // topo da capa: faixa vermelha com o logotipo
+  c.fillStyle = RED;
+  c.fillRect(0, 0, w, 50);
+  halftone(c, { x: 0, y: 0, w, h: 50 }, 'rgba(120,0,0,0.35)');
+  ink(c, 'Nº 01  •  ANO I  •  OUTUBRO DE 1994', x + 6, 4, 5, '#ffe0a0');
+  ink(c, 'Cr$ 2.500,00', x + SAFE_W - 6, 4, 5, '#ffe0a0', 'right');
+  logo(c, 'DUEL RACER', w / 2, 14, 24, YELLOW, INK, 'center');
+  c.fillStyle = INK;
+  c.fillRect(0, 42, w, 9);
+  ink(c, 'A REVISTA DO DUELO NA ESTRADA', w / 2, 44, 5, '#fff', 'center');
+  // foto da capa: o carro do mês no estúdio
+  const list = coverCars();
+  const car = list[Math.floor((s.t || 0) / 5) % list.length] ?? list[0] ?? CARS[0];
+  const ph: Rect = { x: x + 4, y: 56, w: SAFE_W - 8, h: 108 };
+  photo(c, ph, () => {
+    // luz de estúdio atrás do carro
+    const g = c.createRadialGradient(w / 2, ph.y + 50, 10, w / 2, ph.y + 50, 150);
+    g.addColorStop(0, 'rgba(255,255,255,0.35)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = g;
+    c.fillRect(ph.x, ph.y, ph.w, ph.h);
+    const slide = Math.min(1, (s.t % 5) / 0.5); // entra deslizando
+    drawCarSide(c, x + 36 + (1 - slide) * 260, ph.y + 98, 248, car, paintHex(car.id));
+  });
+  // chamada do carro na foto
+  kicker(c, 'TESTE EXCLUSIVO', ph.x + 6, ph.y + 6, RED, '#fff');
+  logo(c, car.name.toUpperCase(), ph.x + 6, ph.y + 18, 8, '#fff', INK);
+  ink(c, `${car.power} • ${Math.round(car.maxSpeed * KMH)} km/h`, ph.x + 6, ph.y + 30, 5, '#fff');
+  burst(c, ph.x + ph.w - 30, ph.y + 26, 25, ['20', 'MAPAS', 'NOVOS!'], YELLOW, RED, s.t);
+  barcode(c, ph.x + ph.w - 40, ph.y + ph.h - 22);
+  // chamadas = menu
+  const calls: [string, string][] = [
+    ['OPÇÕES', 'Câmbio, som e controles'],
+    ['ARCADE', '20 roteiros para acelerar'],
+    ['CARREIRA', 'Do bairro ao chefão final'],
+    ['RECORDES', 'Os mais rápidos do país'],
+  ];
+  titleSigns().forEach((r, i) => {
+    const hot = s.sel === i;
+    if (hot) {
+      c.fillStyle = 'rgba(208,31,38,0.12)';
+      c.fillRect(r.x, r.y, r.w, r.h);
+      c.fillStyle = RED;
+      c.fillRect(r.x, r.y, 3, r.h);
+    }
+    kicker(c, calls[i][0], r.x + 7, r.y + 4, hot ? RED : INK, hot ? YELLOW : '#fff');
+    ink(c, calls[i][1], r.x + 7, r.y + 17, 5, hot ? RED : INK);
+    if (hot && Math.floor(s.t * 3) % 2 === 0) ink(c, '▶', r.x + r.w - 10, r.y + 4, 8, RED);
+  });
 }
 
 function tapTitle(s: AppState, a: Actions, x: number, y: number) {
@@ -241,7 +283,7 @@ function activateOption(s: AppState, a: Actions, i: number) {
 }
 
 // ---------- escolha do carro ----------
-const carFilterRects = () => filterRects(ox() + 84, 5, SAFE_W - 168, 14);
+const carFilterRects = () => filterRects(ox() + 68, 21, SAFE_W - 144, 11);
 // troca o filtro e, se o carro atual não for da classe, vai para o primeiro que for
 function setCarFilter(s: AppState, f: ClassFilter) {
   s.carFilter = f;
@@ -251,10 +293,10 @@ function setCarFilter(s: AppState, f: ClassFilter) {
 const carButtons = () => {
   const x = ox();
   return {
-    prev: { x: x + 2, y: 50, w: 26, h: 40 },
-    next: { x: x + SAFE_W - 28, y: 50, w: 26, h: 40 },
-    ok: { x: x + SAFE_W - 78, y: 4, w: 74, h: 18 },
-    back: { x: x + 4, y: 4, w: 74, h: 18 },
+    prev: { x: x + 4, y: 92, w: 16, h: 34 },
+    next: { x: x + 192, y: 92, w: 16, h: 34 },
+    ok: { x: x + SAFE_W - 70, y: 20, w: 66, h: 13 },
+    back: { x: x + 4, y: 20, w: 58, h: 13 },
   };
 };
 
@@ -292,81 +334,123 @@ export function smallButton(c: CanvasRenderingContext2D, r: Rect, label: string,
 
 // quadradinhos de cor, à direita do nome do carro
 // 15 cores em duas fileiras, à direita do nome
-const swatches = (): Rect[] => PAINTS.map((_, i) => ({ x: ox() + 182 + (i % 8) * 16, y: 118 + Math.floor(i / 8) * 9, w: 13, h: 7 }));
+const swatches = (): Rect[] => PAINTS.map((_, i) => ({ x: ox() + 30 + i * 12, y: 159, w: 10, h: 7 }));
+
+// ---- página de teste (ficha técnica, gráfico e o veredito), usada também na carreira ----
+export function carRows(car: CarSpec): [string, string][] {
+  return [
+    ['Preço', car.price], ['Motor', car.engine], ['Potência', car.power], ['Layout', layout(car).replace(/ /g, '')],
+    ['Peso', `${car.mass.toLocaleString('pt-BR')} kg`], ['Câmbio', gearbox(car)],
+    ['0-100', `${car.zeroTo100.toFixed(1).replace('.', ',')} s`], ['Máxima', `${Math.round(car.maxSpeed * KMH)} km/h`],
+  ];
+}
+// gráfico de aceleração como nas revistas: papel quadriculado, curva vermelha, escala anotada
+export function accelChart(c: CanvasRenderingContext2D, r: Rect, car: CarSpec, rival?: CarSpec) {
+  box(c, r, 'ACELERAÇÃO (km/h x s)');
+  const g: Rect = { x: r.x + 14, y: r.y + 14, w: r.w - 18, h: r.h - 24 };
+  c.fillStyle = 'rgba(30,79,184,0.12)';
+  for (let i = 0; i <= 4; i++) c.fillRect(g.x, Math.round(g.y + (g.h * i) / 4), g.w, 1);
+  for (let i = 0; i <= 7; i++) c.fillRect(Math.round(g.x + (g.w * i) / 7), g.y, 1, g.h);
+  ink(c, '300', r.x + 2, g.y - 2, 5, GREY);
+  ink(c, '0', r.x + 8, g.y + g.h - 4, 5, GREY);
+  ink(c, '14s', g.x + g.w, g.y + g.h + 2, 5, GREY, 'right');
+  const line = (cc: CarSpec, color: string) => {
+    const { pts } = accelCurve(cc);
+    c.strokeStyle = color;
+    c.lineWidth = 1.5;
+    c.beginPath();
+    pts.forEach((v, i) => c.lineTo(g.x + (i / (pts.length - 1)) * g.w, g.y + g.h - Math.min(1, v / 300) * g.h));
+    c.stroke();
+  };
+  if (rival) line(rival, BLUE);
+  line(car, RED);
+}
+// o que achamos: pontos fortes e fracos tirados da ficha
+export function verdict(car: CarSpec): { pros: string[]; cons: string[] } {
+  const v = Math.round(car.maxSpeed * KMH), z = car.zeroTo100, kg = car.mass;
+  const pros: string[] = [], cons: string[] = [];
+  if (z <= 4.5) pros.push('Arrancada brutal');
+  else if (z <= 6.5) pros.push('Arrancada forte');
+  if (v >= 300) pros.push('Passa dos 300 km/h');
+  else if (v >= 250) pros.push('Fôlego de sobra');
+  if (car.lateralG >= 1) pros.push('Gruda nas curvas');
+  if (kg <= 1150) pros.push('Leve e esperto');
+  if (car.brakeG >= 1.05) pros.push('Freios fortes');
+  if (perfClass(car) === 'D' || perfClass(car) === 'C') pros.push('Barato de manter');
+  if (z >= 9) cons.push('Arrancada lenta');
+  if (v < 220) cons.push('Máxima modesta');
+  if (kg >= 1500) cons.push('Pesado');
+  if (car.lateralG < 0.9) cons.push('Sai de frente');
+  if (perfClass(car) === 'S') cons.push('Preço de mansão');
+  if (car.curve === 'turbo') cons.push('Turbo demora a encher');
+  return { pros: pros.slice(0, 3), cons: cons.slice(0, 2).length ? cons.slice(0, 2) : ['Nada a reclamar'] };
+}
+export function verdictBox(c: CanvasRenderingContext2D, r: Rect, car: CarSpec) {
+  box(c, r, 'O QUE ACHAMOS', RED);
+  const { pros, cons } = verdict(car);
+  pros.forEach((t, i) => ink(c, `+ ${t}`, r.x + 4, r.y + 14 + i * 9, 5, '#1a6a2a'));
+  cons.forEach((t, i) => ink(c, `- ${t}`, r.x + 4, r.y + 14 + (pros.length + i) * 9, 5, RED));
+}
+// nota em estrelas pelo índice de desempenho
+export const carStars = (car: CarSpec) => Math.max(1, Math.min(5, Math.round(perfIndex(car) / 160)));
 
 function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
   const car = CARS[s.carIdx];
   const x = ox();
-  purpleBg(c, 'Duel Racer');
-  drawCarSide(c, x + 30, 108, 260, car, paintHex(car.id));
+  paper(c);
+  masthead(c, 'TESTE COMPLETO');
   const b = carButtons();
-  smallButton(c, b.prev, '◀');
-  smallButton(c, b.next, '▶');
-  smallButton(c, b.ok, 'OK ▶', Math.floor(s.t * 2) % 2 === 0);
-  smallButton(c, b.back, '◀ VOLTAR');
-  // filtro por classe de desempenho e selo da classe do carro
+  tag(c, b.back, '◀ VOLTAR');
+  tag(c, b.ok, 'ESCOLHER ▶', Math.floor(s.t * 2) % 2 === 0);
   drawFilter(c, carFilterRects(), s.carFilter, (k) => filtered(CARS, k).length);
-  classBadge(c, x + 34, 28, car, true);
-
-  const p: Rect = { x: x + 4, y: 116, w: SAFE_W - 8, h: 120 };
-  panel(c, p, '#8c84c8', '#2a2060');
-  panel(c, { x: p.x + 8, y: p.y + 6, w: 130, h: 16 }, '#a8a0e0', '#2a2060');
-  text(c, car.name, p.x + 73, p.y + 10, 8, '#1a1040', 'center', null);
+  // manchete: o nome do carro, a classe e a nota
+  const k = perfClass(car);
+  const kw = kicker(c, `CLASSE ${k}`, x + 4, 38, CLASS_COLOR[k], '#fff');
+  kicker(c, `PI ${perfIndex(car)}`, x + 6 + kw, 38);
+  headline(c, car.name.toUpperCase(), x + 4, 50, 16, INK);
+  ink(c, 'NOTA', x + 214, 40, 5, GREY);
+  stars(c, x + 236, 39, carStars(car), 6);
   const ids = filtered(CARS, s.carFilter);
-  text(c, `${ids.indexOf(s.carIdx) + 1}/${ids.length}`, p.x + 150, p.y + 10, 8, '#2a2060', 'left', null);
-  // cores da carroceria (sem escolha, fica marcada a mais parecida com a original)
+  ink(c, `${ids.indexOf(s.carIdx) + 1} de ${ids.length}`, x + SAFE_W - 4, 54, 5, GREY, 'right');
+  // foto de estúdio
+  const ph: Rect = { x: x + 4, y: 70, w: 204, h: 82 };
+  photo(c, ph, () => drawCarSide(c, x + 14, ph.y + 74, 184, car, paintHex(car.id)));
+  tag(c, b.prev, '◀');
+  tag(c, b.next, '▶');
+  // cores
+  ink(c, 'CORES', x + 4, 160, 5, GREY);
   const cur = paintIdx(car.id) ?? nearestPaint(car.color);
-  // a viatura não tem máscara de pintura: fica preta e branca
   if (car.sideMask) swatches().forEach((r, i) => {
-    c.fillStyle = i === cur ? '#ffffff' : '#1a1040';
+    c.fillStyle = i === cur ? RED : INK;
     c.fillRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
     c.fillStyle = PAINTS[i].hex;
     c.fillRect(r.x, r.y, r.w, r.h);
     if (i === cur) {
-      c.fillStyle = '#1a1040';
-      c.fillRect(r.x - 1, r.y + r.h + 2, r.w + 2, 1);
+      c.fillStyle = RED;
+      c.fillRect(r.x - 1, r.y + r.h + 2, r.w + 2, 2);
     }
   });
-  const { pts } = accelCurve(car);
-  const rows: [string, string][] = [
-    ['Preço', car.price], ['Motor', car.engine], ['Layout', layout(car)], ['Potência', car.power],
-    ['Peso', `${car.mass.toLocaleString('pt-BR')} kg`], ['Câmbio', gearbox(car)],
-    ['0-100', `${car.zeroTo100.toFixed(1).replace('.', ',')} s`], ['Máxima', `${Math.round(car.maxSpeed * KMH)} km/h`],
-  ];
-  rows.forEach(([k, v], i) => {
-    const yy = p.y + 28 + i * 11;
-    text(c, k + ':', p.x + 84, yy, 8, '#2a2060', 'right', null);
-    text(c, v, p.x + 90, yy, 8, '#100830', 'left', null);
-  });
-  // gráfico de aceleração
-  const g: Rect = { x: p.x + p.w - 86, y: p.y + 28, w: 78, h: 84 };
-  panel(c, g, '#6e66b0', '#2a2060');
-  c.strokeStyle = '#8a82c8';
-  c.lineWidth = 1;
-  for (let i = 1; i < 4; i++) {
-    c.beginPath();
-    c.moveTo(g.x, g.y + (g.h * i) / 4 + 0.5);
-    c.lineTo(g.x + g.w, g.y + (g.h * i) / 4 + 0.5);
-    c.stroke();
-  }
-  c.strokeStyle = '#fff';
-  c.beginPath();
-  pts.forEach((v, i) => c.lineTo(g.x + (i / (pts.length - 1)) * g.w, g.y + g.h - (v / 340) * g.h));
-  c.stroke();
-  text(c, 'km/h x s', g.x + g.w / 2, g.y + g.h - 9, 5, '#e0dcff', 'center', null);
+  else ink(c, 'Pintura de fábrica', x + 30, 160, 5, INK);
+  // ficha técnica, gráfico e veredito
+  const fr: Rect = { x: x + 214, y: 67, w: 102, h: 88 };
+  box(c, fr, 'FICHA TÉCNICA');
+  specRows(c, fr, carRows(car), 9.4);
+  accelChart(c, { x: x + 4, y: 174, w: 150, h: 60 }, car);
+  verdictBox(c, { x: x + 160, y: 174, w: 156, h: 60 }, car);
 }
 
 // ---------- escolha do adversário ----------
 // adversários: carros do filtro de classe + relógio, em páginas de 3 linhas de 4
-const OPP_COLS = 4;
+const OPP_COLS = 6;
 const OPP_PAGE = 12;
 const oppList = (s: AppState) => [...filtered(CARS, s.oppFilter), CARS.length]; // CARS.length = relógio
 const oppCells = () => {
-  const x = ox() + 24, y = 50;
-  return Array.from({ length: OPP_PAGE }, (_, i): Rect => ({ x: x + (i % OPP_COLS) * 68, y: y + Math.floor(i / OPP_COLS) * 60, w: 66, h: 58 }));
+  const x = ox() + 4, y = 150;
+  return Array.from({ length: OPP_PAGE }, (_, i): Rect => ({ x: x + (i % OPP_COLS) * 52, y: y + Math.floor(i / OPP_COLS) * 40, w: 50, h: 38 }));
 };
-const oppFilterRects = () => filterRects(ox() + 24, 33, 200, 12);
-const oppPageButtons = () => ({ prev: { x: ox() + 230, y: 31, w: 20, h: 16 } as Rect, next: { x: ox() + 274, y: 31, w: 20, h: 16 } as Rect });
+const oppFilterRects = () => filterRects(ox() + 68, 21, SAFE_W - 144, 11);
+const oppPageButtons = () => ({ prev: { x: ox() + 268, y: 136, w: 18, h: 11 } as Rect, next: { x: ox() + 298, y: 136, w: 18, h: 11 } as Rect });
+const oppButtons = () => ({ back: { x: ox() + 4, y: 20, w: 58, h: 13 } as Rect, ok: { x: ox() + SAFE_W - 70, y: 20, w: 66, h: 13 } as Rect });
 const oppPage = (s: AppState) => Math.floor(s.sel / OPP_PAGE);
 
 function stopwatch(c: CanvasRenderingContext2D, x: number, y: number, r: number) {
@@ -388,55 +472,88 @@ function stopwatch(c: CanvasRenderingContext2D, x: number, y: number, r: number)
   for (const dx of [-0.6, 0, 0.6]) c.fillRect(x + dx * r - 3, y + r * 0.6, 6, 5);
 }
 
+const STYLE_LABEL: Record<string, [string, string]> = { agressivo: ['AGRESSIVO', RED], cauteloso: ['CAUTELOSO', '#1a6a2a'], imprevisivel: ['IMPREVISÍVEL', '#b07000'] };
+
 function drawOpponent(c: CanvasRenderingContext2D, s: AppState) {
-  const { w, h } = view;
-  c.fillStyle = '#000';
-  c.fillRect(0, 0, w, h);
-  c.strokeStyle = '#d8b018';
-  c.lineWidth = 10;
-  c.beginPath();
-  c.moveTo(w * 0.6, 0);
-  c.bezierCurveTo(w * 0.1, 30, -20, 120, w * 0.45, h + 20);
-  c.stroke();
-  c.lineWidth = 4;
-  c.beginPath();
-  c.moveTo(w, 20);
-  c.bezierCurveTo(w * 0.3, 40, 0, 140, w * 0.62, h + 10);
-  c.stroke();
   const x = ox();
-  panel(c, { x: x + 20, y: 22, w: 280, h: 212 }, '#4e4290', '#201850');
-  text(c, 'ESCOLHA O ADVERSÁRIO', x + 160, 23, 8, '#d8d0ff', 'center', null);
+  paper(c);
+  masthead(c, 'COMPARATIVO');
   const list = oppList(s);
   s.sel = Math.min(s.sel, list.length - 1);
+  const b = oppButtons();
+  tag(c, b.back, '◀ VOLTAR');
+  tag(c, b.ok, 'DUELAR ▶', Math.floor(s.t * 2) % 2 === 0);
   drawFilter(c, oppFilterRects(), s.oppFilter, (k) => filtered(CARS, k).length);
+  const me = CARS[s.carIdx];
+  const oi = list[s.sel];
+  const rival = oi < CARS.length ? CARS[oi] : null;
+  // as duas fotos lado a lado, com o X no meio
+  const left: Rect = { x: x + 4, y: 50, w: 146, h: 52 }, right: Rect = { x: x + 170, y: 50, w: 146, h: 52 };
+  kicker(c, 'VOCÊ', left.x, 38, RED, '#fff');
+  ink(c, me.name.toUpperCase(), left.x + 30, 40, 5, INK);
+  photo(c, left, () => drawCarSide(c, left.x + 8, left.y + 47, 130, me, paintHex(me.id)));
+  kicker(c, rival ? 'ADVERSÁRIO' : 'DESAFIO', right.x, 38, BLUE, '#fff');
+  ink(c, rival ? rival.name.toUpperCase() : 'CONTRA O RELÓGIO', right.x + (rival ? 58 : 46), 40, 5, INK);
+  photo(c, right, () => {
+    if (rival) drawCarSide(c, right.x + 8, right.y + 47, 130, rival);
+    else stopwatch(c, right.x + right.w / 2 + 10, right.y + 30, 15);
+  }, rival ? ['#5e6670', '#c8cdd2'] : ['#3a4a6a', '#9aaac8']);
+  burst(c, x + 160, 76, 14, ['X'], YELLOW, RED, s.t);
+  // tira-teima: barras de cada item, vermelho você, azul ele
+  if (rival) {
+    const rows: [string, number, number, (v: number) => string, boolean][] = [
+      ['POTÊNCIA', parseInt(me.power), parseInt(rival.power), (v) => `${v} cv`, true],
+      ['0-100', me.zeroTo100, rival.zeroTo100, (v) => `${v.toFixed(1).replace('.', ',')}s`, false],
+      ['MÁXIMA', Math.round(me.maxSpeed * KMH), Math.round(rival.maxSpeed * KMH), (v) => `${v}`, true],
+      ['PESO', me.mass, rival.mass, (v) => `${v}kg`, false],
+    ];
+    rows.forEach(([label, a, bb, fmt, higher], i) => {
+      const y = 106 + i * 8;
+      const max = Math.max(a, bb) * 1.05;
+      const win = higher ? a > bb : a < bb, lose = higher ? a < bb : a > bb;
+      ink(c, label, x + 160, y, 5, GREY, 'center');
+      const wa = Math.round((a / max) * 70), wb = Math.round((bb / max) * 70);
+      c.fillStyle = win ? RED : 'rgba(208,31,38,0.45)';
+      c.fillRect(x + 130 - wa, y, wa, 5);
+      c.fillStyle = lose ? BLUE : 'rgba(30,79,184,0.45)';
+      c.fillRect(x + 190, y, wb, 5);
+      ink(c, fmt(a), x + 128 - wa - 2, y, 5, win ? RED : INK, 'right');
+      ink(c, fmt(bb), x + 192 + wb + 2, y, 5, lose ? BLUE : INK);
+    });
+    const [lab, col] = STYLE_LABEL[RIVAL_STYLE[rival.id] ?? 'cauteloso'];
+    ink(c, 'PILOTO:', x + 4, 139, 5, GREY);
+    ink(c, lab, x + 42, 139, 5, col);
+  } else {
+    ink(c, 'Sem rival: corra contra o seu', x + 160, 112, 5, INK, 'center');
+    ink(c, 'próprio tempo e o fantasma.', x + 160, 122, 5, INK, 'center');
+  }
+  // escolha do adversário: miniaturas de traseira
   const pages = Math.ceil(list.length / OPP_PAGE), pg = oppPage(s);
+  rule(c, x + 4, 147, SAFE_W - 8);
   if (pages > 1) {
     const pb = oppPageButtons();
-    smallButton(c, pb.prev, '◀');
-    smallButton(c, pb.next, '▶');
-    text(c, `${pg + 1}/${pages}`, x + 262, 36, 5, '#d8d0ff', 'center', null);
+    tag(c, pb.prev, '◀');
+    tag(c, pb.next, '▶');
+    ink(c, `${pg + 1}/${pages}`, x + 292, 139, 5, GREY, 'center');
   }
   oppCells().forEach((r, slot) => {
     const li = pg * OPP_PAGE + slot;
     if (li >= list.length) return;
     const i = list[li];
     const hot = s.sel === li;
-    c.fillStyle = hot ? '#6a5ec0' : '#4e4290';
+    c.fillStyle = hot ? '#fff6dc' : '#f6efdd';
     c.fillRect(r.x, r.y, r.w, r.h);
-    c.strokeStyle = hot ? '#fff' : '#2a2060';
+    c.strokeStyle = hot ? RED : 'rgba(26,22,20,0.4)';
     c.lineWidth = hot ? 2 : 1;
-    c.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2);
+    c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
     if (i < CARS.length) {
       const car = CARS[i];
-      drawCar(c, r.x + r.w / 2, r.y + 44, 52, { color: car.color, rear: car.rear });
-      classBadge(c, r.x + 3, r.y + 3, car, false, 10);
-      text(c, car.name, r.x + r.w / 2, r.y + 48, 5, '#fff', 'center', '#1a1040');
-      const st = RIVAL_STYLE[car.id] ?? 'cauteloso';
-      const [label, col] = st === 'agressivo' ? ['AGRESSIVO', '#ff7a6a'] : st === 'cauteloso' ? ['CAUTELOSO', '#8aff8a'] : ['IMPREVISÍVEL', '#ffe060'];
-      text(c, label, r.x + r.w / 2, r.y + 55, 5, col, 'center', '#1a1040');
+      drawCar(c, r.x + r.w / 2, r.y + 29, 36, { color: car.color, rear: car.rear });
+      classBadge(c, r.x + 2, r.y + 2, car, false, 8);
+      ink(c, car.name.length > 10 ? car.name.slice(0, 9) + '.' : car.name, r.x + r.w / 2, r.y + 31, 5, hot ? RED : INK, 'center');
     } else {
-      stopwatch(c, r.x + r.w / 2 + 8, r.y + 26, 13);
-      text(c, 'RELÓGIO', r.x + r.w / 2, r.y + 50, 5, '#fff', 'center', '#1a1040');
+      stopwatch(c, r.x + r.w / 2 + 5, r.y + 17, 8);
+      ink(c, 'RELÓGIO', r.x + r.w / 2, r.y + 31, 5, hot ? RED : INK, 'center');
     }
   });
 }
@@ -444,11 +561,12 @@ function drawOpponent(c: CanvasRenderingContext2D, s: AppState) {
 // ---------- escolha do percurso ----------
 // lista com 4 percursos visíveis (rola com as setas); botão de dia/noite no alto
 const COURSE_ROWS = 4;
-const courseRects = () => Array.from({ length: COURSE_ROWS }, (_, i): Rect => ({ x: ox() + 8, y: 26 + i * 52, w: SAFE_W - 40, h: 46 }));
+const courseRects = () => Array.from({ length: COURSE_ROWS }, (_, i): Rect => ({ x: ox() + 4, y: 38 + i * 48, w: SAFE_W - 30, h: 45 }));
 const courseButtons = () => ({
-  time: { x: ox() + SAFE_W - 84, y: 3, w: 76, h: 18 } as Rect,
-  up: { x: ox() + SAFE_W - 28, y: 26, w: 20, h: 98 } as Rect,
-  down: { x: ox() + SAFE_W - 28, y: 130, w: 20, h: 98 } as Rect,
+  time: { x: ox() + SAFE_W - 70, y: 20, w: 66, h: 13 } as Rect,
+  back: { x: ox() + 4, y: 20, w: 58, h: 13 } as Rect,
+  up: { x: ox() + SAFE_W - 22, y: 38, w: 18, h: 92 } as Rect,
+  down: { x: ox() + SAFE_W - 22, y: 135, w: 18, h: 92 } as Rect,
 });
 function scrollCourses(s: AppState) {
   if (s.sel < s.courseTop) s.courseTop = s.sel;
@@ -520,70 +638,97 @@ function drawCourseStrip(c: CanvasRenderingContext2D, r: Rect, course: Course, t
 
 // cadeado de pixel (aro e corpo com o buraco da chave)
 function padlock(c: CanvasRenderingContext2D, cx: number, cy: number) {
-  c.strokeStyle = '#c8c0e8';
+  c.strokeStyle = INK;
   c.lineWidth = 2;
   c.beginPath();
   c.arc(cx, cy - 3, 5, Math.PI, 0);
   c.stroke();
-  c.fillStyle = '#e0b030';
+  c.fillStyle = YELLOW;
   c.fillRect(cx - 7, cy - 3, 14, 11);
-  c.fillStyle = '#5a3a10';
+  c.strokeRect(cx - 7, cy - 3, 14, 11);
+  c.fillStyle = INK;
   c.fillRect(cx - 1, cy, 2, 5);
 }
 
+const LEVEL_STARS: Record<string, number> = { Fácil: 1, Médio: 2, Difícil: 3, Expert: 4, Lenda: 5 };
+// um trecho do roteiro: quadradinho com a cor do bioma, lua (noite), nuvem (chuva/neve/neblina) e sol (pôr do sol)
+const PLACE: Record<string, string> = {
+  forest: 'Floresta', farm: 'Fazenda', desert: 'Deserto', city: 'Cidade', mountain: 'Serra', snow: 'Neve', coast: 'Litoral',
+  canyon: 'Cânion', jungle: 'Selva', autumn: 'Outono', beach: 'Praia', savanna: 'Savana', industrial: 'Indústria', alpine: 'Alpes', alpinesnow: 'Alpes',
+};
+// um trecho do roteiro: etiqueta com a cor do bioma e o nome; lua (noite), gotas/flocos/neblina e o sol se pondo
+function stageChip(c: CanvasRenderingContext2D, x: number, y: number, st: Course['stages'][number]) {
+  const th = THEMES[st.theme];
+  const W = 38, H = 14;
+  c.fillStyle = INK;
+  c.fillRect(x - 1, y - 1, W + 2, H + 2);
+  c.fillStyle = st.night ? shade(th.mapColor, -0.45) : th.mapColor;
+  c.fillRect(x, y, W, H);
+  if (st.dusk) {
+    c.fillStyle = '#ff8a3a';
+    c.fillRect(x, y + H - 4, W, 2);
+  }
+  text(c, (PLACE[st.theme] ?? st.theme).slice(0, 7), x + 2, y + 2, 5, '#fff', 'left', INK);
+  // ícones na linha de baixo
+  let ix = x + 2;
+  const iy = y + 9;
+  if (st.night) {
+    c.fillStyle = '#ffe680';
+    c.fillRect(ix, iy, 3, 3);
+    ix += 5;
+  }
+  if (st.weather) {
+    c.fillStyle = st.weather === 'snow' ? '#fff' : st.weather === 'fog' ? '#d8dce2' : '#8ab4ff';
+    if (st.weather === 'fog') c.fillRect(ix, iy + 1, 8, 1);
+    else for (let k = 0; k < 3; k++) c.fillRect(ix + k * 2, iy + (k % 2), 1, 2);
+    ix += 9;
+  }
+  if (st.dusk) {
+    c.fillStyle = '#ffd040';
+    c.fillRect(ix, iy, 4, 2);
+  }
+}
+
 function drawCourse(c: CanvasRenderingContext2D, s: AppState) {
-  const { w, h } = view;
+  const x = ox();
   const unlocked = unlockedCourses();
-  c.fillStyle = '#2a2050';
-  c.fillRect(0, 0, w, h);
-  text(c, 'ESCOLHA O PERCURSO', ox() + 8, 8, 8, '#a8a0d8', 'left', null);
+  paper(c);
+  masthead(c, 'GUIA DE ROTEIROS');
   scrollCourses(s);
   const b = courseButtons();
-  smallButton(c, b.time, s.arcadeNight ? 'NOITE' : 'DIA', false);
-  // sol ou lua no botão
-  c.fillStyle = s.arcadeNight ? '#ffe680' : '#ffd400';
-  c.beginPath();
-  c.arc(b.time.x + 9, b.time.y + 9, 4, 0, Math.PI * 2);
-  c.fill();
-  if (s.arcadeNight) {
-    c.fillStyle = '#2a2060';
-    c.beginPath();
-    c.arc(b.time.x + 11, b.time.y + 7.5, 3.5, 0, Math.PI * 2);
-    c.fill();
-  }
+  tag(c, b.back, '◀ VOLTAR');
+  tag(c, b.time, s.arcadeNight ? 'NOITE' : 'DIA', false);
+  ink(c, `${unlocked} de ${COURSES.length} roteiros liberados`, x + 160, 24, 5, GREY, 'center');
   courseRects().forEach((r, row) => {
     const i = s.courseTop + row;
     if (i >= COURSES.length) return;
+    const co = COURSES[i];
     const hot = s.sel === i;
     const locked = i >= unlocked;
-    drawCourseStrip(c, r, withTimeOfDay(COURSES[i], s.arcadeNight), s.t);
-    if (locked) { // bloqueado: apagado, com cadeado
-      c.fillStyle = 'rgba(16,10,40,0.72)';
-      c.beginPath();
-      c.roundRect(r.x, r.y, r.w, r.h, 8);
-      c.fill();
-    }
-    c.strokeStyle = hot ? '#ffd400' : '#120c30';
-    c.lineWidth = 2;
-    c.beginPath();
-    c.roundRect(r.x, r.y, r.w, r.h, 8);
-    c.stroke();
+    c.fillStyle = hot ? '#fff8e4' : '#f6efdd';
+    c.fillRect(r.x, r.y, r.w, r.h);
+    c.strokeStyle = hot ? RED : 'rgba(26,22,20,0.35)';
+    c.lineWidth = hot ? 2 : 1;
+    c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
     const num = String(i + 1).padStart(2, '0');
+    text(c, num, r.x + 6, r.y + 8, 16, locked ? 'rgba(26,22,20,0.25)' : RED, 'left', null);
+    ink(c, co.name.toUpperCase(), r.x + 44, r.y + 6, 8, locked ? GREY : INK);
+    ink(c, co.level.toUpperCase(), r.x + 44, r.y + 18, 5, GREY);
+    stars(c, r.x + 44 + co.level.length * 5 + 6, r.y + 17, LEVEL_STARS[co.level] ?? 1, 5);
+    const day = withTimeOfDay(co, s.arcadeNight);
+    day.stages.forEach((st, k) => stageChip(c, r.x + 44 + k * 40, r.y + 27, st));
     if (locked) {
-      padlock(c, r.x + 22, r.y + r.h / 2);
-      text(c, `${num}  ${COURSES[i].name}`, r.x + r.w / 2, r.y + r.h / 2 - 9, 8, '#8a82b8', 'center', '#000');
-      text(c, 'Conclua o mapa anterior', r.x + r.w / 2, r.y + r.h / 2 + 4, 5, '#8a82b8', 'center', null);
-    } else text(c, `${num}  ${COURSES[i].name} - ${COURSES[i].level}`, r.x + r.w / 2, r.y + r.h / 2 - 4, 8, '#fff', 'center', '#000');
+      c.fillStyle = 'rgba(239,230,210,0.6)';
+      c.fillRect(r.x + 40, r.y + 25, r.w - 42, 18);
+      padlock(c, r.x + r.w - 14, r.y + 12);
+      ink(c, 'BLOQUEADO', r.x + r.w - 26, r.y + 18, 5, RED, 'right');
+    } else if (hot) ink(c, 'CORRER ▶', r.x + r.w - 6, r.y + 6, 5, RED, 'right');
   });
-  smallButton(c, b.up, '▲', false);
-  smallButton(c, b.down, '▼', false);
-  text(c, `${s.sel + 1}/${COURSES.length}`, b.up.x + b.up.w / 2, 124, 5, '#a8a0d8', 'center', null);
-  text(c, `${unlocked}/${COURSES.length} liberados`, ox() + 158, 10, 5, '#8a82b8', 'left', null);
+  tag(c, b.up, '▲');
+  tag(c, b.down, '▼');
   if (s.lockedT > 0) {
     s.lockedT -= 1 / 60;
-    panel(c, { x: ox() + 40, y: 100, w: SAFE_W - 80, h: 30 }, '#3a1030', '#100830');
-    text(c, 'MAPA BLOQUEADO', w / 2, 106, 8, '#ff7070', 'center', null);
-    text(c, 'Conclua o mapa anterior para liberar', w / 2, 119, 5, '#e8d8f0', 'center', null);
+    burst(c, x + 160, 130, 34, ['BLOQUEADO!', 'conclua o', 'anterior'], YELLOW, RED, s.t);
   }
 }
 
@@ -990,12 +1135,19 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
         }
       } else if (inside(x, y, pb.prev)) s.sel = Math.max(0, (oppPage(s) - 1) * OPP_PAGE);
       else if (inside(x, y, pb.next)) s.sel = Math.min(list.length - 1, (oppPage(s) + 1) * OPP_PAGE);
-      else
+      else if (inside(x, y, oppButtons().back)) a.go('car');
+      else if (inside(x, y, oppButtons().ok)) {
+        s.oppIdx = list[s.sel];
+        a.go('course');
+      } else
+        // primeiro toque escolhe (o comparativo mostra), o segundo confirma
         oppCells().forEach((r, slot) => {
           const li = oppPage(s) * OPP_PAGE + slot;
           if (inside(x, y, r) && li < list.length) {
-            s.oppIdx = list[li];
-            a.go('course');
+            if (s.sel === li) {
+              s.oppIdx = list[li];
+              a.go('course');
+            } else s.sel = li;
           }
         });
       return;
@@ -1003,6 +1155,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
     case 'course': {
       const b = courseButtons();
       if (inside(x, y, b.time)) s.arcadeNight = !s.arcadeNight;
+      else if (inside(x, y, b.back)) a.go('opponent');
       else if (inside(x, y, b.up)) s.sel = Math.max(0, Math.min(s.sel, s.courseTop + COURSE_ROWS - 1) - COURSE_ROWS);
       else if (inside(x, y, b.down)) s.sel = Math.min(COURSES.length - 1, Math.max(s.sel, s.courseTop) + COURSE_ROWS);
       else

@@ -181,7 +181,7 @@ export const CARS: CarSpec[] = [
         { fill: 'shade', pts: [0.9, 0.193, 1, 0.188, 1, 0.198, 0.92, 0.2] },
       ],
     },
-    rear: { h: 0.43, roof: 0.5, lights: 'quadRound', wing: 1, glow: { dots: [[0.152, 0.335], [0.232, 0.335], [0.772, 0.335], [0.845, 0.335]] } },
+    rear: { h: 0.56, roof: 0.5, lights: 'quadRound', wing: 1, glow: { dots: [[0.145, 0.357], [0.225, 0.357], [0.775, 0.357], [0.855, 0.357]] } },
   },
   {
     id: 'vortex-zr', name: 'Vortex ZR', basedOn: 'Corvette ZR-1 (C4)', color: '#d81a12',
@@ -288,7 +288,7 @@ export const CARS: CarSpec[] = [
       glass: [0.33, 0.168, 0.47, 0.24, 0.575, 0.243, 0.615, 0.2],
       wheels: [0.2, 0.8], shoulder: 0.15,
     },
-    rear: { h: 0.475, roof: 0.5, lights: 'quadRound', wing: 1, glow: { dots: [[0.152, 0.39], [0.242, 0.39], [0.769, 0.39], [0.847, 0.39]] } },
+    rear: { h: 0.585, roof: 0.5, lights: 'quadRound', wing: 1, glow: { dots: [[0.145, 0.384], [0.225, 0.384], [0.775, 0.384], [0.855, 0.384]] } },
   },
 ];
 
@@ -308,8 +308,8 @@ export const DEALER_CARS = CARS.filter((c) => !c.arcadeOnly);
 const VARIANT_PAINT: Record<string, string> = { nero: 'Deep Black', rosso: 'Rosso Lucido', blu: 'Blu Le Mans', verde: 'Verde Ithaca', giallo: 'Giallo' };
 
 const LAMPS: Record<string, LampDef> = {
-  diablo: { pop: [0.15, 0.42, 0.31, 0.54], sigRear: [0.152, 0.328, 0.03], sigFront: [0.168, 0.655, 0.212, 0.705] },
-  patrolsv: { pop: [0.16, 0.46, 0.32, 0.58], podColor: '#1c1c1e', sigRear: [0.152, 0.381, 0.03], sigFront: [0.168, 0.67, 0.21, 0.74] },
+  diablo: { pop: [0.145, 0.473, 0.29, 0.58], sigRear: [0.145, 0.357, 0.036], sigFront: [0.125, 0.66, 0.165, 0.715] },
+  patrolsv: { pop: [0.145, 0.473, 0.29, 0.58], podColor: '#1c1c1e', sigRear: [0.145, 0.384, 0.036], sigFront: [0.125, 0.66, 0.165, 0.715] },
   f40: { pop: [0.09, 0.41, 0.24, 0.47], sigRear: [0.155, 0.43, 0.04], sigFront: [0.1, 0.615, 0.17, 0.65] },
   zr1: { pop: [0.105, 0.385, 0.29, 0.505], sigRear: [0.135, 0.39, 0.045], sigRed: true, sigFront: [0.03, 0.66, 0.07, 0.73] },
   testarossa: { pop: [0.135, 0.52, 0.255, 0.565], sigRear: [0.05, 0.44, 0.13, 0.58], sigFront: [0.04, 0.67, 0.125, 0.72] },
@@ -610,9 +610,9 @@ const TRAFFIC_GLOW: Record<string, { dots?: number[][]; siren?: number[][]; sire
   police: { dots: [[0.17, 0.6], [0.83, 0.6]], siren: [[0.23, 0.0, 0.42, 0.075], [0.52, 0.0, 0.77, 0.075]] },
   // Diablo SV: barra baixa no teto; de trás azul|vermelho, de frente vermelho|azul
   policesv: {
-    dots: [[0.197, 0.39], [0.808, 0.39]],
-    siren: [[0.315, 0.02, 0.485, 0.075], [0.515, 0.02, 0.715, 0.075]], sirenColors: ['blue', 'red'],
-    sirenFront: [[0.305, 0.02, 0.48, 0.058], [0.515, 0.02, 0.685, 0.058]], sirenColorsFront: ['red', 'blue'],
+    dots: [[0.185, 0.384], [0.815, 0.384]],
+    siren: [[0.325, 0.009, 0.49, 0.034], [0.51, 0.009, 0.675, 0.034]], sirenColors: ['blue', 'red'],
+    sirenFront: [[0.325, 0.045, 0.49, 0.071], [0.51, 0.045, 0.675, 0.071]], sirenColorsFront: ['red', 'blue'],
   },
 };
 

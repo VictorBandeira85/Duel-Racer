@@ -50,6 +50,7 @@ interface Dial { x: number; y: number; r: number; max: number; labels: number[];
   minor?: number[]; // números pequenos entre os principais (Veglia, VDO)
   labelMul?: number; // o número escrito é v × labelMul (conta-giros "× 100" da F40)
   redLabels?: boolean; // false: números da faixa vermelha continuam brancos
+  yellow?: number; // começo da faixa amarela (antes da vermelha)
 }
 
 // Mostradores auxiliares, também redesenhados: 'single' (um ponteiro), 'dual' (dois
@@ -117,19 +118,22 @@ COCKPIT_ART.patrol = {
   odo: { x: 118, y: 43, w: 32, h: 11 }, prnd: { x: 118, y: 59, w: 32, h: 8 },
 };
 
-// Diablo SV: interior do Victor; velocímetro 0-340, conta-giros 0-9 e cinco auxiliares funcionando
+// Diablo SV: interior do Victor com o quadro VDO de verdade: velocímetro 0-360 com hodômetro
+// de cristal líquido, conta-giros 0-90 (× 100 rpm) com faixa amarela e vermelha, ponteiros
+// laranja; à esquerda temperatura e pressão do óleo, no meio a água, à direita combustível e relógio
 COCKPIT_ART.diablo = {
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'),
-  pivot: [128, 103], wheelDx: 10, radar: [196, 6], speedMax: 340, needle: '#ff2a1a', hub: '#1a1a1c',
-  speed: { x: 103.5, y: 40, r: 23, max: 340, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320], tick: 20, red: 999, labelScale: 0.7 },
-  tach: { x: 178.5, y: 39.5, r: 23, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.5, red: 7.5, labelScale: 1 },
+  pivot: [128, 103], wheelDx: 10, radar: [196, 6], speedMax: 360, needle: '#ff7a1a', hub: '#1a1a1c',
+  speed: { x: 103.5, y: 40, r: 23, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], minor: [20, 60, 100, 260, 300, 340], tick: 10, red: 999, labelScale: 0.7 },
+  tach: { x: 178.5, y: 39.5, r: 23, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], labelMul: 10, tick: 0.25, yellow: 6.8, red: 7.2, labelScale: 0.7, redLabels: false },
   aux: [
-    { x: 140.5, y: 28, r: 12, kind: 'single', show: ['water'], icon: 'temp' },
-    { x: 221, y: 30.5, r: 11, kind: 'single', show: ['oiltemp'], icon: 'oil' },
+    { x: 140.5, y: 28, r: 12, kind: 'single', show: ['water'], icon: 'temp', labels: ['40', '80', '120'] },
+    { x: 221, y: 30.5, r: 11, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1/2', '1'] },
     { x: 238, y: 53, r: 12.5, kind: 'clock' },
-    { x: 68, y: 40, r: 9.5, kind: 'single', show: ['fuel'], icon: 'fuel' },
-    { x: 52, y: 60.5, r: 8, kind: 'single', show: ['volt'], icon: 'volt' },
+    { x: 68, y: 40, r: 9.5, kind: 'single', show: ['oiltemp'], icon: 'temp', labels: ['50', '100', '150'] },
+    { x: 52, y: 60.5, r: 8, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '5', '10'] },
   ],
+  extra: (c, ox, r) => odometer(c, ox, r, { x: 97.5, y: 47.5, w: 12, h: 3.5 }, 30414, 6, 0.5),
 };
 
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
@@ -250,7 +254,12 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
   const at = (a: number, rr: number): [number, number] => [cx + 0.5 + Math.cos(a) * rr, cy + 0.5 + Math.sin(a) * rr * PIX_Y];
   const fr = (v: number) => a0 + (sweep * v) / d.max;
   const half = (x: number, y: number) => c.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, 0.5, 0.5);
-  // faixa vermelha
+  // faixa amarela (aviso) e vermelha
+  if (d.yellow !== undefined) {
+    c.fillStyle = '#f0c818';
+    for (let a = fr(d.yellow); a <= fr(d.red) + 0.001; a += 0.02)
+      for (const k of [0.75, 1.25, 1.75, 2.25]) half(...at(a, r - k));
+  }
   if (d.red < d.max) {
     c.fillStyle = '#d81818';
     for (let a = fr(d.red); a <= a0 + sweep + 0.001; a += 0.02)
@@ -306,19 +315,21 @@ function needle(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, 
   c.fillRect(cx, cy, 1, 1);
 }
 
-// ícones de 7x5 em pixel inteiro (nítidos): óleo, temperatura, combustível, turbo, bateria
+// ícones de 13x9 em meio pixel (a tela tem 2 pixels por pixel do jogo): o dobro de detalhe
+// no mesmo espaço, como os símbolos de verdade: almotolia, termômetro na água, bomba de
+// combustível, caracol do turbo e bateria com + e -
 const ICONS = {
-  oil: ['1..11..', '.111111', '..11111', '..11111', '1......'],
-  temp: ['...11..', '...1...', '...11..', '..111..', '1.1.1.1'],
-  fuel: ['1111...', '1..1.1.', '1111..1', '1111..1', '1111.11'],
-  turbo: ['.111...', '1...111', '1.1.1..', '1...1..', '.111...'],
-  volt: ['.1...1.', '1111111', '1.....1', '1.....1', '1111111'],
+  oil: ['.............', '.111.........', '.111......11.', '1111111..11..', '11111111111..', '.111111111...', '.11111111....', '..........1..', '..........1..'],
+  temp: ['.....11......', '.....1111....', '.....11......', '.....1111....', '.....11......', '....1111.....', '....1111.....', '1.1.1.1.1.1.1', '.1.1.1.1.1.1.'],
+  fuel: ['1111111......', '1.....1.1....', '1.....1..1...', '1111111..1...', '1111111..1...', '1111111.11...', '1111111......', '1111111......', '111111111....'],
+  turbo: ['...11111.....', '..1.....1111.', '.1..111......', '1..1...1.....', '1..1.1.1.111.', '1..1...1.1...', '.1..111..1...', '..1.....1....', '...11111.....'],
+  volt: ['..11....11...', '1111111111111', '1...........1', '1..1........1', '1.111...111.1', '1..1........1', '1...........1', '1111111111111', '.............'],
 };
 function drawIcon(c: CanvasRenderingContext2D, name: keyof typeof ICONS, cx: number, top: number) {
   const ic = ICONS[name];
-  const x0 = Math.round(cx - 3.5), y0 = Math.round(top);
+  const x0 = Math.round((cx - 3.25) * 2) / 2, y0 = Math.round(top * 2) / 2;
   c.fillStyle = '#f4f4f4';
-  ic.forEach((row, j) => [...row].forEach((ch, i) => ch === '1' && c.fillRect(x0 + i, y0 + j, 1, 1)));
+  ic.forEach((row, j) => [...row].forEach((ch, i) => ch === '1' && c.fillRect(x0 + i * 0.5, y0 + j * 0.5, 0.5, 0.5)));
 }
 
 // fundo preto do mostrador, por linhas (centro no meio do pixel cx, cy)
@@ -445,7 +456,7 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
     c.fillRect(cx - 0.5, cy - 0.5, 2, 2);
   }
   // ícone na metade de baixo (o ponteiro só varre a de cima), em pixel inteiro
-  const iy = g.kind === 'twin' ? my + R * PIX_Y * 0.42 : my + Math.max(1.5, Math.min(R * PIX_Y * 0.3, R * PIX_Y - 6.5));
+  const iy = g.kind === 'twin' ? my + R * PIX_Y * 0.42 : my + Math.max(1.5, Math.min(R * PIX_Y * 0.3, R * PIX_Y - 5.5));
   drawIcon(c, g.icon ?? 'oil', mx, iy);
 }
 

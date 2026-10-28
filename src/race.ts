@@ -9,6 +9,7 @@ import { input, takeShift } from './input';
 import { beep, bumpSound, crashSound, landSound, stoneSound, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
 import { updateTrafficAudio } from './trafficaudio';
+import { GHOST_DT, ghostAt, type Ghost } from './records';
 
 // curvatura da pista por unidade de curva (1/m): curva 4 = fechada (~175 km/h a 1 g)
 const CURVE_K = 0.00105;
@@ -153,7 +154,11 @@ export class Race {
   // marcas no para-brisa que ficam até trocar de carro: trinca de batida, estrela de pedra
   // (x, y em fração do para-brisa; size 0..1; seed para o desenho)
   glass: { x: number; y: number; size: number; seed: number; star: boolean }[] = [];
-  overheat = false; // motor batido esquentando: perde força e o ponteiro da água sobe
+  overheat = false;
+  // passagem gravada (posição a cada GHOST_DT do relógio do trecho) e o fantasma da melhor
+  trace: { z: number[]; x: number[] } = { z: [], x: [] };
+  ghostRun: Ghost | null = null; // fantasma (melhor passagem do trecho)
+  ghostPos: { z: number; x: number; ghost: true } | null = null; // motor batido esquentando: perde força e o ponteiro da água sobe
   private stoneT = 0;
   private crashSlide = 0;
   private hitCar: TrafficCar | null = null; // com quem bateu (fica à frente, os dois arrastando juntos)
@@ -368,6 +373,12 @@ export class Race {
 
     const driving = this.state === 'drive';
     if (this.state !== 'arrived') this.time += dt;
+    while (this.state !== 'arrived' && this.trace.z.length * GHOST_DT <= this.time) {
+      this.trace.z.push(Math.round(this.playerZ));
+      this.trace.x.push(Math.round(this.x));
+    }
+    const gp = this.ghostRun && ghostAt(this.ghostRun, this.time);
+    this.ghostPos = gp ? { z: gp.z, x: gp.x, ghost: true } : null;
 
     // ---- câmbio ----
     if (driving && !this.auto) {

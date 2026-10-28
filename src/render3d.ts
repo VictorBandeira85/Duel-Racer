@@ -1,7 +1,7 @@
 import { drawSmoke } from './smoke';
 import { drawCrisp } from './crisp';
 import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from './config';
-import { drawCar } from './cars';
+import { CARS, drawCar } from './cars';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
 import { SPRITES } from './sprites';
 import type { BgLayer } from './themes';
@@ -203,6 +203,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   const entities: { z: number; x: number }[] = [...r.traffic, ...r.police.filter((p) => p.state !== 'done' || Math.abs(p.z - r.playerZ) < 100 * SEG_LEN)];
   if (r.rival) entities.push(r.rival);
   if (r.officer) entities.push(r.officer);
+  if (r.ghostPos) entities.push(r.ghostPos);
   for (const e of entities) {
     const idx = Math.floor(e.z / SEG_LEN);
     if (idx >= base.index && idx < end) segs[idx].cars.push(e);
@@ -254,7 +255,16 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       const baseX = lerp(s.p1.screen.x, s.p2.screen.x, pct);
       const ex = e.x;
       const cx = baseX + sc * ex * vp.K;
-      if (e === r.rival) {
+      if (e === r.ghostPos) {
+        // fantasma: o carro da melhor passagem, transparente (não bate em nada)
+        const gc = ghostCar(r);
+        if (gc) {
+          c.save();
+          c.globalAlpha = 0.42;
+          drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: gc.color, rear: gc.rear, night, paint: r.ghostRun!.paint });
+          c.restore();
+        }
+      } else if (e === r.rival) {
         drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: r.rival.recover > 0 || r.rival.mistake > 0, night, paint: r.rivalPaint, signal: r.rival.signal });
       } else if ('phase' in e) {
         drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, (e as Officer).phase === 'show');
@@ -283,6 +293,8 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   }
   c.restore();
 }
+
+const ghostCar = (r: Race) => CARS.find((c) => c.id === r.ghostRun?.car);
 
 // Retrovisor: visão simplificada da estrada atrás (rival, polícia, trânsito)
 export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y: number, w: number, h: number) {

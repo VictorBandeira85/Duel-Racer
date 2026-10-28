@@ -1,4 +1,5 @@
 import { gasQuip } from './score';
+import { ghostOn, setGhostOn } from './records';
 import { RIVAL_STYLE } from './race';
 import type { CareerSave, EventResult } from './career';
 import { drawCareerScreen, keyCareerScreen, openCareer, tapCareerScreen } from './careerScreens';
@@ -20,6 +21,7 @@ export interface StageResult {
   time: number; rival: number; clean: boolean; crashes: number; tickets: number; fines?: number;
   km: number; top: number; avg: number; score: number; // km/h e pontos do jogador
   rivalTop: number; rivalAvg: number; rivalScore: number;
+  best?: number; record?: boolean; // recorde anterior deste trecho com este carro; se bateu
 }
 
 export interface AppState {
@@ -196,7 +198,7 @@ function activateTitle(s: AppState, i: number, a: Actions) {
 }
 
 // ---------- opções ----------
-const optionRects = () => [0, 1, 2, 3, 4].map((i): Rect => ({ x: ox() + 40, y: 50 + i * 36, w: 240, h: 30 }));
+const optionRects = () => [0, 1, 2, 3, 4, 5].map((i): Rect => ({ x: ox() + 40, y: 44 + i * 31, w: 240, h: 27 }));
 // tamanho dos botões de toque (direção, acelerador, freio, marchas), salvo no aparelho
 const BTN_SIZES = [{ label: 'PEQUENOS', k: 0.8 }, { label: 'MÉDIOS', k: 1 }, { label: 'GRANDES', k: 1.22 }, { label: 'ENORMES', k: 1.45 }];
 const BTN_KEY = 'duel-racer:botoes';
@@ -222,7 +224,7 @@ function setBtnSize(i: number) {
 function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
   drawRoadScene(c, s.t);
   text(c, 'OPÇÕES', view.w / 2, 30, 16, '#ffd400', 'center', '#3a1060');
-  const labels = [`CÂMBIO: ${s.auto ? 'AUTOMÁTICO' : 'MANUAL'}`, `SOM: ${s.sound ? 'LIGADO' : 'DESLIGADO'}`, `MÚSICA: ${s.music ? 'LIGADA' : 'DESLIGADA'}`, `BOTÕES: ${BTN_SIZES[btnSizeIdx()].label}`, 'VOLTAR'];
+  const labels = [`CÂMBIO: ${s.auto ? 'AUTOMÁTICO' : 'MANUAL'}`, `SOM: ${s.sound ? 'LIGADO' : 'DESLIGADO'}`, `MÚSICA: ${s.music ? 'LIGADA' : 'DESLIGADA'}`, `BOTÕES: ${BTN_SIZES[btnSizeIdx()].label}`, `FANTASMA: ${ghostOn() ? 'LIGADO' : 'DESLIGADO'}`, 'VOLTAR'];
   optionRects().forEach((r, i) => sign(c, r, [labels[i]], s.sel === i));
 }
 function activateOption(s: AppState, a: Actions, i: number) {
@@ -230,6 +232,7 @@ function activateOption(s: AppState, a: Actions, i: number) {
   else if (i === 1) a.toggleSound();
   else if (i === 2) a.toggleMusic();
   else if (i === 3) setBtnSize((btnSizeIdx() + 1) % BTN_SIZES.length);
+  else if (i === 4) setGhostOn(!ghostOn());
   else a.go('title');
 }
 
@@ -731,6 +734,9 @@ function drawStageResult(c: CanvasRenderingContext2D, s: AppState) {
     if (b) text(c, b, colRival, y, 8, '#fff', 'right', null);
   });
   text(c, `Carros restantes: ${s.lives}`, x + 18, 180, 8, '#c8c0f0', 'left', null);
+  // recorde do trecho com este carro
+  if (r.record) text(c, r.best === undefined ? 'PRIMEIRO RECORDE!' : `NOVO RECORDE! -${(r.best - r.time).toFixed(2).replace('.', ',')}s`, x + 18, 190, 8, Math.floor(s.t * 4) % 2 ? '#30e060' : '#a0ffb0', 'left', null);
+  else if (r.best !== undefined) text(c, `Recorde: ${formatTime(r.best)}`, x + 18, 190, 8, '#c8c0f0', 'left', null);
   if (Math.floor(s.t * 2) % 2) text(c, 'TOQUE PARA SEGUIR', w / 2, 214, 8, '#ffd400', 'center', null);
 }
 
@@ -879,7 +885,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (['career', 'event', 'garage', 'dealer', 'careerEnd'].includes(s.screen)) return keyCareerScreen(s, a, k);
-  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 5, opponent: oppList(s).length, course: COURSES.length };
+  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 6, opponent: oppList(s).length, course: COURSES.length };
   // percursos: cima/baixo escolhem, esquerda/direita trocam dia e noite
   if (s.screen === 'course' && (k === 'left' || k === 'right')) {
     s.arcadeNight = !s.arcadeNight;

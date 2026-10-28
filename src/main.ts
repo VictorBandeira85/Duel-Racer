@@ -7,6 +7,8 @@ import { ui as careerUi } from './careerScreens';
 import { REGIONS, carById, eventCourse, levels, loadCareer, settleEvent, tunedCar } from './career';
 import type { CarSpec } from './cars';
 import { Race } from './race';
+import { loadGhost, saveRun } from './records';
+import { paintHex } from './paint';
 import { COCKPIT_IMAGES, renderCockpit } from './cockpit';
 import { applyBtnSize, drawScreen, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { input, pollGamepad, releaseAll, setupInput } from './input';
@@ -107,8 +109,13 @@ function begin(lives: number) {
 
 function startStage(i: number) {
   const r = new Race(run.course, i, run.car, run.rival, state.auto, run.opts);
+  r.ghostRun = loadGhost(run.course.id, i);
   r.onArrive = () => {
-    state.results.push(stageResult(r));
+    const res = stageResult(r);
+    const sv = saveRun(r, run.course.id, i, paintHex(run.car.id));
+    res.best = sv.prev;
+    res.record = sv.record;
+    state.results.push(res);
     if (r.clean) state.lives++;
     state.gasPage = 0;
     actions.go('gas');

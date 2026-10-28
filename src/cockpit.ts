@@ -1,3 +1,4 @@
+import { ghostTimeAt } from './records';
 import { DASH_Y, KMH, ROOF_H, view } from './config';
 import type { Race } from './race';
 import { renderMirror, renderRoad, type Viewport } from './render3d';
@@ -1037,6 +1038,13 @@ function drawRoof(c: CanvasRenderingContext2D, r: Race, stageLabel: string, tota
   // tempo (o original não mostra; fica discreto na área vazia do teto)
   const clock = `${stageLabel}  ${formatTime(totalTime + r.time)}`;
   pix(c, clock, ox + 46 + pixWidth(clock) / 2, 9, '#8a8a90');
+  // diferença para o fantasma no mesmo ponto da pista: verde na frente, vermelho atrás
+  const gt = r.ghostRun && r.time > 1 ? ghostTimeAt(r.ghostRun, r.playerZ) : null;
+  if (gt !== null) {
+    const d = r.time - gt;
+    const l = `${d >= 0 ? '+' : '-'}${Math.abs(d).toFixed(1)}`;
+    pix(c, l, ox + 46 + pixWidth(clock) + 4 + pixWidth(l) / 2, 9, d >= 0 ? '#ff7060' : '#50e070');
+  }
   // marcadores de progresso na faixa inferior
   const px = ox + 44, pw = 126;
   const mark = (z: number, color: string) => {
@@ -1046,6 +1054,7 @@ function drawRoof(c: CanvasRenderingContext2D, r: Race, stageLabel: string, tota
   };
   c.fillStyle = '#e8e8e8';
   c.fillRect(px + pw + 2, 18, 2, 5);
+  if (r.ghostPos) mark(r.ghostPos.z, '#b8b8c4'); // fantasma
   if (r.rival) mark(r.rival.z, r.rivalCar!.color);
   mark(r.playerZ, r.car.color);
   // retrovisor

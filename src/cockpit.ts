@@ -144,13 +144,14 @@ COCKPIT_ART.diablo = {
 };
 
 // Vectra GSi: quadro como o de verdade — conta-giros 0-8 ("ELECTRONIC", faixa vermelha a partir de
-// 6,8) com o 0 na horizontal à esquerda, velocímetro 20-240 com hodômetro e parcial, ponteiros
-// brancos; à direita temperatura da água, combustível, pressão do óleo e voltímetro
+// 6,8) e velocímetro 20-240 varrendo 270° (do 0 embaixo à esquerda até embaixo à direita, como
+// os números da arte), hodômetro e parcial abaixo do eixo, ponteiros brancos; à direita
+// temperatura da água, combustível, pressão do óleo e voltímetro
 COCKPIT_ART['br-vectra'] = {
   dash: cp('br-vectra-dash'), top: cp('br-vectra-top'), wheel: cp('br-vectra-wheel'),
   pivot: [128, 103.6], speedMax: 240, needle: '#f2f2f2', hub: '#1a1a1c', radar: [206, 4],
-  tach: { x: 89, y: 65.5, r: 19.5, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6.8, a0: Math.PI, sweep: 2.72, labelScale: 0.7, redLabels: false },
-  speed: { x: 140, y: 64, r: 23.5, max: 240, labels: [20, 60, 100, 140, 180, 220], minor: [40, 240], nudge: { 100: [-2, 0.5], 140: [2, 0.5] }, tick: 10, red: 999, a0: 2.82, sweep: 3.9, labelScale: 0.7 },
+  tach: { x: 89.5, y: 65.5, r: 21.5, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6.8, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, redLabels: false },
+  speed: { x: 140, y: 64, r: 23.5, max: 240, labels: [20, 60, 100, 140, 180, 220], minor: [40, 80, 160, 200, 240], nudge: { 100: [-0.5, 0.5], 140: [0.5, 0.5] }, tick: 10, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7 },
   aux: [
     { x: 178.5, y: 55.5, r: 5.5, kind: 'single', show: ['water'], icon: 'temp' },
     { x: 195, y: 54.5, r: 5, kind: 'single', show: ['fuel'], icon: 'fuel' },
@@ -158,8 +159,8 @@ COCKPIT_ART['br-vectra'] = {
     { x: 197, y: 75.5, r: 6, kind: 'single', show: ['volt'], icon: 'volt' },
   ],
   extra: (c, ox, r) => {
-    odometer(c, ox, r, { x: 134, y: 55.5, w: 12, h: 3.5 }, 157774, 6, 0.5);
-    odometer(c, ox, r, { x: 136, y: 69, w: 8, h: 3.5 }, 202.4, 4, 0.5, true);
+    odometer(c, ox, r, { x: 134, y: 70, w: 12, h: 3.5 }, 157774, 6, 0.5);
+    odometer(c, ox, r, { x: 136, y: 75, w: 8, h: 3.5 }, 202.4, 4, 0.5, true);
   },
 };
 

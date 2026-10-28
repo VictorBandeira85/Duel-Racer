@@ -96,6 +96,7 @@ export interface CarSpec {
   imgSide?: string; // sprite do perfil (pixel art)
   sideMask?: string;
   sideVariants?: Record<string, string>; // pinturas com arte própria: cor da paleta -> lateral
+  wheels?: number[][]; // rodas na lateral: [u, v, raio] (frações do sprite)
   art?: string; // prefixo dos sprites em assets/cars (<art>-side/-rear/-front.png e máscaras)
 }
 
@@ -322,6 +323,22 @@ const LAMPS: Record<string, LampDef> = {
   patrol: { head: [0.145, 0.53, 0.07], sigRear: [0.035, 0.503, 0.26, 0.568], sigRed: true, sigFront: [0.05, 0.6, 0.24, 0.645] },
 };
 
+// Rodas na lateral (u, v do centro e raio, em frações da largura/altura e da largura do
+// sprite), medidas pelo aro claro acima do contato com o chão: giram na chegada ao posto
+const WHEELS: Record<string, number[][]> = {
+  '959': [[0.199, 0.739, 0.08], [0.754, 0.74, 0.08]],
+  'br-vectra': [[0.175, 0.788, 0.066], [0.777, 0.792, 0.064]],
+  'countach': [[0.234, 0.733, 0.07], [0.827, 0.708, 0.077]],
+  'diablo': [[0.204, 0.73, 0.072], [0.794, 0.72, 0.074]],
+  'f40': [[0.22, 0.722, 0.081], [0.78, 0.726, 0.08]],
+  'nsx': [[0.236, 0.726, 0.07], [0.813, 0.713, 0.073]],
+  'patrol': [[0.188, 0.794, 0.07], [0.739, 0.798, 0.068]],
+  'patrolsv': [[0.204, 0.747, 0.072], [0.794, 0.738, 0.074]],
+  'testarossa': [[0.223, 0.706, 0.073], [0.793, 0.692, 0.076]],
+  'viper': [[0.226, 0.638, 0.076], [0.773, 0.628, 0.078]],
+  'zr1': [[0.21, 0.734, 0.076], [0.766, 0.734, 0.076]],
+};
+
 // Sprites de cada carro pela chave `art`: <art>-side/-rear/-front.png e as máscaras
 const PNG = import.meta.glob('./assets/cars/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 const png = (n: string) => PNG[`./assets/cars/${n}.png`];
@@ -335,6 +352,7 @@ for (const car of CARS) {
   car.rear.frontImg = png(`${k}-front`) ?? car.rear.frontImg;
   car.rear.frontMask = png(`${k}-front-mask`);
   car.rear.lamps = LAMPS[k];
+  car.wheels = WHEELS[k];
   // <art>-side-<cor>.png: a arte daquela pintura (usada no lugar da repintura pela máscara)
   for (const [name, paintName] of Object.entries(VARIANT_PAINT)) {
     const side = png(`${k}-side-${name}`);
@@ -1121,7 +1139,8 @@ function drawTruck(c: CanvasRenderingContext2D, x: number, y: number, w: number,
 }
 
 // Vista lateral (escolha do carro e posto). x = frente do carro, y = chão.
-export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string) {
+// spin: ângulo das rodas (rad); com ele, cada roda é redesenhada girando no lugar
+export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string, spin?: number) {
   if (car.imgSide) {
     const img = (paint && car.sideVariants?.[paint]) || car.imgSide;
     const aspect = spriteAspect(img);
@@ -1132,7 +1151,22 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
       c.beginPath();
       c.ellipse(x + len / 2, y, len * 0.5, len * 0.022, 0, 0, Math.PI * 2);
       c.fill();
-      c.drawImage(spr, Math.round(x), Math.round(y - len * aspect), Math.round(len), Math.round(len * aspect));
+      const L = Math.round(x), T = Math.round(y - len * aspect), W = Math.round(len), H = Math.round(len * aspect);
+      c.drawImage(spr, L, T, W, H);
+      if (spin !== undefined && car.wheels) {
+        const sw = spr.width / W, sh = spr.height / H;
+        for (const [u, v, rr] of car.wheels) {
+          const cx = L + u * W, cy = T + v * H, R = rr * W - 0.5;
+          c.save();
+          c.beginPath();
+          c.arc(cx, cy, R, 0, Math.PI * 2);
+          c.clip();
+          c.translate(cx, cy);
+          c.rotate(spin);
+          c.drawImage(spr, (cx - L - R) * sw, (cy - T - R) * sh, 2 * R * sw, 2 * R * sh, -R, -R, 2 * R, 2 * R);
+          c.restore();
+        }
+      }
       return;
     }
   }

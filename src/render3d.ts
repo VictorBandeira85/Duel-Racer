@@ -183,8 +183,6 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   c.beginPath();
   c.rect(vp.x, vp.y, vp.w, vp.h);
   c.clip();
-  // topo de lombada: a câmera sobe um pouco (o carro alivia)
-  if (r.air > 0.15) c.translate(0, -Math.round(r.air * 4));
   if (r.shake) c.translate(Math.round((Math.random() - 0.5) * 2 * r.shake), Math.round((Math.random() - 0.5) * 2 * r.shake));
   // sensação de velocidade: perto da máxima a imagem trepida de leve (1 px, de vez em quando)
   else if (r.speed > r.car.maxSpeed * 0.8 && Math.random() < (r.speed / r.car.maxSpeed - 0.8) * 2.5) c.translate(0, Math.random() < 0.5 ? 1 : -1);
@@ -193,7 +191,8 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   const base = r.findSegment(r.position);
   const basePct = (r.position % SEG_LEN) / SEG_LEN;
   // altura da câmera: o chão logo abaixo do motorista
-  const playerY = lerp(base.p1.world.y, base.p2.world.y, basePct);
+  // (no salto, o chão fica lá embaixo: a câmera sobe com o carro)
+  const playerY = lerp(base.p1.world.y, base.p2.world.y, basePct) + r.lift;
   const end = Math.min(segs.length, base.index + DRAW_DIST);
   const ground = dither(c, r.theme.ground[0], r.theme.ground[1]);
   // chão por baixo de tudo: em vales, parte da tela não é coberta por nenhum segmento
@@ -266,9 +265,9 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       } else {
         const t = e as TrafficCar;
         const tw = (t.truck ? TRUCK_W : CAR_W) * sc * vp.K;
-        drawCar(c, cx, cy, tw, trafficLook(t, t.speed < 0, night, t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0));
+        drawCar(c, cx, cy, tw, trafficLook(t, t.base < 0, night, t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0));
         // batido: fumaça saindo do motor (frente: em cima do capô; de trás: por cima do carro)
-        if (t.smoke > 0) drawSmoke(c, cx, cy - tw * (t.speed < 0 ? 0.35 : 0.55), tw, t.smoke, Math.round(t.base));
+        if (t.smoke > 0) drawSmoke(c, cx, cy - tw * (t.base < 0 ? 0.35 : 0.55), tw, t.smoke, Math.round(t.base));
       }
     }
     c.restore();
@@ -310,16 +309,16 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
   c.stroke();
 
   // espelho plano, campo estreito: quem fica para trás continua visível por mais tempo
-  const D = 2000;
+  const D = 3600;
   const behind: { z: number; x: number; w: number; look: Parameters<typeof drawCar>[4] }[] = [];
   const night = !!r.def.night;
-  for (const t of r.traffic) behind.push({ z: t.z, x: t.x, w: t.truck ? TRUCK_W : CAR_W, look: trafficLook(t, t.speed > 0, night) });
+  for (const t of r.traffic) behind.push({ z: t.z, x: t.x, w: t.truck ? TRUCK_W : CAR_W, look: trafficLook(t, t.base > 0, night) });
   if (r.rival) behind.push({ z: r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint, signal: r.rival.signal, lamps: r.rivalLamps() } });
   for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') behind.push({ z: p.z, x: p.x, w: p.sv ? CAR_W * 1.08 : POLICE_W, look: { color: '#fff', police: true, sv: p.sv, siren: true, front: true, night } });
   behind.sort((a, b) => a.z - b.z);
   for (const b of behind) {
     const dz = r.position - b.z;
-    if (dz < 300 || dz > 130 * SEG_LEN) continue;
+    if (dz < 300 || dz > 200 * SEG_LEN) continue;
     const k = D / dz;
     const yy = hz + (bottom - hz) * Math.min(1, k);
     const bw = b.w * sb * k;

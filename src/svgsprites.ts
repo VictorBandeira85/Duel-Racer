@@ -81,7 +81,11 @@ function paintImage(src: string, paint: Paint): HTMLCanvasElement | null {
   for (let i = 0; i < d.length; i += 4) {
     if (m[i] <= 127 || !d[i + 3]) continue;
     const l = rgbToHsl(d[i], d[i + 1], d[i + 2])[2];
-    const [r, g, b] = hslToRgb(th, ts, Math.min(0.96, Math.max(0.04, tl + (l - base))));
+    // proporcional ao tom médio: o que é mais escuro que ele (frisos, vincos, sombra) escurece
+    // na mesma proporção na cor nova (num carro preto, a diferença absoluta é mínima e os frisos
+    // sumiriam), com expoente para não realçar o chuvisco; o mais claro sobe até o branco
+    const nl = l < base ? tl * (l / base) ** 0.6 : tl + ((l - base) * (1 - tl)) / (1 - base);
+    const [r, g, b] = hslToRgb(th, ts, Math.min(0.96, Math.max(0.04, nl)));
     d[i] = r; d[i + 1] = g; d[i + 2] = b;
   }
   c.putImageData(data, 0, 0);

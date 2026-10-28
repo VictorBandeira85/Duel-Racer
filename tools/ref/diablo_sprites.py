@@ -4,6 +4,9 @@ pinta a carroceria de preto com as portas brancas, põe o giroflex no teto, o br
 "POLICE" na lateral e no para-choque.
 
 Uso: python3 tools/ref/diablo_sprites.py <pasta com side.png rear.png front.png> <src/assets>
+(side/rear/front.png: a arte reamostrada na grade nativa, tools/ref/regrid.py, períodos 4.56,
+4.49 e 5.13; as posições da viatura abaixo foram medidas na lateral 300x82 e na frente/traseira
+200x112 e são escaladas para o tamanho real)
 """
 import os
 import sys
@@ -119,30 +122,35 @@ def main():
 
     # ---- viatura: preta, portas brancas ----
     s = imgs['side'].copy()
+    H, W = s.shape[:2]
+    X = lambda v: int(round(v * W / 300))  # noqa: E731
+    Y = lambda v: int(round(v * H / 82))  # noqa: E731
     m = body(s)
     door = np.zeros(m.shape, np.uint8)
-    cv2.fillPoly(door, [np.array([(78, 30), (125, 24), (170, 21), (171, 52), (92, 56), (85, 45)], np.int32)], 1)
+    cv2.fillPoly(door, [np.array([(X(x), Y(y)) for x, y in [(78, 30), (125, 24), (170, 21), (171, 52), (92, 56), (85, 45)]], np.int32)], 1)
     repaint(s, m & (door == 0), 12, 62)
     repaint(s, m & (door > 0), 175, 248)
     # brasão (estrela dourada num escudo azul) e POLICE no paralama traseiro
-    s[33:40, 128:135] = (30, 60, 150, 255)
-    for (yy, xx) in [(34, 131), (35, 130), (35, 131), (35, 132), (36, 129), (36, 130), (36, 131), (36, 132), (36, 133), (37, 130), (37, 132), (38, 129), (38, 133)]:
-        s[yy, xx] = (240, 200, 40, 255)
-    text(s, 'POLICE', 208, 30, (240, 240, 240, 255))
+    bx, by = X(128), Y(33)
+    s[by:by + 7, bx:bx + 7] = (30, 60, 150, 255)
+    for (yy, xx) in [(1, 3), (2, 2), (2, 3), (2, 4), (3, 1), (3, 2), (3, 3), (3, 4), (3, 5), (4, 2), (4, 4), (5, 1), (5, 5)]:
+        s[by + yy, bx + xx] = (240, 200, 40, 255)
+    text(s, 'POLICE', X(208), Y(30), (240, 240, 240, 255))
     s = pad_top(s, 5)
-    lightbar(s, 148, 176, 1, 'red', 'blue')
+    lightbar(s, X(148), X(176), 1, 'red', 'blue')
     Image.fromarray(s, 'RGBA').save(os.path.join(cars, 'patrolsv-side.png'))
 
     f = imgs['front'].copy()
+    fx = lambda v: int(round(v * f.shape[1] / 200))  # noqa: E731
     repaint(f, body(f), 12, 62)
-    text(f, 'POLICE', 88, 84, (240, 240, 240, 255))
-    lightbar(f, 64, 136, 4, 'red', 'blue')
+    text(f, 'POLICE', fx(100) - 12, int(round(84 * f.shape[0] / 112)), (240, 240, 240, 255))
+    lightbar(f, fx(64), fx(136), int(round(4 * f.shape[0] / 112)), 'red', 'blue')
     Image.fromarray(f, 'RGBA').save(os.path.join(cars, 'patrolsv-front.png'))
 
     r = imgs['rear'].copy()
     repaint(r, body(r), 12, 62)
     r = pad_top(r, 5)
-    lightbar(r, 64, 136, 0, 'blue', 'red')
+    lightbar(r, int(round(64 * r.shape[1] / 200)), int(round(136 * r.shape[1] / 200)), 0, 'blue', 'red')
     Image.fromarray(r, 'RGBA').save(os.path.join(cars, 'patrolsv-rear.png'))
     for v, a in (('front', f), ('rear', r)):
         Image.fromarray(a, 'RGBA').save(os.path.join(assets, 'traffic', f'policesv-{v}.png'))

@@ -43,6 +43,9 @@ export function trafficLook(t: TrafficCar, front: boolean, night: boolean, flash
   if (t.car) Object.assign(look, { rear: t.car.rear, paint: t.color, lamps: { up: night || flash ? 1 : 0, on: night || flash, high: flash } });
   return look;
 }
+// gravidade do salto, nas unidades da pista (que exagera o relevo): decola nos topos mais
+// fortes a partir de ~180-200 km/h (voo de 1-2 s), nunca nas lombadas comuns
+const GRAV = 1800;
 export const TRAFFIC_COLORS = ['#2a6fdb', '#e8e8e8', '#3d9b47', '#c9a227', '#7a3db8', '#d9542b', '#555566', '#80c0e0', '#8a2a2a'];
 
 export interface TrafficCar {
@@ -159,7 +162,12 @@ export class Race {
   pt: Powertrain;
   air = 0; // alívio de peso no topo das lombadas (0..1)
   pitch = 0; // inclinação da carroceria acompanhando o chão (subida > 0)
-  private airborne = false;
+  airborne = false;
+  lift = 0; // altura das rodas acima do chão no salto (unidades do mundo)
+  private carY = 0; // altura do carro (unidades do mundo)
+  private vy = 0; // velocidade vertical (unidades/s)
+  private prevGy: number | null = null;
+  private prevVyG = 0;
   private landT = 0;
   draft = 0; // vácuo atrás de outro carro (0..1)
   top = 0; // velocidade máxima do jogador no trecho
@@ -221,9 +229,12 @@ export class Race {
         signal: 0, sigT: 0, flash: 0, flashCd: 4 };
       this.rival.pt.boost = LAUNCH_BOOST;
     }
-    for (let i = 0; i < this.def.traffic; i++) {
+    // carros que ficam para trás só somem bem longe (retrovisor), então o trânsito tem 20% a
+    // mais de carros para a estrada à frente continuar tão cheia quanto antes
+    const nTraffic = Math.round(this.def.traffic * 1.2);
+    for (let i = 0; i < nTraffic; i++) {
       const c: TrafficCar = { z: 0, x: 0, speed: 0, color: '', truck: false, model: 'sedan', hit: false, base: 0, tx: 0, signal: 0, signalT: 0, moving: false, think: 0, panic: 0, smoke: 0, slide: 0, tilt: 0 };
-      this.spawn(c, this.playerZ + (45 + (i / this.def.traffic) * 300) * SEG_LEN);
+      this.spawn(c, this.playerZ + (45 + (i / nTraffic) * 300) * SEG_LEN);
       this.traffic.push(c);
     }
     // na carreira, quem corre de carro classe S é perseguido pela Diablo SV da polícia
@@ -253,6 +264,12 @@ export class Race {
   get progress() {
     const t = this.track;
     return clamp((this.playerZ - t.startZ) / (t.finishZ - t.startZ), 0, 1);
+  }
+
+  // altura do chão em z
+  groundY(z: number) {
+    const s = this.findSegment(z);
+    return lerp(s.p1.world.y, s.p2.world.y, (z % SEG_LEN) / SEG_LEN);
   }
 
   findSegment(z: number): Segment {
@@ -343,19 +360,40 @@ export class Race {
 
     // ---- relevo: inclinação e "flutuação" no topo das lombadas ----
     const slope = clamp((pSeg.p2.world.y - pSeg.p1.world.y) / SEG_LEN, -0.6, 0.6);
-    const ahead = this.track.segments[(pSeg.index + 7) % this.track.segments.length];
-    const slopeAhead = clamp((ahead.p2.world.y - ahead.p1.world.y) / SEG_LEN, -0.6, 0.6);
     // a carroceria inclina com o chão entre as rodas (a câmera vai junto, com um pouco de suspensão)
     const cSeg = this.findSegment(this.position);
     const slopeCam = clamp((cSeg.p2.world.y - cSeg.p1.world.y) / SEG_LEN, -0.6, 0.6);
-    this.pitch = lerp(this.pitch, (slope + slopeCam) / 2, Math.min(1, dt * 6));
-    const pct0 = this.speed / max;
-    const lift = clamp(((slope - slopeAhead) * pct0 * pct0 - 0.015) * 12, 0, 1);
-    this.air = lerp(this.air, lift, Math.min(1, dt * 8));
-    if (this.air > 0.55) this.airborne = true;
-    else if (this.airborne && this.air < 0.2) {
-      this.airborne = false;
-      this.landT = 0.18; // pancada da aterrissagem
+    // no ar, o carro aponta para onde está indo (sobe de nariz e vai embicando na queda)
+    const pitchTo = this.airborne ? clamp(this.vy / Math.max(this.speed, 1), -0.6, 0.6) : (slope + slopeCam) / 2;
+    this.pitch = lerp(this.pitch, pitchTo, Math.min(1, dt * (this.airborne ? 3 : 6)));
+    // ---- salto: o carro é um corpo com velocidade vertical própria. Segue o chão enquanto a
+    // gravidade dá conta; num topo de lombada que cai mais rápido do que ela puxa, decola,
+    // voa em parábola e cai com uma pancada proporcional à velocidade de queda ----
+    if (dt > 0) {
+      const gy = this.groundY(this.position);
+      const vyG = this.prevGy === null ? 0 : (gy - this.prevGy) / dt;
+      if (this.prevGy === null) this.carY = gy;
+      this.prevGy = gy;
+      this.vy -= GRAV * dt;
+      this.carY += this.vy * dt;
+      if (this.carY <= gy) {
+        const impact = vyG - this.vy; // velocidade com que bate no chão (unidades/s)
+        if (this.airborne && impact > 250) {
+          this.landT = Math.min(0.45, 0.12 + impact / 5000);
+          bumpSound(Math.min(1, 0.25 + impact / 2500));
+          if (impact > 2600) this.damage = Math.min(1, this.damage + (impact - 2600) / 20000);
+          this.speed *= 1 - Math.min(0.12, impact / 30000); // a pancada rouba um pouco de embalo
+        }
+        this.carY = gy;
+        this.vy = vyG;
+      }
+      this.lift = this.carY - gy;
+      if (this.lift > 12) this.airborne = true;
+      else if (this.lift <= 0) this.airborne = false;
+      // alívio de peso: quanto o chão "foge" para baixo (perto do topo, antes de decolar)
+      const relief = clamp(-(vyG - this.prevVyG) / dt / GRAV, 0, 1);
+      this.prevVyG = vyG;
+      this.air = this.airborne ? 1 : lerp(this.air, relief * 0.8, Math.min(1, dt * 8));
     }
     // ---- forças (m/s²): motor, ar + pneus, freio, gravidade ----
     this.draft = lerp(this.draft, driving ? this.draftAhead(this.playerZ, this.x, this.speed) : 0, Math.min(1, dt * 3));
@@ -642,7 +680,7 @@ export class Race {
       }
       c.z += c.speed * dt;
       // atrás, some só bem longe (continua visível no retrovisor)
-      if (c.z < pz - 95 * SEG_LEN || c.z > pz + 420 * SEG_LEN) this.spawn(c, pz + (280 + this.rand() * 80) * SEG_LEN);
+      if (c.z < pz - 200 * SEG_LEN || c.z > pz + 420 * SEG_LEN) this.spawn(c, pz + (280 + this.rand() * 80) * SEG_LEN);
     }
   }
 

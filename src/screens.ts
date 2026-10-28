@@ -653,7 +653,9 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   c.restore();
   // o carro chega freando até a bomba, reduz as marchas, fica em marcha lenta e desliga
   const arr = gasArrival(s);
-  drawCarSide(c, Math.round(x + 80 + 320 * (1 - arr.pos)), 176 + arr.dip, 170, car, paintHex(car.id));
+  // rodas girando conforme o carro anda (para a esquerda: giro anti-horário), paradas na bomba
+  const wr = (car.wheels?.[0]?.[2] ?? 0.07) * 170;
+  drawCarSide(c, Math.round(x + 80 + 320 * (1 - arr.pos)), 176 + arr.dip, 170, car, paintHex(car.id), (-320 * arr.pos) / wr);
 
   // fala do frentista, como no Test Drive II
   c.fillStyle = '#3a3a3e';

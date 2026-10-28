@@ -328,7 +328,7 @@ const LAMPS: Record<string, LampDef> = {
 // sprite), medidas pelo aro claro acima do contato com o chão: giram na chegada ao posto
 const WHEELS: Record<string, number[][]> = {
   '959': [[0.199, 0.739, 0.08], [0.754, 0.74, 0.08]],
-  'br-golgti': [[0.193, 0.758, 0.084], [0.817, 0.758, 0.084]],
+  'br-golgti': [[0.201, 0.79, 0.072], [0.827, 0.79, 0.072]],
   'br-vectra': [[0.175, 0.788, 0.066], [0.777, 0.792, 0.064]],
   'countach': [[0.234, 0.733, 0.07], [0.827, 0.708, 0.077]],
   'diablo': [[0.204, 0.73, 0.072], [0.794, 0.72, 0.074]],
@@ -420,7 +420,7 @@ export function gearFor(car: CarSpec, speed: number) {
 }
 
 // ---------- trem de força: câmbio com tempo de troca, turbo com atraso e patinação ----------
-export const SHIFT_T = 0.22; // corte de potência a cada marcha acima (s)
+export const SHIFT_T = 0.45; // troca manual: embreagem, alavanca e embreagem de volta, sem potência (s)
 export const LAUNCH_BOOST = 0.6; // pressão do turbo na largada, segurando o giro na contagem
 // k: parte da potência que depende da pressão do turbo; rate: rapidez com que ela enche (1/s)
 const TURBO: Partial<Record<PowerCurve, { k: number; rate: number }>> = {

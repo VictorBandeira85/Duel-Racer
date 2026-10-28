@@ -36,6 +36,7 @@ interface CockpitArt {
   dy?: number; // desce a cabine inteira (painel alto demais tapando a pista)
   wheelDx?: number; // desloca o volante para a direita (alinha com o quadro de instrumentos)
   wheelTop?: number; // linhas do PNG do volante acima do topo da arte (aro inteiro sobre o para-brisa)
+  wheelDy?: number; // desce o volante (posição do banco: o aro não tapa a estrada)
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
   tach?: Dial;
   speed?: Dial;
@@ -215,6 +216,10 @@ function golDrums(c: CanvasRenderingContext2D, ox: number, r: Race, b: Box, base
 function golCluster(c: CanvasRenderingContext2D, ox: number, r: Race, art: CockpitArt) {
   const T = ART_TOP;
   const sp = art.speed!, t = art.tach!;
+  c.save();
+  c.beginPath();
+  c.rect(ox + 56, T + 18, 158, 60); // borda de baixo do quadro
+  c.clip();
   // velocímetro: "vdo km", hodômetro, parcial com o botão de zerar e "km/h"
   tiny(c, 'vdo', ox + sp.x + 1, T + sp.y - 15);
   tiny(c, 'km', ox + sp.x + 1, T + sp.y - 12);
@@ -230,6 +235,7 @@ function golCluster(c: CanvasRenderingContext2D, ox: number, r: Race, art: Cockp
   drawIcon(c, 'temp', ox + t.x - 3, T + t.y + 13, GTI_INK);
   golMini(c, ox + t.x + 9, T + t.y + 17, 9, -Math.PI * 0.2, Math.PI * 0.26, gauges.fuel, art);
   drawIcon(c, 'fuel', ox + t.x + 4.5, T + t.y + 13, GTI_INK);
+  c.restore();
   // módulo do meio
   const mx = ox + 121, my = T + 24;
   rect(c, mx, my, 28, 52, '#0c0c0e');
@@ -304,7 +310,7 @@ function golCluster(c: CanvasRenderingContext2D, ox: number, r: Race, art: Cockp
 }
 COCKPIT_ART['br-golgti'] = {
   dash: cp('br-golgti-dash'), top: cp('br-golgti-top'), wheel: cp('br-golgti-wheel'),
-  pivot: [128, 99.9], wheelTop: 28, speedMax: 240, needle: '#f4eedc', needleW: 1.5, needleTail: 4, hub: '#1a1a1c', radar: [222, 8],
+  pivot: [128, 99.9], wheelTop: 28, wheelDy: 20, speedMax: 240, needle: '#f4eedc', needleW: 1.5, needleTail: 4, hub: '#1a1a1c', radar: [222, 8],
   speed: { x: 89.5, y: 57.5, r: 28, max: 240, labels: [20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240], tick: 10, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, ink: GTI_INK, bg: '#121214', cut: 20, boldTicks: true },
   tach: { x: 179.5, y: 57.5, r: 28, max: 7, labels: [1, 2, 3, 4, 5, 6, 7], tick: 0.25, red: 6.5, a0: Math.PI * 0.917, sweep: Math.PI * 1.167, labelScale: 0.7, redLabels: false, ink: GTI_INK, bg: '#121214', cut: 20, redInk: '#ff4a18', redW: 2.5, redHatch: true, boldTicks: true },
   aux: [],
@@ -394,7 +400,7 @@ export function interiorPhoto(carId: string, dash: string): HTMLCanvasElement | 
   } finally {
     ART_TOP = saved;
   }
-  g.drawImage(w, DASH_PAD + (art.wheelDx ?? 0), TOP_EXT - (art.wheelTop ?? 0));
+  g.drawImage(w, DASH_PAD + (art.wheelDx ?? 0), TOP_EXT - (art.wheelTop ?? 0) + (art.wheelDy ?? 0));
   interiorCache.set(key, cv);
   return cv;
 }
@@ -460,8 +466,9 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   radarLeds(c, ox + rx + 2, ART_TOP + ry + 1, 26, r.radar);
   signalArrows(c, ox + rx, ART_TOP + ry, 30, r.signal);
   const wdx = art.wheelDx ?? 0;
-  const px = ox + wdx + art.pivot[0], py = ART_TOP + art.pivot[1];
-  withRotation(c, px, py, steerAngle(r, dt), () => c.drawImage(wheelImg, ox + wdx, ART_TOP - (art.wheelTop ?? 0)));
+  const wdy = art.wheelDy ?? 0;
+  const px = ox + wdx + art.pivot[0], py = ART_TOP + art.pivot[1] + wdy;
+  withRotation(c, px, py, steerAngle(r, dt), () => c.drawImage(wheelImg, ox + wdx, ART_TOP - (art.wheelTop ?? 0) + wdy));
   return true;
 }
 
@@ -510,6 +517,13 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
   for (let dy = -Math.floor(ry); dy <= Math.min(Math.floor(ry), d.cut ?? 99); dy++) {
     const hw = Math.round(r * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
     c.fillRect(cx - hw, cy + dy, hw * 2 + 1, 1);
+  }
+  // cut: marcações e números também param na borda do painel
+  c.save();
+  if (d.cut !== undefined) {
+    c.beginPath();
+    c.rect(cx - r - 8, cy - ry - 8, r * 2 + 17, ry + 8 + d.cut + 1);
+    c.clip();
   }
   const at = (a: number, rr: number): [number, number] => [cx + 0.5 + Math.cos(a) * rr, cy + 0.5 + Math.sin(a) * rr * PIX_Y];
   const fr = (v: number) => a0 + (sweep * v) / d.max;
@@ -566,6 +580,7 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
     const [lx, ly] = at(a, r - (ls > 0.5 ? 3.2 : 2.7) - (Math.abs(Math.cos(a)) * pixWidth(l, ls) * 0.5 + Math.abs(Math.sin(a)) * 2.5 * ls) * (ls > 0.5 ? 1.3 : 1) - (ls > 0.5 ? 0.6 : 0));
     pix(c, l, lx, ly, col, ls);
   }
+  c.restore();
   needle(c, cx, cy, r, a0 + sweep * Math.max(0, Math.min(1.02, frac)), art);
 }
 

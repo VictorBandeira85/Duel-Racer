@@ -26,8 +26,31 @@ SS = 4                     # amostras por pixel (borda suave decidida por maiori
 RAMP = [(10, 10, 12), (22, 22, 25), (32, 32, 36), (42, 42, 47), (54, 54, 60), (68, 68, 75), (84, 84, 92), (104, 104, 112)]
 
 
+def mirror_glass(out):
+    """O vidro do retrovisor encosta na borda da arte e a importação o fez transparente (como o
+    céu): preenche o miolo da moldura vermelha com vidro claro, onde o jogo desenha o reflexo."""
+    tp, dp = os.path.join(out, 'br-golgti-top.png'), os.path.join(out, 'br-golgti-dash.png')
+    t, d = np.array(Image.open(tp).convert('RGBA')), np.array(Image.open(dp).convert('RGBA'))
+    a = np.vstack([t, d])
+    region = np.zeros(a.shape[:2], np.uint8)
+    region[62:114, 0:46] = 1
+    empty = ((a[..., 3] == 0) & (region > 0)).astype(np.uint8)
+    n, lab = cv2.connectedComponents(empty, connectivity=4)
+    k = lab[86, 20]
+    if k:
+        m = lab == k
+        ys = np.nonzero(m)[0]
+        for y in range(ys.min(), ys.max() + 1):
+            f = (y - ys.min()) / max(1, ys.max() - ys.min())
+            a[y, m[y]] = (int(214 - 34 * f), int(220 - 30 * f), int(228 - 26 * f), 255)
+    Image.fromarray(a[:t.shape[0]], 'RGBA').save(tp)
+    Image.fromarray(a[t.shape[0]:], 'RGBA').save(dp)
+    print('retrovisor: vidro com', int((lab == k).sum()) if k else 0, 'px')
+
+
 def main():
     out = sys.argv[1]
+    mirror_glass(out)
     geo = json.load(open(os.path.join(HERE, 'wheels', 'br-golgti.json')))
     cx, cy = geo['center']
     W, H = 256, TOP + ROWS

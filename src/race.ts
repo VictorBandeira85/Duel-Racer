@@ -1,5 +1,5 @@
 import { CAR_W, KMH, LANE_W, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
-import { aeroMul, CARS, G, LAUNCH_BOOST, Powertrain, perfClass, resistAcc, toGame, toMs, type CarLook, type CarSpec, type PerfClass } from './cars';
+import { aeroMul, CARS, G, LAUNCH_BOOST, Powertrain, perfClass, resistAcc, toGame, toMs, type CarLook, type CarSpec, type PerfClass, SHIFT_T } from './cars';
 import { PAINTS } from './paint';
 import type { Course, StageDef } from './courses';
 import { THEMES, blendTheme, fogTheme, nightTheme, rainTheme, sunsetTheme, type Theme } from './themes';
@@ -511,7 +511,21 @@ export class Race {
     this.speed = clamp(this.speed, 0, max * 1.12);
     // patinando, o giro sobe sem o carro andar
     this.spin = lerp(this.spin, this.pt.spin, Math.min(1, dt * 8));
-    this.rpm = Math.min(1.02, this.speed / (max * this.car.gears[this.gear]) + this.spin * 0.3);
+    const rpmGear = Math.min(1.02, this.speed / (max * this.car.gears[this.gear]) + this.spin * 0.3);
+    // troca de marcha de câmbio manual: embreagem pisada, o giro cai devagar no começo e depressa
+    // depois, e casa com a marcha nova quando ela entra (na redução, sobe no "punta-tacco")
+    if (this.gear !== this.shownGear) {
+      const up = this.gear > this.shownGear;
+      this.shiftFrom = this.rpm;
+      this.shiftDur = up ? SHIFT_T : 0.25;
+      this.shiftLeft = this.shiftDur;
+      this.shownGear = this.gear;
+    }
+    if (this.shiftLeft > 0) {
+      this.shiftLeft -= dt;
+      const u = clamp(this.shiftLeft / this.shiftDur, 0, 1);
+      this.rpm = rpmGear + (this.shiftFrom - rpmGear) * u * u * (3 - 2 * u);
+    } else this.rpm = rpmGear;
 
     // ---- direção e aderência ----
     // Na curva, a força lateral é v² × curvatura (em g, independe do carro). Os pneus seguram
@@ -666,14 +680,19 @@ export class Race {
     this.lastGear = this.gear;
     const offRoad = Math.abs(this.x) > t.roadW + 700;
     // pneu canta só escorregando (derrapagem, rodada, patinando); frear em linha reta não
-    const screech = driving && !offRoad ? Math.max(this.slip * 1.4, Math.abs(this.drift) * 2.2, this.spin * 1.2, this.spinOut > 0 ? 1 : 0) : 0;
+    const screech = driving && !offRoad ? Math.max(this.slip * 1.4, Math.abs(this.drift) * 2.2, this.spin * 0.55, this.spinOut > 0 ? 1 : 0) : 0;
     const surface = this.def.weather === 'snow' ? 'snow' : this.def.weather === 'rain' ? 'wet' : 'dry';
     setTires(screech, offRoad && this.speed > 100 ? 0.4 + speedPct * 0.6 : 0, surface, driving || this.state === 'arrived' ? speedPct : 0);
-    setEngine(Math.max(0.1, this.rpm), this.throttle, true, this.turboCar ? this.pt.boost : 0);
+    // durante a troca o pé sai do acelerador: o ronco perde carga até a marcha entrar
+    setEngine(Math.max(0.1, this.rpm), this.throttle && this.pt.shiftT <= 0, true, this.turboCar ? this.pt.boost : 0);
     setSteam(this.smoke);
   }
 
   private lastGear = 0;
+  private shownGear = 0; // marcha que o giro já acompanha (durante a troca, o giro faz a transição)
+  private shiftFrom = 0;
+  private shiftDur = 0;
+  private shiftLeft = 0;
   crashPoint = { x: 0.5, y: 0.5 };
 
   private spinDir = 1;

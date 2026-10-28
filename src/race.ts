@@ -6,7 +6,7 @@ import { THEMES, nightTheme, rainTheme, type Theme } from './themes';
 import { SPRITES } from './sprites';
 import { buildTrack, laneCenter, type Segment, type Track } from './track';
 import { input, takeShift } from './input';
-import { beep, bumpSound, crashSound, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
+import { beep, bumpSound, crashSound, landSound, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
 import { updateTrafficAudio } from './trafficaudio';
 
@@ -380,7 +380,7 @@ export class Race {
         const impact = vyG - this.vy; // velocidade com que bate no chão (unidades/s)
         if (this.airborne && impact > 250) {
           this.landT = Math.min(0.45, 0.12 + impact / 5000);
-          bumpSound(Math.min(1, 0.25 + impact / 2500));
+          landSound(Math.min(1, 0.2 + impact / 2500)); // pneus quicando no asfalto
           if (impact > 2600) this.damage = Math.min(1, this.damage + (impact - 2600) / 20000);
           this.speed *= 1 - Math.min(0.12, impact / 30000); // a pancada rouba um pouco de embalo
         }

@@ -355,6 +355,49 @@ export function bumpSound(power = 0.5) {
   burst(t + 0.03, 0.09, 1300, 3, 0.15 * power);
 }
 
+// aterrissagem de salto: os pneus batem no asfalto e quicam (2-3 vezes, cada vez mais fracas e
+// mais juntas): baque de borracha grave, a suspensão batendo e o "chirp" do pneu ao pegar o
+// chão girando (tonal, médio-grave, sem ficar agudo)
+export function landSound(power = 0.5) {
+  if (!ctx) return;
+  const t0 = ctx.currentTime;
+  const bounces = power > 0.55 ? 3 : 2;
+  let at = t0, p = Math.min(1, power);
+  for (let k = 0; k < bounces; k++) {
+    // baque da borracha (o pneu amassando)
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(95 - k * 8, at);
+    o.frequency.exponentialRampToValueAtTime(38, at + 0.14);
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(0.42 * p, at + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.18);
+    o.connect(g).connect(master);
+    o.start(at);
+    o.stop(at + 0.2);
+    // suspensão no batente
+    burst(at, 0.09, 260, 1.2, 0.2 * p, 'lowpass');
+    // chirp: pneu girando que pega o chão (um gemido curto que cai de tom) com chiado
+    const sq = ctx.createOscillator(), sf = ctx.createBiquadFilter(), sg = ctx.createGain();
+    sq.type = 'sawtooth';
+    const f0 = 760 + Math.random() * 90 - k * 60;
+    sq.frequency.setValueAtTime(f0, at + 0.005);
+    sq.frequency.exponentialRampToValueAtTime(f0 * 0.82, at + 0.12);
+    sf.type = 'bandpass';
+    sf.frequency.value = 900;
+    sf.Q.value = 3;
+    sg.gain.setValueAtTime(0.0001, at);
+    sg.gain.exponentialRampToValueAtTime(0.11 * p, at + 0.012);
+    sg.gain.exponentialRampToValueAtTime(0.0001, at + 0.07 + 0.08 * p);
+    sq.connect(sf).connect(sg).connect(master);
+    sq.start(at);
+    sq.stop(at + 0.2);
+    burst(at + 0.004, 0.06 + 0.06 * p, 1200, 2, 0.12 * p, 'bandpass', 800);
+    at += 0.16 - k * 0.05 + 0.08 * p;
+    p *= 0.45;
+  }
+}
+
 // vapor/fumaça do motor batido: chiado contínuo
 let steamGain: GainNode | null = null;
 export function setSteam(level: number) {

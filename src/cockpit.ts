@@ -96,7 +96,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
     } },
   // 959: interior completo do Victor; os cinco mostradores redesenhados com números maiores
   // o retrovisor da arte é cortado pela borda: o sprite completo (tools/ref/mirror_959.py) entra por cima
-  '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.2, 84.3], mirror: { img: cp('959-mirror'), x: 0, y: 76 },
+  '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.2, 84.3], mirror: { img: cp('959-mirror'), x: 0, y: 74 },
     // VDO: conta-giros 1-8 com faixa vermelha a partir de 7,5 e o manômetro do turbo (0-2,5 bar)
     // embaixo; velocímetro 20-340 com hodômetro; à esquerda o combinado de óleo (temperatura,
     // pressão e nível) e o de combustível e água
@@ -191,7 +191,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   // retrovisor externo esquerdo funcionando (onde a arte mostra o vidro dele)
   if (art.mirror) {
     const m = art.mirror;
-    const mw = 34; // largura do sprite (pixels nativos)
+    const mw = 37; // largura do sprite (pixels nativos)
     const spr = svgSprite(m.img, mw, Math.round(mw * (spriteAspect(m.img) ?? 1)));
     if (spr) {
       const mx = dx + m.x, my = ART_TOP - TOP_EXT + m.y;

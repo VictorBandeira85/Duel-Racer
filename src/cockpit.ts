@@ -154,11 +154,14 @@ COCKPIT_ART['br-vectra'] = {
   speed: { x: 140, y: 64, r: 23.5, max: 240, labels: [20, 60, 100, 140, 180, 220], minor: [40, 80, 160, 200, 240], nudge: { 100: [-0.5, 0.5], 140: [0.5, 0.5] }, tick: 10, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7 },
   aux: [
     { x: 178.5, y: 55.5, r: 5.5, kind: 'single', show: ['water'], icon: 'temp' },
-    { x: 195, y: 54.5, r: 5, kind: 'single', show: ['fuel'], icon: 'fuel' },
+    { x: 196.5, y: 58, r: 6, kind: 'single', show: ['fuel'], icon: 'fuel' },
     { x: 178.5, y: 74.5, r: 6, kind: 'single', show: ['oil'], icon: 'oil' },
     { x: 197, y: 75.5, r: 6, kind: 'single', show: ['volt'], icon: 'volt' },
   ],
   extra: (c, ox, r) => {
+    // a marca vermelha do marcador de combustível da arte (fora do lugar do mostrador novo)
+    c.fillStyle = '#121214';
+    c.fillRect(ox + 192, ART_TOP + 47, 6, 4);
     odometer(c, ox, r, { x: 134, y: 70, w: 12, h: 3.5 }, 157774, 6, 0.5);
     odometer(c, ox, r, { x: 136, y: 75, w: 8, h: 3.5 }, 202.4, 4, 0.5, true);
   },
@@ -447,15 +450,22 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
   }
   const [k1, k2] = g.show ?? ['oil'];
   if (g.kind === 'single') {
-    // arco de cima, da esquerda (frio/baixo) para a direita
-    const a0 = PI * 0.95, a1 = PI * 2.05;
+    // arco de cima, da esquerda (frio/baixo) para a direita; nos pequenos (até 6 px) o arco é
+    // mais fechado, para o ponteiro nunca deitar por cima do ícone da metade de baixo
+    const small = R <= 6;
+    const a0 = small ? PI * 1.12 : PI * 0.95, a1 = small ? PI * 1.88 : PI * 2.05;
+    // combustível: reserva em vermelho no começo da escala
+    if (k1 === 'fuel' && small) {
+      c.fillStyle = '#d81818';
+      for (let a = a0; a <= a0 + (a1 - a0) * 0.18; a += 0.05) half(c, ...at(mx, my, a, R - 0.75));
+    }
     ticks(mx, my, R - 0.75, a0, a1, 4);
     // números nas pontas e no meio (água 60/90/120, turbo 0/0,8/1,5 da F40)
     g.labels?.forEach((l, i) => {
       const a = a0 + ((a1 - a0) * i) / (g.labels!.length - 1);
       pix(c, l, ...at(mx, my, a, R - 2.6 - Math.abs(Math.cos(a)) * pixWidth(l, 0.5) * 0.45), '#f2f2f2', 0.5);
     });
-    hand(c, mx, my, a0 + (a1 - a0) * val(k1), R - 1.5, art.needle);
+    hand(c, mx, my, a0 + (a1 - a0) * val(k1), small ? R - 1.25 : R - 1.5, art.needle);
   } else if (g.kind === 'dual') {
     // dois ponteiros no mesmo eixo: o da esquerda sobe pela esquerda, o da direita pela direita
     ticks(mx, my, R - 0.75, PI * 0.8, PI * 1.4, 3);

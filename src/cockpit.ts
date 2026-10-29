@@ -341,7 +341,6 @@ COCKPIT_ART['br-pumagtb'] = {
   tach: { x: 171.5, y: 65.5, r: 27, max: 7, labels: [0, 1, 2, 3, 4, 5, 6, 7], tick: 0.25, red: 5, labelScale: 0.7, redLabels: false, ink: GTB_INK, bg: '#0c0c0e', redInk: '#e8301a', redW: 2, boldTicks: true },
   aux: [
     { x: 52, y: 75.5, r: 10.5, kind: 'single', show: ['fuel'], icon: 'fuel' },
-    { x: 218, y: 76, r: 10, kind: 'single', show: ['water'], icon: 'temp' }, // meio escondido atrás do aro, como no carro
     { x: 272.5, y: 65.5, r: 16.5, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '5', '10'] },
     { x: 322.5, y: 65.5, r: 16.5, kind: 'single', show: ['oiltemp'], icon: 'temp', labels: ['50', '100', '150'] },
     { x: 373, y: 65.5, r: 16.5, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '12', '16'] },

@@ -1,11 +1,9 @@
-"""Sprites do Vetor GSi (Vectra GSi) a partir da arte ampliada: reamostra na grade nativa
-(regrid.py), troca o branco dos vidros por vidro azulado, fecha a silhueta com contorno escuro
-e gera as máscaras de pintura. Os frisos e vincos das portas (os escuros dentro da lataria)
-entram na máscara: com a repintura proporcional (svgsprites.ts) eles continuam escuros em
-qualquer cor, como na pintura preta original.
+"""Sprites do Vetor GSi (Vectra GSi) a partir da arte ampliada (versão vermelha): reamostra na
+grade nativa (regrid.py), troca o branco das janelas (o fundo visto pelo vidro) por vidro
+azulado, alisa o chuvisco da lataria e gera as máscaras de pintura pelo matiz vermelho, sem as
+lanternas, a luz de freio central e os emblemas (vermelhos como a lataria).
 
 Uso: python3 tools/ref/vectra_sprites.py <pasta com src-side/rear/front.png> <src/assets/cars>
-     e depois python3 tools/ref/vectra_paint_fix.py <src/assets/cars> (pintura coerente)
 """
 import os
 import subprocess
@@ -17,38 +15,7 @@ from PIL import Image
 
 HERE = os.path.dirname(__file__)
 K4 = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], np.uint8)
-
-
-def glass(a, view):
-    """Branco de dentro (vidro sem nada atrás) vira vidro: azul-acinzentado, mais claro em cima."""
-    rgb = a[..., :3].astype(int)
-    al = a[..., 3] > 0
-    white = al & (rgb.min(axis=2) > 195)
-    if view != 'side':  # de frente e de trás o vidro é azulado claro, sempre na metade de cima
-        white = al & (rgb.min(axis=2) > 140) & (rgb[..., 2] >= rgb[..., 0] - 4)
-        white[int(a.shape[0] * 0.5):] = False
-    n, lab, st, _ = cv2.connectedComponentsWithStats(white.astype(np.uint8), 8)
-    out = np.zeros(white.shape, bool)
-    for i in range(1, n):
-        if st[i, cv2.CC_STAT_AREA] < 12:
-            continue
-        m = lab == i
-        out |= m
-        ys = np.nonzero(m)[0]
-        y0, y1 = ys.min(), ys.max()
-        for y in range(y0, y1 + 1):
-            t = (y - y0) / max(1, y1 - y0)
-            col = np.array([176, 192, 206]) * (1 - t) + np.array([96, 112, 130]) * t
-            row = m[y]
-            a[y, row, :3] = col.astype(np.uint8)
-        # reflexo: diagonal clara no canto de cima
-        xs = np.nonzero(m[y0])[0]
-        if len(xs) and view == 'side':
-            for k in range(3):
-                yy, xx = y0 + 1 + k, xs.min() + 3 + k * 2
-                if 0 <= yy < m.shape[0] and xx + 1 < m.shape[1] and m[yy, xx]:
-                    a[yy, xx:xx + 2, :3] = (214, 224, 232)
-    return out
+PERIOD = {'side': 6.34, 'rear': 6.74, 'front': 5.50}
 
 
 def flatten(a, m, thr=9):
@@ -71,56 +38,50 @@ def outline(a):
     a[..., :3] = rgb.astype(np.uint8)
 
 
-def mask(a, view, glass_px):
-    H, W = a.shape[:2]
+def glass(a):
+    """Branco das janelas (metade de cima) vira vidro azul-acinzentado, mais claro em cima."""
+    H = a.shape[0]
     rgb = a[..., :3].astype(int)
-    al = a[..., 3] > 0
-    lum = rgb.mean(axis=2)
-    sat = rgb.max(axis=2) - rgb.min(axis=2)
-    body = al & (lum <= 120) & (sat < 30)
-    # vidros e o que aparece através deles (bancos, colunas internas): fecho convexo de cada vidro
-    gm = np.zeros((H, W), np.uint8)
-    see = (al & glass_px).astype(np.uint8)
-    n, lab, st, _ = cv2.connectedComponentsWithStats(see, 8)
+    white = (a[..., 3] > 0) & (rgb.min(axis=2) > 200)
+    white[int(H * 0.5):] = False
+    n, lab, st, _ = cv2.connectedComponentsWithStats(white.astype(np.uint8), 8)
     for i in range(1, n):
-        if st[i, cv2.CC_STAT_AREA] < 8:
+        if st[i, cv2.CC_STAT_AREA] < 12:
             continue
-        pts = np.column_stack(np.nonzero(lab == i)[::-1]).astype(np.int32)
-        cv2.fillPoly(gm, [cv2.convexHull(pts)], 1)
-    body &= cv2.dilate(gm, K4) == 0
-    if view == 'side':
-        silver = (al & (lum > 120) & (sat < 30)).astype(np.uint8)
-        silver[: int(H * 0.5)] = 0
-        n, lab, st, cen = cv2.connectedComponentsWithStats(silver, 8)
-        for i in range(1, n):
-            if st[i, cv2.CC_STAT_AREA] < 30:
-                continue
-            r = max(st[i, cv2.CC_STAT_WIDTH], st[i, cv2.CC_STAT_HEIGHT]) / 2
-            cv2.circle(body.view(np.uint8), (int(round(cen[i][0])), int(round(cen[i][1]))), int(round(r * 1.42)), 0, -1)
-    else:
-        body[int(H * 0.86):] = False
-    if view == 'front':
-        # grade e tomada de ar: preto fosco entre os faróis
-        bright = (al & (lum > 140)).astype(np.uint8)
-        bright[: int(H * 0.35)] = 0
-        n, lab, st, _ = cv2.connectedComponentsWithStats(bright, 8)
-        blobs = [st[i] for i in range(1, n) if st[i, cv2.CC_STAT_AREA] >= 3]
-        rows = {}
-        for b in blobs:
-            rows.setdefault(round(b[cv2.CC_STAT_TOP] / 4), []).append(b)
-        for grp in rows.values():
-            left = [b for b in grp if b[0] + b[2] / 2 < W / 2]
-            right = [b for b in grp if b[0] + b[2] / 2 >= W / 2]
-            if left and right:
-                x0 = max(b[0] + b[2] for b in left)
-                x1 = min(b[0] for b in right)
-                body[min(b[1] for b in grp) - 1:max(b[1] + b[3] for b in grp) + 1, x0:x1] = False
-    # contorno da silhueta não é pintura; pedacinhos soltos também não
-    body &= cv2.erode(al.astype(np.uint8), K4) > 0
-    n, lab, st, _ = cv2.connectedComponentsWithStats(body.astype(np.uint8), 4)
-    keep = np.zeros((H, W), bool)
+        m = lab == i
+        ys = np.nonzero(m)[0]
+        y0, y1 = ys.min(), ys.max()
+        for y in range(y0, y1 + 1):
+            t = (y - y0) / max(1, y1 - y0)
+            a[y, m[y], :3] = (np.array([180, 198, 214]) * (1 - t) + np.array([98, 116, 136]) * t).astype(np.uint8)
+        xs = np.nonzero(m[y0])[0]
+        for k in range(3):  # reflexo diagonal
+            yy, xx = y0 + 1 + k, xs.min() + 3 + k * 2
+            if yy < H and xx + 1 < a.shape[1] and m[yy, xx]:
+                a[yy, xx:xx + 2, :3] = (216, 226, 234)
+
+
+def red_mask(a, exclude=(), cut=()):
+    hsv = cv2.cvtColor(np.ascontiguousarray(a[..., :3]), cv2.COLOR_RGB2HSV_FULL).astype(float)
+    hue = hsv[..., 0] * 360 / 256
+    m = ((hue >= 340) | (hue <= 14)) & (hsv[..., 1] > 110) & (hsv[..., 2] > 50) & (a[..., 3] > 0)
+    # em cada retângulo, só sai o que fica dentro do contorno preto da peça (lanterna, luz de
+    # freio, emblema): o claro que encosta na borda do retângulo é lataria e continua
+    lum = a[..., :3].astype(int).mean(axis=2)
+    for x0, y0, x1, y1 in exclude:
+        sub = (lum[y0:y1, x0:x1] > 45) & (a[y0:y1, x0:x1, 3] > 0)
+        n, lab = cv2.connectedComponents(sub.astype(np.uint8), connectivity=4)
+        border = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]])))
+        inner = sub & ~np.isin(lab, list(border))
+        inner = cv2.dilate(inner.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+        m[y0:y1, x0:x1] &= ~inner
+    for x0, y0, x1, y1 in cut:  # peças com o retângulo exato (lanternas): sai tudo
+        m[y0:y1, x0:x1] = False
+    m &= cv2.erode((a[..., 3] > 0).astype(np.uint8), K4) > 0
+    n, lab, st, _ = cv2.connectedComponentsWithStats(m.astype(np.uint8), 4)
+    keep = np.zeros(m.shape, bool)
     for i in range(1, n):
-        if st[i, cv2.CC_STAT_AREA] >= 20:
+        if st[i, cv2.CC_STAT_AREA] >= 12:
             keep |= lab == i
     return keep
 
@@ -129,17 +90,24 @@ def main():
     src, cars = sys.argv[1], sys.argv[2]
     for view in ('side', 'rear', 'front'):
         out = os.path.join(cars, f'br-vectra-{view}.png')
-        subprocess.run([sys.executable, os.path.join(HERE, 'regrid.py'), os.path.join(src, f'src-{view}.png'), out], check=True)
+        subprocess.run([sys.executable, os.path.join(HERE, 'regrid.py'), os.path.join(src, f'src-{view}.png'), out, str(PERIOD[view])], check=True)
         a = np.array(Image.open(out).convert('RGBA'))
-        g = glass(a, view)
+        H, W = a.shape[:2]
+        if view != 'front':  # de frente o para-brisa já é azulado na arte
+            glass(a)
+        # fora da pintura: lanternas, luz de freio central, emblema GSi
+        excl = {
+            'rear': [(48, 16, 68, 24), (78, 28, 92, 34)],
+            'side': [(W - 14, 20, W, 40), (58, 33, 70, 39)],
+            'front': [],
+        }[view]
+        cut = [(5, 28, 23, 46), (94, 28, 108, 46)] if view == 'rear' else []
+        m = red_mask(a, excl, cut)
+        flatten(a, m)
         outline(a)
-        m = mask(a, view, g)
-        # de frente o capô tem os reflexos riscados da arte: alisa mais
-        for _ in range(3 if view == 'front' else 2):
-            flatten(a, m, 18 if view == 'front' else 9)
         Image.fromarray(a, 'RGBA').save(out)
         Image.fromarray((m * 255).astype(np.uint8)).convert('1').save(out.replace('.png', '-mask.png'))
-        print(view, a.shape[1], a.shape[0], 'máscara', int(m.sum()))
+        print(view, W, H, 'máscara', int(m.sum()))
 
 
 if __name__ == '__main__':

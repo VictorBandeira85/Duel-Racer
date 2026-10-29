@@ -325,6 +325,23 @@ export function beep(freq: number, dur = 0.15) {
   o.stop(ctx.currentTime + dur);
 }
 
+// bip do detector de radar: curto e grave o bastante para não irritar (triangular, baixo volume)
+export function radarBeep(freq: number) {
+  if (!ctx) return;
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  const t = ctx.currentTime;
+  o.type = 'triangle';
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.09, t + 0.005);
+  g.gain.setValueAtTime(0.09, t + 0.05);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.085);
+  o.connect(g).connect(master);
+  o.start(t);
+  o.stop(t + 0.09);
+}
+
 // relé do pisca: um clique seco
 export function tickSound() {
   if (!ctx) return;

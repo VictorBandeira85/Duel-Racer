@@ -34,7 +34,8 @@ interface CockpitArt {
   // x nas coordenadas do painel (pode ser negativo: fica na área esticada de tela larga), y a
   // partir do topo da arte (topo de 76 linhas + painel)
   mirror?: { img: string; x: number; y: number };
-  glass?: { at: [number, number]; thr?: number }; // ponto dentro do vidro do retrovisor (teto + painel), ver findGlass
+  glass?: { at: [number, number]; thr?: number };
+  tells?: [number, number] | null; // luzes da seta no quadro (null: a cabine já desenha as dela) // ponto dentro do vidro do retrovisor (teto + painel), ver findGlass
   dy?: number; // desce a cabine inteira (painel alto demais tapando a pista)
   wheelDx?: number; // desloca o volante para a direita (alinha com o quadro de instrumentos)
   wheelTop?: number; // linhas do PNG do volante acima do topo da arte (aro inteiro sobre o para-brisa)
@@ -90,7 +91,7 @@ function cp(n: string) {
   return CPNG[`./assets/cockpit/${n}.png`];
 }
 const COCKPIT_ART: Record<string, CockpitArt> = {
-  f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, dashMask: cp('f40-dash-mask'), topMask: cp('f40-top-mask'), pivot: [127.4, 80], 
+  f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, dashMask: cp('f40-dash-mask'), topMask: cp('f40-top-mask'), pivot: [127.4, 80], tells: [129, 47], 
     // Veglia Borletti: velocímetro à esquerda e conta-giros à direita; conta-giros 0-100 (× 100 rpm), velocímetro 0-360 com os intermediários
     // pequenos, hodômetro e parcial dentro dele; água 60/90/120 e turbo 0/0,8/1,5 bar embaixo
     tach: { x: 149, y: 46, r: 17, max: 10, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], labelMul: 10, tick: 0.25, red: 7.75, redLabels: false },
@@ -110,7 +111,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
       warnLamp(c, ox + 129, ART_TOP + 56, gauges.oil < 0.36);
     } },
   // 959: interior completo do Victor; os cinco mostradores redesenhados com números maiores
-  '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.2, 84.3],
+  '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.2, 84.3], tells: [129, 37],
     // VDO: conta-giros 1-8 com faixa vermelha a partir de 7,5 e o manômetro do turbo (0-2,5 bar)
     // embaixo; velocímetro 20-340 com hodômetro; à esquerda o combinado de óleo (temperatura,
     // pressão e nível) e o de combustível e água
@@ -163,6 +164,7 @@ COCKPIT_ART.diablo = {
 // os números da arte), hodômetro e parcial abaixo do eixo, ponteiros brancos; à direita
 // temperatura da água, combustível, pressão do óleo e voltímetro
 COCKPIT_ART['br-vectra'] = {
+  tells: [115, 44],
   glass: { at: [20, 96], thr: 40 },
   dash: cp('br-vectra-dash'), top: cp('br-vectra-top'), wheel: cp('br-vectra-wheel'),
   pivot: [128, 103.6], speedMax: 240, needle: '#f2f2f2', hub: '#1a1a1c', radar: [206, 4],
@@ -313,6 +315,7 @@ function golCluster(c: CanvasRenderingContext2D, ox: number, r: Race, art: Cockp
   rect(c, mx + 25.5, my + 50, 1.5, 1.5, '#4a4a50');
 }
 COCKPIT_ART['br-golgti'] = {
+  tells: null,
   dash: cp('br-golgti-dash'), top: cp('br-golgti-top'), wheel: cp('br-golgti-wheel'),
   pivot: [128, 99.9], wheelTop: 28, wheelDy: 20, speedMax: 240, needle: '#f4eedc', needleW: 1.5, needleTail: 4, hub: '#1a1a1c', radar: [222, 8],
   speed: { x: 89.5, y: 57.5, r: 28, max: 240, labels: [20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240], tick: 10, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, ink: GTI_INK, bg: '#121214', cut: 20, boldTicks: true },
@@ -355,6 +358,7 @@ COCKPIT_ART['br-pumagtb'] = {
 // aros cromados, hodômetro e parcial; luz do óleo no conta-giros, seta e farol alto no
 // velocímetro; no painel, combustível (R-C), pressão do óleo, temperatura do óleo e voltímetro
 COCKPIT_ART['br-pumagte'] = {
+  tells: null,
   glass: { at: [20, 105] },
   dash: cp('br-pumagte-dash'), top: cp('br-pumagte-top'), wheel: cp('br-pumagte-wheel'),
   dashMask: cp('br-pumagte-dash-mask'), topMask: cp('br-pumagte-top-mask'),
@@ -449,6 +453,7 @@ function kadettCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   pix(c, `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, ox + 285.5, T + 87, '#c8e0a0', 1);
 }
 COCKPIT_ART['br-kadett'] = {
+  tells: [113, 65.5],
   dash: cp('br-kadett-dash'), top: cp('br-kadett-top'), wheel: cp('br-kadett-wheel'),
   pivot: [127.9, 105.7], speedMax: 220, needle: '#ffb428', hub: '#202022', radar: [206, 4], aux: [],
   extra: (c, ox, r) => kadettCluster(c, ox, r),
@@ -456,6 +461,7 @@ COCKPIT_ART['br-kadett'] = {
 
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
 COCKPIT_ART.zr1 = {
+  tells: null,
   dash: cp('zr1-dash'), top: cp('zr1-top'), wheel: cp('zr1-wheel'),
   pivot: [128, 86], speedMax: 240, needle: '#ff3a1a', hub: '#26262a', aux: [], radar: [206, 4],
   under: (c, ox) => {
@@ -582,6 +588,7 @@ for (const [k, v] of Object.entries(INTERIORS)) {
     pivot: v.pivot as [number, number],
     tach: dials.find((d) => d.max <= 10)!, speed: dials.find((d) => d.max > 10)!,
     speedMax: v.speedMax, needle: '#ff3a1a', hub: '#26262a', aux: v.aux as Aux[],
+    tells: k === 'testarossa' ? [128, 43] : undefined, // entre os dois auxiliares do meio
   };
 }
 
@@ -716,7 +723,11 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   const [rx, ry] = art.radar ?? [206, 22];
   rect(c, ox + rx, ART_TOP + ry, 30, 6, '#0c0c0e');
   radarLeds(c, ox + rx + 2, ART_TOP + ry + 1, 26, r.radar);
-  signalArrows(c, ox + rx, ART_TOP + ry, 30, r.signal);
+  // luz verde da seta no quadro (as cabines com luz-espia própria desenham a delas)
+  if (art.tells !== null) {
+    const t = art.tells ?? defaultTells(art);
+    if (t) turnTells(c, ox + t[0], ART_TOP + t[1], r.signal);
+  }
   const wdx = art.wheelDx ?? 0;
   const wdy = art.wheelDy ?? 0;
   const px = ox + wdx + art.pivot[0], py = ART_TOP + art.pivot[1] + wdy;
@@ -1232,21 +1243,26 @@ function boostSubdial(c: CanvasRenderingContext2D, x: number, y: number, R: numb
   hand(c, x, y, a0 + (a1 - a0) * clamp(gauges.boost / 1.25, 0, 1), R - 0.5, color);
 }
 
-// luzes-espia do pisca, verdes, dos dois lados do radar
-function signalArrows(c: CanvasRenderingContext2D, x: number, y: number, w: number, signal: number) {
+// luzes-espia da seta no quadro: duas setinhas verdes (esquerda e direita), centradas em (x, y);
+// a do lado ligado pisca junto com o relé
+function turnTells(c: CanvasRenderingContext2D, x: number, y: number, signal: number) {
   const lit = signal !== 0 && blinkOn();
   for (const side of [-1, 1]) {
     const on = lit && side === signal;
-    const ax = side < 0 ? x - 6 : x + w + 1.5; // ponta da seta para fora
-    c.fillStyle = '#0c0c0e';
-    c.fillRect(ax - 0.5, y - 0.5, 5.5, 7);
-    c.fillStyle = on ? '#38f048' : '#123a18';
+    const ax = x + side * 4.5; // centro de cada seta
+    c.fillStyle = on ? '#3cf048' : '#0f2e14';
     for (let i = 0; i < 3; i++) {
-      const hw = 1 + i; // largura da coluna (triângulo)
-      const cx = side < 0 ? ax + 0.5 + i * 1.5 : ax + 3.5 - i * 1.5;
-      c.fillRect(cx, y + 3 - hw + 0.5, 1.5, hw * 2 - 1);
+      const hh = 1 + i; // meia altura da coluna (triângulo apontando para fora)
+      c.fillRect(ax + side * (1.5 - i), y - hh + 0.5, 1, hh * 2 - 1);
     }
+    c.fillRect(side < 0 ? ax + 1.5 : ax - 3.5, y - 0.5, 2, 1); // haste
   }
+}
+// posição padrão: entre os dois mostradores grandes, embaixo
+function defaultTells(art: CockpitArt): [number, number] | null {
+  const a = art.tach, b = art.speed;
+  if (!a || !b) return null;
+  return [(a.x + b.x) / 2, Math.max(a.y, b.y) + Math.max(a.r, b.r) * 0.55];
 }
 
 function radarLeds(c: CanvasRenderingContext2D, x: number, y: number, w: number, level: number) {
@@ -2016,6 +2032,7 @@ function drawDashTD2Black(c: CanvasRenderingContext2D, r: Race, dt: number) {
   c.restore();
   gauge(c, cx - 11, 162, 19, ['', '1', '2', '3', '4', '5', '6', '7', '8'], 0.1 + Math.min(1, r.rpm) * 0.8, 0.88, { gear: String(r.gear + 1) });
   gauge(c, cx + 26, 163, 19, ['0', '60', '120', '180', '240', '300', '360'], kmh / 360, 2, { digital: String(kmh) });
+  turnTells(c, cx + 7.5, 176, r.signal);
   withRotation(c, cx, cy, steerAngle(r, dt), () => {
     c.fillStyle = speckle(c, '#1c1c26', [['#34344a', 0.25], ['#5a5a70', 0.06]], 16);
     c.beginPath();
@@ -2067,6 +2084,7 @@ function drawDashTD2Grey(c: CanvasRenderingContext2D, r: Race, dt: number) {
   const kmh = Math.round(r.speed * KMH);
   gauge(c, cx - 21, 160, 22, ['0', '80', '160', '240', '320'], kmh / 360, 2, { digital: String(kmh), ring: '#3a3a3a' });
   gauge(c, cx + 23, 160, 22, ['0', '20', '40', '60', '80', '100'], 0.1 + Math.min(1, r.rpm) * 0.8, 0.78, { gear: String(r.gear + 1), ring: '#3a3a3a' });
+  turnTells(c, cx + 1, 178, r.signal);
   withRotation(c, cx, 198, steerAngle(r, dt), () => {
     // aro em "D" (anel: contorno externo menos o interno)
     c.fillStyle = dither(c, '#2a2a2a', '#343434');

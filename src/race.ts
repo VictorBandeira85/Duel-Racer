@@ -6,7 +6,7 @@ import { THEMES, blendTheme, fogTheme, nightTheme, rainTheme, sunsetTheme, type 
 import { SPRITES } from './sprites';
 import { buildTrack, laneCenter, type Segment, type Track } from './track';
 import { input, takeShift } from './input';
-import { beep, bumpSound, crashSound, landSound, stoneSound, setTunnel, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
+import { beep, radarBeep, bumpSound, crashSound, landSound, stoneSound, setTunnel, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
 import { updateTrafficAudio } from './trafficaudio';
 import { GHOST_DT, ghostAt, type Ghost } from './records';
@@ -48,6 +48,8 @@ export function trafficLook(t: TrafficCar, front: boolean, night: boolean, flash
 }
 // gravidade de verdade (9,81 m/s², ~144 unidades por metro)
 const GRAV = (9.81 * 3.6) / KMH;
+// alcance do detector de radar: ~500 m (uns 9 s a 200 km/h) até a viatura escondida
+const RADAR_RANGE = 360 * SEG_LEN;
 // o relevo da pista é exagerado (rampas de 30-60%): seguindo o chão ao pé da letra o carro
 // decolava a 6 m de altura. Pneus e suspensão absorvem a subida brusca: no topo, o carro só leva
 // para cima até ~3,5 m/s de velocidade vertical (salto de palmo a meio metro, voo de meio segundo
@@ -220,6 +222,8 @@ export class Race {
   fine: Fine | null = null;
   private stopX = 0; // onde o jogador encosta
   radar = 0;
+  private radarBeepT = 0;
+  private radarBand = 0;
   signal = 0; // pisca do jogador (automático ao ultrapassar em mão dupla): -1 esquerdo, 1 direito
   private sigX = 0;
   rand: () => number;
@@ -1135,7 +1139,7 @@ export class Race {
     for (const p of this.police) {
       if (p.state === 'parked') {
         const d = p.spotZ - pz;
-        if (d > 0 && d < 80 * SEG_LEN) this.radar = Math.max(this.radar, 1 - d / (80 * SEG_LEN));
+        if (d > 0 && d < RADAR_RANGE) this.radar = Math.max(this.radar, 1 - d / RADAR_RANGE);
         // a viatura sai do esconderijo logo depois que o jogador passa
         if (d <= -3 * SEG_LEN) {
           // de viatura o jogador é colega: o radar não persegue
@@ -1197,6 +1201,29 @@ export class Race {
       }
     }
     setSiren(siren);
+    this.radarAlarm(dt);
+  }
+
+  // detector de radar por níveis: 5 luzes (2 verdes, 2 amarelas, 1 vermelha) e um bip por
+  // nível, espaçado no verde, médio no amarelo e nervoso no vermelho
+  radarLevel() {
+    return this.radar > 0 ? Math.min(5, Math.ceil(this.radar * 5)) : 0;
+  }
+  private radarAlarm(dt: number) {
+    const lvl = this.state === 'drive' || this.state === 'pullover' ? this.radarLevel() : 0;
+    const band = lvl >= 5 ? 3 : lvl >= 3 ? 2 : lvl ? 1 : 0; // verde, amarelo, vermelho
+    const changed = band !== this.radarBand;
+    this.radarBand = band;
+    if (!lvl) {
+      this.radarBeepT = 0;
+      return;
+    }
+    this.radarBeepT -= dt;
+    if (this.radarBeepT <= 0 || changed) { // mudou de cor: bipa já no ritmo novo
+      const red = lvl >= 5, yellow = lvl >= 3;
+      radarBeep(red ? 760 : yellow ? 680 : 600);
+      this.radarBeepT = red ? 0.16 : yellow ? 0.45 : 1.1;
+    }
   }
 
   // viatura no meio do trânsito: desvia de quem está à frente na mesma linha (pelo lado com

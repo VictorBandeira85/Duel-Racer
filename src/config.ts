@@ -19,4 +19,9 @@ export const KMH = 0.025; // unidades/s -> km/h
 export const ROOF_H = 24;
 export const DASH_Y = 120; // medido nas referências (pixels nativos 256x224)
 
-export const RES = 2; // pixels do canvas por pixel nativo
+// pixels do canvas por pixel nativo: 4 em telas densas (celular), 2 nas comuns ou no modo
+// econômico. Sempre par: o meio pixel dos mostradores continua caindo em pixel inteiro.
+export let RES = 2;
+export function setRes(n: number) {
+  RES = n;
+}

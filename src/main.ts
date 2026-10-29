@@ -1,6 +1,6 @@
 import { stageResult } from './score';
 import '@fontsource/press-start-2p/400.css';
-import { RES, view } from './config';
+import { RES, setRes, view } from './config';
 import { CARS, TRAFFIC_IMAGES } from './cars';
 import { COURSES, completeCourse, unlockedCourses, withTimeOfDay, type Course } from './courses';
 import { ui as careerUi } from './careerScreens';
@@ -16,7 +16,7 @@ import { input, pollGamepad, releaseAll, setupInput } from './input';
 import { initAudio, playMusic, setEngine, setMusicOn, setMuted, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
 import { preloadSvg } from './svgsprites';
-import { perfSample } from './perf';
+import { lowFx, perfSample } from './perf';
 import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
 
 preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.sideMask, c.rear.img, c.rear.imgMask, c.rear.frontImg, c.rear.frontMask]).filter((s): s is string => !!s), ...TRAFFIC_IMAGES);
@@ -205,11 +205,15 @@ function resize() {
   view.w = Math.round(Math.min(race ? 460 : 520, Math.max(race ? 256 : 320, (view.h * screenAspect) / view.aspect)));
   // resolução interna 2x: tudo continua desenhado em pixels nativos (e ampliado sem
   // suavizar), mas os detalhes finos (números dos mostradores) podem usar meio pixel
+  const scale = Math.min(availW / (view.w * view.aspect), availH / view.h);
+  // resolução de desenho: acompanha os pixels reais da tela (pista, carros e objetos mais
+  // definidos); no econômico fica em 2
+  const dev = scale * (window.devicePixelRatio || 1);
+  setRes(dev >= 3.5 && !lowFx() ? 4 : 2);
   canvas.width = view.w * RES;
   canvas.height = view.h * RES;
   ctx.setTransform(RES, 0, 0, RES, 0, 0);
   ctx.imageSmoothingEnabled = false;
-  const scale = Math.min(availW / (view.w * view.aspect), availH / view.h);
   canvas.style.width = `${view.w * view.aspect * scale}px`;
   canvas.style.height = `${view.h * scale}px`;
 }
@@ -270,6 +274,7 @@ function frame(now: number) {
   requestAnimationFrame(frame);
 }
 let frameErr = false;
+let lastLow = false;
 const gearEl = document.getElementById('gearNum')!;
 function frameInner(now: number) {
   const dt = Math.max(0, Math.min(0.25, (now - last) / 1000)); // o primeiro quadro pode vir antes de `last`
@@ -308,6 +313,11 @@ function frameInner(now: number) {
     }
     if (state.screen === 'race') {
       if (!paused) perfSample(dt);
+      // o econômico (escolhido ou automático) também baixa a resolução de desenho para 2x
+      if (lowFx() !== lastLow) {
+        lastLow = lowFx();
+        resize();
+      }
       renderCockpit(ctx, race, state.lives, `${race.stageIdx + 1}/${run.course.stages.length}`, totalTime(), paused ? 0 : dt);
     } else drawScreen(ctx, state);
   } else {

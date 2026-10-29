@@ -49,6 +49,14 @@ def main():
     rgb = a[..., :3].astype(int)
     warm = (rgb[..., 0] > rgb[..., 2] + 12) & (rgb.mean(axis=2) > 45)  # o brilho rosado em volta
     print('GTI mancha:', inpaint(a, (reds(a) | warm) & zone))
+    # o borrão que a reconstrução deixou no lugar: painel liso, no tom do painel em volta,
+    # escurecendo de leve para baixo (como o resto do plástico)
+    ref = a[24:64, 142:150, :3].reshape(-1, 3).astype(int)
+    base = np.median(ref[ref.mean(axis=1) < 60], axis=0) if (ref.mean(axis=1) < 60).any() else np.array([26, 26, 30])
+    for y in range(26, 64):
+        k = 1.06 - 0.12 * (y - 26) / 38
+        a[y, 120:141, :3] = np.clip(base * k, 0, 255).astype(np.uint8)
+    a[26:64, 120, :3] = (12, 12, 14)  # vinco entre a saída de ar e o painel
     save(d, 'br-golgti', t, a)
     # Onça GTB: limpador levantado (separado do painel por céu) e ponto vermelho
     t, a = load(d, 'br-pumagtb')

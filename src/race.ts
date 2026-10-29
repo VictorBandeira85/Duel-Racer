@@ -40,7 +40,9 @@ function pickGameCar(u: number): CarSpec | undefined {
 }
 // aparência de um carro do trânsito (genérico ou modelo do jogo, com faróis e piscas próprios)
 export function trafficLook(t: TrafficCar, front: boolean, night: boolean, flash = false): CarLook {
-  const look: CarLook = { color: t.color, front, truck: t.truck, night, model: t.model, signal: t.signal, flash, tilt: t.tilt };
+  // freando: mais devagar do que gosta de andar (trânsito na mesma mão, atrás de alguém ou em pânico)
+  const brake = t.speed > 0 && t.speed < t.base * 0.9;
+  const look: CarLook = { color: t.color, front, truck: t.truck, night, model: t.model, signal: t.signal, flash, tilt: t.tilt, brake };
   if (t.car) Object.assign(look, { rear: t.car.rear, paint: t.color, lamps: { up: night || flash ? 1 : 0, on: night || flash, high: flash } });
   return look;
 }

@@ -4,7 +4,7 @@
 // vem atrás ofusca nos retrovisores e, ao emparelhar, clareia o lado da tela por onde passa.
 import type { CarLook } from './cars';
 
-interface Light { x: number; y: number; w: number; front: boolean }
+interface Light { x: number; y: number; w: number; h: number; front: boolean; brake: boolean; signal: number; dots: number[][]; high: boolean }
 const lights: Light[] = [];
 let collecting = false;
 
@@ -13,10 +13,11 @@ export function beginLights() {
   collecting = true;
 }
 // chamado por drawCar: guarda onde estão as luzes do carro (só durante a pista, à noite)
-export function pushCarLights(x: number, y: number, w: number, look: CarLook) {
+export function pushCarLights(x: number, y: number, w: number, look: CarLook, spots: { h: number; dots: number[][] }) {
   if (!collecting || !look.night || w < 3) return;
-  lights.push({ x, y, w, front: !!look.front });
+  lights.push({ x, y, w, h: spots.h, front: !!look.front, brake: !!look.brake, signal: look.signal ?? 0, dots: spots.dots, high: !!look.flash || !!look.lamps?.high });
 }
+const blinkOn = () => Math.floor(performance.now() / 250) % 2 === 0;
 
 // escuridão com o facho dos faróis do jogador (camada guardada, refeita se mudar o tamanho)
 let dark: HTMLCanvasElement | null = null;
@@ -81,13 +82,35 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   c.save();
   c.globalCompositeOperation = 'lighter';
   for (const l of lights) {
+    const L = l.x - l.w / 2, T = l.y - l.h;
+    const pts = l.dots.map(([u, f]) => [L + u * l.w, T + f * l.h]);
     if (l.front) {
-      // faróis de quem vem de frente: dois focos fortes e o clarão na pista à frente dele
-      for (const s of [-0.33, 0.33]) blob(c, l.x + s * l.w, l.y - l.w * 0.26, l.w * 0.3, l.w * 0.22, '255,244,200', 0.6 * strength);
-      blob(c, l.x, l.y + l.w * 0.05, l.w * 0.9, l.w * 0.18, '255,240,190', 0.22 * strength);
+      // faróis de quem vem de frente: foco forte em cada farol, halo e o clarão na pista à frente
+      const k = l.high ? 1.5 : 1;
+      for (const [px, py] of pts) {
+        blob(c, px, py, l.w * 0.34 * k, l.w * 0.24 * k, '255,244,200', 0.5 * strength);
+        blob(c, px, py, l.w * 0.08, l.w * 0.07, '255,255,240', 0.9 * strength);
+      }
+      blob(c, l.x, l.y + l.w * 0.05, l.w * 0.9 * k, l.w * 0.18, '255,240,190', 0.22 * strength);
     } else {
-      // lanternas de quem vai na frente
-      for (const s of [-0.38, 0.38]) blob(c, l.x + s * l.w, l.y - l.w * 0.28, l.w * 0.16, l.w * 0.11, '255,40,24', 0.55 * strength);
+      // lanternas: brilho vermelho em cada lâmpada; no freio fica bem mais forte, com halo
+      // grande e o reflexo vermelho no asfalto atrás do carro
+      for (const [px, py] of pts) {
+        if (l.brake) {
+          blob(c, px, py, l.w * 0.42, l.w * 0.3, '255,30,16', 0.32 * strength);
+          blob(c, px, py, l.w * 0.13, l.w * 0.1, '255,90,60', 0.85 * strength);
+        } else {
+          blob(c, px, py, l.w * 0.2, l.w * 0.14, '255,36,20', 0.42 * strength);
+          blob(c, px, py, l.w * 0.06, l.w * 0.05, '255,80,50', 0.6 * strength);
+        }
+      }
+      blob(c, l.x, l.y + l.w * 0.03, l.w * (l.brake ? 0.85 : 0.6), l.w * 0.1, '255,30,16', (l.brake ? 0.28 : 0.12) * strength);
+    }
+    // seta piscando: brilho âmbar do lado para onde vai
+    if (l.signal && blinkOn()) {
+      const [px, py] = pts[l.signal > 0 ? pts.length - 1 : 0] ?? [l.x, l.y - l.h / 2];
+      const sx = l.front ? (l.signal > 0 ? L + l.w * 0.08 : L + l.w * 0.92) : px; // de frente o lado se inverte
+      blob(c, sx, py, l.w * 0.22, l.w * 0.16, '255,160,30', 0.6 * strength);
     }
   }
   // quem vem atrás com farol aceso: o lado por onde passa clareia, mais forte ao emparelhar,

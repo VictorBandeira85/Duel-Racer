@@ -617,7 +617,7 @@ function glow(c: CanvasRenderingContext2D, x: number, y: number, w: number, rgb:
 
 // carros grandes na tela são rasterizados na resolução real (RES pixels por pixel do jogo);
 // os pequenos e distantes, na do jogo (economiza memória e tempo na corrida)
-const hiRes = (w: number) => (w >= 40 ? RES : 1);
+const hiRes = (w: number) => (w >= 20 ? RES : Math.max(1, RES / 2)); // os longe, na metade (economiza memória)
 
 // Carro visto de trás (ou de frente, se vier na contramão). (x, y) = centro da base.
 // Trânsito e viatura em pixel art (tools/art/traffic.py); a cor de cada carro vem da máscara
@@ -672,6 +672,28 @@ function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w:
   }
   return true;
 }
+// onde ficam as lanternas (traseira) e quanto o carro tem de altura na tela, para o brilho
+// noturno das luzes cair em cima das lâmpadas de verdade
+function lampSpots(w: number, look: CarLook): { h: number; dots: number[][] } {
+  const model = look.police ? (look.sv ? 'policesv' : 'police') : look.model;
+  if (!look.rear && model) {
+    const img = tpng(`${model}-${look.front ? 'front' : 'rear'}`);
+    const h = w * ((img && spriteAspect(img)) || 0.6);
+    return { h, dots: look.front ? [[0.2, 0.62], [0.8, 0.62]] : TRAFFIC_GLOW[model]?.dots ?? [[0.15, 0.6], [0.85, 0.6]] };
+  }
+  const R = look.rear;
+  const img = look.front ? R?.frontImg : R?.img;
+  const h = w * ((img && spriteAspect(img)) || R?.h || 0.6);
+  if (look.front) {
+    const hd = R?.lamps?.head;
+    return { h, dots: hd ? [[hd[0], hd[1]], [1 - hd[0], hd[1]]] : [[0.2, 0.55], [0.8, 0.55]] };
+  }
+  const g = R?.glow;
+  if (g?.dots?.length) return { h, dots: g.dots };
+  if (g?.bar) return { h, dots: [[g.bar[0] + 0.05, (g.bar[1] + g.bar[3]) / 2], [g.bar[2] - 0.05, (g.bar[1] + g.bar[3]) / 2]] };
+  return { h, dots: [[0.15, 0.55], [0.85, 0.55]] };
+}
+
 const TRAFFIC_GLOW: Record<string, { dots?: number[][]; siren?: number[][]; sirenFront?: number[][]; sirenColors?: string[]; sirenColorsFront?: string[] }> = {
   sedan: { dots: [[0.15, 0.6], [0.85, 0.6]] }, hatch: { dots: [[0.11, 0.62], [0.89, 0.62]] },
   pickup: { dots: [[0.06, 0.6], [0.94, 0.6]] }, van: { dots: [[0.06, 0.71], [0.94, 0.71]] },
@@ -697,7 +719,7 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
     c.restore();
     return;
   }
-  pushCarLights(x, y, w, look);
+  if (look.night) pushCarLights(x, y, w, look, lampSpots(w, look));
   // trânsito e polícia: sprites em pixel art (o desenho por código fica de reserva)
   if (!look.rear && (look.police || look.model) && drawTrafficSprite(c, x, y, w, look, look.police ? (look.sv ? 'policesv' : 'police') : look.model!)) return;
   const variant = look.paint ? look.rear?.variants?.[look.paint] : undefined;

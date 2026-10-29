@@ -16,6 +16,8 @@ from PIL import Image
 
 HERE = os.path.dirname(__file__)
 sys.path.insert(0, HERE)
+from glass_fix import fix_glass  # noqa: E402
+sys.path.insert(0, HERE)
 from vectra_sprites import flatten, outline  # noqa: E402
 
 PERIOD = {'side': 10.05, 'rear': 9.51, 'front': 9.51}
@@ -101,6 +103,7 @@ def main():
         m = body_mask(a, view, g)
         flatten(a, m, 10)
         outline(a)
+        fix_glass(a, m, view)  # branco que sobrou nos vidros vira vidro (vale para todo carro)
         Image.fromarray(a, 'RGBA').save(out)
         Image.fromarray((m * 255).astype(np.uint8)).convert('1').save(out.replace('.png', '-mask.png'))
         print(view, a.shape[1], a.shape[0], 'máscara', int(m.sum()))

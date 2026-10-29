@@ -14,6 +14,8 @@ import numpy as np
 from PIL import Image
 
 HERE = os.path.dirname(__file__)
+sys.path.insert(0, HERE)
+from glass_fix import fix_glass  # noqa: E402
 K4 = np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]], np.uint8)
 PERIOD = {'side': 6.34, 'rear': 6.74, 'front': 5.50}
 
@@ -105,6 +107,7 @@ def main():
         m = red_mask(a, excl, cut)
         flatten(a, m)
         outline(a)
+        fix_glass(a, m, view)  # branco que sobrou nos vidros vira vidro (vale para todo carro)
         Image.fromarray(a, 'RGBA').save(out)
         Image.fromarray((m * 255).astype(np.uint8)).convert('1').save(out.replace('.png', '-mask.png'))
         print(view, W, H, 'máscara', int(m.sum()))

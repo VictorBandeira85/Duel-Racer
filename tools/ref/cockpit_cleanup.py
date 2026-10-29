@@ -49,14 +49,43 @@ def main():
     rgb = a[..., :3].astype(int)
     warm = (rgb[..., 0] > rgb[..., 2] + 12) & (rgb.mean(axis=2) > 45)  # o brilho rosado em volta
     print('GTI mancha:', inpaint(a, (reds(a) | warm) & zone))
-    # o borrão que a reconstrução deixou no lugar: painel liso, no tom do painel em volta,
-    # escurecendo de leve para baixo (como o resto do plástico)
-    ref = a[24:64, 142:150, :3].reshape(-1, 3).astype(int)
-    base = np.median(ref[ref.mean(axis=1) < 60], axis=0) if (ref.mean(axis=1) < 60).any() else np.array([26, 26, 30])
-    for y in range(26, 64):
-        k = 1.06 - 0.12 * (y - 26) / 38
-        a[y, 120:141, :3] = np.clip(base * k, 0, 255).astype(np.uint8)
-    a[26:64, 120, :3] = (12, 12, 14)  # vinco entre a saída de ar e o painel
+    # o aro original da arte foi apagado e reconstruído borrado; com o volante mais baixo no
+    # jogo (wheelDy 20), a parte de cima dessa faixa aparece em volta do quadro como um borrão
+    # cinza. Refaz a faixa linha a linha: cada pixel vira a passagem suave entre o painel limpo
+    # à esquerda e à direita na mesma linha (o painel tem estrutura horizontal), sem borrão.
+    H, W = a.shape[:2]
+    yy, xx = np.mgrid[0:H, 0:W]
+    cx, cy = 229.9, 99.9
+    ro = ((xx - cx) / 114.5) ** 2 + ((yy - cy) / 127.5) ** 2
+    ri = ((xx - cx) / 95.0) ** 2 + ((yy - cy) / 106.0) ** 2
+    ghost = (ro <= 1) & (ri >= 1) & (a[..., 3] > 0)
+    lcd = (xx >= 159) & (xx <= 315) & (yy >= 20) & (yy <= 79)
+    ghost &= ~lcd
+    ghost[:, :119] = False  # saída de ar da esquerda
+    ghost[:, 341:] = False  # e as da direita
+    ghost[:, 112:142] |= (yy[:, 112:142] >= 22) & (yy[:, 112:142] <= 66) & (a[:, 112:142, 3] > 0) & ~lcd[:, 112:142]
+    known = (a[..., 3] > 0) & ~ghost
+    rgb = a[..., :3].astype(float)
+    for y in range(H):
+        xs = np.nonzero(ghost[y])[0]
+        if not len(xs):
+            continue
+        k = np.nonzero(known[y])[0]
+        if not len(k):
+            continue
+        for x in xs:
+            l = k[k < x]
+            r_ = k[k > x]
+            if len(l) and len(r_):
+                xl, xr = l[-1], r_[0]
+                f = (x - xl) / (xr - xl)
+                rgb[y, x] = rgb[y, xl] * (1 - f) + rgb[y, xr] * f
+            else:
+                rgb[y, x] = rgb[y, (l[-1] if len(l) else r_[0])]
+    # suaviza na vertical só a faixa refeita (sem riscos linha a linha)
+    sm = cv2.blur(rgb.astype(np.float32), (3, 9))
+    a[ghost, :3] = np.clip(sm[ghost], 0, 255).astype(np.uint8)
+    print('GTI faixa do aro antigo refeita:', int(ghost.sum()))
     save(d, 'br-golgti', t, a)
     # Onça GTB: limpador levantado (separado do painel por céu) e ponto vermelho
     t, a = load(d, 'br-pumagtb')

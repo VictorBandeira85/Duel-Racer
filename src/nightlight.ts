@@ -73,7 +73,7 @@ function blob(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry:
 export interface Pass { x: number; dz: number } // quem vem atrás com farol aceso (dz > 0 atrás)
 
 // fim da pista: escuridão, luzes dos carros somadas e a claridade de quem emparelha
-export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: number; w: number; h: number; horizon: number }, strength: number, passers: Pass[], segLen: number) {
+export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: number; w: number; h: number; horizon: number; dash?: number }, strength: number, passers: Pass[], segLen: number) {
   collecting = false;
   if (strength <= 0.02) return;
   const top = Math.max(vp.y, Math.floor(vp.horizon) - 40);
@@ -81,7 +81,57 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   c.drawImage(darkLayer(Math.round(vp.w), Math.round(h), 0, 0.68 * strength), vp.x, top);
   c.save();
   c.globalCompositeOperation = 'lighter';
-  for (const l of lights) {
+  // facho dos faróis do jogador na pista: luz amarelada somada, forte perto do capô e sumindo
+  // lá na frente (o asfalto da noite é escuro: só recortar a escuridão não basta)
+  {
+    // a parte visível da pista vai do horizonte até o painel
+    const bot = vp.y + vp.h, seen = Math.min(bot, vp.dash ?? bot), span = seen - vp.horizon;
+    const far = vp.horizon + span * 0.12;
+    const cx = vp.x + vp.w / 2;
+    const g = c.createLinearGradient(0, seen + span * 0.4, 0, far);
+    const k = strength;
+    g.addColorStop(0, `rgba(255,232,170,${(0.34 * k).toFixed(3)})`);
+    g.addColorStop(0.45, `rgba(255,232,170,${(0.22 * k).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(255,232,170,0)');
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(cx - vp.w * 0.62, bot);
+    c.lineTo(cx - vp.w * 0.07, far);
+    c.lineTo(cx + vp.w * 0.07, far);
+    c.lineTo(cx + vp.w * 0.62, bot);
+    c.closePath();
+    c.fill();
+    // miolo mais claro de cada farol
+    for (const sgn of [-1, 1]) {
+      const h2 = c.createLinearGradient(0, seen + span * 0.4, 0, vp.horizon + span * 0.3);
+      h2.addColorStop(0, `rgba(255,240,200,${(0.16 * k).toFixed(3)})`);
+      h2.addColorStop(1, 'rgba(255,240,200,0)');
+      c.fillStyle = h2;
+      c.beginPath();
+      c.moveTo(cx + sgn * vp.w * 0.08, bot);
+      c.lineTo(cx + sgn * vp.w * 0.02, vp.horizon + span * 0.3);
+      c.lineTo(cx + sgn * vp.w * 0.1, vp.horizon + span * 0.3);
+      c.lineTo(cx + sgn * vp.w * 0.42, bot);
+      c.closePath();
+      c.fill();
+    }
+  }
+  // as luzes vêm do mais longe para o mais perto: o brilho de cada carro não passa por cima da
+  // carroceria dos carros mais perto (recorte com os retângulos deles)
+  for (let li = 0; li < lights.length; li++) {
+    const l = lights[li];
+    let clipped = false;
+    for (let j = li + 1; j < lights.length; j++) {
+      const n = lights[j];
+      if (n.w <= l.w) continue; // mesmo tamanho ou menor: não está mais perto
+      if (!clipped) c.save();
+      clipped = true;
+      // cada recorte se soma aos anteriores (interseção): fora de todos os carros mais perto
+      c.beginPath();
+      c.rect(vp.x, vp.y - 50, vp.w, vp.h + 100);
+      c.rect(n.x - n.w / 2, n.y - n.h, n.w, n.h);
+      c.clip('evenodd');
+    }
     const L = l.x - l.w / 2, T = l.y - l.h;
     const pts = l.dots.map(([u, f]) => [L + u * l.w, T + f * l.h]);
     if (l.front) {
@@ -112,6 +162,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
       const sx = l.front ? (l.signal > 0 ? L + l.w * 0.08 : L + l.w * 0.92) : px; // de frente o lado se inverte
       blob(c, sx, py, l.w * 0.22, l.w * 0.16, '255,160,30', 0.6 * strength);
     }
+    if (clipped) c.restore();
   }
   // quem vem atrás com farol aceso: o lado por onde passa clareia, mais forte ao emparelhar,
   // esmaecendo quando ele já passou

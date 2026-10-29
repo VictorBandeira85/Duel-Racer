@@ -45,7 +45,7 @@ export function stageChallenges(r: Race): Challenge[] {
   pool.push({ kind: 'near', target: near, label: `Passe raspando ${near} carros na contramão` });
   const avg = Math.round((max * (0.5 + rand() * 0.08)) / 5) * 5;
   pool.push({ kind: 'avg', target: avg, label: `Média acima de ${avg} km/h` });
-  if (def.hilliness >= 0.9) pool.push({ kind: 'air', target: 1, label: 'Fique 1 s no ar num salto' });
+  if (def.hilliness >= 0.9) pool.push({ kind: 'air', target: 0.5, label: 'Fique meio segundo no ar num salto' });
   pool.push({ kind: 'noscrape', target: 0, label: 'Nenhum raspão' });
   // três diferentes, sorteados pelo trecho
   const out: Challenge[] = [];

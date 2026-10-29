@@ -13,6 +13,7 @@ import { PANO_H, PANO_W, panorama } from './bgart';
 import { lerp, shade } from './util';
 
 export interface Viewport {
+  dash?: number; // linha onde começa o painel (a pista visível acaba ali)
   x: number;
   y: number;
   w: number;

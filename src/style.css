@@ -44,7 +44,7 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
 }
 /* pausa no estilo da revista: página de papel com a manchete e etiquetas pretas */
 #pause {
-  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4vh;
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.6vh;
   background: rgba(20,14,8,0.55); font-size: 6vh;
 }
 #pause b {
@@ -52,8 +52,8 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
   box-shadow: 0 0 0 0.6vh #efe6d2, 1vh 1vh 0 0.6vh rgba(0,0,0,0.4);
 }
 #pause button {
-  background: #1a1614; color: #fff; border: 0; border-bottom: 0.8vh solid #d01f26; padding: 2.6vh 6vh; font-size: 3.2vh;
-  box-shadow: 1vh 1vh 0 rgba(0,0,0,0.35); min-width: 46vh;
+  background: #1a1614; color: #fff; border: 0; border-bottom: 0.8vh solid #d01f26; padding: 2.2vh 6vh; font-size: 3.2vh;
+  box-shadow: 1vh 1vh 0 rgba(0,0,0,0.35); min-width: 66vh;
 }
 #pause button:active { background: #d01f26; color: #ffd21a; }
 

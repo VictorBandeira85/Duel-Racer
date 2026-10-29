@@ -44,6 +44,10 @@ let run: Run = { course: COURSES[0], car: CARS[0], rival: null, opts: {} };
 let race: Race | null = null;
 let liveDone = new Set<number>(); // desafios do trecho já avisados
 let paused = false;
+// fantasma visível na corrida (escolha do jogador no menu de pausa, guardada)
+const GHOST_KEY = 'duel-racer:fantasma-visivel';
+let ghostOn = true;
+try { ghostOn = localStorage.getItem(GHOST_KEY) !== '0'; } catch { /* sem armazenamento */ }
 
 const totalTime = () => state.results.reduce((a, r) => a + r.time, 0);
 
@@ -116,6 +120,7 @@ function startStage(i: number) {
   preloadCockpit(run.car.dash);
   const r = new Race(run.course, i, run.car, run.rival, state.auto, run.opts);
   r.ghostRun = loadGhost(run.course.id, i);
+  r.showGhost = ghostOn;
   r.challenges = stageChallenges(r);
   liveDone = new Set();
   r.onArrive = () => {
@@ -241,9 +246,13 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+function ghostLabel() {
+  $('ghostTgl').textContent = `FANTASMA: ${ghostOn ? 'LIGADO' : 'DESLIGADO'}`;
+}
 function setPaused(p: boolean) {
   paused = p;
   $('pause').classList.toggle('hidden', !p);
+  ghostLabel();
   if (p) {
     setEngine(0, false, false);
     stopTrafficAudio();
@@ -254,6 +263,16 @@ function setPaused(p: boolean) {
 $('pauseBtn').addEventListener('click', () => setPaused(true));
 $('resume').addEventListener('click', () => setPaused(false));
 $('quit').addEventListener('click', () => actions.go('title'));
+// recomeça o trecho atual do zero (as vidas e os trechos já feitos continuam)
+$('restart').addEventListener('click', () => {
+  if (race) startStage(race.stageIdx);
+});
+$('ghostTgl').addEventListener('click', () => {
+  ghostOn = !ghostOn;
+  try { localStorage.setItem(GHOST_KEY, ghostOn ? '1' : '0'); } catch { /* sem armazenamento */ }
+  if (race) race.showGhost = ghostOn;
+  ghostLabel();
+});
 
 setupInput();
 window.addEventListener('resize', resize);

@@ -34,6 +34,7 @@ interface CockpitArt {
   // x nas coordenadas do painel (pode ser negativo: fica na área esticada de tela larga), y a
   // partir do topo da arte (topo de 76 linhas + painel)
   mirror?: { img: string; x: number; y: number };
+  glass?: { at: [number, number]; thr?: number }; // ponto dentro do vidro do retrovisor (teto + painel), ver findGlass
   dy?: number; // desce a cabine inteira (painel alto demais tapando a pista)
   wheelDx?: number; // desloca o volante para a direita (alinha com o quadro de instrumentos)
   wheelTop?: number; // linhas do PNG do volante acima do topo da arte (aro inteiro sobre o para-brisa)
@@ -130,7 +131,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
 // Viatura: painel de sedã com hodômetro e indicador da alavanca funcionando
 COCKPIT_ART.patrol = {
   dash: cp('patrol-dash'), top: cp('patrol-top'), wheel: cp('patrol-wheel'),
-  pivot: [128.2, 103.1], speedMax: 240, needle: '#ff2a1a', hub: '#1a1a1c', aux: [],
+  pivot: [128.2, 103.1], wheelTop: 5, speedMax: 240, needle: '#ff2a1a', hub: '#1a1a1c', aux: [],
   // redesenhados nítidos sobre a arte (reduzida, ela borra); escala como na arte: do 0 (≈ 148°)
   // ao fim (≈ 30°), 242° de abertura, números em pixel inteiro
   tach: { x: 87, y: 65, r: 26.5, cut: 20, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6, a0: 2.6, sweep: 4.22, labelScale: 1 },
@@ -142,8 +143,9 @@ COCKPIT_ART.patrol = {
 // de cristal líquido, conta-giros 0-90 (× 100 rpm) com faixa amarela e vermelha, ponteiros
 // laranja; à esquerda temperatura e pressão do óleo, no meio a água, à direita combustível e relógio
 COCKPIT_ART.diablo = {
+  glass: { at: [20, 70] },
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'),
-  pivot: [128, 103], dy: 14, wheelDx: 10, radar: [196, 6], speedMax: 360, needle: '#ff7a1a', hub: '#1a1a1c',
+  pivot: [128, 103], dy: 14, wheelDx: 10, wheelTop: 7, radar: [196, 6], speedMax: 360, needle: '#ff7a1a', hub: '#1a1a1c',
   speed: { x: 103.5, y: 40, r: 23, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], nudge: { 120: [-0.5, 0.5], 160: [-2.5, 0.5], 200: [1.5, 0], 240: [0.5, 0.5] }, tick: 10, red: 999, labelScale: 0.7 },
   tach: { x: 178.5, y: 39.5, r: 23, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], labelMul: 10, tick: 0.25, yellow: 6.8, red: 7.2, labelScale: 0.7, redLabels: false },
   aux: [
@@ -161,6 +163,7 @@ COCKPIT_ART.diablo = {
 // os números da arte), hodômetro e parcial abaixo do eixo, ponteiros brancos; à direita
 // temperatura da água, combustível, pressão do óleo e voltímetro
 COCKPIT_ART['br-vectra'] = {
+  glass: { at: [20, 96], thr: 40 },
   dash: cp('br-vectra-dash'), top: cp('br-vectra-top'), wheel: cp('br-vectra-wheel'),
   pivot: [128, 103.6], speedMax: 240, needle: '#f2f2f2', hub: '#1a1a1c', radar: [206, 4],
   tach: { x: 89.5, y: 65.5, r: 21.5, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6.8, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, redLabels: false },
@@ -335,6 +338,7 @@ COCKPIT_ART['br-pumagtb'] = {
   tach: { x: 171.5, y: 65.5, r: 27, max: 7, labels: [0, 1, 2, 3, 4, 5, 6, 7], tick: 0.25, red: 5, labelScale: 0.7, redLabels: false, ink: GTB_INK, bg: '#0c0c0e', redInk: '#e8301a', redW: 2, boldTicks: true },
   aux: [
     { x: 52, y: 75.5, r: 10.5, kind: 'single', show: ['fuel'], icon: 'fuel' },
+    { x: 218, y: 76, r: 10, kind: 'single', show: ['water'], icon: 'temp' }, // meio escondido atrás do aro, como no carro
     { x: 272.5, y: 65.5, r: 16.5, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '5', '10'] },
     { x: 322.5, y: 65.5, r: 16.5, kind: 'single', show: ['oiltemp'], icon: 'temp', labels: ['50', '100', '150'] },
     { x: 373, y: 65.5, r: 16.5, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '12', '16'] },
@@ -351,6 +355,7 @@ COCKPIT_ART['br-pumagtb'] = {
 // aros cromados, hodômetro e parcial; luz do óleo no conta-giros, seta e farol alto no
 // velocímetro; no painel, combustível (R-C), pressão do óleo, temperatura do óleo e voltímetro
 COCKPIT_ART['br-pumagte'] = {
+  glass: { at: [20, 105] },
   dash: cp('br-pumagte-dash'), top: cp('br-pumagte-top'), wheel: cp('br-pumagte-wheel'),
   dashMask: cp('br-pumagte-dash-mask'), topMask: cp('br-pumagte-top-mask'),
   pivot: [127.9, 113], speedMax: 200, needle: '#f2f2ee', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [206, 4],
@@ -690,7 +695,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
       if (mg) drawSideMirror(c, r, mg, mx, my, color ?? r.car.color);
     }
   } else {
-    const glass = findGlass(art.dash, svgSprite(art.top, DASH_W, TOP_EXT), svgSprite(art.dash, DASH_W, 124) ?? dash, DASH_PAD + 90);
+    const glass = findGlass(art.dash, svgSprite(art.top, DASH_W, TOP_EXT), svgSprite(art.dash, DASH_W, 124) ?? dash, DASH_PAD + 90, art.glass);
     if (glass) drawSideMirror(c, r, glass, dx, ART_TOP, color ?? r.car.color);
   }
   if (art.lcd) lcdPanel(c, ox, r, art);
@@ -1438,11 +1443,19 @@ function drawDamage(c: CanvasRenderingContext2D, r: Race, vp: Viewport, art: Coc
       const h = Math.round((peaks[i0] * (1 - f) + peaks[Math.min(12, i0 + 1)] * f) * edge * grow);
       if (h <= 0) continue;
       const y0 = top(x) + 1;
-      // dobras: faces claras e escuras alternadas (lata vincada), borda escura em cima
-      const facet = Math.floor(k * 1.7) % 2 === 0;
-      c.fillStyle = shade(color, facet ? 0.12 : -0.28);
+      // dobras: a luz varia suave ao longo da lata vincada (sem faixas claras e escuras
+      // alternadas, que em carro claro viravam xadrez), base na sombra do para-brisa, borda
+      // escura em cima e um fio de reflexo logo abaixo dela
+      const lum = 0.05 * Math.sin(k * Math.PI * 0.85) - 0.07;
+      c.fillStyle = shade(color, lum);
       c.fillRect(x, y0 - h, 1, h);
-      c.fillStyle = shade(color, -0.55);
+      if (h > 2) {
+        c.fillStyle = shade(color, lum - 0.12);
+        c.fillRect(x, y0 - Math.max(1, Math.round(h * 0.35)), 1, Math.max(1, Math.round(h * 0.35)));
+        c.fillStyle = shade(color, lum + 0.06);
+        c.fillRect(x, y0 - h + 1, 1, 1);
+      }
+      c.fillStyle = shade(color, -0.42);
       c.fillRect(x, y0 - h, 1, 1);
     }
   }
@@ -1472,7 +1485,7 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   const art = COCKPIT_ART[r.car.dash];
   ART_TOP = 100 + (art?.dy ?? 0);
   // nas cabines desenhadas, os vidros laterais vão abaixo do painel: a estrada desce até o fim
-  renderRoad(c, r, art ? { ...vp, h: view.h - vp.y } : vp);
+  renderRoad(c, r, art ? { ...vp, h: view.h - vp.y, dash: ART_TOP } : vp);
   weather(c, r, vp, dt);
   drawWipers(c, r, vp, dt, dashTopFn(art), coreX());
   drawGlassMarks(c, r, vp);

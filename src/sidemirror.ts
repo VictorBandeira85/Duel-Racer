@@ -22,7 +22,9 @@ const glasses = new Map<string, Glass | null>();
 let view: HTMLCanvasElement | null = null;
 
 // procura o vidro nas imagens do topo e do painel (as duas empilhadas: topo em cima)
-export function findGlass(key: string, top: HTMLCanvasElement | null, dash: HTMLCanvasElement, maxX: number): Glass | null {
+// seed: um ponto dentro do vidro (arte com reflexo pintado, sujeira ou vidro transparente): o vidro
+// passa a ser tudo o que a moldura escura cerca a partir dele (claro ou transparente), sem furos
+export function findGlass(key: string, top: HTMLCanvasElement | null, dash: HTMLCanvasElement, maxX: number, seed?: { at: [number, number]; thr?: number }): Glass | null {
   if (glasses.has(key)) return glasses.get(key)!;
   const W = dash.width;
   const th = top ? top.height : 0;
@@ -39,7 +41,9 @@ export function findGlass(key: string, top: HTMLCanvasElement | null, dash: HTML
     for (let x = 0; x < maxX; x++) {
       const i = (y * W + x) * 4;
       const r = d[i], g = d[i + 1], b = d[i + 2];
-      if (d[i + 3] > 0 && Math.min(r, g, b) > 140 && b >= r - 8) isGlass[y * W + x] = 1;
+      if (seed) {
+        if (d[i + 3] < 128 || Math.min(r, g, b) >= (seed.thr ?? 95)) isGlass[y * W + x] = 1;
+      } else if (d[i + 3] > 0 && Math.min(r, g, b) > 140 && b >= r - 8) isGlass[y * W + x] = 1;
     }
   // maior mancha ligada (o vidro); pequenas manchas claras do painel ficam de fora
   const lab = new Int32Array(W * H);
@@ -57,6 +61,7 @@ export function findGlass(key: string, top: HTMLCanvasElement | null, dash: HTML
       const qx = q % W, qy = (q - qx) / W;
       for (let dy = -1; dy <= 1; dy++)
         for (let dx = -1; dx <= 1; dx++) {
+          if (seed && dx && dy) continue; // com semente: só vizinhos em cruz (não vaza pelas quinas da moldura)
           const nx = qx + dx, ny = qy + dy;
           if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
           const nq = ny * W + nx;
@@ -71,6 +76,10 @@ export function findGlass(key: string, top: HTMLCanvasElement | null, dash: HTML
       best = id;
     }
   }
+  if (seed) {
+    best = lab[seed.at[1] * W + seed.at[0]];
+    bestN = best ? 999 : 0;
+  }
   if (bestN < 120) { // o do 959 é cortado pela borda: vidro pequeno
     glasses.set(key, null);
     return null;
@@ -82,6 +91,27 @@ export function findGlass(key: string, top: HTMLCanvasElement | null, dash: HTML
       x0 = Math.min(x0, x); x1 = Math.max(x1, x);
       y0 = Math.min(y0, y); y1 = Math.max(y1, y);
     }
+  // furos dentro do vidro (manchas escuras da arte) entram na máscara: o que não se liga à borda
+  if (seed) {
+    const out = new Uint8Array(W * H);
+    const st: number[] = [];
+    for (let y = y0 - 1; y <= y1 + 1; y++)
+      for (let x = x0 - 1; x <= x1 + 1; x++)
+        if (x < x0 || x > x1 || y < y0 || y > y1) {
+          if (x >= 0 && y >= 0 && x < W && y < H) { out[y * W + x] = 1; st.push(y * W + x); }
+        }
+    while (st.length) {
+      const q = st.pop()!;
+      const qx = q % W, qy = (q - qx) / W;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = qx + dx, ny = qy + dy;
+        if (nx < x0 || ny < y0 || nx > x1 || ny > y1) continue;
+        const nq = ny * W + nx;
+        if (!out[nq] && lab[nq] !== best) { out[nq] = 1; st.push(nq); }
+      }
+    }
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (!out[y * W + x]) lab[y * W + x] = best;
+  }
   const w = x1 - x0 + 1, h = y1 - y0 + 1;
   const mk = (edgeOnly: boolean) => {
     const cv = document.createElement('canvas');

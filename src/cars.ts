@@ -1,3 +1,4 @@
+import { pushCarLights } from './nightlight';
 import { drawCrisp } from './crisp';
 import { KMH, RES } from './config';
 import { clamp, shade } from './util';
@@ -696,6 +697,7 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
     c.restore();
     return;
   }
+  pushCarLights(x, y, w, look);
   // trânsito e polícia: sprites em pixel art (o desenho por código fica de reserva)
   if (!look.rear && (look.police || look.model) && drawTrafficSprite(c, x, y, w, look, look.police ? (look.sv ? 'policesv' : 'police') : look.model!)) return;
   const variant = look.paint ? look.rear?.variants?.[look.paint] : undefined;

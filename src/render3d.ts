@@ -3,6 +3,7 @@ import { drawCrisp } from './crisp';
 import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { CARS, drawCar } from './cars';
 import { lowFx } from './perf';
+import { beginLights, finishNight, mirrorGlare, mirrorWash, type Pass } from './nightlight';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
 import { SPRITES } from './sprites';
 import { FOG_COLOR, type BgLayer } from './themes';
@@ -305,6 +306,9 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   // sensação de velocidade: perto da máxima a imagem trepida de leve (1 px, de vez em quando)
   else if (r.speed > r.car.maxSpeed * 0.8 && Math.random() < (r.speed / r.car.maxSpeed - 0.8) * 2.5) c.translate(0, Math.random() < 0.5 ? 1 : -1);
   drawBackground(c, r, vp);
+  beginLights();
+  // escuro: noite ou dentro do túnel (faróis acesos, ofuscam no retrovisor)
+  const lit = night || r.inTunnel > 0.5;
 
   const base = r.findSegment(r.position);
   const basePct = (r.position % SEG_LEN) / SEG_LEN;
@@ -396,13 +400,13 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
           c.restore();
         }
       } else if (e === r.rival) {
-        drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: r.rival.recover > 0 || r.rival.mistake > 0, night, paint: r.rivalPaint, signal: r.rival.signal });
+        drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: r.rival.recover > 0 || r.rival.mistake > 0, night: lit, paint: r.rivalPaint, signal: r.rival.signal });
       } else if ('phase' in e) {
         drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, (e as Officer).phase === 'show');
       } else if ('spotZ' in e) {
         const p = e as Race['police'][number];
         const siren = p.state === 'chase' || p.state === 'pull' || p.state === 'stopped';
-        drawCar(c, cx, cy, (p.sv ? CAR_W * 1.08 : POLICE_W) * sc * vp.K, { color: '#fff', police: true, sv: p.sv, siren, night });
+        drawCar(c, cx, cy, (p.sv ? CAR_W * 1.08 : POLICE_W) * sc * vp.K, { color: '#fff', police: true, sv: p.sv, siren, night: lit });
       } else {
         const t = e as TrafficCar;
         const tw = (t.truck ? TRUCK_W : CAR_W) * sc * vp.K;
@@ -416,14 +420,15 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   // dentro do túnel: parede e teto entre o para-brisa e a fatia mais próxima
   if (nearTunnel && (base.tunnel || segs[base.index + 1]?.tunnel)) tunnelFrame(c, nearTunnel, vp, roadW);
 
-  // escuridão da noite: faróis iluminam só a frente
-  if (night) {
-    const g = c.createRadialGradient(vp.x + vp.w / 2, vp.y + vp.h * 1.05, vp.h * 0.2, vp.x + vp.w / 2, vp.y + vp.h, vp.w * 0.6);
-    g.addColorStop(0, 'rgba(0,0,10,0)');
-    g.addColorStop(1, 'rgba(0,0,10,0.55)');
-    c.fillStyle = g;
-    c.fillRect(vp.x, vp.horizon, vp.w, vp.y + vp.h - vp.horizon);
+  // escuridão (noite; no túnel, mais leve): o facho dos faróis do jogador recortado nela, as
+  // luzes dos outros carros somadas por cima e a claridade de quem emparelha vindo de trás
+  const passers: Pass[] = [];
+  if (lit) {
+    for (const t of r.traffic) if (t.base > 0) passers.push({ x: t.x - r.x, dz: r.playerZ - t.z });
+    if (r.rival) passers.push({ x: r.rival.x - r.x, dz: r.playerZ - r.rival.z });
+    for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') passers.push({ x: p.x - r.x, dz: r.playerZ - p.z });
   }
+  finishNight(c, vp, night ? 1 : lit ? 0.45 * r.inTunnel : 0, passers, SEG_LEN);
   c.restore();
 }
 
@@ -456,7 +461,9 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
   // espelho plano, campo estreito: quem fica para trás continua visível por mais tempo
   const D = 3600;
   const behind: { z: number; x: number; w: number; look: Parameters<typeof drawCar>[4] }[] = [];
-  const night = !!r.def.night;
+  const night = !!r.def.night || r.inTunnel > 0.5;
+  const glareK = r.def.night ? 1 : night ? 0.7 : 0;
+  let nearest = 0;
   for (const t of r.traffic) behind.push({ z: t.z, x: t.x, w: t.truck ? TRUCK_W : CAR_W, look: trafficLook(t, t.base > 0, night) });
   if (r.rival) behind.push({ z: r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint, signal: r.rival.signal, lamps: r.rivalLamps() } });
   for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') behind.push({ z: p.z, x: p.x, w: p.sv ? CAR_W * 1.08 : POLICE_W, look: { color: '#fff', police: true, sv: p.sv, siren: true, front: true, night } });
@@ -473,6 +480,12 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
       continue;
     }
     drawCar(c, cx + (b.x - r.x) * sb * k, yy, bw, b.look);
+    if (glareK && b.look.front) {
+      const near = Math.max(0, 1 - dz / (SEG_LEN * 14));
+      nearest = Math.max(nearest, near);
+      mirrorGlare(c, cx + (b.x - r.x) * sb * k, yy, bw, near, glareK);
+    }
   }
+  mirrorWash(c, x, y, w, h, nearest, glareK);
   c.restore();
 }

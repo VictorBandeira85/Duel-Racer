@@ -265,7 +265,7 @@ export class Race {
 
   // faróis do rival: à noite ficam acesos (escamoteáveis em cima); de dia sobem só para pedir passagem
   rivalLamps(): { up: number; on: boolean; high: boolean } {
-    const night = !!this.def.night;
+    const night = !!this.def.night || this.inTunnel > 0.5; // no túnel também acende
     const r = this.rival;
     if (!r || r.flash <= 0) return { up: night ? 1 : 0, on: night, high: false };
     const t = FLASH_T - r.flash;

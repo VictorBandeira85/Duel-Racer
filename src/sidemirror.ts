@@ -1,5 +1,6 @@
 import { CAM_H, CAR_W, POLICE_W, RES, SEG_LEN, TRUCK_W } from './config';
 import { drawCar } from './cars';
+import { fxTick, lowFx } from './perf';
 import { trafficLook, type Race } from './race';
 
 // Retrovisor externo do lado do motorista, funcionando: o vidro das cabines desenhadas a partir
@@ -109,6 +110,11 @@ export function findGlass(key: string, top: HTMLCanvasElement | null, dash: HTML
 export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, ox: number, oy: number, bodyColor: string) {
   const { w, h } = g;
   if (!view) view = document.createElement('canvas');
+  // econômico: o espelho é redesenhado em quadros alternados (no outro repete a imagem)
+  if (lowFx() && fxTick() % 2 && view.width === w * RES && view.height === h * RES) {
+    c.drawImage(view, ox + g.x, oy + g.y, w, h);
+    return;
+  }
   if (view.width !== w * RES || view.height !== h * RES) {
     view.width = w * RES;
     view.height = h * RES;

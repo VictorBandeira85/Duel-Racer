@@ -6,7 +6,7 @@ import { pix, pix7, pix7Width, pixWidth } from './pixfont';
 import { dither, speckle, text } from './ui';
 import { clamp, formatTime, lerp, rng, shade } from './util';
 import { F40_WHEEL } from './svg/f40';
-import { spriteAspect, svgSprite } from './svgsprites';
+import { preloadSvg, spriteAspect, svgSprite } from './svgsprites';
 import { drawWipers, type DashTop } from './wipers';
 import { drawSideMirror, findGlass } from './sidemirror';
 import { drawSmoke } from './smoke';
@@ -21,6 +21,7 @@ import wheel959Png from './assets/cockpit/959-wheel.png';
 // cabines desenhadas por código (tools/art/interiors.py)
 import INTERIORS from './assets/cockpit/interiors.json';
 import { paintHex } from './paint';
+import { lowFx } from './perf';
 
 interface CockpitArt {
   dash: string;
@@ -579,7 +580,13 @@ for (const [k, v] of Object.entries(INTERIORS)) {
   };
 }
 
-export const COCKPIT_IMAGES = Object.values(COCKPIT_ART).flatMap((a) => [a.dash, a.top, a.wheel, a.dashMask, a.topMask, a.mirror?.img]).filter((s): s is string => !!s);
+// Imagens das cabines: decodificadas só quando o carro é escolhido (não todas na abertura)
+const artImages = (a: CockpitArt) => [a.dash, a.top, a.wheel, a.dashMask, a.topMask, a.mirror?.img].filter((s): s is string => !!s);
+export const hasCockpitArt = (dash: string) => !!COCKPIT_ART[dash];
+export function preloadCockpit(dash: string) {
+  const a = COCKPIT_ART[dash];
+  if (a) preloadSvg(...artImages(a));
+}
 
 // "Foto" do interior para a revista: teto, painel e volante da arte, com uma estrada clara no
 // para-brisa (guardada por carro e cor)
@@ -1336,7 +1343,8 @@ function drawGlassMarks(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
 function weather(c: CanvasRenderingContext2D, r: Race, vp: Viewport, dt: number) {
   const w = r.def.weather;
   if (!w || w === 'fog') return;
-  const n = w === 'rain' ? 70 : 60;
+  const n = (w === 'rain' ? 70 : 60) >> (lowFx() ? 1 : 0);
+  if (drops.length > n) drops.length = n;
   while (drops.length < n) drops.push({ x: Math.random() * vp.w, y: Math.random() * vp.h, v: 0.6 + Math.random() * 0.6 });
   const sp = r.speed / r.car.maxSpeed;
   c.save();
@@ -1484,6 +1492,10 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   const dash = r.car.dash;
   if (art && drawCockpitArt(c, r, dt, art)) {
     // cabine desenhada a partir da arte
+  } else if (art) {
+    // a arte desta cabine ainda está carregando (só no primeiro quadro): painel escuro
+    c.fillStyle = '#0c0c0e';
+    c.fillRect(0, ART_TOP, w, view.h - ART_TOP);
   } else if (dash === 'f40') drawDashF40(c, r, dt);
   else if (dash === '959') drawDash959(c, r, dt);
   else if (dash === 'A') drawDashTD2Black(c, r, dt);

@@ -10,15 +10,16 @@ import { Race } from './race';
 import { loadGhost, saveRun } from './records';
 import { CHALLENGE_PRIZE, checkChallenge, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
 import { paintHex } from './paint';
-import { COCKPIT_IMAGES, renderCockpit } from './cockpit';
+import { preloadCockpit, renderCockpit } from './cockpit';
 import { applyBtnSize, drawScreen, drawToast, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { input, pollGamepad, releaseAll, setupInput } from './input';
 import { initAudio, playMusic, setEngine, setMusicOn, setMuted, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
 import { preloadSvg } from './svgsprites';
+import { perfSample } from './perf';
 import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
 
-preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.sideMask, c.rear.img, c.rear.imgMask, c.rear.frontImg, c.rear.frontMask]).filter((s): s is string => !!s), ...COCKPIT_IMAGES, ...TRAFFIC_IMAGES);
+preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.sideMask, c.rear.img, c.rear.imgMask, c.rear.frontImg, c.rear.frontMask]).filter((s): s is string => !!s), ...TRAFFIC_IMAGES);
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
@@ -112,6 +113,7 @@ function begin(lives: number) {
 }
 
 function startStage(i: number) {
+  preloadCockpit(run.car.dash);
   const r = new Race(run.course, i, run.car, run.rival, state.auto, run.opts);
   r.ghostRun = loadGhost(run.course.id, i);
   r.challenges = stageChallenges(r);
@@ -299,6 +301,7 @@ function frameInner(now: number) {
       }
     });
     if (state.screen === 'race') {
+      if (!paused) perfSample(dt);
       renderCockpit(ctx, race, state.lives, `${race.stageIdx + 1}/${run.course.stages.length}`, totalTime(), paused ? 0 : dt);
     } else drawScreen(ctx, state);
   } else {

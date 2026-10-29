@@ -2,6 +2,7 @@ import { drawSmoke } from './smoke';
 import { drawCrisp } from './crisp';
 import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { CARS, drawCar } from './cars';
+import { lowFx } from './perf';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
 import { SPRITES } from './sprites';
 import { FOG_COLOR, type BgLayer } from './themes';
@@ -310,7 +311,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   // altura da câmera: o chão logo abaixo do motorista
   // (no salto, o chão fica lá embaixo: a câmera sobe com o carro)
   const playerY = lerp(base.p1.world.y, base.p2.world.y, basePct) + r.lift;
-  const end = Math.min(segs.length, base.index + DRAW_DIST);
+  const end = Math.min(segs.length, base.index + (lowFx() ? Math.round(DRAW_DIST * 0.65) : DRAW_DIST));
   const ground = dither(c, r.theme.ground[0], r.theme.ground[1]);
   // chão por baixo de tudo: em vales, parte da tela não é coberta por nenhum segmento
   c.fillStyle = ground;

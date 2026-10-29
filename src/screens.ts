@@ -1,5 +1,6 @@
 import { gasQuip } from './score';
 import { ghostOn, setGhostOn } from './records';
+import { FX_LABEL, fxMode, lowFx, setFxMode } from './perf';
 import { ACHIEVEMENTS, MEDAL_COLOR, loadStats, medalName, medals, takeToast, unlockedAchievements } from './challenges';
 import { RIVAL_STYLE } from './race';
 import type { CareerSave, EventResult } from './career';
@@ -11,13 +12,13 @@ import { COURSES, unlockedCourses, withTimeOfDay, type Course } from './courses'
 import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import { THEMES } from './themes';
 import { dither, inside, panel, text, type Rect } from './ui';
-import { interiorPhoto } from './cockpit';
+import { hasCockpitArt, interiorPhoto } from './cockpit';
 import { BLUE, GREY, INK, RED, YELLOW, arrow, barcode, box, burst, halftone, headline, ink, kicker, logo, masthead, paper, photo, rule, specRows, stars, tag } from './mag';
 import { formatTime, shade } from './util';
 import { setEngine, setTires, shiftSound } from './audio';
 
 export type ScreenId = 'title' | 'options' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores' | 'achievements'
-  | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd';
+  | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd' | 'collection';
 export type MenuKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back';
 
 export interface StageResult {
@@ -98,7 +99,9 @@ const titleSigns = () => {
 // carros da capa: os que têm arte (e as vistas de frente e de trás)
 const coverCars = () => CARS.filter((c) => c.imgSide && c.rear.img && c.rear.frontImg && !c.arcadeOnly);
 const SLIDE_T = 7; // s por edição da capa
-const SLIDES = ['test', 'compare', 'angles', 'interior', 'news', 'road'] as const;
+const SLIDES = ['test', 'compare', 'angles', 'interior', 'brasil', 'news', 'road'] as const;
+// carros nacionais com arte: entram no especial e nas fotos do interior (as novidades da revista)
+const brCars = () => coverCars().filter((c) => c.id.startsWith('br-'));
 
 // manchetes da página de notícias (algumas com os números do próprio jogador)
 function newsLines(slot: number): string[] {
@@ -117,6 +120,11 @@ function newsLines(slot: number): string[] {
     'Pneus de inverno valem na neve?',
     'Polícia agora tem Diablo na pista',
     'Pôr do sol no Cânion vira atração',
+    'Onça GTE: fibra, boxer a ar e charme',
+    'Cadete GSi e o painel que é só números',
+    'Gaúcho GTI encara a serra de faróis acesos',
+    'Vortex ZR: quadro digital dos anos 80',
+    'Onça GTB: seis cilindros e muito torque',
   ];
   return [0, 1, 2, 3].map((k) => pool[(slot * 3 + k) % pool.length]);
 }
@@ -196,18 +204,48 @@ function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot
     kicker(c, 'POR TODOS OS ÂNGULOS', ph.x + 6, ph.y + 6, RED, '#fff');
     logo(c, car.name.toUpperCase(), ph.x + 6, ph.y + 18, 8, '#fff', INK);
   } else if (kind === 'interior') {
-    const img = interiorPhoto(car.id, car.dash);
+    // só carros com o interior desenhado, alternando entre eles (com os nacionais novos na roda)
+    const withArt = list.filter((cc) => hasCockpitArt(cc.dash)).sort((x, y) => Number(y.id.startsWith('br-')) - Number(x.id.startsWith('br-')));
+    const ic = withArt.length ? withArt[Math.floor(slot / SLIDES.length) % withArt.length] : car;
+    const img = interiorPhoto(ic.id, ic.dash);
     photo(c, ph, () => {
       if (img) {
         // enquadra o painel inteiro e aproxima devagar (como câmera em movimento)
         const z = 1 + u * 0.12;
         const w = ph.w * z, h = (w * img.height) / img.width;
         c.drawImage(img, ph.x + (ph.w - w) / 2, ph.y + ph.h - h + 6 * u, w, h);
-      } else drawCarSide(c, ph.x + 32, ph.y + 98, 248, car, p);
+      } else drawCarSide(c, ph.x + 32, ph.y + 98, 248, ic, paintHex(ic.id));
     }, ['#2a2a30', '#5a5a64']);
     captionShade(c, ph);
     kicker(c, 'POR DENTRO', ph.x + 6, ph.y + 6, INK, YELLOW);
-    logo(c, `O PAINEL DO ${car.name.toUpperCase()}`, ph.x + 6, ph.y + 18, 8, '#fff', INK);
+    logo(c, `O PAINEL DO ${ic.name.toUpperCase()}`, ph.x + 6, ph.y + 18, 8, '#fff', INK);
+  } else if (kind === 'brasil') {
+    // especial nacionais: três carros nacionais em fila, de frente, de lado e de trás
+    const br = brCars();
+    const pick = (k: number) => br[(Math.floor(slot / SLIDES.length) * 3 + k) % Math.max(1, br.length)] ?? car;
+    photo(c, ph, () => {
+      // fundo verde e amarelo da bandeira, discreto, como capa de edição especial
+      c.fillStyle = '#1f7a3a';
+      c.fillRect(ph.x, ph.y, ph.w, ph.h);
+      c.fillStyle = '#f2c81e';
+      c.beginPath();
+      c.moveTo(ph.x + ph.w / 2, ph.y + 34);
+      c.lineTo(ph.x + ph.w - 30, ph.y + 72);
+      c.lineTo(ph.x + ph.w / 2, ph.y + 110);
+      c.lineTo(ph.x + 30, ph.y + 72);
+      c.fill();
+      c.fillStyle = 'rgba(0,0,0,0.25)';
+      c.fillRect(ph.x, ph.y + ph.h - 12, ph.w, 12);
+      const a = pick(0), b = pick(1), d = pick(2);
+      const off = (1 - ease) * 220;
+      drawCar(c, ph.x + 52 - off, ph.y + ph.h - 6, 70, { color: a.color, rear: a.rear, paint: paintHex(a.id), front: true });
+      drawCarSide(c, ph.x + 96, ph.y + ph.h - 6 + (1 - ease) * 80, 122, b, paintHex(b.id));
+      drawCar(c, ph.x + ph.w - 52 + off, ph.y + ph.h - 6, 70, { color: d.color, rear: d.rear, paint: paintHex(d.id) });
+    }, ['#1f7a3a', '#1f7a3a']);
+    captionShade(c, ph);
+    kicker(c, 'ESPECIAL', ph.x + 6, ph.y + 6, '#1f7a3a', YELLOW);
+    logo(c, 'CLÁSSICOS NACIONAIS', ph.x + 6, ph.y + 18, 8, YELLOW, INK);
+    kicker(c, `${pick(0).name} • ${pick(1).name} • ${pick(2).name}`, ph.x + 6, ph.y + 29, 'rgba(26,22,20,0.82)', '#fff');
   } else if (kind === 'news') {
     photo(c, ph, () => {
       c.fillStyle = '#f8f2e4';
@@ -284,7 +322,7 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
   drawCoverSlide(c, s, ph, slot, (t % SLIDE_T) / SLIDE_T);
   // código de barras no canto (menos onde há quadros pequenos ali)
   const kind = SLIDES[Math.max(0, slot) % SLIDES.length];
-  if (kind !== 'angles' && kind !== 'news') barcode(c, ph.x + ph.w - 40, ph.y + ph.h - 22);
+  if (kind !== 'angles' && kind !== 'news' && kind !== 'brasil') barcode(c, ph.x + ph.w - 40, ph.y + ph.h - 22);
   // chamadas = menu (o subtítulo muda a cada edição da foto)
   const alt = [
     ['Câmbio, som e controles', 'Ligue o fantasma', 'Botões do seu tamanho'],
@@ -319,7 +357,7 @@ function activateTitle(s: AppState, i: number, a: Actions) {
 }
 
 // ---------- opções ----------
-const optionRects = () => [0, 1, 2, 3, 4, 5].map((i): Rect => ({ x: ox() + 40, y: 44 + i * 31, w: 240, h: 27 }));
+const optionRects = () => [0, 1, 2, 3, 4, 5, 6].map((i): Rect => ({ x: ox() + 40, y: 40 + i * 27, w: 240, h: 24 }));
 // tamanho dos botões de toque (direção, acelerador, freio, marchas), salvo no aparelho
 const BTN_SIZES = [{ label: 'PEQUENOS', k: 0.8 }, { label: 'MÉDIOS', k: 1 }, { label: 'GRANDES', k: 1.22 }, { label: 'ENORMES', k: 1.45 }];
 const BTN_KEY = 'duel-racer:botoes';
@@ -350,18 +388,19 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
   ink(c, 'Toque num item para mudar', x + 70, 24, 5, GREY);
   const items: [string, string][] = [
     ['CÂMBIO', s.auto ? 'AUTOMÁTICO' : 'MANUAL'], ['SOM', s.sound ? 'LIGADO' : 'DESLIGADO'], ['MÚSICA', s.music ? 'LIGADA' : 'DESLIGADA'],
-    ['BOTÕES', BTN_SIZES[btnSizeIdx()].label], ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'], ['', ''],
+    ['BOTÕES', BTN_SIZES[btnSizeIdx()].label], ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'],
+    ['EFEITOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')], ['', ''],
   ];
   optionRects().forEach((r, i) => {
     const hot = s.sel === i;
-    if (i === 5) return tag(c, { x: r.x + 60, y: r.y + 6, w: r.w - 120, h: 16 }, '◀ VOLTAR À CAPA', hot, 5);
+    if (i === 6) return tag(c, { x: r.x + 60, y: r.y + 5, w: r.w - 120, h: 16 }, '◀ VOLTAR À CAPA', hot, 5);
     c.fillStyle = hot ? '#fff8e4' : '#f6efdd';
     c.fillRect(r.x, r.y, r.w, r.h);
     c.strokeStyle = hot ? RED : 'rgba(26,22,20,0.35)';
     c.lineWidth = hot ? 2 : 1;
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
-    ink(c, items[i][0], r.x + 10, r.y + 10, 8, INK);
-    ink(c, items[i][1], r.x + r.w - 10, r.y + 11, 5, hot ? RED : BLUE, 'right');
+    ink(c, items[i][0], r.x + 10, r.y + 8, 8, INK);
+    ink(c, items[i][1], r.x + r.w - 10, r.y + 9, 5, hot ? RED : BLUE, 'right');
   });
 }
 function activateOption(s: AppState, a: Actions, i: number) {
@@ -370,6 +409,7 @@ function activateOption(s: AppState, a: Actions, i: number) {
   else if (i === 2) a.toggleMusic();
   else if (i === 3) setBtnSize((btnSizeIdx() + 1) % BTN_SIZES.length);
   else if (i === 4) setGhostOn(!ghostOn());
+  else if (i === 5) setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]);
   else a.go('title');
 }
 
@@ -1185,7 +1225,7 @@ export function drawScreen(c: CanvasRenderingContext2D, s: AppState) {
 }
 
 export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
-  if (['career', 'event', 'garage', 'dealer', 'careerEnd'].includes(s.screen)) return tapCareerScreen(s, a, x, y);
+  if (['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection'].includes(s.screen)) return tapCareerScreen(s, a, x, y);
   switch (s.screen) {
     case 'title': return tapTitle(s, a, x, y);
     case 'options':
@@ -1277,8 +1317,8 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 }
 
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
-  if (['career', 'event', 'garage', 'dealer', 'careerEnd'].includes(s.screen)) return keyCareerScreen(s, a, k);
-  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 6, opponent: oppList(s).length, course: COURSES.length };
+  if (['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection'].includes(s.screen)) return keyCareerScreen(s, a, k);
+  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 7, opponent: oppList(s).length, course: COURSES.length };
   // percursos: cima/baixo escolhem, esquerda/direita trocam dia e noite
   if (s.screen === 'course' && (k === 'left' || k === 'right')) {
     s.arcadeNight = !s.arcadeNight;

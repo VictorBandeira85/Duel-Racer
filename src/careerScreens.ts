@@ -80,7 +80,8 @@ const hubButtons = () => {
   const x = ox();
   return {
     prev: { x: x + 4, y: 34, w: 16, h: 20 }, next: { x: x + SAFE_W - 20, y: 34, w: 16, h: 20 },
-    garage: { x: x + 4, y: 211, w: 100, h: 15 }, dealer: { x: x + 110, y: 211, w: 100, h: 15 }, back: { x: x + 216, y: 211, w: 100, h: 15 },
+    collection: { x: x + 4, y: 211, w: 74, h: 15 }, garage: { x: x + 83, y: 211, w: 74, h: 15 },
+    dealer: { x: x + 162, y: 211, w: 82, h: 15 }, back: { x: x + 249, y: 211, w: 67, h: 15 },
   };
 };
 
@@ -123,6 +124,7 @@ export function drawCareer(c: CanvasRenderingContext2D, s: AppState) {
     if (done) ink(c, 'VENCIDO ✓', r.x + r.w - 6, r.y + 17, 5, '#1a6a2a', 'right');
     else if (!can) padlock(c, r.x + r.w - 14, r.y + 18);
   });
+  tag(c, b.collection, 'GARAGEM');
   tag(c, b.garage, 'OFICINA');
   tag(c, b.dealer, 'CLASSIFICADOS');
   tag(c, b.back, '◀ CAPA');
@@ -140,6 +142,7 @@ function tapCareer(s: AppState, a: Actions, x: number, y: number) {
   const b = hubButtons();
   if (inside(x, y, b.prev)) ui.region = (ui.region + REGIONS.length - 1) % REGIONS.length;
   else if (inside(x, y, b.next)) ui.region = (ui.region + 1) % REGIONS.length;
+  else if (inside(x, y, b.collection)) a.go('collection');
   else if (inside(x, y, b.garage)) a.go('garage');
   else if (inside(x, y, b.dealer)) a.go('dealer');
   else if (inside(x, y, b.back)) a.go('title');
@@ -309,6 +312,76 @@ function tapGarage(s: AppState, a: Actions, x: number, y: number) {
   }
 }
 
+// ---------- minha garagem: os carros comprados num pôster de revista ----------
+const COL_PER_PAGE = 6;
+const collectionCards = () => {
+  const x = ox();
+  return Array.from({ length: COL_PER_PAGE }, (_, i): Rect => ({ x: x + 6 + (i % 3) * 104, y: 46 + Math.floor(i / 3) * 80, w: 100, h: 74 }));
+};
+const collectionButtons = () => {
+  const x = ox();
+  return { back: { x: x + 4, y: 211, w: 100, h: 15 }, garage: { x: x + 216, y: 211, w: 100, h: 15 }, prev: { x: x + 128, y: 211, w: 14, h: 15 }, next: { x: x + 178, y: 211, w: 14, h: 15 } };
+};
+let colPage = 0;
+function drawCollection(c: CanvasRenderingContext2D, s: AppState) {
+  const cs = s.career!;
+  const x = ox();
+  paper(c);
+  topBar(c, s, 'MINHA GARAGEM', cs);
+  const cars = ownedCars(cs);
+  const pages = Math.max(1, Math.ceil(cars.length / COL_PER_PAGE));
+  colPage = Math.min(colPage, pages - 1);
+  const total = cars.reduce((t, car) => t + sellValue(car), 0);
+  kicker(c, 'PÔSTER DO LEITOR', x + 4, 20, RED, '#fff');
+  ink(c, `${cars.length} carro${cars.length > 1 ? 's' : ''} • vale ${money(total)}`, x + 4, 34, 5, GREY);
+  collectionCards().forEach((r, i) => {
+    const car = cars[colPage * COL_PER_PAGE + i];
+    if (!car) {
+      // vaga livre: o contorno tracejado de um carro que ainda falta
+      c.strokeStyle = 'rgba(26,22,20,0.25)';
+      c.setLineDash([2, 2]);
+      c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+      c.setLineDash([]);
+      ink(c, 'VAGA LIVRE', r.x + r.w / 2, r.y + r.h / 2 - 2, 5, 'rgba(26,22,20,0.35)', 'center');
+      return;
+    }
+    const active = car.id === cs.car;
+    const ph: Rect = { x: r.x + 3, y: r.y + 3, w: r.w - 6, h: 46 };
+    photo(c, ph, () => drawCarSide(c, ph.x + 4, ph.y + 42, ph.w - 8, car, paintHex(car.id)), ['#4a4238', '#a89a86']);
+    const tuned = tunedFor(car, levels(cs, car.id));
+    classBadge(c, r.x + 4, r.y + 53, tuned, false, 6);
+    ink(c, car.name.toUpperCase(), r.x + 14, r.y + 54, 5, INK);
+    ink(c, `${car.power} • ${Math.round(tuned.maxSpeed * KMH)} km/h`, r.x + 4, r.y + 64, 5, GREY);
+    if (active) burst(c, r.x + r.w - 12, r.y + 10, 11, ['EM', 'USO'], YELLOW, RED, s.t);
+  });
+  const b = collectionButtons();
+  if (pages > 1) {
+    arrow(c, b.prev, 'left', true);
+    arrow(c, b.next, 'right', true);
+    ink(c, `${colPage + 1}/${pages}`, x + 160, 216, 5, INK, 'center');
+  }
+  tag(c, b.back, '◀ CAMPEONATO');
+  tag(c, b.garage, 'OFICINA ▶');
+  ink(c, 'Toque num carro para abrir na oficina', x + 160, 202, 5, GREY, 'center');
+  toast(c, s);
+}
+function tapCollection(s: AppState, a: Actions, x: number, y: number) {
+  const cars = ownedCars(s.career!);
+  const pages = Math.max(1, Math.ceil(cars.length / COL_PER_PAGE));
+  const b = collectionButtons();
+  if (inside(x, y, b.back)) return a.go('career');
+  if (inside(x, y, b.garage)) return a.go('garage');
+  if (pages > 1 && inside(x, y, b.prev)) colPage = (colPage + pages - 1) % pages;
+  else if (pages > 1 && inside(x, y, b.next)) colPage = (colPage + 1) % pages;
+  else collectionCards().forEach((r, i) => {
+    const k = colPage * COL_PER_PAGE + i;
+    if (inside(x, y, r) && cars[k]) {
+      ui.garage = k;
+      a.go('garage');
+    }
+  });
+}
+
 // ---------- concessionária ----------
 const dealerFilterRects = () => filterRects(ox() + SAFE_W - 148, 33, 144, 11);
 function setDealerFilter(f: ClassFilter) {
@@ -463,6 +536,7 @@ export function drawCareerScreen(c: CanvasRenderingContext2D, s: AppState) {
     case 'garage': return drawGarage(c, s);
     case 'dealer': return drawDealer(c, s);
     case 'careerEnd': return drawCareerEnd(c, s);
+    case 'collection': return drawCollection(c, s);
   }
 }
 
@@ -473,6 +547,7 @@ export function tapCareerScreen(s: AppState, a: Actions, x: number, y: number) {
     case 'garage': return tapGarage(s, a, x, y);
     case 'dealer': return tapDealer(s, a, x, y);
     case 'careerEnd': return a.go('career');
+    case 'collection': return tapCollection(s, a, x, y);
   }
 }
 
@@ -507,5 +582,11 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
       return;
     case 'careerEnd':
       if (k === 'ok' || k === 'back') a.go('career');
+      return;
+    case 'collection':
+      if (k === 'left') b(collectionButtons().prev);
+      if (k === 'right') b(collectionButtons().next);
+      if (k === 'ok') a.go('garage');
+      if (k === 'back') a.go('career');
   }
 }

@@ -1,5 +1,6 @@
 // Fumaça e vapor de motor batido, em pixel art: baforadas que sobem, crescem e somem, sem
 // estado guardado (cada baforada sai do relógio e de uma semente, então não pisca nem acumula).
+import { lowFx } from './perf';
 import { rng } from './util';
 
 // (x, y) = de onde sai (meio da tampa do motor); w = largura do carro na tela; power 0..1;
@@ -8,7 +9,7 @@ export function drawSmoke(c: CanvasRenderingContext2D, x: number, y: number, w: 
   if (power <= 0.02 || w < 3) return;
   const t = performance.now() / 1000;
   const r = rng(seed * 131 + 7);
-  const n = Math.round(5 + power * 9);
+  const n = Math.round((5 + power * 9) * (lowFx() ? 0.5 : 1));
   for (let i = 0; i < n; i++) {
     const life = 1.1 + r() * 0.7;
     const off = r() * life;

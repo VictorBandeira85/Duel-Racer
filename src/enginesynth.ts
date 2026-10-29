@@ -76,8 +76,23 @@ export function engineSpec(desc: string, carId = ''): EngineSpec {
   else if (/\b6 cil|i6|6 em linha/.test(d)) k = 'i6';
   else if (/\b4 cil|i4|4 em linha/.test(d)) k = 'i4';
   else if (d.includes('v8')) k = carId.startsWith('furia') ? 'v8flat' : 'v8'; // Ferrari: virabrequim plano
-  const b = BASE[k];
+  let b = BASE[k];
+  // timbres próprios dos motores nacionais (pela ficha)
+  if (k === 'i4' && d.includes('16v')) {
+    // 16 válvulas (Vectra, Corsa, Tipo, Gol 16v): mais liso e agudo, gira alto, chiado metálico de comando duplo
+    b = { ...b, res: [[150, 1.2, 0.9], [760, 2.2, 0.62], [2300, 3.2, 0.32]], pulse: 1.9, drive: 1.5, rasp: 0.16, low: 1050, jitter: 0.03, pops: 0.2, redline: 7400 };
+  } else if (k === 'i4' && d.includes('8v')) {
+    // 8 válvulas (Gol GTI, Kadett, Escort, Monza, Chevette): mais grave e rouco, torque embaixo, gira menos
+    b = { ...b, pipeMs: [2.9, 2.9], fb: 0.42, res: [[120, 1.1, 1.1], [520, 2, 0.6], [1600, 2.8, 0.24]], pulse: 2.5, drive: 1.8, rasp: 0.1, low: 800, jitter: 0.07, pops: 0.35, idle: 800, redline: 6300 };
+  } else if (k === 'flat4' && d.includes('a ar')) {
+    // boxer a ar (Puma GTE): batida descompassada "tuc-tuc", chocalho das aletas e o ventilador
+    b = { ...b, pipeMs: [3.9, 5.0], fb: 0.54, res: [[88, 1, 1.15], [360, 1.6, 0.66], [1250, 2.2, 0.42]], pulse: 3.0, drive: 2.0, rasp: 0.26, low: 680, jitter: 0.18, pops: 0.3, idle: 950, redline: 5500 };
+  } else if (k === 'i6' && d.includes('12v')) {
+    // seis-cilindros 4.1 de 12 válvulas (Opala, Puma GTB): grave, encorpado e preguiçoso, gira pouco
+    b = { ...b, pipeMs: [3.8, 4.1], fb: 0.48, res: [[82, 1, 1.25], [340, 1.8, 0.62], [1150, 2.8, 0.22]], pulse: 3.1, drive: 1.7, rasp: 0.06, low: 700, jitter: 0.05, pops: 0.4, vol: 0.95, idle: 650, redline: 4800 };
+  }
   // turbo: o rotor abafa o escapamento (menos agudo, menos estalo de tubo)
+  if (b !== BASE[k]) k += d.includes('16v') ? '-16v' : d.includes('8v') ? '-8v' : d.includes('a ar') ? '-ar' : '-12v';
   return turbo ? { ...b, name: k + 'turbo', turbo: true, low: b.low * 0.8, fb: b.fb * 0.85, pops: b.pops * 1.3 } : { ...b, name: k, turbo: false };
 }
 

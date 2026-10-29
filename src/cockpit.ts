@@ -451,19 +451,19 @@ COCKPIT_ART['br-kadett'] = {
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
 COCKPIT_ART.zr1 = {
   dash: cp('zr1-dash'), top: cp('zr1-top'), wheel: cp('zr1-wheel'),
-  pivot: [128, 86], speedMax: 300, needle: '#ff3a1a', hub: '#26262a', aux: [], radar: [206, 4],
+  pivot: [128, 86], speedMax: 240, needle: '#ff3a1a', hub: '#26262a', aux: [], radar: [206, 4],
   under: (c, ox) => {
     // caixa do quadro: a arte tinha os três visores espalhados (o conta-giros fora do volante);
     // fica a moldura cinza-escura lisa e o jogo desenha o quadro dentro do volante
-    rect(c, ox + 63, ART_TOP + 26, 171, 55, '#26282a');
-    rect(c, ox + 63, ART_TOP + 26, 171, 1, '#3c3e42');
-    rect(c, ox + 63, ART_TOP + 80, 171, 1, '#141516');
+    rect(c, ox + 63, ART_TOP + 26, 129, 55, '#26282a');
+    rect(c, ox + 63, ART_TOP + 26, 129, 1, '#3c3e42');
+    rect(c, ox + 63, ART_TOP + 80, 129, 1, '#141516');
   },
   extra: (c, ox, r) => c4Cluster(c, ox, r),
 };
 
 // Quadro digital do C4 como o de verdade, todo dentro da abertura do volante: à esquerda o
-// velocímetro (barra verde que sobe e curva para a direita, escala âmbar, velocidade em
+// velocímetro (barra verde que sobe e curva para a direita, escala âmbar 0-240, velocidade em
 // dígitos), no meio o centro de informações (pressão do óleo, barra do combustível,
 // temperatura da água, parcial e consumo) com os três botões quadrados embaixo (setas verdes
 // acendem com o pisca) e à direita o conta-giros (barra verde que termina em amarelo e
@@ -500,11 +500,11 @@ function c4Cluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   };
   c4Panel(c, ox + 72, T + 42, 35, 37);
   clip(ox + 72, T + 42, 35, 37, () => {
-    const sp = { x: 109, y: 79, r0: 23, r1: 28, a0: Math.PI, a1: Math.PI * 1.46, n: 24 };
-    drawArc(c, ox, sp, kmh / 300, () => [C4.green, C4.greenOff]);
-    for (let v = 0; v <= 300; v += 50) {
-      const a = sp.a0 + ((sp.a1 - sp.a0) * v) / 300;
-      pix(c, String(v), ox + sp.x + 0.5 + Math.cos(a) * 32, T + sp.y + Math.sin(a) * 31 * PIX_Y, C4.amber, 0.5);
+    const sp = { x: 124, y: 80, r0: 39, r1: 43, a0: Math.PI, a1: Math.PI * 1.25, n: 24 }; // raio grande: a barra sobe quase reta à esquerda e os dígitos ficam livres à direita
+    drawArc(c, ox, sp, kmh / 240, () => [C4.green, C4.greenOff]);
+    for (let v = 0; v <= 240; v += 40) {
+      const a = sp.a0 + ((sp.a1 - sp.a0) * v) / 240;
+      pix(c, String(v), ox + sp.x + 0.5 + Math.cos(a) * 46.5, T + sp.y + Math.sin(a) * 44.5 * PIX_Y + 1, C4.amber, 0.5);
     }
     segSmall(c, ox + 105.5, T + 63, kmh, 3, C4.amber, C4.amberOff);
     pix(c, 'km/h', ox + 99, T + 74.5, C4.amber, 0.5);

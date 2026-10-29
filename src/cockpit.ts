@@ -451,8 +451,117 @@ COCKPIT_ART['br-kadett'] = {
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
 COCKPIT_ART.zr1 = {
   dash: cp('zr1-dash'), top: cp('zr1-top'), wheel: cp('zr1-wheel'),
-  pivot: [128, 86], lcd: true, speedMax: 300, needle: '#ff3a1a', hub: '#26262a', aux: [],
+  pivot: [128, 86], speedMax: 300, needle: '#ff3a1a', hub: '#26262a', aux: [], radar: [206, 4],
+  under: (c, ox) => {
+    // caixa do quadro: a arte tinha os três visores espalhados (o conta-giros fora do volante);
+    // fica a moldura cinza-escura lisa e o jogo desenha o quadro dentro do volante
+    rect(c, ox + 63, ART_TOP + 26, 171, 55, '#26282a');
+    rect(c, ox + 63, ART_TOP + 26, 171, 1, '#3c3e42');
+    rect(c, ox + 63, ART_TOP + 80, 171, 1, '#141516');
+  },
+  extra: (c, ox, r) => c4Cluster(c, ox, r),
 };
+
+// Quadro digital do C4 como o de verdade, todo dentro da abertura do volante: à esquerda o
+// velocímetro (barra verde que sobe e curva para a direita, escala âmbar, velocidade em
+// dígitos), no meio o centro de informações (pressão do óleo, barra do combustível,
+// temperatura da água, parcial e consumo) com os três botões quadrados embaixo (setas verdes
+// acendem com o pisca) e à direita o conta-giros (barra verde que termina em amarelo e
+// vermelho, giro ×100 em dígitos e a seta de "troque de marcha")
+const C4 = { green: '#44d84c', greenOff: '#0f2a12', yellow: '#e8e030', yellowOff: '#2a2a0c', red: '#ff3a24', redOff: '#2e0e0a', amber: '#ffb020', amberOff: '#3a2608', face: '#0a0c0b', frame: '#4a4c4e' };
+function segSmall(c: CanvasRenderingContext2D, xr: number, y: number, v: number, digits: number, on: string, off: string) {
+  // dígitos de 7 segmentos menores (4,5 x 8 px)
+  const parts: Record<string, [number, number, number, number]> = {
+    a: [1, 0, 2.5, 1], b: [3.5, 0.5, 1, 3], c: [3.5, 4.5, 1, 3], d: [1, 7, 2.5, 1], e: [0, 4.5, 1, 3], f: [0, 0.5, 1, 3], g: [1, 3.5, 2.5, 1],
+  };
+  const s = String(Math.max(0, Math.round(v)));
+  for (let i = 0; i < digits; i++) {
+    const ch = s[s.length - 1 - i];
+    const lit = ch === undefined ? '' : SEG7[Number(ch)];
+    const x = xr - (i + 1) * 5.5 + 0.5;
+    for (const [k, [dx, dy, w, h]] of Object.entries(parts)) {
+      c.fillStyle = lit.includes(k) ? on : off;
+      c.fillRect(x + dx, y + dy, w, h);
+    }
+  }
+}
+function c4Panel(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+  rect(c, x - 1, y - 1, w + 2, h + 2, C4.frame);
+  rect(c, x - 1, y - 1, w + 2, 0.5, '#6a6c70');
+  rect(c, x, y, w, h, C4.face);
+}
+function c4Cluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
+  const T = ART_TOP;
+  const kmh = r.speed * KMH;
+  const rpm = clamp(r.rpm, 0, 1);
+  // ---- velocímetro ----
+  const clip = (x: number, y: number, w: number, h: number, f: () => void) => {
+    c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip(); f(); c.restore();
+  };
+  c4Panel(c, ox + 72, T + 42, 35, 37);
+  clip(ox + 72, T + 42, 35, 37, () => {
+    const sp = { x: 109, y: 79, r0: 23, r1: 28, a0: Math.PI, a1: Math.PI * 1.46, n: 24 };
+    drawArc(c, ox, sp, kmh / 300, () => [C4.green, C4.greenOff]);
+    for (let v = 0; v <= 300; v += 50) {
+      const a = sp.a0 + ((sp.a1 - sp.a0) * v) / 300;
+      pix(c, String(v), ox + sp.x + 0.5 + Math.cos(a) * 32, T + sp.y + Math.sin(a) * 31 * PIX_Y, C4.amber, 0.5);
+    }
+    segSmall(c, ox + 105.5, T + 63, kmh, 3, C4.amber, C4.amberOff);
+    pix(c, 'km/h', ox + 99, T + 74.5, C4.amber, 0.5);
+  });
+  // ---- centro de informações ----
+  c4Panel(c, ox + 107, T + 36, 42, 22);
+  const oilP = 20 + gauges.oil * 60, coolant = 80 + gauges.water * 40;
+  const box = (x: number, y: number) => { // moldura âmbar dos visores do óleo e da água
+    rect(c, x, y, 15, 0.5, C4.amber); rect(c, x, y + 8.5, 15, 0.5, C4.amber);
+    rect(c, x, y, 0.5, 9, C4.amber); rect(c, x + 14.5, y, 0.5, 9, C4.amber);
+  };
+  box(ox + 108, T + 37);
+  rect(c, ox + 109.5, T + 39, 1.5, 5, gauges.oil < 0.36 ? C4.red : C4.redOff);
+  segSmall(c, ox + 122.5, T + 37.5, oilP, 2, C4.amber, C4.amberOff);
+  box(ox + 133, T + 37);
+  rect(c, ox + 134.5, T + 39, 1.5, 5, gauges.water > 0.8 ? C4.red : C4.redOff);
+  segSmall(c, ox + 147.5, T + 37.5, coolant, 3, C4.amber, C4.amberOff);
+  // combustível: barra vertical verde, esvazia de cima para baixo
+  rect(c, ox + 124, T + 37, 8, 18, C4.greenOff);
+  const fh = 18 * clamp(gauges.fuel, 0, 1);
+  rect(c, ox + 124, T + 37 + 18 - fh, 8, fh, gauges.fuel < 0.68 ? C4.yellow : C4.green);
+  for (let k = 1; k < 6; k++) rect(c, ox + 132.5, T + 37 + k * 3, 1, 0.5, C4.amber);
+  // parcial (km) e consumo
+  const km = Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600);
+  segSmall(c, ox + 122.5, T + 48.5, (46.9 + km) * 10 % 1000, 3, C4.amber, C4.amberOff);
+  rect(c, ox + 116.5, T + 55.5, 0.5, 0.5, C4.amber);
+  const inst = r.throttle ? 4 + (1 - rpm) * 6 : 19;
+  segSmall(c, ox + 147.5, T + 48.5, inst, 2, C4.amber, C4.amberOff);
+  // três botões quadrados (as setas do pisca nos dois de fora)
+  const blink = r.signal !== 0 && blinkOn();
+  [[112, -1], [124, 0], [136, 1]].forEach(([x, dir]) => {
+    rect(c, ox + x, T + 61, 8, 7, '#18191a');
+    rect(c, ox + x, T + 61, 8, 0.5, '#5a5c60');
+    if (dir) {
+      const lit = blink && Math.sign(r.signal) === dir;
+      c.fillStyle = lit ? C4.green : '#1c3a1e';
+      for (let k = 0; k < 3; k++) c.fillRect(ox + x + (dir < 0 ? 2 + k : 5 - k), T + 63.5 - k * 0.5, 1, 1 + k);
+    }
+  });
+  // ---- conta-giros ----
+  c4Panel(c, ox + 150, T + 42, 35, 37);
+  clip(ox + 150, T + 42, 35, 37, () => {
+    const tc = { x: 186, y: 79, r0: 23, r1: 28, a0: Math.PI, a1: Math.PI * 1.46, n: 24 };
+    drawArc(c, ox, tc, 0.04 + rpm * 0.9, (f) => (f < 0.78 ? [C4.green, C4.greenOff] : f < 0.88 ? [C4.yellow, C4.yellowOff] : [C4.red, C4.redOff]));
+    for (const v of [0, 10, 20, 30, 40, 50, 60]) {
+      const a = tc.a0 + ((tc.a1 - tc.a0) * v) / 60;
+      pix(c, String(v), ox + tc.x + 0.5 + Math.cos(a) * 32, T + tc.y + Math.sin(a) * 31 * PIX_Y, C4.amber, 0.5);
+    }
+    segSmall(c, ox + 183.5, T + 63, rpm * 60, 2, C4.amber, C4.amberOff);
+    pix(c, 'x100', ox + 177, T + 74.5, C4.amber, 0.5);
+  });
+  // seta de troca de marcha (acende perto do corte)
+  const up = rpm > 0.9 && r.throttle;
+  c.fillStyle = up ? C4.amber : C4.amberOff;
+  for (let k = 0; k < 4; k++) c.fillRect(ox + 179 - k * 0.5, T + 45 + k, 1 + k, 1);
+  c.fillRect(ox + 178.5, T + 49, 2, 3);
+}
 
 for (const [k, v] of Object.entries(INTERIORS)) {
   const dials = v.dials as Dial[];

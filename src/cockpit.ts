@@ -391,6 +391,63 @@ COCKPIT_ART['br-pumagte'] = {
   },
 };
 
+// Cadete GSi: quadro digital "LCD Electronics" como o de verdade — à esquerda quatro barras em
+// cunha (pressão do óleo, bateria, temperatura da água, combustível) com os ícones vermelhos;
+// no meio a velocidade em três dígitos grandes, hodômetro e parcial; à direita o conta-giros
+// em arco segmentado (×100 rpm, 5 a 70). No console, a régua de luzes de aviso e o relógio.
+const KAD = { on: '#ffb428', off: '#2a1c08', red: '#ff3a20', redOff: '#3a1008', icon: '#e8402a', dim: '#ffcf70' };
+function kadettCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
+  const T = ART_TOP;
+  const kmh = r.speed * KMH;
+  const rpm = clamp(r.rpm, 0, 1);
+  // barras em cunha: cada segmento um pouco mais alto que o anterior
+  const bars: [number, boolean][] = [[gauges.oil, false], [gauges.volt, false], [gauges.water, gauges.water > 0.8], [gauges.fuel, gauges.fuel < 0.68]];
+  bars.forEach(([v, warn], i) => {
+    const y = T + 44 + i * 8.5 + (i >= 2 ? 2.5 : 0); // espaço para a escala da bateria
+    rect(c, ox + 71, y + 1.5, 2.5, 2.5, warn ? '#ff6040' : KAD.icon);
+    const n = 16;
+    for (let k = 0; k < n; k++) {
+      const h = 1.5 + (k / (n - 1)) * 3.5;
+      rect(c, ox + 76 + k * 1.5, y + 5 - h, 1, h, k < Math.round(clamp(v, 0, 1) * n) ? (warn && k < 4 ? KAD.red : KAD.on) : KAD.off);
+    }
+  });
+  pix(c, '9', ox + 82, T + 60, KAD.dim, 0.5); // escala da bateria (9 12 15)
+  pix(c, '12', ox + 89, T + 60, KAD.dim, 0.5);
+  pix(c, '15', ox + 97, T + 60, KAD.dim, 0.5);
+  // velocidade: três dígitos de 7 segmentos
+  rect(c, ox + 104, T + 43, 47, 37, '#0d0b08');
+  seg7Number(c, ox + 143, T + 47, kmh, 3, KAD.on, KAD.off);
+  pix(c, 'km/h', ox + 147, T + 57, KAD.dim, 0.5);
+  pix(c, 'LCD', ox + 127, T + 64, '#8a6a2a', 0.5);
+  // hodômetro e parcial em dígitos pequenos (o último da parcial gira de verdade)
+  const km = Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600);
+  pix(c, String(Math.floor(805 + km)).padStart(6, '0'), ox + 116, T + 72, KAD.on, 0.5);
+  pix(c, ((14.5 + km) % 1000).toFixed(1), ox + 140, T + 72, KAD.on, 0.5);
+  // conta-giros em arco (centro embaixo à direita, do 5 à esquerda ao 70 em cima)
+  const arc = { x: 191, y: 80, r0: 22, r1: 28, a0: Math.PI, a1: Math.PI * 1.5, n: 24 };
+  drawArc(c, ox, arc, 0.04 + rpm * 0.86, (f) => (f < 0.86 ? [KAD.on, KAD.off] : [KAD.red, KAD.redOff]));
+  for (const v of [5, 10, 20, 30, 40, 50, 60, 70]) {
+    const a = arc.a0 + ((arc.a1 - arc.a0) * v) / 70;
+    pix(c, String(v), ox + arc.x + 0.5 + Math.cos(a) * 32, T + arc.y + Math.sin(a) * 31.5 * PIX_Y, KAD.dim, 0.5);
+  }
+  pix(c, 'x100', ox + 185, T + 76, KAD.dim, 0.5);
+  // régua de luzes do console (tela larga): ícones âmbar apagados; acendem quando faz sentido
+  const warn = [r.damage > 0.6, gauges.fuel < 0.68, false, r.speed < 1 && !r.throttle, r.state === 'ticket', gauges.water > 0.8, false];
+  warn.forEach((on, i) => {
+    const x = ox + 261.5 + i * 6.8;
+    rect(c, x, T + 44, 5, 5, on ? (i === 4 || i === 0 ? '#ff3a20' : '#ffb428') : '#4a3410');
+    rect(c, x + 1, T + 45, 1, 1, on ? '#fff0c0' : '#5e4618');
+  });
+  // relógio digital do console
+  const now = new Date();
+  pix(c, `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, ox + 285.5, T + 87, '#c8e0a0', 1);
+}
+COCKPIT_ART['br-kadett'] = {
+  dash: cp('br-kadett-dash'), top: cp('br-kadett-top'), wheel: cp('br-kadett-wheel'),
+  pivot: [127.9, 105.7], speedMax: 220, needle: '#ffb428', hub: '#202022', radar: [206, 4], aux: [],
+  extra: (c, ox, r) => kadettCluster(c, ox, r),
+};
+
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
 COCKPIT_ART.zr1 = {
   dash: cp('zr1-dash'), top: cp('zr1-top'), wheel: cp('zr1-wheel'),

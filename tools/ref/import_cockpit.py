@@ -101,6 +101,16 @@ CARS = {
         'hub_fill': ((22, 22, 25), 470),
         'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 236,
     },
+    # Cadete GSi: quadro digital (barras, velocidade em números e conta-giros em arco), a régua
+    # de luzes de aviso e o relógio do console: fundo liso, o jogo desenha tudo funcionando
+    'br-kadett': {
+        'scale': 0.46, 'x0': 243, 'y0': 200,
+        'gauges': {},
+        'lcd': [((10, 9, 8), (390, 278, 668, 360)), ((14, 12, 10), (806, 279, 916, 299)), ((26, 30, 24), (842, 356, 880, 376))],
+        'top_art': [(690, 0, 990, 130)], 'sky_left': True, 'despeckle': True,
+        'hub_fill': ((30, 30, 33), 430),
+        'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 206,
+    },
     # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
     'zr1': {
         'scale': 0.35, 'x0': 153, 'y0': 175,

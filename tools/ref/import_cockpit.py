@@ -90,6 +90,17 @@ CARS = {
         'hub_fill': ((22, 22, 25), 470),
         'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 232,
     },
+    # Onça GTE: volante esportivo de 3 raios; o quadro atrás do volante é refeito no jogo como o
+    # do carro de verdade (conta-giros e velocímetro lado a lado); os 4 do painel, redesenhados
+    'br-pumagte': {
+        'scale': 0.46, 'x0': 247, 'y0': 232,
+        'gauges': {'tach': (455, 348, 60), 'speed': (620, 348, 60), 'c1': (757, 337, 33), 'c2': (833, 337, 33),
+                   'c3': (910, 337, 33), 'c4': (988, 337, 33)},
+        'lcd': [((20, 20, 22), (378, 282, 708, 412))],
+        'top_art': [(700, 0, 990, 120)], 'sky_left': True, 'despeckle': True,
+        'hub_fill': ((22, 22, 25), 470),
+        'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 236,
+    },
     # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
     'zr1': {
         'scale': 0.35, 'x0': 153, 'y0': 175,

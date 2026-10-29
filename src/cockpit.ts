@@ -345,6 +345,52 @@ COCKPIT_ART['br-pumagtb'] = {
   },
 };
 
+// Onça GTE: quadro como o do carro de verdade (VDO) — conta-giros 0-6 (× 1000 rpm, faixa
+// vermelha no fim) e velocímetro 20-200 lado a lado, fundo preto, números e ponteiros brancos,
+// aros cromados, hodômetro e parcial; luz do óleo no conta-giros, seta e farol alto no
+// velocímetro; no painel, combustível (R-C), pressão do óleo, temperatura do óleo e voltímetro
+COCKPIT_ART['br-pumagte'] = {
+  dash: cp('br-pumagte-dash'), top: cp('br-pumagte-top'), wheel: cp('br-pumagte-wheel'),
+  dashMask: cp('br-pumagte-dash-mask'), topMask: cp('br-pumagte-top-mask'),
+  pivot: [127.9, 113], speedMax: 200, needle: '#f2f2ee', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [206, 4],
+  tach: { x: 95.5, y: 61, r: 26.5, max: 6, labels: [1, 2, 3, 4, 5, 6], tick: 0.25, red: 5.2, a0: Math.PI * 0.833, sweep: Math.PI * 1.5, labelScale: 0.7, redLabels: false, bg: '#0a0a0b', redInk: '#d82418', redW: 1.5, boldTicks: true },
+  speed: { x: 171.5, y: 61, r: 26.5, max: 200, labels: [20, 60, 100, 140, 180], minor: [40, 80, 120, 160, 200], tick: 10, red: 999, a0: Math.PI * 0.833, sweep: Math.PI * 1.667, labelScale: 0.7, bg: '#0a0a0b', boldTicks: true },
+  aux: [
+    { x: 234.5, y: 55, r: 14.5, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['R', 'C'] },
+    { x: 269.5, y: 55, r: 14.5, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '5'] },
+    { x: 305, y: 55, r: 14.5, kind: 'single', show: ['oiltemp'], icon: 'temp', labels: ['40', '120'] },
+    { x: 341, y: 55, r: 14.5, kind: 'single', show: ['volt'], icon: 'volt', labels: ['10', '16'] },
+  ],
+  under: (c, ox) => {
+    // aros cromados dos dois mostradores grandes (por linhas, sem antialias)
+    for (const x of [95.5, 171.5]) {
+      for (const [rr, col] of [[30, '#3a3c40'], [29, '#c8ccd2'], [28, '#8a8e94']] as [number, string][]) {
+        c.fillStyle = col;
+        const cx = ox + x, cy = ART_TOP + 61, ry = rr * PIX_Y;
+        for (let dy = -Math.floor(ry); dy <= Math.floor(ry); dy++) {
+          const hw = Math.round(rr * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
+          c.fillRect(Math.floor(cx) - hw, Math.floor(cy) + dy, hw * 2 + 1, 1);
+        }
+      }
+    }
+  },
+  extra: (c, ox, r) => {
+    const T = ART_TOP;
+    // conta-giros: "x1000 RPM", luz do óleo (acende parado, sem acelerar) e da bateria
+    pix(c, 'x1000', ox + 95.5, T + 70, '#c8c8c8', 0.5);
+    const oilLow = r.speed < 1 && !r.throttle;
+    rect(c, ox + 95, T + 76, 2, 2, oilLow ? '#ff3020' : '#4a0e0c');
+    rect(c, ox + 83, T + 66, 3, 2, '#3a3a3e');
+    // velocímetro: hodômetro, parcial, km/h e as luzes da seta (verde) e do farol alto (azul)
+    odometer(c, ox, r, { x: 164.5, y: 51.5, w: 14, h: 3.5 }, 16380, 6, 0.5);
+    odometer(c, ox, r, { x: 166.5, y: 66.5, w: 10, h: 3.5 }, 281.7, 4, 0.5, true);
+    pix(c, 'km/h', ox + 171.5, T + 73, '#c8c8c8', 0.5);
+    const blink = r.signal !== 0 && blinkOn();
+    rect(c, ox + 168, T + 77, 2, 2, blink ? '#3cf040' : '#103a14');
+    rect(c, ox + 173, T + 77, 2, 2, r.def?.night ? '#4a7cff' : '#0e1a40');
+  },
+};
+
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
 COCKPIT_ART.zr1 = {
   dash: cp('zr1-dash'), top: cp('zr1-top'), wheel: cp('zr1-wheel'),

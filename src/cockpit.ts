@@ -322,6 +322,29 @@ COCKPIT_ART['br-golgti'] = {
   extra: (c, ox, r) => golCluster(c, ox, r, COCKPIT_ART['br-golgti']),
 };
 
+// Onça GTB: mostradores pretos com números âmbar e ponteiros laranja — velocímetro 20-220 com
+// hodômetro e parcial, conta-giros 0-7 (faixa vermelha a partir de 5, do seis-cilindros 4.1),
+// combustível no pequeno da esquerda (o da direita, atrás do aro, é o da arte) e, no console (tela larga), pressão
+// do óleo, temperatura do óleo, voltímetro e relógio
+const GTB_INK = '#ffb43a';
+COCKPIT_ART['br-pumagtb'] = {
+  dash: cp('br-pumagtb-dash'), top: cp('br-pumagtb-top'), wheel: cp('br-pumagtb-wheel'),
+  pivot: [127, 128.3], speedMax: 220, needle: '#ff8c1a', needleW: 1.5, needleTail: 3, hub: '#141416', radar: [206, 4],
+  speed: { x: 98, y: 65.5, r: 25.5, max: 220, labels: [20, 60, 100, 140, 180, 220], minor: [40, 80, 120, 160, 200], tick: 10, red: 999, labelScale: 0.7, ink: GTB_INK, bg: '#0c0c0e', boldTicks: true },
+  tach: { x: 171.5, y: 65.5, r: 27, max: 7, labels: [0, 1, 2, 3, 4, 5, 6, 7], tick: 0.25, red: 5, labelScale: 0.7, redLabels: false, ink: GTB_INK, bg: '#0c0c0e', redInk: '#e8301a', redW: 2, boldTicks: true },
+  aux: [
+    { x: 52, y: 75.5, r: 10.5, kind: 'single', show: ['fuel'], icon: 'fuel' },
+    { x: 272.5, y: 65.5, r: 16.5, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '5', '10'] },
+    { x: 322.5, y: 65.5, r: 16.5, kind: 'single', show: ['oiltemp'], icon: 'temp', labels: ['50', '100', '150'] },
+    { x: 373, y: 65.5, r: 16.5, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '12', '16'] },
+    { x: 422, y: 65.5, r: 16.5, kind: 'clock' },
+  ],
+  extra: (c, ox, r) => {
+    odometer(c, ox, r, { x: 92, y: 57.5, w: 12, h: 3.5 }, 228, 6, 0.5);
+    odometer(c, ox, r, { x: 94, y: 70.5, w: 8, h: 3.5 }, 21.0, 4, 0.5, true);
+  },
+};
+
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
 COCKPIT_ART.zr1 = {
   dash: cp('zr1-dash'), top: cp('zr1-top'), wheel: cp('zr1-wheel'),

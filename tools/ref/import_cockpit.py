@@ -80,6 +80,16 @@ CARS = {
         'hub_fill': ((30, 30, 33), 396),
         'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 238,
     },
+    # Onça GTB: volante esportivo de 3 raios; velocímetro e conta-giros, dois pequenos ao lado e
+    # os quatro do console central (redesenhados no jogo)
+    'br-pumagtb': {
+        'scale': 0.46, 'x0': 212, 'y0': 218,
+        'gauges': {'speed': (425, 343, 57), 'tach': (585, 343, 60), 'g1': (325, 362, 25),
+                   'c1': (805, 343, 38), 'c2': (913, 343, 38), 'c3': (1023, 343, 38), 'c4': (1130, 343, 38)},
+        'top_art': [(690, 0, 990, 120)], 'sky_left': True, 'despeckle': True,
+        'hub_fill': ((22, 22, 25), 470),
+        'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 232,
+    },
     # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
     'zr1': {
         'scale': 0.35, 'x0': 153, 'y0': 175,

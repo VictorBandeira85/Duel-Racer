@@ -22,8 +22,9 @@ const blinkOn = () => Math.floor(performance.now() / 250) % 2 === 0;
 // escuridão com o facho dos faróis do jogador (camada guardada, refeita se mudar o tamanho)
 let dark: HTMLCanvasElement | null = null;
 let darkKey = '';
-function darkLayer(w: number, h: number, horizon: number, a: number) {
-  const key = `${w}x${h}:${horizon}:${a.toFixed(2)}`;
+// seen: linha (na camada) onde a pista visível acaba (o painel); hz: altura do horizonte na camada
+function darkLayer(w: number, h: number, seen: number, hz: number, a: number) {
+  const key = `${w}x${h}:${seen}:${hz}:${a.toFixed(2)}`;
   if (dark && darkKey === key) return dark;
   dark = dark ?? document.createElement('canvas');
   dark.width = w;
@@ -33,26 +34,23 @@ function darkLayer(w: number, h: number, horizon: number, a: number) {
   g.clearRect(0, 0, w, h);
   g.fillStyle = `rgba(0,0,12,${a})`;
   g.fillRect(0, 0, w, h);
-  // facho: elipse achatada saindo de baixo do capô e alcançando a pista à frente
+  // facho: elipse larga com o centro logo abaixo da linha do painel, alcançando os acostamentos
+  // dos dois lados perto do carro e afinando lá na frente
+  const span = Math.max(8, seen - hz);
   g.globalCompositeOperation = 'destination-out';
   g.save();
-  g.translate(w / 2, h);
-  g.scale(1, 0.62);
-  const r = w * 0.55;
-  const beam = g.createRadialGradient(0, 0, r * 0.15, 0, 0, r);
-  beam.addColorStop(0, 'rgba(0,0,0,0.92)');
-  beam.addColorStop(0.55, 'rgba(0,0,0,0.6)');
+  g.translate(w / 2, seen + span * 0.15);
+  const r = w * 0.8;
+  g.scale(1, (span * 1.0) / r);
+  const beam = g.createRadialGradient(0, 0, r * 0.1, 0, 0, r);
+  beam.addColorStop(0, 'rgba(0,0,0,0.95)');
+  beam.addColorStop(0.5, 'rgba(0,0,0,0.75)');
+  beam.addColorStop(0.8, 'rgba(0,0,0,0.35)');
   beam.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = beam;
-  g.fillRect(-r, -r, r * 2, r);
+  g.fillRect(-r, -r, r * 2, r * 2);
   g.restore();
-  // a luz amarelada dos faróis na pista
   g.globalCompositeOperation = 'source-over';
-  const warm = g.createRadialGradient(w / 2, h, 0, w / 2, h, h * 0.55);
-  warm.addColorStop(0, 'rgba(255,236,170,0.10)');
-  warm.addColorStop(1, 'rgba(255,236,170,0)');
-  g.fillStyle = warm;
-  g.fillRect(0, 0, w, h);
   return dark;
 }
 
@@ -78,7 +76,8 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   if (strength <= 0.02) return;
   const top = Math.max(vp.y, Math.floor(vp.horizon) - 40);
   const h = vp.y + vp.h - top;
-  c.drawImage(darkLayer(Math.round(vp.w), Math.round(h), 0, 0.68 * strength), vp.x, top);
+  const seenY = Math.min(vp.y + vp.h, vp.dash ?? vp.y + vp.h);
+  c.drawImage(darkLayer(Math.round(vp.w), Math.round(h), Math.round(seenY - top), Math.round(vp.horizon - top), 0.68 * strength), vp.x, top);
   c.save();
   c.globalCompositeOperation = 'lighter';
   // facho dos faróis do jogador na pista: luz amarelada somada, forte perto do capô e sumindo
@@ -86,32 +85,47 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   {
     // a parte visível da pista vai do horizonte até o painel
     const bot = vp.y + vp.h, seen = Math.min(bot, vp.dash ?? bot), span = seen - vp.horizon;
-    const far = vp.horizon + span * 0.12;
+    const far = vp.horizon + span * 0.1;
     const cx = vp.x + vp.w / 2;
-    const g = c.createLinearGradient(0, seen + span * 0.4, 0, far);
     const k = strength;
+    // facho principal: trapézio bem aberto na base (pega os acostamentos e o que está na beira
+    // da pista) afinando até lá na frente
+    const g = c.createLinearGradient(0, seen + span * 0.25, 0, far);
     g.addColorStop(0, `rgba(255,232,170,${(0.34 * k).toFixed(3)})`);
-    g.addColorStop(0.45, `rgba(255,232,170,${(0.22 * k).toFixed(3)})`);
+    g.addColorStop(0.5, `rgba(255,232,170,${(0.2 * k).toFixed(3)})`);
     g.addColorStop(1, 'rgba(255,232,170,0)');
     c.fillStyle = g;
     c.beginPath();
-    c.moveTo(cx - vp.w * 0.62, bot);
-    c.lineTo(cx - vp.w * 0.07, far);
-    c.lineTo(cx + vp.w * 0.07, far);
-    c.lineTo(cx + vp.w * 0.62, bot);
+    c.moveTo(cx - vp.w * 0.95, bot);
+    c.lineTo(cx - vp.w * 0.95, seen + span * 0.25);
+    c.lineTo(cx - vp.w * 0.17, far);
+    c.lineTo(cx + vp.w * 0.17, far);
+    c.lineTo(cx + vp.w * 0.95, seen + span * 0.25);
+    c.lineTo(cx + vp.w * 0.95, bot);
     c.closePath();
     c.fill();
-    // miolo mais claro de cada farol
+    // espalhamento para os lados perto do carro (claridade nas laterais, mais fraca)
+    c.save();
+    c.translate(cx, seen + span * 0.1);
+    c.scale(1, (span * 0.55) / (vp.w * 0.75));
+    const sp = c.createRadialGradient(0, 0, 0, 0, 0, vp.w * 0.75);
+    sp.addColorStop(0, `rgba(255,236,190,${(0.14 * k).toFixed(3)})`);
+    sp.addColorStop(0.6, `rgba(255,236,190,${(0.08 * k).toFixed(3)})`);
+    sp.addColorStop(1, 'rgba(255,236,190,0)');
+    c.fillStyle = sp;
+    c.fillRect(-vp.w * 0.75, -vp.w * 0.75, vp.w * 1.5, vp.w * 1.5);
+    c.restore();
+    // miolo mais claro de cada farol, um pouco aberto para fora
     for (const sgn of [-1, 1]) {
-      const h2 = c.createLinearGradient(0, seen + span * 0.4, 0, vp.horizon + span * 0.3);
+      const h2 = c.createLinearGradient(0, seen + span * 0.25, 0, vp.horizon + span * 0.28);
       h2.addColorStop(0, `rgba(255,240,200,${(0.16 * k).toFixed(3)})`);
       h2.addColorStop(1, 'rgba(255,240,200,0)');
       c.fillStyle = h2;
       c.beginPath();
-      c.moveTo(cx + sgn * vp.w * 0.08, bot);
-      c.lineTo(cx + sgn * vp.w * 0.02, vp.horizon + span * 0.3);
-      c.lineTo(cx + sgn * vp.w * 0.1, vp.horizon + span * 0.3);
-      c.lineTo(cx + sgn * vp.w * 0.42, bot);
+      c.moveTo(cx + sgn * vp.w * 0.05, bot);
+      c.lineTo(cx + sgn * vp.w * 0.02, vp.horizon + span * 0.28);
+      c.lineTo(cx + sgn * vp.w * 0.14, vp.horizon + span * 0.28);
+      c.lineTo(cx + sgn * vp.w * 0.7, bot);
       c.closePath();
       c.fill();
     }

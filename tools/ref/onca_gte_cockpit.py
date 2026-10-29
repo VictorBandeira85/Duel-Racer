@@ -38,6 +38,33 @@ def main():
                     a[114 + j, x + i, :3] = (226, 228, 232) if j < 3 else (160, 164, 170)
         x += 4
     Image.fromarray(a, 'RGBA').save(fn)
+    # limpadores: a arte os tem levantados sobre o vidro, tapando a vista; tira e deixa as
+    # palhetas estacionadas, finas, logo acima da borda vermelha do painel
+    tp, dp = os.path.join(d, 'br-pumagte-top.png'), os.path.join(d, 'br-pumagte-dash.png')
+    t, dd = np.array(Image.open(tp).convert('RGBA')), np.array(Image.open(dp).convert('RGBA'))
+    c = np.vstack([t, dd])
+    hsv = cv2.cvtColor(np.ascontiguousarray(c[..., :3]), cv2.COLOR_RGB2HSV_FULL).astype(float)
+    hue = hsv[..., 0] * 360 / 256
+    red = ((hue >= 340) | (hue <= 14)) & (hsv[..., 1] > 100) & (c[..., 3] > 0)
+    found = {}
+    for x in range(120, c.shape[1]):
+        rows = np.nonzero(red[70:100, x])[0]
+        if len(rows):
+            found[x] = 70 + rows[0]
+    # onde a borda vermelha não aparece (atrás da reconstrução do aro), interpola das vizinhas
+    xs = np.array(sorted(found))
+    edge = {}
+    for x in range(120, c.shape[1]):
+        r0 = found.get(x, int(round(np.interp(x, xs, [found[k] for k in xs]))))
+        edge[x] = r0
+        col = c[45:r0, x]
+        col[..., 3] = 0  # acima da borda: só vidro (o céu aparece)
+    for x0, x1 in ((196, 292), (304, 404)):
+        for x in range(x0, x1):
+            if x in edge:
+                c[edge[x] - 1, x] = (34, 34, 38, 255)
+    Image.fromarray(c[:t.shape[0]], 'RGBA').save(tp)
+    Image.fromarray(c[t.shape[0]:], 'RGBA').save(dp)
     # partes na cor do carro: vermelho saturado
     for name in ('dash', 'top'):
         p = os.path.join(d, f'br-pumagte-{name}.png')

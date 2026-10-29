@@ -469,16 +469,21 @@ COCKPIT_ART.zr1 = {
 // acendem com o pisca) e à direita o conta-giros (barra verde que termina em amarelo e
 // vermelho, giro ×100 em dígitos e a seta de "troque de marcha")
 const C4 = { green: '#44d84c', greenOff: '#0f2a12', yellow: '#e8e030', yellowOff: '#2a2a0c', red: '#ff3a24', redOff: '#2e0e0a', amber: '#ffb020', amberOff: '#3a2608', face: '#0a0c0b', frame: '#4a4c4e' };
-function segSmall(c: CanvasRenderingContext2D, xr: number, y: number, v: number, digits: number, on: string, off: string) {
-  // dígitos de 7 segmentos menores (4,5 x 8 px)
-  const parts: Record<string, [number, number, number, number]> = {
-    a: [1, 0, 2.5, 1], b: [3.5, 0.5, 1, 3], c: [3.5, 4.5, 1, 3], d: [1, 7, 2.5, 1], e: [0, 4.5, 1, 3], f: [0, 0.5, 1, 3], g: [1, 3.5, 2.5, 1],
-  };
+const SEG_S: Record<string, [number, number, number, number]> = { // 4,5 x 8 px
+  a: [1, 0, 2.5, 1], b: [3.5, 0.5, 1, 3], c: [3.5, 4.5, 1, 3], d: [1, 7, 2.5, 1], e: [0, 4.5, 1, 3], f: [0, 0.5, 1, 3], g: [1, 3.5, 2.5, 1],
+};
+const SEG_XS: Record<string, [number, number, number, number]> = { // 3,5 x 6,5 px, traços de 1 px (nítidos na grade de meio pixel)
+  a: [1, 0, 1.5, 1], b: [2.5, 0.5, 1, 2.5], c: [2.5, 3.5, 1, 2.5], d: [1, 5.5, 1.5, 1], e: [0, 3.5, 1, 2.5], f: [0, 0.5, 1, 2.5], g: [1, 2.75, 1.5, 1],
+};
+function segSmall(c: CanvasRenderingContext2D, xr: number, y: number, v: number, digits: number, on: string, off: string, xs = false) {
+  // dígitos de 7 segmentos menores
+  const parts = xs ? SEG_XS : SEG_S;
+  const pitch = xs ? 4.5 : 5.5;
   const s = String(Math.max(0, Math.round(v)));
   for (let i = 0; i < digits; i++) {
     const ch = s[s.length - 1 - i];
     const lit = ch === undefined ? '' : SEG7[Number(ch)];
-    const x = xr - (i + 1) * 5.5 + 0.5;
+    const x = xr - (i + 1) * pitch + 0.5;
     for (const [k, [dx, dy, w, h]] of Object.entries(parts)) {
       c.fillStyle = lit.includes(k) ? on : off;
       c.fillRect(x + dx, y + dy, w, h);
@@ -504,7 +509,7 @@ function c4Cluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
     drawArc(c, ox, sp, kmh / 240, () => [C4.green, C4.greenOff]);
     for (let v = 0; v <= 240; v += 40) {
       const a = sp.a0 + ((sp.a1 - sp.a0) * v) / 240;
-      pix(c, String(v), ox + sp.x + 0.5 + Math.cos(a) * 46.5, T + sp.y + Math.sin(a) * 44.5 * PIX_Y + 1, C4.amber, 0.5);
+      pix(c, String(v), ox + sp.x + 0.5 + Math.cos(a) * 46.5 - 2, T + sp.y + Math.sin(a) * 44.5 * PIX_Y + 1, C4.amber, 0.5);
     }
     segSmall(c, ox + 105.5, T + 63, kmh, 3, C4.amber, C4.amberOff);
     pix(c, 'km/h', ox + 99, T + 74.5, C4.amber, 0.5);
@@ -518,10 +523,10 @@ function c4Cluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   };
   box(ox + 108, T + 37);
   rect(c, ox + 109.5, T + 39, 1.5, 5, gauges.oil < 0.36 ? C4.red : C4.redOff);
-  segSmall(c, ox + 122.5, T + 37.5, oilP, 2, C4.amber, C4.amberOff);
+  segSmall(c, ox + 122.5, T + 38.5, oilP, 2, C4.amber, C4.amberOff, true);
   box(ox + 133, T + 37);
   rect(c, ox + 134.5, T + 39, 1.5, 5, gauges.water > 0.8 ? C4.red : C4.redOff);
-  segSmall(c, ox + 147.5, T + 37.5, coolant, 3, C4.amber, C4.amberOff);
+  segSmall(c, ox + 147.5, T + 38.5, coolant, 3, C4.amber, C4.amberOff, true);
   // combustível: barra vertical verde, esvazia de cima para baixo
   rect(c, ox + 124, T + 37, 8, 18, C4.greenOff);
   const fh = 18 * clamp(gauges.fuel, 0, 1);
@@ -529,10 +534,10 @@ function c4Cluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   for (let k = 1; k < 6; k++) rect(c, ox + 132.5, T + 37 + k * 3, 1, 0.5, C4.amber);
   // parcial (km) e consumo
   const km = Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600);
-  segSmall(c, ox + 122.5, T + 48.5, (46.9 + km) * 10 % 1000, 3, C4.amber, C4.amberOff);
-  rect(c, ox + 116.5, T + 55.5, 0.5, 0.5, C4.amber);
+  segSmall(c, ox + 122.5, T + 49, (46.9 + km) * 10 % 1000, 3, C4.amber, C4.amberOff, true);
+  rect(c, ox + 118, T + 55, 0.5, 0.5, C4.amber); // vírgula da parcial
   const inst = r.throttle ? 4 + (1 - rpm) * 6 : 19;
-  segSmall(c, ox + 147.5, T + 48.5, inst, 2, C4.amber, C4.amberOff);
+  segSmall(c, ox + 147.5, T + 49, inst, 2, C4.amber, C4.amberOff, true);
   // três botões quadrados (as setas do pisca nos dois de fora)
   const blink = r.signal !== 0 && blinkOn();
   [[112, -1], [124, 0], [136, 1]].forEach(([x, dir]) => {

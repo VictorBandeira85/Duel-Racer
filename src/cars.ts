@@ -634,8 +634,7 @@ function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w:
   const q = hiRes(w);
   const spr = svgSprite(img, w * q, h * q, !model.startsWith('police') && mask ? { mask, color: look.color } : undefined);
   if (!spr) return false;
-  c.fillStyle = 'rgba(0,0,0,0.35)';
-  c.fillRect(Math.round(x - w * 0.53), Math.round(y - h * 0.04), Math.round(w * 1.06), Math.max(1, Math.round(h * 0.06)));
+  groundShadow(c, x, y, w);
   const L = Math.round(x - w / 2), T = Math.round(y - h);
   c.drawImage(spr, L, T, Math.round(w), Math.round(h));
   // luzes acesas: lanternas (noite/freio) e giroflex piscando
@@ -706,6 +705,7 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
     const h = w * (spriteAspect(frontImg) ?? look.rear.h);
     const spr = svgSprite(frontImg, w * hiRes(w), h * hiRes(w), tint(look.rear.frontMask));
     if (spr) {
+      groundShadow(c, x, y, w);
       c.drawImage(spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
       if (look.rear.lamps) drawLamps(c, x - w / 2, y - h, w, h, look, look.rear.lamps, true);
       return;
@@ -717,8 +717,7 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
     const q = look.rear.img ? hiRes(w) : 1;
     const spr = svgSprite(art, w * q, h * q, tint(look.rear.img ? look.rear.imgMask : undefined)) ?? (look.rear.svg ? svgSprite(look.rear.svg, w, h) : null);
     if (spr) {
-      c.fillStyle = 'rgba(0,0,0,0.35)';
-      c.fillRect(x - w * 0.53, y - h * 0.05, w * 1.06, h * 0.08);
+      groundShadow(c, x, y, w);
       c.drawImage(spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
       const gl = look.rear.glow;
       if ((look.brake || look.night) && gl) {
@@ -826,8 +825,7 @@ function drawCarCrisp(c: CanvasRenderingContext2D, x: number, y: number, w: numb
   const R = look.rear ?? GENERIC;
   if (!rearIds.has(R)) rearIds.set(R, nextRearId++);
   const h = w * (look.truck ? 1.05 : R.h);
-  c.fillStyle = 'rgba(0,0,0,0.35)';
-  c.fillRect(Math.round(x - w * 0.53), Math.round(y - h * 0.05), Math.round(w * 1.06), Math.max(1, Math.round(h * 0.08)));
+  groundShadow(c, x, y, w);
   const on = !!look.siren && Math.floor(performance.now() / 120) % 2 === 1;
   const lit = look.brake || look.night;
   const key = `car${rearIds.get(R)}${look.truck ? 'T' : ''}${look.front ? 'F' : ''}${look.police ? 'P' : ''}${on ? 'S' : ''}${lit ? 'L' : ''}${look.color}`;
@@ -848,8 +846,7 @@ function drawCarRaw(c: CanvasRenderingContext2D, x: number, y: number, w: number
   const body = look.police ? '#f2f2f2' : look.color;
   const lit = look.brake || look.night;
 
-  c.fillStyle = 'rgba(0,0,0,0.35)';
-  c.fillRect(L - w * 0.03, y - h * 0.06, w * 1.06, h * 0.1);
+  groundShadow(c, L + w / 2, y, w);
   c.fillStyle = '#141414';
   c.fillRect(L + w * 0.03, y - h * 0.3, w * 0.19, h * 0.3);
   c.fillRect(x + w / 2 - w * 0.22, y - h * 0.3, w * 0.19, h * 0.3);
@@ -1007,8 +1004,7 @@ function drawRearF40(c: CanvasRenderingContext2D, x: number, y: number, w: numbe
   const body = look.color;
   const lit = look.brake || look.night;
 
-  c.fillStyle = 'rgba(0,0,0,0.35)';
-  c.fillRect(L - w * 0.03, y - h * 0.05, w * 1.06, h * 0.08);
+  groundShadow(c, L + w / 2, y, w);
   box(0.05, 0.86, 0.2, 1, '#111');
   box(0.8, 0.86, 0.95, 1, '#111');
   // vão escuro sob a asa (vidro traseiro e céu)
@@ -1083,8 +1079,7 @@ function drawRear959(c: CanvasRenderingContext2D, x: number, y: number, w: numbe
   };
   const body = look.color;
   const lit = look.brake || look.night;
-  c.fillStyle = 'rgba(0,0,0,0.35)';
-  c.fillRect(L - w * 0.03, y - h * 0.04, w * 1.06, h * 0.06);
+  groundShadow(c, L + w / 2, y, w);
   box(0.04, 0.84, 0.2, 1, '#101010');
   box(0.8, 0.84, 0.96, 1, '#101010');
   // cabine (teto estreito do 911) e vidro traseiro
@@ -1124,8 +1119,7 @@ function drawRear959(c: CanvasRenderingContext2D, x: number, y: number, w: numbe
 function drawTruck(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   const h = w * 1.05;
   const L = x - w / 2;
-  c.fillStyle = 'rgba(0,0,0,0.35)';
-  c.fillRect(L - w * 0.03, y - h * 0.04, w * 1.06, h * 0.06);
+  groundShadow(c, L + w / 2, y, w);
   c.fillStyle = '#121212';
   c.fillRect(L + w * 0.04, y - h * 0.16, w * 0.22, h * 0.16);
   c.fillRect(x + w / 2 - w * 0.26, y - h * 0.16, w * 0.22, h * 0.16);
@@ -1155,6 +1149,26 @@ function drawTruck(c: CanvasRenderingContext2D, x: number, y: number, w: number,
 
 // Vista lateral (escolha do carro e posto). x = frente do carro, y = chão.
 // spin: ângulo das rodas (rad); com ele, cada roda é redesenhada girando no lugar
+// Sombra no chão embaixo do carro (de frente, de trás e de lado), em pixel art: uma faixa escura
+// colada nos pneus e, por baixo, um degradê em linhas que estreitam e clareiam (o carro não
+// parece flutuar). x = centro, y = linha do chão, w = largura do carro na tela.
+export function groundShadow(c: CanvasRenderingContext2D, x: number, y: number, w: number) {
+  if (w < 3) return;
+  const d = Math.max(1, Math.round(w * 0.055));
+  // embaixo da carroceria, entre os pneus (o desenho é vazado ali): escuro, mais forte junto ao chão
+  const top = Math.max(1, Math.round(w * 0.08));
+  for (let k = 0; k < top; k++) {
+    c.fillStyle = `rgba(0,0,0,${(0.3 + 0.35 * (k + 1) / top).toFixed(3)})`;
+    c.fillRect(Math.round(x - w * 0.47), Math.round(y) - top + k, Math.round(w * 0.94), 1);
+  }
+  for (let k = 0; k <= d; k++) {
+    const f = k / (d + 1);
+    const hw = w * (0.56 - 0.12 * f) * Math.sqrt(1 - f * f);
+    c.fillStyle = `rgba(0,0,0,${(0.4 * (1 - f)).toFixed(3)})`;
+    c.fillRect(Math.round(x - hw), Math.round(y) + k, Math.round(hw * 2), 1);
+  }
+}
+
 // acabamentos de roda da oficina (modo de mistura sobre o aro original)
 export const RIMS: Record<string, { label: string; op: GlobalCompositeOperation; color: string }> = {
   pretas: { label: 'PRETAS', op: 'multiply', color: '#3c3c42' },

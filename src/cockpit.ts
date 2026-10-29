@@ -1545,6 +1545,8 @@ function drawRoof(c: CanvasRenderingContext2D, r: Race, stageLabel: string, tota
     const d = r.time - gt;
     const l = `${d >= 0 ? '+' : '-'}${Math.abs(d).toFixed(1)}`;
     pix(c, l, ox + 46 + pixWidth(clock) + 4 + pixWidth(l) / 2, 9, d >= 0 ? '#ff7060' : '#50e070');
+    // fantasma de amigo (código colado no Ranking): avisa contra quem é a disputa
+    if ((r.ghostRun as { friend?: boolean } | null)?.friend) pix(c, 'AMIGO', ox + 46 + pixWidth(clock) + 8 + pixWidth(l) + pixWidth('AMIGO') / 2, 9, '#ffd21a');
   }
   // marcadores de progresso na faixa inferior
   const px = ox + 44, pw = 126;

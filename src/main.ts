@@ -4,7 +4,7 @@ import { RES, view } from './config';
 import { CARS, TRAFFIC_IMAGES } from './cars';
 import { COURSES, completeCourse, unlockedCourses, withTimeOfDay, type Course } from './courses';
 import { ui as careerUi } from './careerScreens';
-import { REGIONS, carById, eventCourse, levels, loadCareer, saveCareer, settleEvent, tunedCar } from './career';
+import { setupOf, REGIONS, carById, eventCourse, levels, loadCareer, saveCareer, settleEvent, tunedCar } from './career';
 import type { CarSpec } from './cars';
 import { Race } from './race';
 import { loadGhost, saveRun } from './records';
@@ -84,7 +84,7 @@ const actions: Actions = {
     state.mode = 'career';
     state.carIdx = CARS.findIndex((c) => c.id === cs.car);
     run = {
-      course: eventCourse(ev, cs.races), car: tunedCar(carById(cs.car), levels(cs, cs.car)), rival: carById(ev.driver.car),
+      course: eventCourse(ev, cs.races), car: tunedCar(carById(cs.car), levels(cs, cs.car), setupOf(cs, cs.car)), rival: carById(ev.driver.car),
       opts: { rivalStyle: ev.driver.style, rivalPaint: ev.driver.paint }, event: { region, event },
     };
     begin(4);
@@ -270,6 +270,7 @@ function frame(now: number) {
   requestAnimationFrame(frame);
 }
 let frameErr = false;
+const gearEl = document.getElementById('gearNum')!;
 function frameInner(now: number) {
   const dt = Math.max(0, Math.min(0.25, (now - last) / 1000)); // o primeiro quadro pode vir antes de `last`
   last = now;
@@ -300,6 +301,11 @@ function frameInner(now: number) {
         toast('DESAFIO CUMPRIDO!', ch.label, '#30e060');
       }
     });
+    // câmbio manual: a marcha engatada entre os botões (N parado, R não existe no jogo)
+    if (!state.auto) {
+      const g = race.speed < 1 && !race.throttle ? 'N' : String(race.gear + 1);
+      if (gearEl.textContent !== g) gearEl.textContent = g;
+    }
     if (state.screen === 'race') {
       if (!paused) perfSample(dt);
       renderCockpit(ctx, race, state.lives, `${race.stageIdx + 1}/${run.course.stages.length}`, totalTime(), paused ? 0 : dt);

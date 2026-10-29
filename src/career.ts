@@ -104,14 +104,25 @@ export const sellValue = (car: CarSpec) => Math.round((priceOf(car) * 0.6) / 100
 export const START_MONEY = 65000;
 
 // carro com as melhorias aplicadas (mesmo id: pintura, cabine e sprites continuam os mesmos)
-export function tunedCar(car: CarSpec, lv: Record<Upgrade, number>): CarSpec {
+// Ajustes da oficina (de graça, mudam a qualquer hora): relação de marchas, suspensão e rodas
+export interface Setup { ratio: number; susp: number; rims: string } // ratio -1 curta, 0, 1 longa; susp 0..2
+export const DEFAULT_SETUP: Setup = { ratio: 0, susp: 0, rims: '' };
+export const RATIO_LABEL = ['CURTA', 'ORIGINAL', 'LONGA'];
+export const SUSP_LABEL = ['ORIGINAL', 'ESPORTIVA', 'REBAIXADA'];
+export const setupOf = (cs: CareerSave, id: string): Setup => ({ ...DEFAULT_SETUP, ...(cs.setup?.[id] ?? {}) });
+
+export function tunedCar(car: CarSpec, lv: Record<Upgrade, number>, st: Setup = DEFAULT_SETUP): CarSpec {
   // motor: mais potência e máxima; câmbio: mais força nas retomadas; pneus: aderência
+  // relação curta: arranca mais e perde máxima; longa: o contrário. Suspensão firme/rebaixada:
+  // mais aderência em curva (rebaixada pega mais, mas trepida e perde um pouco de tração na terra)
+  const sg = [1, 1.04, 1.07][st.susp] ?? 1;
   const tuned: CarSpec = {
     ...car,
-    maxSpeed: car.maxSpeed * (1 + 0.03 * lv.motor),
-    accel: car.accel * (1 + 0.06 * lv.motor + 0.05 * lv.cambio),
-    handling: car.handling * (1 + 0.04 * lv.pneus),
-    lateralG: car.lateralG * (1 + 0.05 * lv.pneus),
+    rims: st.rims || undefined,
+    maxSpeed: car.maxSpeed * (1 + 0.03 * lv.motor) * (1 + 0.04 * st.ratio),
+    accel: car.accel * (1 + 0.06 * lv.motor + 0.05 * lv.cambio) * (1 - 0.055 * st.ratio),
+    handling: car.handling * (1 + 0.04 * lv.pneus) * (1 + (sg - 1) * 0.7),
+    lateralG: car.lateralG * (1 + 0.05 * lv.pneus) * sg,
     brakeG: car.brakeG * (1 + 0.03 * lv.pneus),
     traction: (car.traction ?? 1) * (1 + 0.04 * lv.pneus),
   };
@@ -124,6 +135,7 @@ export interface CareerSave {
   owned: string[];
   car: string; // carro ativo
   upgrades: Record<string, Record<Upgrade, number>>;
+  setup?: Record<string, Setup>; // ajustes da oficina por carro
   done: string[]; // eventos vencidos
   wins: number;
   races: number;

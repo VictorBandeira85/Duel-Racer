@@ -1,9 +1,9 @@
 // Telas do modo Carreira: central (regiões e eventos), evento, garagem, concessionária e resultado.
 import { SAFE_W, view, KMH } from './config';
-import { CARS, DEALER_CARS, drawCarSide, gearbox, layout, type CarSpec } from './cars';
+import { CARS, DEALER_CARS, RIMS, drawCarSide, gearbox, layout, type CarSpec } from './cars';
 import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import {
-  MAX_LEVEL, REGIONS, UPGRADES, carById, eventUnlocked, levels, newCareer, priceOf, regionUnlocked, regionsAfter, saveCareer,
+  DEFAULT_SETUP, MAX_LEVEL, RATIO_LABEL, REGIONS, SUSP_LABEL, setupOf, type Setup, UPGRADES, carById, eventUnlocked, levels, newCareer, priceOf, regionUnlocked, regionsAfter, saveCareer,
   sellValue, tunedCar, upgradeCost, type CareerSave, type EventResult, type Upgrade,
 } from './career';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
@@ -201,7 +201,9 @@ function tapEvent(s: AppState, a: Actions, x: number, y: number) {
 
 // ---------- garagem ----------
 const swatchRects = (): Rect[] => PAINTS.map((_, i) => ({ x: ox() + 44 + i * 12, y: 128, w: 10, h: 7 }));
-const upgradeRows = () => [0, 1, 2].map((i): Rect => ({ x: ox() + 4, y: 142 + i * 22, w: SAFE_W - 8, h: 20 }));
+const upgradeRows = () => [0, 1, 2].map((i): Rect => ({ x: ox() + 4, y: 139 + i * 19, w: SAFE_W - 8, h: 17 }));
+// ajustes de graça: relação de marchas, suspensão e rodas (toque para trocar)
+const setupTags = () => [0, 1, 2].map((i): Rect => ({ x: ox() + 4 + i * 105, y: 196, w: 102, h: 12 }));
 const garageButtons = () => {
   const x = ox();
   return {
@@ -213,10 +215,10 @@ const ownedCars = (cs: CareerSave) => CARS.filter((c) => cs.owned.includes(c.id)
 
 // carro com melhorias, guardado por nível (o índice de desempenho é medido uma vez)
 const tunedCache = new Map<string, CarSpec>();
-function tunedFor(car: CarSpec, lv: Record<Upgrade, number>) {
-  const key = `${car.id}:${lv.motor}${lv.cambio}${lv.pneus}`;
+function tunedFor(car: CarSpec, lv: Record<Upgrade, number>, st: Setup = DEFAULT_SETUP) {
+  const key = `${car.id}:${lv.motor}${lv.cambio}${lv.pneus}:${st.ratio}${st.susp}${st.rims}`;
   let t = tunedCache.get(key);
-  if (!t) tunedCache.set(key, (t = tunedCar(car, lv)));
+  if (!t) tunedCache.set(key, (t = tunedCar(car, lv, st)));
   return t;
 }
 
@@ -229,13 +231,14 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   ui.garage = Math.min(ui.garage, cars.length - 1);
   const car = cars[ui.garage]!;
   const active = car.id === cs.car;
-  const tuned = tunedFor(car, levels(cs, car.id));
+  const st = setupOf(cs, car.id);
+  const tuned = tunedFor(car, levels(cs, car.id), st);
   kicker(c, active ? 'EM USO' : `${ui.garage + 1} DE ${cars.length} NA GARAGEM`, x + 4, 20, active ? '#1a6a2a' : INK, '#fff');
   headline(c, car.name.toUpperCase(), x + 4, 33, 8, INK);
   // classe com as melhorias instaladas (as melhorias podem subir o carro de classe)
   classBadge(c, x + 150, 32, tuned, true, 9);
   const ph: Rect = { x: x + 4, y: 46, w: 198, h: 74 };
-  photo(c, ph, () => drawCarSide(c, ph.x + 8, ph.y + 68, 182, car, paintHex(car.id)), ['#4a4238', '#a89a86']);
+  photo(c, ph, () => drawCarSide(c, ph.x + 8, ph.y + 68, 182, tuned, paintHex(car.id)), ['#4a4238', '#a89a86']);
   const b = garageButtons();
   if (cars.length > 1) {
     arrow(c, b.prev, 'left');
@@ -243,7 +246,7 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   }
   const fr: Rect = { x: x + 208, y: 43, w: 108, h: 80 };
   box(c, fr, 'COM AS MELHORIAS');
-  specRows(c, fr, [['Potência', `${Math.round(parseInt(car.power) * tuned.accel)} cv`], ['0-100', `${tuned.zeroTo100.toFixed(1).replace('.', ',')} s`], ['Máxima', `${Math.round(tuned.maxSpeed * KMH)} km/h`], ['Curva', `${tuned.lateralG.toFixed(2).replace('.', ',')} g`], ['Revenda', money(sellValue(car))]], 12, 15);
+  specRows(c, fr, [['Potência', `${Math.round(parseInt(car.power) * tunedFor(car, levels(cs, car.id)).accel)} cv`] /* a relação de marchas não muda a potência */, ['0-100', `${tuned.zeroTo100.toFixed(1).replace('.', ',')} s`], ['Máxima', `${Math.round(tuned.maxSpeed * KMH)} km/h`], ['Curva', `${tuned.lateralG.toFixed(2).replace('.', ',')} g`], ['Revenda', money(sellValue(car))]], 12, 15);
   ink(c, 'PINTURA', x + 4, 129, 5, GREY);
   const cur = paintIdx(car.id) ?? nearestPaint(car.color);
   swatchRects().forEach((r, i) => {
@@ -262,18 +265,28 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
     c.strokeStyle = 'rgba(26,22,20,0.35)';
     c.lineWidth = 1;
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
-    ink(c, u.name.toUpperCase(), r.x + 5, r.y + 4, 5, INK);
-    ink(c, u.desc, r.x + 5, r.y + 12, 5, GREY);
+    ink(c, u.name.toUpperCase(), r.x + 5, r.y + 2, 5, INK);
+    ink(c, u.desc, r.x + 5, r.y + 10, 5, GREY);
     for (let k = 0; k < MAX_LEVEL; k++) {
       c.fillStyle = INK;
-      c.fillRect(r.x + 150 + k * 11, r.y + 5, 9, 10);
+      c.fillRect(r.x + 150 + k * 11, r.y + 3, 9, 10);
       c.fillStyle = k < l ? RED : '#f8f2e4';
-      c.fillRect(r.x + 151 + k * 11, r.y + 6, 7, 8);
+      c.fillRect(r.x + 151 + k * 11, r.y + 4, 7, 8);
     }
     const cost = upgradeCost(car, l + 1);
     const can = l < MAX_LEVEL;
     const afford = cs.money >= cost;
-    tag(c, { x: r.x + r.w - 84, y: r.y + 3, w: 80, h: 14 }, can ? `INSTALAR ${money(cost)}` : 'NO MÁXIMO', can && afford, 5);
+    tag(c, { x: r.x + r.w - 84, y: r.y + 2, w: 80, h: 13 }, can ? `INSTALAR ${money(cost)}` : 'NO MÁXIMO', can && afford, 5);
+  });
+  const lab = [`MARCHAS ${RATIO_LABEL[st.ratio + 1]}`, `SUSP. ${SUSP_LABEL[st.susp]}`, `RODAS ${st.rims ? RIMS[st.rims].label : 'ORIGINAIS'}`];
+  setupTags().forEach((r, i) => {
+    const changed = i === 0 ? st.ratio !== 0 : i === 1 ? st.susp !== 0 : !!st.rims;
+    c.fillStyle = changed ? '#fff1c8' : '#f6efdd';
+    c.fillRect(r.x, r.y, r.w, r.h);
+    c.strokeStyle = changed ? RED : 'rgba(26,22,20,0.35)';
+    c.lineWidth = 1;
+    c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+    ink(c, lab[i], r.x + r.w / 2, r.y + 3.5, 5, changed ? RED : INK, 'center');
   });
   tag(c, b.back, '◀ VOLTAR');
   tag(c, b.use, active ? 'EM USO' : 'USAR ESTE', !active);
@@ -296,6 +309,17 @@ function tapGarage(s: AppState, a: Actions, x: number, y: number) {
     flash(s, `${car.name} pronto para correr`);
   } else {
     swatchRects().forEach((r, i) => inside(x, y, { x: r.x - 2, y: r.y - 6, w: r.w + 4, h: r.h + 12 }) && setPaint(car.id, i));
+    setupTags().forEach((r, i) => {
+      if (!inside(x, y, r)) return;
+      const st = setupOf(cs, car.id);
+      const rims = ['', ...Object.keys(RIMS)];
+      if (i === 0) st.ratio = st.ratio >= 1 ? -1 : st.ratio + 1;
+      else if (i === 1) st.susp = (st.susp + 1) % 3;
+      else st.rims = rims[(rims.indexOf(st.rims) + 1) % rims.length];
+      cs.setup = { ...(cs.setup ?? {}), [car.id]: st };
+      saveCareer(cs);
+      flash(s, i === 0 ? `Relação ${RATIO_LABEL[st.ratio + 1].toLowerCase()}` : i === 1 ? `Suspensão ${SUSP_LABEL[st.susp].toLowerCase()}` : `Rodas ${st.rims ? RIMS[st.rims].label.toLowerCase() : 'originais'}`);
+    });
     upgradeRows().forEach((r, i) => {
       if (!inside(x, y, r)) return;
       const u = UPGRADES[i];
@@ -347,8 +371,8 @@ function drawCollection(c: CanvasRenderingContext2D, s: AppState) {
     }
     const active = car.id === cs.car;
     const ph: Rect = { x: r.x + 3, y: r.y + 3, w: r.w - 6, h: 46 };
-    photo(c, ph, () => drawCarSide(c, ph.x + 4, ph.y + 42, ph.w - 8, car, paintHex(car.id)), ['#4a4238', '#a89a86']);
-    const tuned = tunedFor(car, levels(cs, car.id));
+    const tuned = tunedFor(car, levels(cs, car.id), setupOf(cs, car.id));
+    photo(c, ph, () => drawCarSide(c, ph.x + 4, ph.y + 42, ph.w - 8, tuned, paintHex(car.id)), ['#4a4238', '#a89a86']);
     classBadge(c, r.x + 4, r.y + 53, tuned, false, 6);
     ink(c, car.name.toUpperCase(), r.x + 14, r.y + 54, 5, INK);
     ink(c, `${car.power} • ${Math.round(tuned.maxSpeed * KMH)} km/h`, r.x + 4, r.y + 64, 5, GREY);

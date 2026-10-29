@@ -62,6 +62,7 @@ export interface LampDef {
 }
 
 export interface CarSpec {
+  rims?: string; // acabamento das rodas escolhido na oficina (RIMS)
   id: string;
   name: string;
   basedOn: string; // referência interna, não aparece no jogo
@@ -1154,6 +1155,12 @@ function drawTruck(c: CanvasRenderingContext2D, x: number, y: number, w: number,
 
 // Vista lateral (escolha do carro e posto). x = frente do carro, y = chão.
 // spin: ângulo das rodas (rad); com ele, cada roda é redesenhada girando no lugar
+// acabamentos de roda da oficina (modo de mistura sobre o aro original)
+export const RIMS: Record<string, { label: string; op: GlobalCompositeOperation; color: string }> = {
+  pretas: { label: 'PRETAS', op: 'multiply', color: '#3c3c42' },
+  douradas: { label: 'DOURADAS', op: 'color', color: '#d8a422' },
+  grafite: { label: 'GRAFITE', op: 'multiply', color: '#8a8c94' },
+};
 export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string, spin?: number) {
   if (car.imgSide) {
     const img = (paint && car.sideVariants?.[paint]) || car.imgSide;
@@ -1180,6 +1187,20 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
           c.translate(cx, cy);
           c.rotate(spin);
           c.drawImage(spr, (cx - L - R) * sw, (cy - T - R) * sh, 2 * R * sw, 2 * R * sh, -R, -R, 2 * R, 2 * R);
+          c.restore();
+        }
+      }
+      // rodas trocadas na oficina: o aro (sem o pneu) ganha o acabamento escolhido
+      const rim = car.rims ? RIMS[car.rims] : undefined;
+      if (rim && car.wheels) {
+        for (const [u, v, rr] of car.wheels) {
+          c.save();
+          c.beginPath();
+          c.arc(L + u * W, T + v * H, rr * W * 0.66, 0, Math.PI * 2);
+          c.clip();
+          c.globalCompositeOperation = rim.op;
+          c.fillStyle = rim.color;
+          c.fillRect(L + (u - rr) * W, T + v * H - rr * W, rr * W * 2, rr * W * 2);
           c.restore();
         }
       }

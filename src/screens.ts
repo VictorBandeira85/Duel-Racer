@@ -1,5 +1,6 @@
 import { gasQuip } from './score';
-import { ghostOn, setGhostOn } from './records';
+import { clearFriendGhosts, friendGhostCount, ghostCode, ghostOn, loadGhostCode, setGhostOn } from './records';
+import { toast as notify } from './challenges';
 import { FX_LABEL, fxMode, lowFx, setFxMode } from './perf';
 import { ACHIEVEMENTS, MEDAL_COLOR, loadStats, medalName, medals, takeToast, unlockedAchievements } from './challenges';
 import { RIVAL_STYLE } from './race';
@@ -1137,6 +1138,34 @@ function drawEnd(c: CanvasRenderingContext2D, s: AppState) {
 
 // ---------- conquistas e medalhas ----------
 const achButton = (): Rect => ({ x: ox() + 210, y: 212, w: 106, h: 15 });
+// fantasma por código: enviar o seu (copia o código) e colar o de um amigo
+const ghostButtons = () => ({ send: { x: ox() + 4, y: 212, w: 100, h: 15 }, recv: { x: ox() + 107, y: 212, w: 100, h: 15 } });
+async function sendGhost(s: AppState) {
+  const course = COURSES[s.scoreCourse];
+  const g = await ghostCode(course.id, course.stages.length);
+  if (!g) return notify('SEM FANTASMA AINDA', 'Complete um trecho deste roteiro primeiro', '#ff8060');
+  const msg = `Duel Racer: me vence no ${course.name}? Cole na tela de Ranking > DESAFIO DE AMIGO\n${g.code}`;
+  try {
+    await navigator.clipboard.writeText(msg);
+    notify('CÓDIGO COPIADO!', `${g.n} trecho${g.n > 1 ? 's' : ''}: mande para um amigo`, '#30e060');
+  } catch {
+    window.prompt('Copie o código e mande para um amigo:', g.code);
+  }
+}
+async function receiveGhost(s: AppState) {
+  const course = COURSES[s.scoreCourse];
+  if (friendGhostCount(course.id, course.stages.length) && window.confirm(`Apagar o fantasma do amigo em ${course.name}?`)) {
+    clearFriendGhosts(course.id, course.stages.length);
+    return notify('FANTASMA DO AMIGO APAGADO', course.name);
+  }
+  const raw = window.prompt('Cole o código do fantasma do seu amigo:');
+  if (!raw) return;
+  const r = await loadGhostCode(raw);
+  if (!r) return notify('CÓDIGO INVÁLIDO', 'Confira se copiou o código inteiro', '#ff8060');
+  const ci = COURSES.findIndex((c) => c.id === r.course);
+  if (ci >= 0) s.scoreCourse = ci;
+  notify('DESAFIO ACEITO!', `${r.n} trecho${r.n > 1 ? 's' : ''} de ${COURSES[ci]?.name ?? r.course}`, '#30e060');
+}
 function drawAchievements(c: CanvasRenderingContext2D, s: AppState) {
   const x = ox();
   paper(c);
@@ -1185,7 +1214,9 @@ function drawScores(c: CanvasRenderingContext2D, s: AppState) {
   const course = COURSES[s.scoreCourse];
   kicker(c, `ROTEIRO ${String(s.scoreCourse + 1).padStart(2, '0')}`, x + 4, 22, RED, '#fff');
   headline(c, `◀ ${course.name.toUpperCase()} ▶`, x + 160, 36, 8, INK, 'center');
-  const t: Rect = { x: x + 4, y: 50, w: SAFE_W - 8, h: 156 };
+  const t: Rect = { x: x + 4, y: 50, w: SAFE_W - 8, h: 146 };
+  const fr = friendGhostCount(course.id, course.stages.length);
+  if (fr) kicker(c, `FANTASMA DE AMIGO: ${fr} TRECHO${fr > 1 ? 'S' : ''}`, x + SAFE_W - 4 - 150, 22, '#1a6a2a', '#fff');
   box(c, t, 'OS MAIS RÁPIDOS');
   const list = loadScores(course);
   if (!list.length) ink(c, 'Ninguém completou este roteiro ainda.', x + 160, 110, 5, GREY, 'center');
@@ -1198,7 +1229,10 @@ function drawScores(c: CanvasRenderingContext2D, s: AppState) {
     ink(c, e.won ? 'VENCEU O DUELO' : 'PERDEU O DUELO', t.x + t.w - 8, y + 13, 5, e.won ? '#1a6a2a' : RED, 'right');
     if (i < list.length - 1) rule(c, t.x + 6, y + 23, t.w - 12, 'rgba(26,22,20,0.15)');
   });
-  ink(c, 'Toque fora para voltar à capa', x + 4, 216, 5, GREY);
+  ink(c, 'Toque fora para voltar à capa', x + 4, 201, 5, GREY);
+  const gb = ghostButtons();
+  tag(c, gb.send, 'ENVIAR FANTASMA', false);
+  tag(c, gb.recv, fr ? 'APAGAR AMIGO' : 'DESAFIO DE AMIGO', false);
   tag(c, achButton(), 'CONQUISTAS ▶', false);
 }
 
@@ -1308,6 +1342,8 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
       if (y < 60 && x < view.w / 2) s.scoreCourse = (s.scoreCourse + COURSES.length - 1) % COURSES.length;
       else if (y < 60) s.scoreCourse = (s.scoreCourse + 1) % COURSES.length;
       else if (inside(x, y, achButton())) a.go('achievements');
+      else if (inside(x, y, ghostButtons().send)) void sendGhost(s);
+      else if (inside(x, y, ghostButtons().recv)) void receiveGhost(s);
       else a.go('title');
       return;
     case 'achievements':

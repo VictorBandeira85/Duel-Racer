@@ -5,6 +5,7 @@ entram na máscara: com a repintura proporcional (svgsprites.ts) eles continuam 
 qualquer cor, como na pintura preta original.
 
 Uso: python3 tools/ref/vectra_sprites.py <pasta com src-side/rear/front.png> <src/assets/cars>
+     e depois python3 tools/ref/vectra_paint_fix.py <src/assets/cars> (pintura coerente)
 """
 import os
 import subprocess

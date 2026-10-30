@@ -19,13 +19,18 @@ sys.path.insert(0, HERE)
 from glass_fix import fix_glass  # noqa: E402
 from onca_sprites import body_mask  # noqa: E402
 from uno_sprites import emblem  # noqa: E402
-from vectra_sprites import flatten, outline  # noqa: E402
+from vectra_sprites import flatten, outline, red_mask  # noqa: E402
 
-PERIOD = {'side': 6.09, 'rear': 3.57, 'front': 4.665}
+PERIOD = {'side': 6.09, 'rear': 3.49, 'front': 4.665}
+SRC = {'side': 'src-side', 'rear': 'src-rear2', 'front': 'src-front'}  # traseira nova (vermelha)
 # peças com o retângulo exato (sai tudo) e peças de contorno curvo (sai só o que fica dentro
 # do contorno escuro: a lataria que encosta na borda do retângulo continua)
+# traseira (vermelha): lanternas, luz de freio do alto, emblema GSi e a placa
+REAR_RED_CUT = [(171, 99, 197, 110), (87, 106, 151, 127)]  # GSi e placa: o que fica dentro do contorno
+REAR_LAMPS = [(26.0, 101.5, 14.0, 131), (213.0, 101.5, 14.0, 131)]  # lanternas: topo redondo (centro, raio) até a linha de baixo
+REAR_THIRD = (105, 20, 131, 28)  # luz de freio do alto
 CUT = {
-    'rear': [(84, 83, 140, 107), (10, 94, 34, 106), (188, 94, 212, 106), (0, 50, 21, 68), (201, 50, 222, 68), (37, 145, 54, 158)],
+    'rear': [],
     'front': [(72, 99, 123, 119), (89, 82, 107, 97)],
     'side': [],
 }
@@ -77,14 +82,17 @@ def main():
     src, cars = sys.argv[1], sys.argv[2]
     for view in ('side', 'rear', 'front'):
         out = os.path.join(cars, f'br-corsa-{view}.png')
-        subprocess.run([sys.executable, os.path.join(HERE, 'regrid.py'), os.path.join(src, f'src-{view}.png'), out, str(PERIOD[view])], check=True)
+        subprocess.run([sys.executable, os.path.join(HERE, 'regrid.py'), os.path.join(src, f'{SRC[view]}.png'), out, str(PERIOD[view])], check=True)
         a = np.array(Image.open(out).convert('RGBA'))
         H, W = a.shape[:2]
         if view == 'rear':
-            taillights(a)
-        if view == 'rear':  # gravata da marca: lataria (cor da coluna ao lado, linha a linha)
-            for y in range(66, 77):
-                a[y, 99:124] = a[y, 96]
+            # letreiro com o nome do modelo: lataria (cor da coluna ao lado, linha a linha)
+            for y in range(99, 110):
+                a[y, 40:68] = a[y, 38]
+            # emblema da marca na maçaneta do porta-malas: maçaneta lisa e o emblema fictício
+            for y in range(84, 99):
+                a[y, 113:127] = a[y, 112]
+            emblem(a, 120.0, 91.5)
         if view == 'front':  # gravata da grade: grade lisa por baixo e o emblema fictício
             for y in range(84, 95):
                 a[y, 86:110] = a[y, 82]
@@ -92,7 +100,14 @@ def main():
         # os vidros da arte já são azulados (o branco da lataria não é vidro). De lado, o contorno
         # escuro de baixo liga os dois pneus: a regra da Onça apagaria a metade de baixo inteira,
         # então as rodas saem por círculos medidos
-        m = body_mask(a, 'rear' if view == 'side' else view, np.zeros(a.shape[:2], bool))
+        if view == 'rear':  # a traseira nova é vermelha: máscara pelo matiz
+            m = red_mask(a, REAR_RED_CUT, [REAR_THIRD])
+            yy, xx = np.mgrid[0:H, 0:W]
+            for cx, cy, r, yb in REAR_LAMPS:
+                lamp = ((xx + 0.5 - cx) ** 2 + (yy + 0.5 - cy) ** 2 <= r * r) | ((np.abs(xx + 0.5 - cx) <= r) & (yy + 0.5 >= cy) & (yy < yb))
+                m &= ~lamp
+        else:
+            m = body_mask(a, 'rear' if view == 'side' else view, np.zeros(a.shape[:2], bool))
         if view == 'side':
             yy, xx = np.mgrid[0:H, 0:W]
             for cx, cy, r in WHEELS_SIDE:

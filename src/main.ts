@@ -14,7 +14,7 @@ import { preloadCockpit, renderCockpit } from './cockpit';
 import { applyBtnSize, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { input, pollGamepad, releaseAll, setupInput } from './input';
 import { MUSIC_CREDITS } from './tracks';
-import { initAudio, musicTitle, playMusic, setEngine, setMusicOn, setMusicVolume, setMuted, setSiren, setTires } from './audio';
+import { initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicOn, setMusicVolume, setMuted, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
 import { preloadSvg } from './svgsprites';
 import { FX_LABEL, fxMode, lowFx, perfSample, setFxMode } from './perf';
@@ -249,7 +249,6 @@ function setPaused(p: boolean) {
   paused = p;
   $('pause').classList.toggle('hidden', !p);
   $('settings').classList.add('hidden');
-  $('pause').classList.remove('hidden');
   $('nowPlaying').textContent = musicTitle() ? `♪ ${musicTitle()}` : '';
   if (p) {
     setEngine(0, false, false);
@@ -320,6 +319,13 @@ $('setBack').addEventListener('click', () => {
   $('settings').classList.add('hidden');
   $('pause').classList.remove('hidden');
   $('nowPlaying').textContent = musicTitle() ? `♪ ${musicTitle()}` : '';
+});
+
+// aplicativo em segundo plano (trocou de app, bloqueou a tela): a corrida pausa e o som para;
+// ao voltar o som retoma e a corrida espera o jogador tocar em CONTINUAR
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state.screen === 'race' && !paused) setPaused(true);
+  suspendAudio(document.hidden);
 });
 
 setupInput();

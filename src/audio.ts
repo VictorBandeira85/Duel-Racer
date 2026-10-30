@@ -632,6 +632,18 @@ export function setMusicOn(on: boolean) {
   if (ctx && musicGain) musicGain.gain.setTargetAtTime(on ? musicVol : 0, ctx.currentTime, 0.05);
 }
 
+// segundo plano: suspende tudo (motor, efeitos e a faixa tocando); na volta retoma
+export function suspendAudio(hidden: boolean) {
+  if (!ctx) return;
+  if (hidden) {
+    ctx.suspend();
+    fileEl?.pause();
+  } else {
+    ctx.resume();
+    if (fileEl && fileIdx >= 0) fileEl.play().catch(() => {});
+  }
+}
+
 export function isMuted() {
   return muted;
 }

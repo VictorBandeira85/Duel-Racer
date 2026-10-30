@@ -496,7 +496,7 @@ function tw(c: CanvasRenderingContext2D, s: string, size: number) {
 // título com contorno (logotipo da revista): 8 unidades se couber na largura (em até `lines`
 // linhas), senão 4; o contorno contrasta com a cor do texto
 function title(c: CanvasRenderingContext2D, s: string, x: number, y: number, w: number, fill: string, _out: string, align: CanvasTextAlign = 'left', lines = 1) {
-  const out = luma(fill) > 120 ? '#1a1614' : 'rgba(255,255,255,0.7)';
+  const out = luma(fill) > 70 ? '#1a1614' : 'rgba(255,255,255,0.7)';
   let rows = [s];
   let size = tw(c, s, 8) <= w ? 8 : 0;
   if (!size && lines > 1) {
@@ -516,8 +516,8 @@ function title(c: CanvasRenderingContext2D, s: string, x: number, y: number, w: 
   const ax = align === 'center' ? x + w / 2 : align === 'right' ? x + w : x;
   rows.forEach((row, k) => {
     const yy = y + k * 9 + (size === 4 ? 2 : 0);
-    if (size === 8) for (const [dx, dy] of [[-0.5, 0], [0.5, 0], [0, -0.5], [0, 0.5], [1, 1]]) text(c, row, ax + dx, yy + dy, size, out, align, null);
-    else text(c, row, ax + 0.5, yy + 0.5, size, out, align, null);
+    // contorno só nas letras grandes; nas pequenas (8 px) ele embola as letras
+    if (size === 8) text(c, row, ax + 1, yy + 1, size, out, align, null);
     text(c, row, ax, yy, size, fill, align, null);
   });
   return size;
@@ -534,6 +534,8 @@ function dots(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
   for (let yy = y; yy < y + h; yy += 2) for (let xx = x + ((yy - y) / 2) % 2; xx < x + w; xx += 2) c.fillRect(xx, yy, 0.5, 0.5);
 }
 const ink2 = (bg: string) => (luma(bg) > 140 ? '#1a1614' : '#ffffff');
+// sombra só para letra clara (letra escura com sombra escura vira borrão)
+const shadowFor = (fill: string) => (luma(fill) > 120 ? '#1a1614' : null);
 
 function drawAd(c: CanvasRenderingContext2D, a: Ad) {
   const g = new Pen(c);
@@ -595,7 +597,7 @@ function drawAd(c: CanvasRenderingContext2D, a: Ad) {
     if (car) {
       drawCarSide(c, 4, 33, 62, car);
       ribbon(c, car.name.toUpperCase(), 70, 16, a.ac, ink2(a.ac));
-      text(c, '0KM', 72, 24, 4, a.fg, 'left', '#1a1614');
+      text(c, '0KM', 72, 24, 4, a.fg, 'left', shadowFor(a.fg));
     }
     c.fillStyle = a.ac;
     c.fillRect(0, AH - 8, AW, 8);
@@ -628,7 +630,7 @@ function drawAd(c: CanvasRenderingContext2D, a: Ad) {
       c.fillRect(x + 4, AH - 3, 4, 3);
     }
     title(c, a.t, 3, tw(c, a.t, 8) <= AW - 6 ? 9 : 5, AW - 6, a.fg, '#1a1614', 'center', 2);
-    text(c, a.s, AW / 2, 26, 4, a.fg, 'center', '#1a1614');
+    text(c, a.s, AW / 2, 26, 4, a.fg, 'center', shadowFor(a.fg));
   } else {
     // pôr do sol synthwave (rádios e lugares)
     const b = a.b ?? a.ac;

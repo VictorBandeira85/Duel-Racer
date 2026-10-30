@@ -321,6 +321,7 @@ const LAMPS: Record<string, LampDef> = {
   countach: { pop: [0.09, 0.57, 0.26, 0.62], sigRear: [0.125, 0.55, 0.2, 0.69], sigFront: [0.05, 0.64, 0.14, 0.7] },
   viper: { head: [0.165, 0.54, 0.06], sigRear: [0.08, 0.46, 0.16, 0.5], sigRed: true, sigFront: [0.04, 0.6, 0.1, 0.65] },
   '959': { head: [0.17, 0.49, 0.05], sigRear: [0.083, 0.51, 0.183, 0.57], sigFront: [0.05, 0.65, 0.13, 0.68] },
+  'br-passat': { head: [0.17, 0.52, 0.06], sigRear: [0.03, 0.46, 0.25, 0.57], sigRed: true, sigFront: [0.06, 0.71, 0.21, 0.79] },
   'br-corsa': { head: [0.16, 0.54, 0.06], sigRear: [0.05, 0.51, 0.16, 0.54], sigFront: [0.06, 0.5, 0.1, 0.58] },
   'br-uno': { head: [0.19, 0.55, 0.06], sigRear: [0.065, 0.46, 0.18, 0.535], sigFront: [0.075, 0.51, 0.105, 0.6] },
   'br-kadett': { head: [0.2, 0.52, 0.06], sigRear: [0.07, 0.46, 0.15, 0.54], sigFront: [0.05, 0.46, 0.11, 0.58] },
@@ -335,6 +336,7 @@ const LAMPS: Record<string, LampDef> = {
 // sprite), medidas pelo aro claro acima do contato com o chão: giram na chegada ao posto
 const WHEELS: Record<string, number[][]> = {
   '959': [[0.199, 0.739, 0.08], [0.754, 0.74, 0.08]],
+  'br-passat': [[0.155, 0.75, 0.045], [0.78, 0.75, 0.045]],
   'br-corsa': [[0.18, 0.777, 0.057], [0.845, 0.777, 0.057]],
   'br-uno': [[0.196, 0.788, 0.061], [0.847, 0.788, 0.062]],
   'br-kadett': [[0.192, 0.775, 0.081], [0.807, 0.775, 0.081]],

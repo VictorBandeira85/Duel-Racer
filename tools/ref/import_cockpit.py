@@ -131,6 +131,16 @@ CARS = {
         'hub_fill': ((26, 26, 29), 440),
         'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 205,
     },
+    # Passeio GTS: quadro VDO (velocímetro 20-220 e conta-giros 0-7 com água e combustível
+    # embaixo) e a coluna de luzes e o relógio no meio: o jogo redesenha tudo funcionando
+    'br-passat': {
+        'scale': 0.38, 'x0': 153, 'y0': 221,
+        'gauges': {'speed': (430, 362, 58), 'tach': (605, 362, 58)},
+        'lcd': [((14, 14, 16), (499, 306, 538, 412))],
+        'top_art': [(700, 0, 980, 150)], 'sky_left': True, 'despeckle': True,
+        'hub_fill': ((26, 26, 29), 470),
+        'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 230,
+    },
     # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
     'zr1': {
         'scale': 0.35, 'x0': 153, 'y0': 175,

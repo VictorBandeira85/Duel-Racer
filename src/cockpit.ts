@@ -519,6 +519,43 @@ COCKPIT_ART['br-corsa'] = {
   },
 };
 
+// Passeio GTS: quadro VDO como o do carro — velocímetro 20-220 com hodômetro e parcial,
+// conta-giros 0-7 com faixa vermelha e, embaixo dele, água e combustível; no meio a coluna de
+// luzes-espia (seta, bateria, óleo, farol alto, freio de mão) e o relógio digital
+COCKPIT_ART['br-passat'] = {
+  dash: cp('br-passat-dash'), top: cp('br-passat-top'), wheel: cp('br-passat-wheel'),
+  pivot: [128.1, 103.8], speedMax: 220, needle: '#f0e0b8', needleW: 1.5, needleTail: 3, hub: '#161618', radar: [206, 4],
+  glass: { at: [30, 100] }, tells: null,
+  speed: { x: 105.3, y: 61.2, r: 20.5, max: 220, labels: [20, 60, 100, 140, 180, 220], tick: 10, boldTicks: true, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, bg: '#101113' },
+  tach: { x: 171.8, y: 61.2, r: 20.5, max: 7, labels: [1, 2, 3, 4, 5, 6, 7], tick: 0.5, boldTicks: true, red: 6, a0: Math.PI * 0.75, sweep: Math.PI * 1.25, labelScale: 0.7, redLabels: false, redInk: '#ff6a1a', bg: '#101113' },
+  aux: [],
+  extra: (c, ox, r) => {
+    const T = ART_TOP;
+    odometer(c, ox, r, { x: 102, y: 53, w: 8, h: 3 }, 14387, 5, 0.5);
+    odometer(c, ox, r, { x: 102.3, y: 68.5, w: 6, h: 3 }, 26.4, 3, 0.5, true);
+    // água e combustível: arcos curtos embaixo do conta-giros (como no VDO do carro)
+    const mini = (x: number, v: number, warn: boolean) => {
+      for (let k = 0; k < 5; k++) rect(c, ox + x + k * 1.5, T + 77 - (k === 2 ? 0.5 : 0), 1, 1.5, k < Math.round(v * 5) ? (warn && k === 4 ? '#ff6a1a' : '#e8e8e8') : '#3a3a3e');
+    };
+    mini(160, gauges.water, gauges.water > 0.8);
+    mini(176, gauges.fuel, gauges.fuel < 0.2);
+    // coluna de luzes: duas fileiras de cinco (apagadas escuras na cor) e o relógio
+    const blink = r.signal !== 0 && blinkOn();
+    const wreck = r.state === 'crash' || r.damage > 0.6;
+    const lamps: [string, string, boolean][] = [
+      ['#123a18', '#3cf048', blink], ['#3a0e0c', '#ff3020', wreck], ['#3a2a0c', '#ffb020', gauges.oil < 0.36 || wreck], ['#0e1a40', '#4a7cff', !!r.def?.night], ['#3a0e0c', '#ff3020', r.state === 'ticket'],
+    ];
+    rect(c, ox + 136, T + 47, 14, 12, '#0a0a0c');
+    lamps.forEach(([off, on, lit], i) => {
+      const x = ox + 137 + (i % 3) * 4.5, y = T + 48 + Math.floor(i / 3) * 5;
+      rect(c, x, y, 3, 3.5, lit ? on : off);
+    });
+    rect(c, ox + 136.5, T + 66, 13, 6, '#9aa88a');
+    const now = new Date();
+    pix(c, `${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, '0')}`, ox + 143, T + 69, '#1c2418', 0.5);
+  },
+};
+
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
 COCKPIT_ART.zr1 = {
   tells: null,

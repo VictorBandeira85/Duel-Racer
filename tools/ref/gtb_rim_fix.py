@@ -74,6 +74,28 @@ res = np.where((rho > 1)[..., None], out_c, np.where((rho < RI)[..., None], in_c
 res[..., 3] = np.where(res[..., 3] > 0, 255, 0)
 if SKY:
     res[..., 3] = np.where(sky_out & (rho >= RI), 0, res[..., 3])
+    # acima da borda de cima do painel (medida nas colunas fora da faixa) é para-brisa
+    opaque = (a[..., 3] > 0) & ~band
+    top = np.full(W, -1.0)
+    for x in range(W):
+        if abs(x + 0.5 - cx) < rx * (1 + MO) + 1:  # só colunas fora do aro (o miolo tem a cobertura do quadro)
+            continue
+        ys = np.nonzero(opaque[:, x])[0]
+        if len(ys) and ys[0] < H * 0.5:
+            top[x] = ys[0]
+    ok = top >= 0
+    if ok.any():
+        L = int(cx - rx * (1 + MO) - 2)
+        R = int(cx + rx * (1 + MO) + 2)
+        lv = top[max(0, L - 6):L][top[max(0, L - 6):L] >= 0]
+        rv = top[R:R + 6][top[R:R + 6] >= 0]
+        if len(lv) and len(rv):  # reta entre a borda do painel de um lado e do outro do aro
+            xs_ = np.arange(W)
+            line = np.interp(xs_, [L, R], [lv.mean(), rv.mean()])
+            top = np.where((xs_ > L) & (xs_ < R), line, np.interp(xs_, np.nonzero(ok)[0], top[ok]))
+        else:
+            top = np.interp(np.arange(W), np.nonzero(ok)[0], top[ok])
+        res[..., 3] = np.where(yy < top[None, :], 0, res[..., 3])
 a[band] = res[band]
 Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)).save(P)
 print('faixa refeita:', int(band.sum()))

@@ -180,7 +180,10 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
     quad(cx, seen + 6, cx, p0.y + 0.5, h0 * 0.36, h0 * 0.42, scale * 0.45);
   }
   for (let k = 0; k + 1 < road.length; k++) {
-    const p = road[k], q = road[k + 1];
+    // longe, dois trechos por vez (o facho é largo e suave ali: menos desenho por quadro)
+    const step = fd(road[k].d) < 0.7 && k + 2 < road.length && road[k + 2].d - road[k].d <= 4 ? 2 : 1;
+    const p = road[k], q = road[k + step];
+    k += step - 1;
     if (fd(p.d) < 0) break;
     const f = fd(p.d), fq = Math.max(0, fd(q.d));
     // brilho caindo aos poucos até o fim do alcance (sem corte seco)

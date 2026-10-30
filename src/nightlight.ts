@@ -12,7 +12,7 @@ let collecting = false;
 interface Street { x: number; head: number; ground: number; r: number }
 const streets: Street[] = [];
 export function pushStreetLight(x: number, head: number, ground: number, r: number) {
-  if (collecting && r > 2) streets.push({ x, head, ground, r: Math.min(r, 150) }); // perto: não cobre a tela toda
+  if (collecting && r > 2) streets.push({ x, head, ground, r: Math.min(r, 110) }); // perto: não cobre a tela toda
 }
 export function beginLights() {
   lights.length = 0;
@@ -44,16 +44,17 @@ function quantize(g: CanvasRenderingContext2D, w: number, h: number, levels: num
 }
 // pinta o facho (alpha) em g: faixas do chão de perto para longe, cada uma pela distância
 function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: number, road: RoadPt[], scale: number) {
-  // perto do carro (abaixo do primeiro trecho de pista visível): leque largo
+  // perto do carro (abaixo do primeiro trecho de pista visível): leque na frente do capô, sem
+  // se espalhar pelos lados
   g.save();
   g.translate(cx, seen + 6);
-  g.scale(1, 0.28);
-  const near = g.createRadialGradient(0, 0, 0, 0, 0, w * 0.75);
-  near.addColorStop(0, `rgba(0,0,0,${scale})`);
-  near.addColorStop(0.7, `rgba(0,0,0,${0.55 * scale})`);
+  g.scale(1, 0.32);
+  const near = g.createRadialGradient(0, 0, 0, 0, 0, w * 0.42);
+  near.addColorStop(0, `rgba(0,0,0,${0.85 * scale})`);
+  near.addColorStop(0.6, `rgba(0,0,0,${0.45 * scale})`);
   near.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = near;
-  g.fillRect(-w * 0.75, -w * 0.75, w * 1.5, w * 1.5);
+  g.fillRect(-w * 0.42, -w * 0.42, w * 0.84, w * 0.84);
   g.restore();
   // faixas do chão: o facho tem a largura da pista e um pouco mais, centrado no carro
   for (let k = 0; k + 1 < road.length; k++) {
@@ -62,15 +63,22 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
     const f = 1 - p.d / REACH;
     const a = scale * Math.min(1, f * f * 1.6);
     if (a <= 0.02) continue;
-    const spread = 1.2 - 0.4 * (1 - f);
-    g.fillStyle = `rgba(0,0,0,${a.toFixed(3)})`;
-    g.beginPath();
-    g.moveTo(cx - p.w * spread, p.y + 0.5);
-    g.lineTo(cx + p.w * spread, p.y + 0.5);
-    g.lineTo(cx + q.w * spread, q.y - 0.5);
-    g.lineTo(cx - q.w * spread, q.y - 0.5);
-    g.closePath();
-    g.fill();
+    // facho principal na largura da faixa do carro e um pouco mais; dos lados só uma sobra fraca
+    const strip = (s0: number, s1: number, alpha: number) => {
+      g.fillStyle = `rgba(0,0,0,${alpha.toFixed(3)})`;
+      for (const sgn of [-1, 1]) {
+        g.beginPath();
+        g.moveTo(cx + sgn * p.w * s0, p.y + 0.5);
+        g.lineTo(cx + sgn * p.w * s1, p.y + 0.5);
+        g.lineTo(cx + sgn * q.w * s1, q.y - 0.5);
+        g.lineTo(cx + sgn * q.w * s0, q.y - 0.5);
+        g.closePath();
+        g.fill();
+      }
+    };
+    const main = 0.75 - 0.25 * (1 - f);
+    strip(0, main, a);
+    strip(main, main + 0.45, a * 0.3);
   }
 }
 
@@ -152,7 +160,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     wg.translate(st.x - vp.x, st.ground - top);
     wg.scale(1, 0.32);
     const pool = wg.createRadialGradient(0, 0, 0, 0, 0, st.r);
-    pool.addColorStop(0, `rgba(255,190,90,${(0.42 * strength).toFixed(3)})`);
+    pool.addColorStop(0, `rgba(255,190,90,${(0.3 * strength).toFixed(3)})`);
     pool.addColorStop(1, 'rgba(255,190,90,0)');
     wg.fillStyle = pool;
     wg.fillRect(-st.r, -st.r, st.r * 2, st.r * 2);

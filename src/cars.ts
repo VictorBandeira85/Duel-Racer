@@ -747,7 +747,16 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
     c.restore();
     return;
   }
-  if (look.night) pushCarLights(x, y, w, look, lampSpots(w, look));
+  if (look.night) {
+    // silhueta para recortar as luzes dos carros de trás: o mesmo desenho, na mesma posição da tela
+    const tf = c.getTransform();
+    pushCarLights(x, y, w, look, lampSpots(w, look), (o) => {
+      o.save();
+      o.setTransform(tf);
+      drawCar(o, x, y, w, { ...look, night: false, tilt: 0 });
+      o.restore();
+    });
+  }
   // trânsito e polícia: sprites em pixel art (o desenho por código fica de reserva)
   if (!look.rear && (look.police || look.model) && drawTrafficSprite(c, x, y, w, look, look.police ? (look.sv ? 'policesv' : 'police') : look.model!)) return;
   const variant = look.paint ? look.rear?.variants?.[look.paint] : undefined;

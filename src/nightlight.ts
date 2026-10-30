@@ -4,7 +4,7 @@
 // vem atrás ofusca nos retrovisores e, ao emparelhar, clareia o lado da tela por onde passa.
 import type { CarLook } from './cars';
 
-interface Light { x: number; y: number; w: number; h: number; front: boolean; brake: boolean; signal: number; dots: number[][]; high: boolean; clip: number }
+interface Light { x: number; y: number; w: number; h: number; front: boolean; brake: boolean; signal: number; dots: number[][]; high: boolean; clip: number; shape?: (g: CanvasRenderingContext2D) => void }
 const lights: Light[] = [];
 let collecting = false;
 
@@ -27,9 +27,10 @@ export function beginLights() {
   collecting = true;
 }
 // chamado por drawCar: guarda onde estão as luzes do carro (só durante a pista, à noite)
-export function pushCarLights(x: number, y: number, w: number, look: CarLook, spots: { h: number; dots: number[][] }) {
+// shape: redesenha o carro (só a silhueta importa) para recortar a luz dos carros de trás
+export function pushCarLights(x: number, y: number, w: number, look: CarLook, spots: { h: number; dots: number[][] }, shape?: (g: CanvasRenderingContext2D) => void) {
   if (!collecting || !look.night || w < 1.5) return;
-  lights.push({ x, y, w, h: spots.h, front: !!look.front, brake: !!look.brake, signal: look.signal ?? 0, dots: spots.dots, high: !!look.flash || !!look.lamps?.high, clip: clipY });
+  lights.push({ x, y, w, h: spots.h, front: !!look.front, brake: !!look.brake, signal: look.signal ?? 0, dots: spots.dots, high: !!look.flash || !!look.lamps?.high, clip: clipY, shape });
 }
 const blinkOn = () => Math.floor(performance.now() / 250) % 2 === 0;
 
@@ -39,6 +40,7 @@ const blinkOn = () => Math.floor(performance.now() / 250) % 2 === 0;
 // sai do facho, como de verdade).
 export interface RoadPt { d: number; x: number; y: number; w: number } // distância (segmentos), centro e linha na tela, meia largura da pista
 let darkCv: HTMLCanvasElement | null = null;
+const occCv = document.createElement('canvas'), tmpCv = document.createElement('canvas');
 let warmCv: HTMLCanvasElement | null = null;
 const REACH = 20; // alcance do farol baixo, em segmentos (~28 m de chão bem iluminado)
 // degraus chapados (sem pontilhado): cada pixel vai para o nível mais próximo; a escuridão lisa
@@ -206,77 +208,107 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     blob(c, st.x, st.head, st.r * 0.06, st.r * 0.04, '255,240,200', 0.9 * strength);
   }
   streets.length = 0;
-  // as luzes vêm do mais longe para o mais perto: o brilho de cada carro não passa por cima da
-  // carroceria dos carros mais perto (recorte com os retângulos deles)
-  for (let li = 0; li < lights.length; li++) {
+  // cada luz é desenhada numa camada à parte e recortada pela silhueta (pixel a pixel) dos carros
+  // mais perto, que tapam o brilho dos de trás; vai do mais perto para o mais longe, juntando as
+  // silhuetas numa máscara
+  const tf = c.getTransform();
+  const DW = c.canvas.width, DH = c.canvas.height;
+  for (const cv of [occCv, tmpCv]) if (cv.width !== DW || cv.height !== DH) { cv.width = DW; cv.height = DH; }
+  const oc = occCv.getContext('2d')!, lg = tmpCv.getContext('2d')!;
+  oc.setTransform(1, 0, 0, 1, 0, 0);
+  oc.clearRect(0, 0, DW, DH);
+  let occ = false;
+  for (let li = lights.length - 1; li >= 0; li--) {
     const l = lights[li];
-    // carro atrás de uma crista: só o que fica acima da linha da crista aparece (halo, raios e o
-    // clarão no asfalto dele não passam por cima do chão nem dos carros na frente da crista)
-    let clipped = l.clip < vp.y + vp.h;
-    if (clipped) {
-      c.save();
-      c.beginPath();
-      c.rect(vp.x, vp.y - 50, vp.w, l.clip + 1 - (vp.y - 50));
-      c.clip();
-    }
-    for (let j = li + 1; j < lights.length; j++) {
-      const n = lights[j];
-      if (n.w <= l.w) continue; // mesmo tamanho ou menor: não está mais perto
-      if (!clipped) c.save();
-      clipped = true;
-      // cada recorte se soma aos anteriores (interseção): fora de todos os carros mais perto
-      c.beginPath();
-      c.rect(vp.x, vp.y - 50, vp.w, vp.h + 100);
-      c.rect(n.x - n.w / 2, n.y - n.h, n.w, n.h);
-      c.clip('evenodd');
-    }
     const L = l.x - l.w / 2, T = l.y - l.h;
     // lâmpadas atrás de uma crista não aparecem (o carro está escondido pelo morro)
     const pts = l.dots.map(([u, f]) => [L + u * l.w, T + f * l.h]).filter(([, py]) => py <= l.clip + 1);
-    if (!pts.length) {
-      if (clipped) c.restore();
-      continue;
-    }
-    if (l.front) {
-      // faróis de quem vem de frente: foco forte em cada farol, halo e o clarão na pista à frente
-      const k = l.high ? 1.5 : 1;
-      for (const [px, py] of pts) {
-        blob(c, px, py, Math.max(l.w * 0.55 * k, 5), Math.max(l.w * 0.4 * k, 3.5), '255,244,200', 0.75 * strength);
-        blob(c, px, py, Math.max(l.w * 0.16, 1.6), Math.max(l.w * 0.13, 1.3), '255,255,245', 1 * strength);
-        // raios curtos (estrela) dos faróis vistos de frente
-        c.fillStyle = `rgba(255,250,225,${(0.5 * strength).toFixed(3)})`;
-        c.fillRect(px - l.w * 0.5 * k, py - 0.5, l.w * k, 1);
-        c.fillRect(px - 0.5, py - l.w * 0.18 * k, 1, l.w * 0.36 * k);
-      }
-      // clarão no asfalto entre o carro e o jogador
-      blob(c, l.x, l.y + l.w * 0.08, l.w * 1.3 * k, l.w * 0.26, '255,240,190', 0.38 * strength);
-    } else {
-      // lanternas: brilho vermelho em cada lâmpada; no freio fica bem mais forte, com halo
-      // grande e o reflexo vermelho no asfalto atrás do carro
-      // de longe a lâmpada continua um ponto vermelho bem visível (tamanho mínimo e mais forte),
-      // como lanterna acesa na estrada escura
-      const far = Math.max(0, Math.min(1, (24 - l.w) / 18)); // 1 = bem longe
-      const m = (v: number, min: number) => Math.max(v, min * far);
-      for (const [px, py] of pts) {
-        if (l.brake) {
-          blob(c, px, py, m(l.w * 0.42, 5), m(l.w * 0.3, 3.5), '255,30,16', 0.32 * strength);
-          blob(c, px, py, m(l.w * 0.13, 1.8), m(l.w * 0.1, 1.5), '255,90,60', 0.85 * strength);
+    if (pts.length) {
+      // área da luz em pixels do canvas (o brilho e o clarão não passam de ~2 larguras do carro)
+      const ext = l.w * (l.front ? 2.2 : 1.2) + 10;
+      const x0 = Math.max(0, Math.floor(tf.a * (l.x - ext) + tf.e)), x1 = Math.min(DW, Math.ceil(tf.a * (l.x + ext) + tf.e));
+      const y0 = Math.max(0, Math.floor(tf.d * (T - ext * 0.6) + tf.f)), y1 = Math.min(DH, Math.ceil(tf.d * (l.y + ext * 0.5) + tf.f));
+      // só passa pela camada recortada se algum carro mais perto encosta nesta luz
+      const masked = occ && lights.slice(li + 1).some((n) => n.shape && Math.abs(n.x - l.x) < ext + n.w / 2);
+      const dc = masked ? lg : c;
+      if (x1 > x0 && y1 > y0) {
+        if (masked) {
+          lg.setTransform(1, 0, 0, 1, 0, 0);
+          lg.globalCompositeOperation = 'source-over';
+          lg.clearRect(x0, y0, x1 - x0, y1 - y0);
+          lg.setTransform(tf);
+        }
+        dc.save();
+        // carro atrás de uma crista: só o que fica acima da linha da crista aparece
+        if (l.clip < vp.y + vp.h) {
+          dc.beginPath();
+          dc.rect(vp.x, vp.y - 50, vp.w, l.clip + 1 - (vp.y - 50));
+          dc.clip();
+        }
+        if (l.front) {
+          // faróis de quem vem de frente: foco forte em cada farol, halo e o clarão na pista à frente
+          const k = l.high ? 1.5 : 1;
+          for (const [px, py] of pts) {
+            blob(dc, px, py, Math.max(l.w * 0.55 * k, 5), Math.max(l.w * 0.4 * k, 3.5), '255,244,200', 0.75 * strength);
+            blob(dc, px, py, Math.max(l.w * 0.16, 1.6), Math.max(l.w * 0.13, 1.3), '255,255,245', 1 * strength);
+            // raios curtos (estrela) dos faróis vistos de frente
+            dc.fillStyle = `rgba(255,250,225,${(0.5 * strength).toFixed(3)})`;
+            dc.fillRect(px - l.w * 0.5 * k, py - 0.5, l.w * k, 1);
+            dc.fillRect(px - 0.5, py - l.w * 0.18 * k, 1, l.w * 0.36 * k);
+          }
+          // clarão no asfalto entre o carro e o jogador
+          blob(dc, l.x, l.y + l.w * 0.08, l.w * 1.3 * k, l.w * 0.26, '255,240,190', 0.38 * strength);
         } else {
-          blob(c, px, py, m(l.w * 0.2, 3.5), m(l.w * 0.14, 2.5), '255,36,20', (0.42 + 0.2 * far) * strength);
-          blob(c, px, py, m(l.w * 0.06, 1.4), m(l.w * 0.05, 1.2), '255,80,50', (0.6 + 0.35 * far) * strength);
+          // lanternas: brilho vermelho em cada lâmpada; no freio fica bem mais forte, com halo
+          // grande e o reflexo vermelho no asfalto atrás do carro
+          // de longe a lâmpada continua um ponto vermelho bem visível (tamanho mínimo e mais forte),
+          // como lanterna acesa na estrada escura
+          const far = Math.max(0, Math.min(1, (24 - l.w) / 18)); // 1 = bem longe
+          const m = (v: number, min: number) => Math.max(v, min * far);
+          for (const [px, py] of pts) {
+            if (l.brake) {
+              blob(dc, px, py, m(l.w * 0.42, 5), m(l.w * 0.3, 3.5), '255,30,16', 0.32 * strength);
+              blob(dc, px, py, m(l.w * 0.13, 1.8), m(l.w * 0.1, 1.5), '255,90,60', 0.85 * strength);
+            } else {
+              blob(dc, px, py, m(l.w * 0.2, 3.5), m(l.w * 0.14, 2.5), '255,36,20', (0.42 + 0.2 * far) * strength);
+              blob(dc, px, py, m(l.w * 0.06, 1.4), m(l.w * 0.05, 1.2), '255,80,50', (0.6 + 0.35 * far) * strength);
+            }
+          }
+          blob(dc, l.x, l.y + l.w * 0.03, l.w * (l.brake ? 0.85 : 0.6), l.w * 0.1, '255,30,16', (l.brake ? 0.28 : 0.12) * strength);
+        }
+        // seta piscando: brilho âmbar do lado para onde vai
+        if (l.signal && blinkOn()) {
+          const [px, py] = pts[l.signal > 0 ? pts.length - 1 : 0] ?? [l.x, l.y - l.h / 2];
+          const sx = l.front ? (l.signal > 0 ? L + l.w * 0.08 : L + l.w * 0.92) : px; // de frente o lado se inverte
+          const far = Math.max(0, Math.min(1, (24 - l.w) / 18));
+          blob(dc, sx, py, Math.max(l.w * 0.22, 4 * far), Math.max(l.w * 0.16, 3 * far), '255,160,30', (0.6 + 0.3 * far) * strength);
+          blob(dc, sx, py, Math.max(l.w * 0.07, 1.5 * far), Math.max(l.w * 0.05, 1.2 * far), '255,215,120', (0.5 + 0.4 * far) * strength);
+        }
+        dc.restore();
+        if (masked) {
+          lg.setTransform(1, 0, 0, 1, 0, 0);
+          lg.globalCompositeOperation = 'destination-out';
+          lg.drawImage(occCv, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+          c.save();
+          c.setTransform(1, 0, 0, 1, 0, 0);
+          c.globalCompositeOperation = 'lighter';
+          c.drawImage(tmpCv, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+          c.restore();
         }
       }
-      blob(c, l.x, l.y + l.w * 0.03, l.w * (l.brake ? 0.85 : 0.6), l.w * 0.1, '255,30,16', (l.brake ? 0.28 : 0.12) * strength);
     }
-    // seta piscando: brilho âmbar do lado para onde vai
-    if (l.signal && blinkOn()) {
-      const [px, py] = pts[l.signal > 0 ? pts.length - 1 : 0] ?? [l.x, l.y - l.h / 2];
-      const sx = l.front ? (l.signal > 0 ? L + l.w * 0.08 : L + l.w * 0.92) : px; // de frente o lado se inverte
-      const far = Math.max(0, Math.min(1, (24 - l.w) / 18));
-      blob(c, sx, py, Math.max(l.w * 0.22, 4 * far), Math.max(l.w * 0.16, 3 * far), '255,160,30', (0.6 + 0.3 * far) * strength);
-      blob(c, sx, py, Math.max(l.w * 0.07, 1.5 * far), Math.max(l.w * 0.05, 1.2 * far), '255,215,120', (0.5 + 0.4 * far) * strength);
+    // a silhueta deste carro passa a tapar as luzes dos que estão atrás dele
+    // (só quando há luz de um carro de trás ao alcance dela)
+    if (l.shape && lights.slice(0, li).some((n) => Math.abs(n.x - l.x) < n.w * (n.front ? 2.2 : 1.2) + 10 + l.w / 2)) {
+      oc.setTransform(tf);
+      oc.save();
+      oc.beginPath();
+      oc.rect(vp.x, vp.y - 50, vp.w, Math.min(vp.h + 100, l.clip + 1 - (vp.y - 50)));
+      oc.clip();
+      l.shape(oc);
+      oc.restore();
+      occ = true;
     }
-    if (clipped) c.restore();
   }
   // quem vem atrás com farol aceso: o lado por onde passa clareia, mais forte ao emparelhar,
   // esmaecendo quando ele já passou

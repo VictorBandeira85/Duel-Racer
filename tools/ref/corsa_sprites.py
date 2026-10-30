@@ -50,6 +50,29 @@ def inner_cut(m, a, rect):
     m[y0:y1, x0:x1] &= ~inner
 
 
+def taillights(a):
+    """Lanternas como as do Corsa nacional: a faixa âmbar do meio vira vermelho (um pouco mais
+    escuro que o de cima) e a luz de ré branca fica só na metade de dentro, embaixo; a metade de
+    fora vira vermelho escuro."""
+    W = a.shape[1]
+    hsv = cv2.cvtColor(np.ascontiguousarray(a[..., :3]), cv2.COLOR_RGB2HSV_FULL).astype(int)
+    hue = hsv[..., 0] * 360 // 256
+    for x0, x1 in ((9, 34), (W - 34, W - 9)):
+        inner_left = x0 > W / 2  # na lanterna da direita, o lado de dentro é o esquerdo
+        mid = (x0 + x1) // 2
+        for y in range(84, 105):
+            for x in range(x0, x1):
+                r, g, b = (int(v) for v in a[y, x, :3])
+                amber = 12 <= hue[y, x] <= 50 and hsv[y, x, 1] > 120 and y < 96
+                white = min(r, g, b) > 150 and 94 <= y <= 103
+                if amber:
+                    lum = (r + g + b) / 3
+                    k = min(1.0, lum / 150)
+                    a[y, x, :3] = (int(150 + 70 * k), int(12 + 14 * k), int(10 + 10 * k))
+                elif white and ((x < mid) != inner_left):
+                    a[y, x, :3] = (128, 12, 12) if (x + y) % 5 else (150, 20, 18)
+
+
 def main():
     src, cars = sys.argv[1], sys.argv[2]
     for view in ('side', 'rear', 'front'):
@@ -57,6 +80,8 @@ def main():
         subprocess.run([sys.executable, os.path.join(HERE, 'regrid.py'), os.path.join(src, f'src-{view}.png'), out, str(PERIOD[view])], check=True)
         a = np.array(Image.open(out).convert('RGBA'))
         H, W = a.shape[:2]
+        if view == 'rear':
+            taillights(a)
         if view == 'rear':  # gravata da marca: lataria (cor da coluna ao lado, linha a linha)
             for y in range(66, 77):
                 a[y, 99:124] = a[y, 96]

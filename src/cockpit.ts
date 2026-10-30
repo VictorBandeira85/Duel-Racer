@@ -488,8 +488,8 @@ COCKPIT_ART['br-corsa'] = {
   dash: cp('br-corsa-dash'), top: cp('br-corsa-top'), wheel: cp('br-corsa-wheel'),
   pivot: [127.9, 104.1], speedMax: 220, needle: '#f2f2f2', needleW: 1.5, needleTail: 3, hub: '#161618', radar: [206, 4],
   glass: { at: [20, 106] },
-  tach: { x: 113.6, y: 59.9, r: 18.5, max: 7, labels: [0, 1, 2, 3, 4, 5, 6, 7], tick: 0.25, red: 6.2, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, redLabels: false, redW: 1.5, bg: '#0e0f11' },
-  speed: { x: 155.5, y: 59.9, r: 18.5, max: 220, labels: [20, 60, 100, 140, 180, 220], minor: [40, 80, 120, 160, 200], tick: 10, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, bg: '#0e0f11' },
+  tach: { x: 113.6, y: 59.9, r: 18.5, max: 7, labels: [0, 1, 2, 3, 4, 5, 6, 7], tick: 0.5, boldTicks: true, red: 6.2, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, redLabels: false, redW: 1.5, bg: '#0e0f11' },
+  speed: { x: 155.5, y: 59.9, r: 18.5, max: 220, labels: [20, 60, 100, 140, 180, 220], tick: 10, boldTicks: true, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, bg: '#0e0f11' },
   aux: [
     { x: 84.2, y: 75.7, r: 9, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1/2', '1'] },
     { x: 184, y: 75.7, r: 9, kind: 'single', show: ['water'], icon: 'temp', labels: ['50', '90', '130'] },

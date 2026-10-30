@@ -1,3 +1,4 @@
+import { capsHtml } from './ui';
 import { stageResult } from './score';
 import '@fontsource/press-start-2p/400.css';
 import { RES, setRes, view } from './config';
@@ -282,7 +283,7 @@ function settingsLabels() {
   };
   document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b) => {
     const [k, v] = lab[b.dataset.set!];
-    b.innerHTML = `${k}<span>${v}</span>`;
+    b.innerHTML = `${capsHtml(k)}<span>${capsHtml(v)}</span>`;
   });
 }
 let trackStep = 0;

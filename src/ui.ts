@@ -33,6 +33,19 @@ function fillTextAccents(c: CanvasRenderingContext2D, s: string, x: number, y: n
   }
 }
 
+// o mesmo para texto em HTML (painel de pausa): a letra maiúscula normal e o acento por cima (CSS .acc)
+const HTML_ACC: Record<string, [string, string]> = {
+  Á: ['A', '´'], À: ['A', '`'], Â: ['A', '^'], Ã: ['A', '~'], É: ['E', '´'], Ê: ['E', '^'], Í: ['I', '´'],
+  Ó: ['O', '´'], Ô: ['O', '^'], Õ: ['O', '~'], Ú: ['U', '´'], Ç: ['C', '¸'],
+};
+export function capsHtml(s: string) {
+  const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return [...s].map((ch) => {
+    const a = HTML_ACC[ch];
+    return a ? `<i class="acc${ch === 'Ç' ? ' ced' : ''}" data-a="${a[1]}">${a[0]}</i>` : esc(ch);
+  }).join('');
+}
+
 export function text(
   c: CanvasRenderingContext2D, s: string, x: number, y: number,
   size = 8, color = '#fff', align: CanvasTextAlign = 'left', shadow: string | null = '#000',

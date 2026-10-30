@@ -1759,26 +1759,27 @@ function drawRoof(c: CanvasRenderingContext2D, r: Race, stageLabel: string, tota
   c.fillRect(0, 18, w, ROOF_H - 18);
   c.fillStyle = '#4a4a4e';
   c.fillRect(0, 17, w, 1);
-  // alça
+  // alça (em telas estreitas, 4:3, afastada do botão de pausa que fica no canto)
+  const hx = Math.max(ox + 10, Math.ceil(view.h * 0.1) + 6);
   c.fillStyle = '#d0d0d4';
   c.beginPath();
-  c.roundRect(ox + 10, 7, 27, 11, 3);
+  c.roundRect(hx, 7, 27, 11, 3);
   c.fill();
   c.fillStyle = '#16161a';
   c.beginPath();
-  c.roundRect(ox + 12, 9, 23, 7, 2);
+  c.roundRect(hx + 2, 9, 23, 7, 2);
   c.fill();
   // tempo (o original não mostra; fica discreto na área vazia do teto)
   const clock = `${stageLabel}  ${formatTime(totalTime + r.time)}`;
-  pix(c, clock, ox + 46 + pixWidth(clock) / 2, 9, '#8a8a90');
+  pix(c, clock, hx + 36 + pixWidth(clock) / 2, 9, '#8a8a90');
   // diferença para o fantasma no mesmo ponto da pista: verde na frente, vermelho atrás
   const gt = r.ghostRun && r.time > 1 ? ghostTimeAt(r.ghostRun, r.playerZ) : null;
   if (gt !== null) {
     const d = r.time - gt;
     const l = `${d >= 0 ? '+' : '-'}${Math.abs(d).toFixed(1)}`;
-    pix(c, l, ox + 46 + pixWidth(clock) + 4 + pixWidth(l) / 2, 9, d >= 0 ? '#ff7060' : '#50e070');
+    pix(c, l, hx + 36 + pixWidth(clock) + 4 + pixWidth(l) / 2, 9, d >= 0 ? '#ff7060' : '#50e070');
     // fantasma de amigo (código colado no Ranking): avisa contra quem é a disputa
-    if ((r.ghostRun as { friend?: boolean } | null)?.friend) pix(c, 'AMIGO', ox + 46 + pixWidth(clock) + 8 + pixWidth(l) + pixWidth('AMIGO') / 2, 9, '#ffd21a');
+    if ((r.ghostRun as { friend?: boolean } | null)?.friend) pix(c, 'AMIGO', hx + 36 + pixWidth(clock) + 8 + pixWidth(l) + pixWidth('AMIGO') / 2, 9, '#ffd21a');
   }
   // marcadores de progresso na faixa inferior
   const px = ox + 44, pw = 126;

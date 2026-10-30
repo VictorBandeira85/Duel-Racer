@@ -807,17 +807,59 @@ export function interiorPhoto(carId: string, dash: string): HTMLCanvasElement | 
   return cv;
 }
 
+// À noite (e no túnel) a cabine fica escura: painel, colunas e volante perdem luz, e o que o jogo
+// desenha por cima (mostradores, visores digitais, radar, retrovisor) continua aceso, com um leve
+// brilho da iluminação dos instrumentos, como num carro de verdade
+const nightCache = new Map<CanvasImageSource, { k: number; cv: HTMLCanvasElement }>();
+function nightImg<T extends CanvasImageSource & { width: number; height: number }>(img: T, k: number): T | HTMLCanvasElement {
+  if (k <= 0.02) return img;
+  const q = Math.round(k * 20) / 20; // em degraus: não refaz a cada quadro do túnel
+  const hit = nightCache.get(img);
+  if (hit && hit.k === q) return hit.cv;
+  const cv = hit?.cv ?? document.createElement('canvas');
+  cv.width = img.width;
+  cv.height = img.height;
+  const g = cv.getContext('2d')!;
+  g.clearRect(0, 0, cv.width, cv.height);
+  g.drawImage(img, 0, 0);
+  g.globalCompositeOperation = 'source-atop';
+  g.fillStyle = `rgba(4,4,14,${q})`;
+  g.fillRect(0, 0, cv.width, cv.height);
+  nightCache.set(img, { k: q, cv });
+  return cv;
+}
+const cabinDark = (r: Race) => (r.def.night ? 0.6 : r.inTunnel > 0.5 ? 0.3 * r.inTunnel : 0);
+// brilho dos instrumentos acesos à noite (somado sobre cada mostrador)
+function instrumentGlow(c: CanvasRenderingContext2D, ox: number, art: CockpitArt, k: number) {
+  if (k <= 0.02) return;
+  c.save();
+  c.globalCompositeOperation = 'lighter';
+  const glow = (x: number, y: number, r: number) => {
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(255,190,120,${(0.16 * k).toFixed(3)})`);
+    g.addColorStop(0.7, `rgba(255,170,100,${(0.08 * k).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(255,160,90,0)');
+    c.fillStyle = g;
+    c.fillRect(x - r, y - r, r * 2, r * 2);
+  };
+  for (const d of [art.tach, art.speed]) if (d) glow(ox + d.x + 0.5, ART_TOP + d.y + 0.5, d.r * 1.25);
+  for (const a of art.aux) glow(ox + a.x + 0.5, ART_TOP + a.y + 0.5, a.r * 1.3);
+  c.restore();
+}
+
 // Cabine a partir da arte: painel, ponteiros dinâmicos, radar e volante girando.
 function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: CockpitArt): boolean {
   const { w } = view;
   const ox = coreX();
   const color = paintHex(r.car.id);
   const tint = (mask?: string) => (color && mask ? { mask, color } : undefined);
-  const dash = svgSprite(art.dash, DASH_W, 124, tint(art.dashMask));
+  const dash0 = svgSprite(art.dash, DASH_W, 124, tint(art.dashMask));
   // o volante pode ter mais linhas que o painel (inteiro, para girar sem mostrar corte)
   const wheelH = Math.round(CORE_W * (spriteAspect(art.wheel) ?? 124 / CORE_W));
-  const wheelImg = svgSprite(art.wheel, CORE_W, wheelH);
-  if (!dash || !wheelImg) return false;
+  const wheel0 = svgSprite(art.wheel, CORE_W, wheelH);
+  if (!dash0 || !wheel0) return false;
+  const dk = cabinDark(r);
+  const dash = nightImg(dash0, dk), wheelImg = nightImg(wheel0, dk);
   // o painel tem DASH_PAD colunas a mais de cada lado; só além disso a borda é esticada
   const dx = ox - DASH_PAD;
   if (dx > 0) {
@@ -825,7 +867,8 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     c.drawImage(dash, DASH_W - 2, 0, 2, 124, dx + DASH_W, ART_TOP, w - dx - DASH_W, 124);
   }
   c.drawImage(dash, dx, ART_TOP);
-  const top = svgSprite(art.top, DASH_W, TOP_EXT, tint(art.topMask));
+  const top0 = svgSprite(art.top, DASH_W, TOP_EXT, tint(art.topMask));
+  const top = top0 && nightImg(top0, dk);
   if (top) {
     if (dx > 0) c.drawImage(top, 0, 0, 2, TOP_EXT, 0, ART_TOP - TOP_EXT, dx, TOP_EXT);
     c.drawImage(top, dx, ART_TOP - TOP_EXT);
@@ -840,12 +883,12 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     const spr = svgSprite(m.img, mw, Math.round(mw * (spriteAspect(m.img) ?? 1)));
     if (spr) {
       const mx = dx + m.x, my = ART_TOP - TOP_EXT + m.y;
-      c.drawImage(spr, mx, my);
+      c.drawImage(nightImg(spr, dk), mx, my);
       const mg = findGlass(m.img, null, spr, spr.width);
       if (mg) drawSideMirror(c, r, mg, mx, my, color ?? r.car.color);
     }
   } else {
-    const glass = findGlass(art.dash, svgSprite(art.top, DASH_W, TOP_EXT), svgSprite(art.dash, DASH_W, 124) ?? dash, DASH_PAD + 90, art.glass);
+    const glass = findGlass(art.dash, svgSprite(art.top, DASH_W, TOP_EXT), svgSprite(art.dash, DASH_W, 124) ?? dash0, DASH_PAD + 90, art.glass);
     if (glass) drawSideMirror(c, r, glass, dx, ART_TOP, color ?? r.car.color);
   }
   if (art.lcd) lcdPanel(c, ox, r, art);
@@ -862,6 +905,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     if (art.tach) dialNeedle(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, art);
     if (art.speed) dialNeedle(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
   }
+  instrumentGlow(c, ox, art, dk / 0.6);
   // detector de radar (com as luzes do pisca dos lados); cada cabine pode pô-lo num lugar livre
   const [rx, ry] = art.radar ?? [206, 22];
   rect(c, ox + rx, ART_TOP + ry, 30, 6, '#0c0c0e');

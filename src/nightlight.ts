@@ -4,25 +4,32 @@
 // vem atrás ofusca nos retrovisores e, ao emparelhar, clareia o lado da tela por onde passa.
 import type { CarLook } from './cars';
 
-interface Light { x: number; y: number; w: number; h: number; front: boolean; brake: boolean; signal: number; dots: number[][]; high: boolean }
+interface Light { x: number; y: number; w: number; h: number; front: boolean; brake: boolean; signal: number; dots: number[][]; high: boolean; clip: number }
 const lights: Light[] = [];
 let collecting = false;
 
-// postes de luz acesos (render3d registra cada um visível: cabeça, chão e raio da luz)
-interface Street { x: number; head: number; ground: number; r: number }
+// postes de luz acesos (render3d registra cada um visível: lâmpada na tela, tamanho, trecho da
+// pista onde está e posição lateral em meias larguras da pista a partir do centro)
+interface Street { x: number; head: number; r: number; d: number; u: number }
 const streets: Street[] = [];
-export function pushStreetLight(x: number, head: number, ground: number, r: number) {
-  if (collecting && r > 2) streets.push({ x, head, ground, r: Math.min(r, 110) }); // perto: não cobre a tela toda
+export function pushStreetLight(x: number, head: number, r: number, d: number, u: number) {
+  if (collecting && r > 2) streets.push({ x, head, r: Math.min(r, 110), d, u });
+}
+// linha da tela abaixo da qual o trecho sendo desenhado fica escondido (crista de morro à frente)
+let clipY = Infinity;
+export function setLightClip(y: number) {
+  clipY = y;
 }
 export function beginLights() {
+  clipY = Infinity;
   lights.length = 0;
   streets.length = 0;
   collecting = true;
 }
 // chamado por drawCar: guarda onde estão as luzes do carro (só durante a pista, à noite)
 export function pushCarLights(x: number, y: number, w: number, look: CarLook, spots: { h: number; dots: number[][] }) {
-  if (!collecting || !look.night || w < 3) return;
-  lights.push({ x, y, w, h: spots.h, front: !!look.front, brake: !!look.brake, signal: look.signal ?? 0, dots: spots.dots, high: !!look.flash || !!look.lamps?.high });
+  if (!collecting || !look.night || w < 1.5) return;
+  lights.push({ x, y, w, h: spots.h, front: !!look.front, brake: !!look.brake, signal: look.signal ?? 0, dots: spots.dots, high: !!look.flash || !!look.lamps?.high, clip: clipY });
 }
 const blinkOn = () => Math.floor(performance.now() / 250) % 2 === 0;
 
@@ -30,7 +37,7 @@ const blinkOn = () => Math.floor(performance.now() / 250) % 2 === 0;
 // degradê liso. O facho segue o chão (subida: alcança mais alto
 // na tela; topo de lombada: acaba ali) e aponta para onde o carro aponta (nas curvas a estrada
 // sai do facho, como de verdade).
-export interface RoadPt { d: number; y: number; w: number } // distância (segmentos), linha na tela, meia largura da pista
+export interface RoadPt { d: number; x: number; y: number; w: number } // distância (segmentos), centro e linha na tela, meia largura da pista
 let darkCv: HTMLCanvasElement | null = null;
 let warmCv: HTMLCanvasElement | null = null;
 const REACH = 20; // alcance do farol baixo, em segmentos (~28 m de chão bem iluminado)
@@ -43,10 +50,22 @@ function quantize(g: CanvasRenderingContext2D, w: number, h: number, levels: num
   g.putImageData(img, 0, 0);
 }
 // pinta o facho (alpha) em g: faixas do chão de perto para longe, cada uma pela distância
+// trecho contínuo de chão à frente do carro: para na crista (o que vem depois do topo da subida
+// está escondido; a luz que passa da crista vai para o ar e não aparece em nada)
+function groundAhead(road: RoadPt[]) {
+  let n = 0;
+  while (n + 1 < road.length && road[n + 1].d - road[n].d <= 2) n++;
+  return road.slice(0, n + 1);
+}
 function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: number, road: RoadPt[], scale: number) {
   // perto do carro (abaixo do primeiro trecho de pista visível): leque na frente do capô, sem
-  // se espalhar pelos lados
+  // se espalhar pelos lados e sem subir além do chão que se vê (no topo da subida não pinta o céu)
+  const lit = road.filter((p) => p.d <= REACH);
+  const crest = lit.length ? lit[lit.length - 1].y : seen;
   g.save();
+  g.beginPath();
+  g.rect(0, crest, w, seen + 40 - crest);
+  g.clip();
   g.translate(cx, seen + 6);
   g.scale(1, 0.32);
   const near = g.createRadialGradient(0, 0, 0, 0, 0, w * 0.42);
@@ -55,6 +74,7 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
   near.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = near;
   g.fillRect(-w * 0.42, -w * 0.42, w * 0.84, w * 0.84);
+  g.restore();
   g.restore();
   // faixas do chão: o facho tem a largura da pista e um pouco mais, centrado no carro
   for (let k = 0; k + 1 < road.length; k++) {
@@ -79,6 +99,35 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
     const main = 0.75 - 0.25 * (1 - f);
     strip(0, main, a);
     strip(main, main + 0.45, a * 0.3);
+  }
+}
+
+// luz de um poste no chão: faixas da pista em volta do trecho do poste (só o chão que se vê, então
+// nunca pinta o céu atrás de uma crista), mais forte embaixo da lâmpada e caindo em degraus para
+// a frente, para trás e para os lados
+const POOL = 6; // raio do círculo de luz, em segmentos
+function streetPool(g: CanvasRenderingContext2D, road: RoadPt[], st: Street, rgb: string, a0: number) {
+  for (let k = 0; k + 1 < road.length; k++) {
+    const p = road[k], q = road[k + 1];
+    if (q.d - p.d > 2) continue; // entre os dois há chão escondido (crista)
+    const dd = Math.abs((p.d + q.d) / 2 - st.d);
+    if (dd > POOL) continue;
+    const f = 1 - dd / POOL;
+    // para o lado da pista a luz vai mais longe que para fora (o braço do poste fica sobre o acostamento)
+    const t = st.u > 0 ? 1 : -1;
+    for (const [s0, s1, k2] of [[-1.5, 0.4, 1], [-2.3, -1.5, 0.45], [0.4, 0.9, 0.45]]) {
+      const a = a0 * k2 * Math.min(1, f * f * 1.5);
+      if (a <= 0.02) continue;
+      g.fillStyle = `${rgb}${a.toFixed(3)})`;
+      const u0 = st.u + t * s0, u1 = st.u + t * s1;
+      g.beginPath();
+      g.moveTo(p.x + p.w * u0, p.y + 0.5);
+      g.lineTo(p.x + p.w * u1, p.y + 0.5);
+      g.lineTo(q.x + q.w * u1, q.y - 0.5);
+      g.lineTo(q.x + q.w * u0, q.y - 0.5);
+      g.closePath();
+      g.fill();
+    }
   }
 }
 
@@ -109,7 +158,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   const W = Math.max(1, Math.round(vp.w)), H = Math.max(1, Math.round(vp.y + vp.h - top));
   const bot = vp.y + vp.h, seen = Math.min(bot, vp.dash ?? bot);
   const cx = W / 2;
-  const rd = road.map((p) => ({ d: p.d, y: p.y - top, w: p.w }));
+  const rd = road.map((p) => ({ d: p.d, x: p.x - vp.x, y: p.y - top, w: p.w }));
   // camada da escuridão (pixels do jogo), com o facho recortado
   darkCv = darkCv ?? document.createElement('canvas');
   if (darkCv.width !== W || darkCv.height !== H) {
@@ -122,20 +171,10 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   g.fillStyle = `rgba(0,0,10,${(0.8 * strength).toFixed(3)})`;
   g.fillRect(0, 0, W, H);
   g.globalCompositeOperation = 'destination-out';
-  beamShape(g, W, cx, seen - top, rd, 0.9);
-  // postes acesos: um cone de luz no chão embaixo de cada um
-  for (const st of streets) {
-    const pool = g.createRadialGradient(st.x - vp.x, st.ground - top, 0, st.x - vp.x, st.ground - top, st.r);
-    pool.addColorStop(0, 'rgba(0,0,0,0.85)');
-    pool.addColorStop(1, 'rgba(0,0,0,0)');
-    g.save();
-    g.translate(st.x - vp.x, st.ground - top);
-    g.scale(1, 0.32);
-    g.translate(-(st.x - vp.x), -(st.ground - top));
-    g.fillStyle = pool;
-    g.fillRect(st.x - vp.x - st.r, st.ground - top - st.r, st.r * 2, st.r * 2);
-    g.restore();
-  }
+  const ground = groundAhead(rd);
+  beamShape(g, W, cx, seen - top, ground, 0.9);
+  // postes acesos: o círculo de luz no chão embaixo de cada um, deitado na pista como o facho
+  for (const st of streets) streetPool(g, rd, st, 'rgba(0,0,0,', 0.85);
   g.globalCompositeOperation = 'source-over';
   quantize(g, W, H, 6);
   const prev = c.imageSmoothingEnabled;
@@ -150,22 +189,12 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   const wg = warmCv.getContext('2d', { willReadFrequently: true })!;
   wg.globalCompositeOperation = 'source-over';
   wg.clearRect(0, 0, W, H);
-  beamShape(wg, W, cx, seen - top, rd, 0.3);
+  beamShape(wg, W, cx, seen - top, ground, 0.3);
   wg.globalCompositeOperation = 'source-in';
   wg.fillStyle = 'rgb(255,226,160)';
   wg.fillRect(0, 0, W, H);
   wg.globalCompositeOperation = 'source-over';
-  for (const st of streets) { // luz de sódio dos postes
-    wg.save();
-    wg.translate(st.x - vp.x, st.ground - top);
-    wg.scale(1, 0.32);
-    const pool = wg.createRadialGradient(0, 0, 0, 0, 0, st.r);
-    pool.addColorStop(0, `rgba(255,190,90,${(0.3 * strength).toFixed(3)})`);
-    pool.addColorStop(1, 'rgba(255,190,90,0)');
-    wg.fillStyle = pool;
-    wg.fillRect(-st.r, -st.r, st.r * 2, st.r * 2);
-    wg.restore();
-  }
+  for (const st of streets) streetPool(wg, rd, st, 'rgba(255,190,90,', 0.3 * strength); // luz de sódio
   quantize(wg, W, H, 6);
   c.save();
   c.globalCompositeOperation = 'lighter';
@@ -194,13 +223,18 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
       c.clip('evenodd');
     }
     const L = l.x - l.w / 2, T = l.y - l.h;
-    const pts = l.dots.map(([u, f]) => [L + u * l.w, T + f * l.h]);
+    // lâmpadas atrás de uma crista não aparecem (o carro está escondido pelo morro)
+    const pts = l.dots.map(([u, f]) => [L + u * l.w, T + f * l.h]).filter(([, py]) => py <= l.clip + 1);
+    if (!pts.length) {
+      if (clipped) c.restore();
+      continue;
+    }
     if (l.front) {
       // faróis de quem vem de frente: foco forte em cada farol, halo e o clarão na pista à frente
       const k = l.high ? 1.5 : 1;
       for (const [px, py] of pts) {
-        blob(c, px, py, l.w * 0.55 * k, l.w * 0.4 * k, '255,244,200', 0.75 * strength);
-        blob(c, px, py, l.w * 0.16, l.w * 0.13, '255,255,245', 1 * strength);
+        blob(c, px, py, Math.max(l.w * 0.55 * k, 5), Math.max(l.w * 0.4 * k, 3.5), '255,244,200', 0.75 * strength);
+        blob(c, px, py, Math.max(l.w * 0.16, 1.6), Math.max(l.w * 0.13, 1.3), '255,255,245', 1 * strength);
         // raios curtos (estrela) dos faróis vistos de frente
         c.fillStyle = `rgba(255,250,225,${(0.5 * strength).toFixed(3)})`;
         c.fillRect(px - l.w * 0.5 * k, py - 0.5, l.w * k, 1);
@@ -211,13 +245,17 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     } else {
       // lanternas: brilho vermelho em cada lâmpada; no freio fica bem mais forte, com halo
       // grande e o reflexo vermelho no asfalto atrás do carro
+      // de longe a lâmpada continua um ponto vermelho bem visível (tamanho mínimo e mais forte),
+      // como lanterna acesa na estrada escura
+      const far = Math.max(0, Math.min(1, (24 - l.w) / 18)); // 1 = bem longe
+      const m = (v: number, min: number) => Math.max(v, min * far);
       for (const [px, py] of pts) {
         if (l.brake) {
-          blob(c, px, py, l.w * 0.42, l.w * 0.3, '255,30,16', 0.32 * strength);
-          blob(c, px, py, l.w * 0.13, l.w * 0.1, '255,90,60', 0.85 * strength);
+          blob(c, px, py, m(l.w * 0.42, 5), m(l.w * 0.3, 3.5), '255,30,16', 0.32 * strength);
+          blob(c, px, py, m(l.w * 0.13, 1.8), m(l.w * 0.1, 1.5), '255,90,60', 0.85 * strength);
         } else {
-          blob(c, px, py, l.w * 0.2, l.w * 0.14, '255,36,20', 0.42 * strength);
-          blob(c, px, py, l.w * 0.06, l.w * 0.05, '255,80,50', 0.6 * strength);
+          blob(c, px, py, m(l.w * 0.2, 3.5), m(l.w * 0.14, 2.5), '255,36,20', (0.42 + 0.2 * far) * strength);
+          blob(c, px, py, m(l.w * 0.06, 1.4), m(l.w * 0.05, 1.2), '255,80,50', (0.6 + 0.35 * far) * strength);
         }
       }
       blob(c, l.x, l.y + l.w * 0.03, l.w * (l.brake ? 0.85 : 0.6), l.w * 0.1, '255,30,16', (l.brake ? 0.28 : 0.12) * strength);
@@ -226,7 +264,9 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     if (l.signal && blinkOn()) {
       const [px, py] = pts[l.signal > 0 ? pts.length - 1 : 0] ?? [l.x, l.y - l.h / 2];
       const sx = l.front ? (l.signal > 0 ? L + l.w * 0.08 : L + l.w * 0.92) : px; // de frente o lado se inverte
-      blob(c, sx, py, l.w * 0.22, l.w * 0.16, '255,160,30', 0.6 * strength);
+      const far = Math.max(0, Math.min(1, (24 - l.w) / 18));
+      blob(c, sx, py, Math.max(l.w * 0.22, 4 * far), Math.max(l.w * 0.16, 3 * far), '255,160,30', (0.6 + 0.3 * far) * strength);
+      blob(c, sx, py, Math.max(l.w * 0.07, 1.5 * far), Math.max(l.w * 0.05, 1.2 * far), '255,215,120', (0.5 + 0.4 * far) * strength);
     }
     if (clipped) c.restore();
   }

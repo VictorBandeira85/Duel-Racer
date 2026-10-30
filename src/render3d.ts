@@ -3,7 +3,7 @@ import { drawCrisp } from './crisp';
 import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { CARS, drawCar } from './cars';
 import { lowFx } from './perf';
-import { beginLights, finishNight, mirrorGlare, mirrorWash, pushStreetLight, type Pass, type RoadPt } from './nightlight';
+import { beginLights, finishNight, mirrorGlare, mirrorWash, pushStreetLight, setLightClip, type Pass, type RoadPt } from './nightlight';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
 import { SPRITES } from './sprites';
 import { FOG_COLOR, type BgLayer } from './themes';
@@ -347,7 +347,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
     drawSegment(c, s, r, vp, ground, fog ? fogAt(i - base.index) : 0);
     maxy = s.p1.screen.y;
     // chão visível à frente, para o facho dos faróis seguir subidas e descidas
-    if (i - base.index <= 40) road.push({ d: i - base.index, y: s.p1.screen.y, w: s.p1.screen.w });
+    if (i - base.index <= 120) road.push({ d: i - base.index, x: s.p1.screen.x, y: s.p1.screen.y, w: s.p1.screen.w });
   }
 
   let nearTunnel: Segment | null = null;
@@ -358,6 +358,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
     c.beginPath();
     c.rect(vp.x, vp.y, vp.w, s.clip - vp.y);
     c.clip();
+    setLightClip(s.clip);
     const dist = i - base.index;
     if (s.tunnel) {
       tunnelSlice(c, s, vp, roadW, dist);
@@ -386,7 +387,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       const bw = sw * (sp.kind === 'lamp' ? 3.4 : 1.1);
       drawCrisp(c, `${sp.kind}${seed}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed));
       // poste aceso à noite: a lâmpada fica na ponta do braço, sobre o acostamento
-      if (lit && sp.kind === 'lamp') pushStreetLight(sx - sw * 1.3, s.p1.screen.y - sh + sw * 0.5, s.p1.screen.y, sw * 9);
+      if (lit && sp.kind === 'lamp') pushStreetLight(sx - sw * 1.3, s.p1.screen.y - sh + sw * 0.5, sw * 9, dist, (sx - sw * 1.3 - s.p1.screen.x) / Math.max(1, s.p1.screen.w));
     }
     for (const e of s.cars) {
       if (e.z - r.position < 450) continue; // colado no para-brisa: some sob o painel
@@ -434,6 +435,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
     if (r.rival) passers.push({ x: r.rival.x - r.x, dz: r.playerZ - r.rival.z });
     for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') passers.push({ x: p.x - r.x, dz: r.playerZ - p.z });
   }
+  setLightClip(Infinity);
   finishNight(c, vp, night ? 1 : lit ? 0.45 * r.inTunnel : 0, passers, SEG_LEN, road);
   c.restore();
 }

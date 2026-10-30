@@ -477,8 +477,9 @@ COCKPIT_ART['br-uno'] = {
     { x: 187.9, y: 65.9, r: 8.4, kind: 'single', show: ['water'], icon: 'temp', labels: ['60', '100', '140'] },
   ],
   extra: (c, ox, r) => {
-    odometer(c, ox, r, { x: 95, y: 50.5, w: 12, h: 3.5 }, 40230, 6, 0.5);
-    odometer(c, ox, r, { x: 97, y: 62, w: 8, h: 3.5 }, 142.5, 4, 0.5, true);
+    // só o hodômetro, na boca de baixo do mostrador, abaixo do 0 e do 240 (o mostrador é pequeno
+    // demais para o hodômetro e a parcial sem cobrir números)
+    odometer(c, ox, r, { x: 95.5, y: 67.5, w: 11, h: 3 }, 40230, 6, 0.5);
   },
 };
 
@@ -495,7 +496,7 @@ COCKPIT_ART['br-corsa'] = {
     { x: 184, y: 75.7, r: 9, kind: 'single', show: ['water'], icon: 'temp', labels: ['50', '90', '130'] },
   ],
   extra: (c, ox, r) => {
-    odometer(c, ox, r, { x: 149.5, y: 64.5, w: 12, h: 3.5 }, 7908, 6, 0.5);
+    odometer(c, ox, r, { x: 150, y: 70.5, w: 11, h: 3 }, 7908, 6, 0.5); // na boca de baixo do mostrador, abaixo do 20 e do 220
     // luzes-espia: bateria (vermelha) e óleo (âmbar) à esquerda do conta-giros, freio à
     // direita do velocímetro; apagadas ficam escuras na cor
     const idle = r.speed < 1 && !r.throttle;

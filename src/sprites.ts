@@ -1,3 +1,4 @@
+import { adCanvas } from './billboards';
 import { dither } from './ui';
 
 // Objetos de cenário desenhados por código. Cada função desenha numa caixa:
@@ -330,28 +331,19 @@ const rail: Draw = (c, x, y, w, h) => {
   rect(c, '#ffffff', x - w * 0.42, y - h * 0.78, w * 0.06, h * 0.1);
 };
 
-// outdoor com anúncios fictícios
-const ADS: [string, string, string][] = [
-  ['DUEL', '#d02020', '#ffd400'], ['TURBO', '#1a3aa8', '#ffffff'], ['COLA', '#c81828', '#ffffff'],
-  ['MOTEL', '#2a8a3a', '#fff4b0'], ['PNEUS', '#202024', '#ffcc00'], ['RADIO', '#7a2ac8', '#ffffff'],
-];
+// outdoor com anúncios fictícios dos anos 90 (billboards.ts): a arte em pixels nativos vai
+// ampliada, sem suavizar, no painel
 const billboard: Draw = (c, x, y, w, h, seed) => {
   for (const px of [-0.3, 0.3]) {
     rect(c, '#5a5a60', x + w * px - w * 0.025, y - h * 0.5, w * 0.05, h * 0.5);
     rect(c, '#8a8a90', x + w * px - w * 0.025, y - h * 0.5, w * 0.018, h * 0.5);
   }
   rect(c, '#3a3a40', x - w * 0.36, y - h * 0.5, w * 0.72, h * 0.04);
-  const [text, bg, fg] = ADS[seed % ADS.length];
   rect(c, '#e8e8e8', x - w / 2, y - h, w, h * 0.52);
-  rect(c, bg, x - w / 2 + w * 0.03, y - h + h * 0.05, w * 0.94, h * 0.42);
-  rect(c, fg, x - w / 2 + w * 0.03, y - h * 0.58, w * 0.94, h * 0.04);
-  if (w > 16) {
-    c.font = `bold ${Math.floor(h * 0.22)}px monospace`;
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.fillStyle = fg;
-    c.fillText(text, x, y - h * 0.76);
-  }
+  const prev = c.imageSmoothingEnabled;
+  c.imageSmoothingEnabled = false;
+  c.drawImage(adCanvas(seed), x - w / 2 + w * 0.03, y - h + h * 0.05, w * 0.94, h * 0.42);
+  c.imageSmoothingEnabled = prev;
   for (const px of [-0.3, 0, 0.3]) rect(c, '#2a2a30', x + w * px - w * 0.02, y - h * 1.04, w * 0.04, h * 0.05);
 };
 

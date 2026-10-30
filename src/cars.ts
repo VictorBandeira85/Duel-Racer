@@ -1,4 +1,5 @@
 import { pushCarLights } from './nightlight';
+import { drawPlate, type Plate } from './plates';
 import { drawCrisp } from './crisp';
 import { KMH, RES } from './config';
 import { clamp, shade } from './util';
@@ -47,6 +48,7 @@ export interface RearDef {
   // pinturas com arte própria (decalques na cor certa): cor da paleta -> sprites
   variants?: Record<string, { img?: string; frontImg?: string }>;
   lamps?: LampDef;
+  plate?: number[]; // retângulo da placa no sprite da traseira (frações), ver plates.ts
 }
 
 // Faróis e piscas de cada modelo, em frações do sprite (lado esquerdo da tela; o direito é o
@@ -355,6 +357,19 @@ const WHEELS: Record<string, number[][]> = {
   'zr1': [[0.21, 0.734, 0.076], [0.766, 0.734, 0.076]],
 };
 
+// Onde fica a placa na traseira de cada carro: [x0, y0, x1, y1] em pixels do sprite e o
+// tamanho dele (largura, altura); vira frações ao carregar
+const PLATE_BOX: Record<string, number[]> = {
+  'br-golgti': [51, 41, 84, 55, 134, 100], 'br-kadett': [31, 30, 62, 40, 93, 70], 'br-pumagte': [35, 34, 64, 46, 102, 65],
+  'br-corsa': [88, 108, 150, 127, 239, 212], 'br-uno': [70, 81, 118, 100, 189, 157], 'br-passat': [63, 58, 109, 72, 173, 124],
+  'br-vectra': [40, 52, 73, 62, 113, 79], 'br-pumagtb': [38, 31, 57, 37, 95, 59],
+  '959': [77, 74, 124, 87, 200, 118], countach: [82, 86, 119, 98, 200, 118], diablo: [86, 83, 114, 94, 199, 113],
+  f40: [82, 70, 118, 79, 200, 114], nsx: [82, 83, 119, 94, 200, 112], patrol: [84, 82, 116, 96, 200, 155],
+  patrolsv: [86, 85, 114, 96, 199, 118], testarossa: [82, 77, 119, 88, 200, 104], viper: [82, 65, 119, 76, 200, 96],
+  zr1: [80, 63, 121, 78, 200, 125],
+};
+const frac = (b: number[]) => [b[0] / b[4], b[1] / b[5], b[2] / b[4], b[3] / b[5]];
+
 // Sprites de cada carro pela chave `art`: <art>-side/-rear/-front.png e as máscaras
 const PNG = import.meta.glob('./assets/cars/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 const png = (n: string) => PNG[`./assets/cars/${n}.png`];
@@ -368,6 +383,7 @@ for (const car of CARS) {
   car.rear.frontImg = png(`${k}-front`) ?? car.rear.frontImg;
   car.rear.frontMask = png(`${k}-front-mask`);
   car.rear.lamps = LAMPS[k];
+  if (PLATE_BOX[k]) car.rear.plate = frac(PLATE_BOX[k]);
   car.wheels = WHEELS[k];
   // <art>-side-<cor>.png: a arte daquela pintura (usada no lugar da repintura pela máscara)
   for (const [name, paintName] of Object.entries(VARIANT_PAINT)) {
@@ -608,6 +624,7 @@ export interface CarLook {
   flash?: boolean; // trânsito de frente piscando o farol alto (assustado)
   tilt?: number; // batido: o desenho fica inclinado (rad), girando em torno da base
   lamps?: { up: number; on: boolean; high?: boolean }; // faróis: quanto subiram (escamoteáveis), acesos, farol alto
+  plate?: Plate; // placa (desenhada por cima da traseira)
 }
 
 const GENERIC: RearDef = { h: 0.5, roof: 0.56, lights: 'rect', wing: 0 };
@@ -644,6 +661,7 @@ function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w:
   groundShadow(c, x, y, w);
   const L = Math.round(x - w / 2), T = Math.round(y - h);
   c.drawImage(spr, L, T, Math.round(w), Math.round(h));
+  if (!look.front && look.plate && TRAFFIC_PLATE[model]) drawPlate(c, L, T, Math.round(w), Math.round(h), frac(TRAFFIC_PLATE[model]), look.plate);
   // luzes acesas: lanternas (noite/freio) e giroflex piscando
   if (!look.front && (look.night || look.brake)) {
     c.fillStyle = 'rgba(255,60,40,0.55)';
@@ -700,6 +718,10 @@ function lampSpots(w: number, look: CarLook): { h: number; dots: number[][] } {
   return { h, dots: [[0.15, 0.55], [0.85, 0.55]] };
 }
 
+const TRAFFIC_PLATE: Record<string, number[]> = { // como PLATE_BOX, nos sprites do trânsito
+  sedan: [66, 62, 94, 71, 160, 92], hatch: [66, 65, 95, 74, 160, 96], pickup: [66, 76, 94, 85, 160, 98],
+  van: [66, 103, 95, 112, 160, 132], truck: [66, 138, 94, 147, 160, 168], police: [68, 65, 90, 77, 160, 124],
+};
 const TRAFFIC_GLOW: Record<string, { dots?: number[][]; siren?: number[][]; sirenFront?: number[][]; sirenColors?: string[]; sirenColorsFront?: string[] }> = {
   sedan: { dots: [[0.15, 0.6], [0.85, 0.6]] }, hatch: { dots: [[0.11, 0.62], [0.89, 0.62]] },
   pickup: { dots: [[0.06, 0.6], [0.94, 0.6]] }, van: { dots: [[0.06, 0.71], [0.94, 0.71]] },
@@ -749,6 +771,7 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
     if (spr) {
       groundShadow(c, x, y, w);
       c.drawImage(spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
+      if (look.plate && look.rear.plate) drawPlate(c, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h), look.rear.plate, look.plate);
       const gl = look.rear.glow;
       if ((look.brake || look.night) && gl) {
         c.fillStyle = 'rgba(255,50,30,0.5)';

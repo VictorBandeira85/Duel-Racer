@@ -401,7 +401,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
           c.restore();
         }
       } else if (e === r.rival) {
-        drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: r.rival.recover > 0 || r.rival.mistake > 0, night: lit, paint: r.rivalPaint, signal: r.rival.signal });
+        drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: r.rival.recover > 0 || r.rival.mistake > 0, night: lit, paint: r.rivalPaint, signal: r.rival.signal, plate: r.rivalPlate });
       } else if ('phase' in e) {
         drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, (e as Officer).phase === 'show');
       } else if ('spotZ' in e) {

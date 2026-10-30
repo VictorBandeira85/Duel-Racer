@@ -2,6 +2,7 @@ import { CAR_W, KMH, LANE_W, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './conf
 import { aeroMul, CARS, G, LAUNCH_BOOST, Powertrain, perfClass, resistAcc, toGame, toMs, type CarLook, type CarSpec, type PerfClass, SHIFT_T } from './cars';
 import { PAINTS } from './paint';
 import type { Course, StageDef } from './courses';
+import { makePlate, modelYear, themeRegion, REGION_PLATE, type Plate } from './plates';
 import { THEMES, blendTheme, fogTheme, nightTheme, rainTheme, sunsetTheme, type Theme } from './themes';
 import { SPRITES } from './sprites';
 import { buildTrack, laneCenter, type Segment, type Track } from './track';
@@ -42,7 +43,7 @@ function pickGameCar(u: number): CarSpec | undefined {
 export function trafficLook(t: TrafficCar, front: boolean, night: boolean, flash = false): CarLook {
   // freando: mais devagar do que gosta de andar (trânsito na mesma mão, atrás de alguém ou em pânico)
   const brake = t.speed > 0 && t.speed < t.base * 0.9;
-  const look: CarLook = { color: t.color, front, truck: t.truck, night, model: t.model, signal: t.signal, flash, tilt: t.tilt, brake };
+  const look: CarLook = { color: t.color, front, truck: t.truck, night, model: t.model, signal: t.signal, flash, tilt: t.tilt, brake, plate: t.plate };
   if (t.car) Object.assign(look, { rear: t.car.rear, paint: t.color, lamps: { up: night || flash ? 1 : 0, on: night || flash, high: flash } });
   return look;
 }
@@ -67,6 +68,7 @@ export interface TrafficCar {
   model: TrafficModel;
   car?: CarSpec; // um dos carros do jogo no trânsito (sorteado pela raridade da classe)
   hit: boolean;
+  plate?: Plate;
   base: number; // velocidade que o motorista gosta de manter
   tx: number; // faixa para onde está indo
   signal: number; // seta: -1 esquerda, 1 direita, 0 desligada
@@ -213,6 +215,8 @@ export class Race {
 
   rival: Rival | null = null;
   rivalPaint?: string; // cor do rival (piloto da carreira)
+  rivalPlate?: Plate;
+  region = 'costa'; // região do trecho (placas)
   private rivalStyleOverride?: RivalStyle;
   fines = 0; // soma das multas do trecho
   private caughtKmh = 0;
@@ -250,6 +254,7 @@ export class Race {
     this.theme = this.def.night ? nightTheme(base) : this.def.weather === 'rain' ? rainTheme(base) : this.def.weather === 'fog' ? fogTheme(base) : base;
     const seed = (course.seed ?? course.id.length * 1000) + stageIdx * 97 + 11;
     this.track = buildTrack(this.def, this.theme, seed);
+    this.region = themeRegion(this.def.theme);
     this.rand = rng(seed + 5);
 
     const t = this.track;
@@ -261,6 +266,7 @@ export class Race {
         style: this.rivalStyleOverride ?? RIVAL_STYLE[this.rivalCar!.id] ?? 'cauteloso', mistake: 0, boost: 0, pt: new Powertrain(rivalCar),
         signal: 0, sigT: 0, flash: 0, flashCd: 4 };
       this.rival.pt.boost = LAUNCH_BOOST;
+      this.rivalPlate = makePlate(rng(seed + 77), this.region, rivalCar.art, modelYear(rivalCar.basedOn));
     }
     // carros que ficam para trás só somem bem longe (retrovisor), então o trânsito tem 20% a
     // mais de carros para a estrada à frente continuar tão cheia quanto antes
@@ -385,6 +391,11 @@ export class Race {
       c.speed *= { D: 1, C: 1.03, B: 1.08, A: 1.12, S: 1.16 }[perfClass(c.car)];
     }
     if (c.truck) c.speed *= 0.85; // caminhão anda mais devagar
+    // placa: quase todos da região do trecho, alguns de outras regiões; os esportivos com a
+    // placa do país de origem; os genéricos de vários anos (os de antes de 1990, amarela)
+    const regions = Object.keys(REGION_PLATE);
+    const region = r() < 0.85 ? this.region : regions[Math.floor(r() * regions.length)];
+    c.plate = c.car ? makePlate(r, region, c.car.art, modelYear(c.car.basedOn)) : makePlate(r, region, undefined, 1974 + Math.floor(r() * 23));
     c.hit = false;
     c.base = c.speed;
     c.tx = laneCenter(this.track, lane);

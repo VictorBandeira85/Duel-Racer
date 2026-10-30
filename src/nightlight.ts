@@ -26,24 +26,20 @@ export function pushCarLights(x: number, y: number, w: number, look: CarLook, sp
 }
 const blinkOn = () => Math.floor(performance.now() / 250) % 2 === 0;
 
-// Escuridão e facho em pixels do jogo, com degraus de dithering (padrão Bayer 4x4): o mesmo
-// visual chapado da pixel art, sem degradê liso. O facho segue o chão (subida: alcança mais alto
+// Escuridão e facho em pixels do jogo, em degraus chapados: o mesmo visual da pixel art, sem
+// degradê liso. O facho segue o chão (subida: alcança mais alto
 // na tela; topo de lombada: acaba ali) e aponta para onde o carro aponta (nas curvas a estrada
 // sai do facho, como de verdade).
 export interface RoadPt { d: number; y: number; w: number } // distância (segmentos), linha na tela, meia largura da pista
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 let darkCv: HTMLCanvasElement | null = null;
 let warmCv: HTMLCanvasElement | null = null;
 const REACH = 20; // alcance do farol baixo, em segmentos (~28 m de chão bem iluminado)
+// degraus chapados (sem pontilhado): cada pixel vai para o nível mais próximo; a escuridão lisa
+// continua lisa e o facho vira poucas faixas de luz bem definidas, como na pixel art
 function quantize(g: CanvasRenderingContext2D, w: number, h: number, levels: number) {
   const img = g.getImageData(0, 0, w, h);
   const d = img.data;
-  for (let y = 0, i = 3; y < h; y++)
-    for (let x = 0; x < w; x++, i += 4) {
-      const v = (d[i] / 255) * levels;
-      const lo = Math.floor(v);
-      d[i] = Math.round(((v - lo > BAYER[(y & 3) * 4 + (x & 3)] ? lo + 1 : lo) / levels) * 255);
-    }
+  for (let i = 3; i < d.length; i += 4) d[i] = Math.round(Math.round((d[i] / 255) * levels) / levels * 255);
   g.putImageData(img, 0, 0);
 }
 // pinta o facho (alpha) em g: faixas do chão de perto para longe, cada uma pela distância
@@ -133,7 +129,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     g.restore();
   }
   g.globalCompositeOperation = 'source-over';
-  quantize(g, W, H, 5);
+  quantize(g, W, H, 6);
   const prev = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = false;
   c.drawImage(darkCv, vp.x, top);
@@ -162,7 +158,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     wg.fillRect(-st.r, -st.r, st.r * 2, st.r * 2);
     wg.restore();
   }
-  quantize(wg, W, H, 4);
+  quantize(wg, W, H, 6);
   c.save();
   c.globalCompositeOperation = 'lighter';
   c.drawImage(warmCv, vp.x, top);

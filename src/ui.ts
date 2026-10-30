@@ -6,6 +6,33 @@ export const FONT = '"Press Start 2P", monospace';
 const GLYPH_FIX: Record<string, string> = { '◀': '<', '▶': '>', '▲': '^', '▼': 'v', '•': '·', '✓': '', '—': '-', '−': '-', '→': '>', '×': 'x', '≈': '~', '★': '*' };
 export const fixGlyphs = (s: string) => s.replace(/[◀▶▲▼•✓—−→×≈★]/g, (ch) => GLYPH_FIX[ch] ?? ch).trimEnd();
 
+// maiúsculas acentuadas: a fonte de pixel as desenha com corpo de minúscula ("MúSICA"); a letra
+// sai como maiúscula normal e o acento é desenhado por cima, nos pixels da fonte (8 por letra)
+const ACCENT: Record<string, [string, number[][]]> = (() => {
+  const acute = [[4, -3], [5, -3], [3, -2], [4, -2]], grave = [[2, -3], [3, -3], [3, -2], [4, -2]];
+  const circ = [[3, -3], [4, -3], [2, -2], [5, -2]], tilde = [[1, -2], [2, -3], [3, -3], [4, -2], [5, -2], [6, -3]];
+  return {
+    Á: ['A', acute], À: ['A', grave], Â: ['A', circ], Ã: ['A', tilde], É: ['E', acute], Ê: ['E', circ], Í: ['I', acute],
+    Ó: ['O', acute], Ô: ['O', circ], Õ: ['O', tilde], Ú: ['U', acute], Ç: ['C', [[3, 7], [4, 7], [4, 8], [2, 9], [3, 9]]],
+  };
+})();
+const ACCENT_RE = /[ÁÀÂÃÉÊÍÓÔÕÚÇ]/;
+function fillTextAccents(c: CanvasRenderingContext2D, s: string, x: number, y: number, size: number) {
+  if (!ACCENT_RE.test(s)) {
+    c.fillText(s, x, y);
+    return;
+  }
+  const base = [...s].map((ch) => ACCENT[ch]?.[0] ?? ch).join('');
+  c.fillText(base, x, y);
+  const u = size / 8, adv = c.measureText('A').width; // fonte monoespaçada
+  let px = x;
+  for (const ch of s) {
+    const acc = ACCENT[ch];
+    if (acc) for (const [dx, dy] of acc[1]) c.fillRect(px + dx * u, y + dy * u, u, u);
+    px += adv;
+  }
+}
+
 export function text(
   c: CanvasRenderingContext2D, s: string, x: number, y: number,
   size = 8, color = '#fff', align: CanvasTextAlign = 'left', shadow: string | null = '#000',
@@ -20,10 +47,10 @@ export function text(
   c.textBaseline = 'top';
   if (shadow) {
     c.fillStyle = shadow;
-    c.fillText(s, x + 1, y + 1);
+    fillTextAccents(c, s, x + 1, y + 1, size);
   }
   c.fillStyle = color;
-  c.fillText(s, x, y);
+  fillTextAccents(c, s, x, y, size);
 }
 
 export interface Rect { x: number; y: number; w: number; h: number }

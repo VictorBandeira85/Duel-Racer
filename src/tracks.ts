@@ -24,4 +24,16 @@ export const FILE_TRACKS: FileTrack[] = [
   F('18-night-life.mp3', 'Night Life', 'Holizna'),
   F('19-fires-uptown.mp3', 'Fires Uptown', 'Holizna'),
 ];
-export const MUSIC_CREDITS = `Música (CC0, OpenGameArt): ${[...new Set(FILE_TRACKS.map((t) => t.artist))].join(', ')}`;
+export const MUSIC_CREDITS = `Música (CC0, OpenGameArt): ${[...new Set(FILE_TRACKS.map((t) => t.artist.replace(/ /g, '\u00a0')))].join(', ')}`; // nome não quebra no meio
+// em linhas curtas, para caber na largura segura das telas
+export const MUSIC_CREDIT_LINES = (() => {
+  const out: string[] = [];
+  let line = '';
+  for (const w of MUSIC_CREDITS.split(' ')) {
+    if (line && (line + ' ' + w).length > 66) {
+      out.push(line);
+      line = w;
+    } else line = line ? line + ' ' + w : w;
+  }
+  return [...out, line];
+})();

@@ -8,7 +8,7 @@ import type { CareerSave, EventResult } from './career';
 import { drawCareerScreen, keyCareerScreen, openCareer, tapCareerScreen } from './careerScreens';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
-import { MUSIC_CREDITS } from './tracks';
+import { MUSIC_CREDIT_LINES } from './tracks';
 import { CARS, CLASS_COLOR, accelCurve, drawCar, drawCarSide, gearbox, layout, perfClass, perfIndex, type CarSpec } from './cars';
 import { COURSES, unlockedCourses, withTimeOfDay, type Course } from './courses';
 import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
@@ -406,7 +406,7 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
     ink(c, items[i][0], r.x + 10, r.y + 8, 8, INK);
     ink(c, items[i][1], r.x + r.w - 10, r.y + 9, 5, hot ? RED : BLUE, 'right');
   });  // créditos da trilha, discretos no rodapé
-  ink(c, MUSIC_CREDITS, x + SAFE_W / 2, Math.min(view.h - 7, 229), 4, 'rgba(26,22,20,0.45)', 'center');
+  MUSIC_CREDIT_LINES.forEach((l, i) => ink(c, l, x + SAFE_W / 2, Math.min(view.h - 13, 227) + i * 6, 4, 'rgba(26,22,20,0.45)', 'center'));
 }
 function activateOption(s: AppState, a: Actions, i: number) {
   if (i === 0) s.auto = !s.auto;
@@ -552,7 +552,7 @@ const oppCells = () => {
   return Array.from({ length: OPP_PAGE }, (_, i): Rect => ({ x: x + (i % OPP_COLS) * 52, y: y + Math.floor(i / OPP_COLS) * 40, w: 50, h: 38 }));
 };
 const oppFilterRects = () => filterRects(ox() + 68, 21, SAFE_W - 144, 11);
-const oppPageButtons = () => ({ prev: { x: ox() + 268, y: 136, w: 18, h: 11 } as Rect, next: { x: ox() + 298, y: 136, w: 18, h: 11 } as Rect });
+const oppPageButtons = () => ({ prev: { x: ox() + 260, y: 136, w: 18, h: 11 } as Rect, next: { x: ox() + 300, y: 136, w: 18, h: 11 } as Rect });
 const oppButtons = () => ({ back: { x: ox() + 4, y: 20, w: 58, h: 13 } as Rect, ok: { x: ox() + SAFE_W - 70, y: 20, w: 66, h: 13 } as Rect });
 const oppPage = (s: AppState) => Math.floor(s.sel / OPP_PAGE);
 
@@ -637,7 +637,7 @@ function drawOpponent(c: CanvasRenderingContext2D, s: AppState) {
     const pb = oppPageButtons();
     arrow(c, pb.prev, 'left', true);
     arrow(c, pb.next, 'right', true);
-    ink(c, `${pg + 1}/${pages}`, x + 292, 139, 5, GREY, 'center');
+    ink(c, `${pg + 1}/${pages}`, x + 289, 139, 5, GREY, 'center');
   }
   oppCells().forEach((r, slot) => {
     const li = pg * OPP_PAGE + slot;
@@ -756,8 +756,8 @@ export function padlock(c: CanvasRenderingContext2D, cx: number, cy: number) {
 const LEVEL_STARS: Record<string, number> = { Fácil: 1, Médio: 2, Difícil: 3, Expert: 4, Lenda: 5 };
 // um trecho do roteiro: quadradinho com a cor do bioma, lua (noite), nuvem (chuva/neve/neblina) e sol (pôr do sol)
 const PLACE: Record<string, string> = {
-  forest: 'Floresta', farm: 'Fazenda', desert: 'Deserto', city: 'Cidade', mountain: 'Serra', snow: 'Neve', coast: 'Litoral',
-  canyon: 'Cânion', jungle: 'Selva', autumn: 'Outono', beach: 'Praia', savanna: 'Savana', industrial: 'Indústria', alpine: 'Alpes', alpinesnow: 'Alpes',
+  forest: 'Mata', farm: 'Fazenda', desert: 'Deserto', city: 'Cidade', mountain: 'Serra', snow: 'Neve', coast: 'Litoral',
+  canyon: 'Cânion', jungle: 'Selva', autumn: 'Outono', beach: 'Praia', savanna: 'Savana', industrial: 'Fábrica', alpine: 'Alpes', alpinesnow: 'Alpes',
 };
 // um trecho do roteiro: etiqueta com a cor do bioma e o nome; lua (noite), gotas/flocos/neblina e o sol se pondo
 export function stageChip(c: CanvasRenderingContext2D, x: number, y: number, st: Course['stages'][number]) {

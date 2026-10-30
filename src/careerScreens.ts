@@ -36,7 +36,7 @@ function topBar(c: CanvasRenderingContext2D, s: AppState, title: string, cs: Car
   // saldo do leitor no canto, como etiqueta de preço
   const x = ox() + SAFE_W - 4;
   c.font = '5px "Press Start 2P", monospace';
-  const w = Math.ceil(c.measureText(money(cs.money)).width) + 30;
+  const w = Math.ceil(c.measureText(`SALDO ${money(cs.money)}`).width) + 7;
   c.fillStyle = '#1a6a2a';
   c.fillRect(x - w, 19, w, 11);
   text(c, `SALDO ${money(cs.money)}`, x - 3, 22, 5, '#fff', 'right', null);
@@ -122,7 +122,7 @@ export function drawCareer(c: CanvasRenderingContext2D, s: AppState) {
     ink(c, `vs ${ev.driver.name} • ${ev.stages.length} trecho${ev.stages.length > 1 ? 's' : ''}`, r.x + 26, r.y + 17, 5, can ? BLUE : GREY);
     ink(c, money(done ? ev.prize / 2 : ev.prize), r.x + r.w - 6, r.y + 5, 5, can ? '#1a6a2a' : GREY, 'right');
     if (done) ink(c, 'VENCIDO ✓', r.x + r.w - 6, r.y + 17, 5, '#1a6a2a', 'right');
-    else if (!can) padlock(c, r.x + r.w - 14, r.y + 18);
+    else if (!can) padlock(c, r.x + r.w - 60, r.y + 15); // ao lado do prêmio, sem cobrir o valor
   });
   tag(c, b.collection, 'GARAGEM');
   tag(c, b.garage, 'OFICINA');
@@ -554,6 +554,11 @@ export function openCareer(s: AppState, a: Actions) {
 }
 
 export function drawCareerScreen(c: CanvasRenderingContext2D, s: AppState) {
+  // sem carreira carregada (não deveria acontecer): volta para a capa em vez de quebrar
+  if (!s.career) {
+    s.screen = 'title';
+    return;
+  }
   switch (s.screen) {
     case 'career': return drawCareer(c, s);
     case 'event': return drawEvent(c, s);

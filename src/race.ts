@@ -1146,7 +1146,6 @@ export class Race {
 
   private updatePolice(dt: number) {
     const pz = this.playerZ;
-    const max = this.car.maxSpeed;
     this.radar = 0;
     let siren = false;
     for (const p of this.police) {
@@ -1327,7 +1326,6 @@ export class Race {
   private checkCollisions() {
     const pz = this.playerZ;
     const r = this.rival;
-    const max = this.car.maxSpeed;
     const myHalf = (CAR_W / 2) * HITBOX;
 
     for (const c of this.traffic) {

@@ -42,7 +42,7 @@ export interface RoadPt { d: number; x: number; y: number; w: number } // distâ
 let darkCv: HTMLCanvasElement | null = null;
 const occCv = document.createElement('canvas'), tmpCv = document.createElement('canvas');
 let warmCv: HTMLCanvasElement | null = null;
-const REACH = 20; // alcance do farol baixo, em segmentos (~28 m de chão bem iluminado)
+const REACH = 25; // alcance do farol baixo, em segmentos (~35 m de chão bem iluminado)
 // degraus chapados (sem pontilhado): cada pixel vai para o nível mais próximo; a escuridão lisa
 // continua lisa e o facho vira poucas faixas de luz bem definidas, como na pixel art
 function quantize(g: CanvasRenderingContext2D, w: number, h: number, levels: number) {

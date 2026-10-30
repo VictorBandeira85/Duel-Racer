@@ -17,6 +17,8 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
   if (url.origin !== location.origin) return;
+  // áudio pedido em partes (Range): direto da rede, o cache não guarda resposta parcial
+  if (e.request.headers.has('range')) return;
   // a página: rede primeiro (pega versão nova), cache se estiver sem internet
   if (e.request.mode === 'navigate') {
     e.respondWith(

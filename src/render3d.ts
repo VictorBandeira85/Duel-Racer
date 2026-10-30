@@ -3,6 +3,7 @@ import { drawCrisp } from './crisp';
 import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { CARS, drawCar } from './cars';
 import { lowFx } from './perf';
+import { adsReady } from './billboards';
 import { beginLights, finishNight, mirrorGlare, mirrorWash, pushStreetLight, setLightClip, type Pass, type RoadPt } from './nightlight';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
 import { SPRITES } from './sprites';
@@ -385,7 +386,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       // mais larga que o objeto para caber o que passa da largura (braço do poste etc.)
       const seed = sp.kind === 'building' ? sp.seed % 45 : sp.kind === 'billboard' ? sp.seed % 100 : sp.kind === 'house' ? sp.seed % 6 : sp.kind === 'autumn' || sp.kind === 'umbrella' ? sp.seed % 3 : 0;
       const bw = sw * (sp.kind === 'lamp' ? 3.4 : 1.1);
-      drawCrisp(c, `${sp.kind}${seed}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed));
+      drawCrisp(c, `${sp.kind}${seed}${sp.kind === 'billboard' && !adsReady(seed) ? 'w' : ''}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed));
       // poste aceso à noite: a lâmpada fica na ponta do braço, sobre o acostamento
       if (lit && sp.kind === 'lamp') pushStreetLight(sx - sw * 1.3, s.p1.screen.y - sh + sw * 0.5, sw * 9, dist, (sx - sw * 1.3 - s.p1.screen.x) / Math.max(1, s.p1.screen.w));
     }

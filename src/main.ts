@@ -13,6 +13,7 @@ import { paintHex } from './paint';
 import { preloadCockpit, renderCockpit } from './cockpit';
 import { applyBtnSize, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { input, pollGamepad, releaseAll, setupInput } from './input';
+import { MUSIC_CREDITS } from './tracks';
 import { initAudio, musicTitle, playMusic, setEngine, setMusicOn, setMusicVolume, setMuted, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
 import { preloadSvg } from './svgsprites';
@@ -24,6 +25,7 @@ preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.s
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
 const $ = (id: string) => document.getElementById(id)!;
+$('credits').textContent = MUSIC_CREDITS;
 
 const state: AppState = {
   screen: 'title', t: 0, sel: 1, auto: true, sound: true, music: true,

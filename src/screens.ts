@@ -8,6 +8,7 @@ import type { CareerSave, EventResult } from './career';
 import { drawCareerScreen, keyCareerScreen, openCareer, tapCareerScreen } from './careerScreens';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
+import { MUSIC_CREDITS } from './tracks';
 import { CARS, CLASS_COLOR, accelCurve, drawCar, drawCarSide, gearbox, layout, perfClass, perfIndex, type CarSpec } from './cars';
 import { COURSES, unlockedCourses, withTimeOfDay, type Course } from './courses';
 import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
@@ -404,7 +405,8 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
     ink(c, items[i][0], r.x + 10, r.y + 8, 8, INK);
     ink(c, items[i][1], r.x + r.w - 10, r.y + 9, 5, hot ? RED : BLUE, 'right');
-  });
+  });  // créditos da trilha, discretos no rodapé
+  ink(c, MUSIC_CREDITS, x + SAFE_W / 2, Math.min(view.h - 7, 229), 4, 'rgba(26,22,20,0.45)', 'center');
 }
 function activateOption(s: AppState, a: Actions, i: number) {
   if (i === 0) s.auto = !s.auto;

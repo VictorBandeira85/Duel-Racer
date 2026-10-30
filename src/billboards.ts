@@ -2,8 +2,12 @@
 // postos, polícia, celulares, rádios, lugares, comidas e eletrônicos). Cada um é desenhado uma
 // vez em pixels nativos (AW x AH) com fonte de 3x5 e ícones feitos à mão, e depois ampliado sem
 // suavizar no painel do outdoor. Todas as marcas são inventadas.
+import { CARS, drawCar, drawCarSide, type CarSpec } from './cars';
+import { KMH } from './config';
+import { spriteAspect } from './svgsprites';
+import { FONT, fixGlyphs, text } from './ui';
 
-export const AW = 90, AH = 29; // proporção do painel do outdoor
+export const AW = 128, AH = 41; // proporção do painel do outdoor (unidades; 2 px cada)
 
 type Icon = (g: Pen, x: number, y: number, a: Ad) => void; // caixa de 24x24
 interface Ad { l: 'L' | 'R' | 'C' | 'S' | 'M' | 'K'; t: string; s: string; bg: string; fg: string; ac: string; i?: string; b?: string }
@@ -358,30 +362,40 @@ const ICONS: Record<string, Icon> = {
 // tipo do carro; b: segunda cor do fundo
 const A = (l: Ad['l'], t: string, s: string, bg: string, fg: string, ac: string, i?: string, b?: string): Ad => ({ l, t, s, bg, fg, ac, i, b });
 export const ADS: Ad[] = [
-  // capas de revista
-  A('M', 'AUTO TURBO', 'TESTE: 5 ESPORTIVOS', '#f4f4f0', '#202020', '#d02020', 'sport'),
-  A('M', 'MOTOR & PISTA', 'OS 10 MAIS RAPIDOS', '#f4f4f0', '#202020', '#1a3aa8', 'sedan'),
-  A('M', 'VELOZ', 'ESPECIAL MOTORES V8', '#fff8d0', '#202020', '#e05a10', 'sport'),
-  A('M', 'GARAGEM 90', 'GUIA DE USADOS', '#f4f4f0', '#202020', '#2a8a3a', 'hatch'),
-  A('M', 'RONCO', 'O NOVO V12 NA PISTA', '#f4f4f0', '#202020', '#202020', 'sport'),
-  A('M', 'PISTA & CIA', 'COMPARATIVO: HATCHES', '#f0f4ff', '#202020', '#7a2ac8', 'hatch'),
-  A('M', 'OFICINA', 'FACA VOCE MESMO', '#f4f4f0', '#202020', '#e0a010', 'jeep'),
-  A('M', 'TURBO MAX', 'DE 0 A 100 EM 4S', '#202024', '#f4f4f0', '#ffd020', 'sport'),
-  A('M', 'FORA DE ESTRADA', 'TRILHAS DA SERRA', '#f4f4f0', '#202020', '#6a4a20', 'jeep'),
-  A('M', 'CLASSICOS', 'EDICAO COLECIONADOR', '#f8f0e0', '#3a2a1a', '#b83a2a', 'sedan'),
-  // carros (marcas inventadas)
-  A('K', 'ARCTUS 2.0', 'NOVO SEDAN. CHEGOU!', '#1a3aa8', '#ffffff', '#c8c8d0', 'sedan', '#0a1a5a'),
-  A('K', 'VELTRA GT', 'NASCIDO PARA CORRER', '#202024', '#ffd020', '#d02020', 'sport', '#000000'),
-  A('K', 'NOVA ZETA', 'O HATCH DA FAMILIA', '#e8e8e0', '#202020', '#2a8a3a', 'hatch', '#c8c8c0'),
-  A('K', 'TORRO 4X4', 'VAI ONDE VOCE FOR', '#6a4a20', '#ffe8a0', '#e0c080', 'jeep', '#3a2a10'),
-  A('K', 'SOLENA', 'CONVERSIVEL 1994', '#ff8a20', '#ffffff', '#ffe040', 'sport', '#d04a10'),
-  A('K', 'CARGO MAX', 'A PICAPE QUE AGUENTA', '#5a6a5a', '#ffffff', '#e8e8e0', 'pickup', '#3a4a3a'),
-  A('K', 'LUMEN 1.6', '0KM SEM ENTRADA', '#ffffff', '#1a3aa8', '#1a3aa8', 'hatch', '#d8e0f0'),
-  A('K', 'ORIAN V6', 'LUXO E POTENCIA', '#101018', '#e8c060', '#b8b8c8', 'sedan', '#2a2a3a'),
-  A('K', 'FAISCA', 'ESPORTIVO POPULAR', '#d02020', '#ffffff', '#ffd020', 'sport', '#8a1010'),
-  A('K', 'CAMPEIRA', 'TRABALHO E LAZER', '#e0d8b0', '#3a2a1a', '#8a2a1a', 'pickup', '#c0b890'),
-  A('K', 'RAIO X-16', 'MOTOR 16 VALVULAS', '#2a2a6a', '#80ffff', '#ff40c0', 'sport', '#0a0a2a'),
-  A('K', 'VIAJORA', 'PERUA PARA A FAMILIA', '#2a7a6a', '#ffffff', '#f0f0e0', 'sedan', '#1a4a40'),
+  // capas da revista DUEL RACER com os carros do jogo (i: foto de lado, de frente, de trás ou comparativo)
+  A('M', 'TESTE EXCLUSIVO', 'NAS BANCAS', '#efe6d2', '#1a1614', '#d01f26', 'test'),
+  A('M', 'POR TODOS OS ANGULOS', 'NAS BANCAS', '#efe6d2', '#1a1614', '#1e4fb8', 'front'),
+  A('M', 'FLAGRA NA ESTRADA', 'NAS BANCAS', '#efe6d2', '#1a1614', '#1a1614', 'rear'),
+  A('M', 'COMPARATIVO', 'NAS BANCAS', '#efe6d2', '#1a1614', '#1f7a3a', 'compare'),
+  A('M', 'ESPECIAL NACIONAIS', 'NAS BANCAS', '#efe6d2', '#1a1614', '#d01f26', 'test'),
+  A('M', 'O MAIS RAPIDO DO ANO', 'NAS BANCAS', '#efe6d2', '#1a1614', '#d01f26', 'test'),
+  A('M', 'NA CONTRAMAO', 'NAS BANCAS', '#efe6d2', '#1a1614', '#1e4fb8', 'front'),
+  A('M', 'TESTE DE ESTRADA', 'NAS BANCAS', '#efe6d2', '#1a1614', '#1a1614', 'rear'),
+  A('M', 'DUELO DO MES', 'NAS BANCAS', '#efe6d2', '#1a1614', '#1f7a3a', 'compare'),
+  A('M', 'EDICAO DE COLECIONADOR', 'NAS BANCAS', '#efe6d2', '#1a1614', '#d01f26', 'test'),
+  A('M', 'OS CAMPEOES DA SERRA', 'NAS BANCAS', '#efe6d2', '#1a1614', '#d01f26', 'front'),
+  A('M', 'ACELERAMOS', 'NAS BANCAS', '#efe6d2', '#1a1614', '#1e4fb8', 'test'),
+  A('M', '0 A 100: QUEM VENCE?', 'NAS BANCAS', '#efe6d2', '#1a1614', '#1a1614', 'compare'),
+  A('M', 'TESTE NA CHUVA', 'NAS BANCAS', '#efe6d2', '#1a1614', '#1f7a3a', 'rear'),
+  A('M', 'CARRO DO ANO 1994', 'NAS BANCAS', '#efe6d2', '#1a1614', '#d01f26', 'test'),
+  A('M', 'FLAGRA NO LITORAL', 'NAS BANCAS', '#efe6d2', '#1a1614', '#d01f26', 'front'),
+  A('M', 'TESTE COMPLETO', 'NAS BANCAS', '#efe6d2', '#1a1614', '#1e4fb8', 'test'),
+  A('M', 'DE OLHO NO RADAR', 'NAS BANCAS', '#efe6d2', '#1a1614', '#1a1614', 'rear'),
+  A('M', 'FICHA TECNICA', 'NAS BANCAS', '#efe6d2', '#1a1614', '#1f7a3a', 'test'),
+  A('M', 'NAS BANCAS!', 'NAS BANCAS', '#efe6d2', '#1a1614', '#d01f26', 'front'),
+  // concessionárias com os carros do jogo
+  A('K', 'AUTO VALE VEICULOS', '0KM - TAXA ZERO', '#1e4fb8', '#ffffff', '#ffd21a', undefined, '#0a1a5a'),
+  A('K', 'GARAGEM CENTRAL', 'SEMINOVOS COM GARANTIA', '#1a1614', '#ffd21a', '#d01f26', undefined, '#000000'),
+  A('K', 'MOTORSUL', 'CONSORCIO EM 50 MESES', '#e8e8e0', '#1a1614', '#1f7a3a', undefined, '#b8b8b0'),
+  A('K', 'RODOCAR', 'TROCA NA HORA', '#d01f26', '#ffffff', '#ffd21a', undefined, '#7a0a10'),
+  A('K', 'SERRA VEICULOS', 'FINANCIAMENTO EM 24X', '#2a2a3a', '#e8c060', '#e8c060', undefined, '#0a0a14'),
+  A('K', 'LITORAL MOTORS', 'ACEITAMOS SEU USADO', '#2a7ad0', '#ffffff', '#ffd21a', undefined, '#0a3a7a'),
+  A('K', 'CARRO NOVO JA', 'SAIA DIRIGINDO HOJE', '#ffd21a', '#1a1614', '#d01f26', undefined, '#c89a10'),
+  A('K', 'IMPORTADOS PRIME', 'OS MAIS DESEJADOS', '#101018', '#ffffff', '#d01f26', undefined, '#000000'),
+  A('K', 'FEIRAO DO USADO', 'SABADO E DOMINGO', '#ff8a20', '#ffffff', '#1a1614', undefined, '#c04a10'),
+  A('K', 'AUTO PECA VEICULOS', 'REVISAO GRATIS', '#1f7a3a', '#ffffff', '#ffd21a', undefined, '#0a3a1a'),
+  A('K', 'CENTRO AUTOMOTIVO', 'SEU CARRO NOVO AQUI', '#efe6d2', '#1a1614', '#1e4fb8', undefined, '#c8bca0'),
+  A('K', 'METROPOLE MOTORS', 'PRIMEIRA PARCELA EM 95', '#5a1a8a', '#ffffff', '#ff60c0', undefined, '#20083a'),
   // peças e serviços
   A('L', 'PISTAO FORTE', 'PECAS DE MOTOR', '#202024', '#ffd020', '#ffd020', 'piston'),
   A('R', 'VELAS FAISCA', 'PARTIDA NA HORA', '#1a3aa8', '#ffffff', '#ffe040', 'plug'),
@@ -397,8 +411,6 @@ export const ADS: Ad[] = [
   A('R', 'FAROL DE MILHA', 'ENXERGUE MAIS LONGE', '#101830', '#fff4b0', '#ffe040', 'lamp'),
   A('L', 'AUTO CENTER', 'MECANICA E FUNILARIA', '#d02020', '#ffffff', '#ffffff', 'wrench'),
   A('R', 'CAPACETES ZOOM', 'SEGURANCA NA PISTA', '#f4f4f0', '#202020', '#d02020', 'helmet'),
-  A('L', 'CHAVEIRO 24H', 'COPIA DE CHAVE AUTO', '#1a3aa8', '#ffffff', '#ffe040', 'key'),
-  A('R', 'PECAS JA', 'ENTREGA EM 1 HORA', '#2a8a3a', '#ffffff', '#ffe040', 'wrench'),
   // combustível
   A('L', 'POSTO ESTRELA', 'GASOLINA ADITIVADA', '#d02020', '#ffffff', '#ffe040', 'pump'),
   A('R', 'AZUL', 'COMBUSTIVEL DE RAIZ', '#1a3aa8', '#ffffff', '#40a0ff', 'drop'),
@@ -422,7 +434,6 @@ export const ADS: Ad[] = [
   A('R', 'ONDA TEL', 'COBERTURA NA ESTRADA', '#1a8ab0', '#ffffff', '#ffe040', 'cell'),
   A('L', 'BIP BIP', 'SEU PAGER CHAMA', '#202024', '#a8ff90', '#a8ff90', 'pager'),
   A('R', 'ORELHAO', 'CARTAO 50 UNIDADES', '#f0a020', '#202020', '#1a3aa8', 'payphone'),
-  A('L', 'TELE SUL', 'LIGUE 0800 GRATIS', '#2a8a3a', '#ffffff', '#ffe040', 'cell'),
   A('C', 'DISK PIZZA', '555-0190', '#d02020', '#ffffff', '#ffe040'),
   // rádio
   A('L', 'RODOVIA FM', '98.7 - SEU PARCEIRO', '#202024', '#ffb020', '#ffb020', 'radio'),
@@ -430,7 +441,6 @@ export const ADS: Ad[] = [
   A('L', 'ROCK 87', 'FM - ALTO VOLUME', '#101010', '#ff3020', '#ff3020', 'waves'),
   A('R', 'AM 640', 'NOTICIAS 24 HORAS', '#f4f4f0', '#1a3aa8', '#d02020', 'radio'),
   A('S', 'NOITE FM', 'FM 92.1', '#1a0a3a', '#ff60e0', '#ffd020', 'city', '#ff4a8a'),
-  A('L', 'PAGODE 95', 'FM - ALEGRIA', '#e05a10', '#ffffff', '#ffe040', 'radio'),
   // lugares
   A('S', 'PRAIA DO SOL', 'A 12 KM', '#2a6ad8', '#ffffff', '#ffd020', 'palm', '#ff8a40'),
   A('S', 'SERRA AZUL', 'MIRANTE A 3 KM', '#1a2a6a', '#ffffff', '#ffd020', 'mountain', '#6a8ad8'),
@@ -441,7 +451,6 @@ export const ADS: Ad[] = [
   A('L', 'AUTODROMO', 'CORRIDA DOMINGO 14H', '#202024', '#ffffff', '#d02020', 'flag'),
   A('R', 'CHURRASCARIA', 'RODIZIO - PROX. SAIDA', '#6a2a10', '#ffe0a0', '#ffe0a0', 'fork'),
   A('L', 'MOTEL ESTRELA', 'SUITES COM HIDRO', '#3a0a2a', '#ff80c0', '#ff80c0', 'heart'),
-  A('R', 'AEROCLUBE', 'VOOS PANORAMICOS', '#4a8ad8', '#ffffff', '#ffe040', 'plane'),
   A('C', 'BEM-VINDO', 'VOLTE SEMPRE!', '#2a8a3a', '#ffffff', '#ffe040'),
   A('L', 'RODOVIARIA', 'ONIBUS PARA O LITORAL', '#1a3aa8', '#ffffff', '#ffe040', 'bus'),
   // comidas e bebidas
@@ -451,7 +460,6 @@ export const ADS: Ad[] = [
   A('L', 'CAFE DA SERRA', 'PARADA OBRIGATORIA', '#4a2a10', '#ffe0a0', '#ffe0a0', 'cup'),
   A('R', 'BURGER 90', 'LANCHE EM 5 MINUTOS', '#ffd020', '#d02020', '#d02020', 'burger'),
   A('L', 'PIZZA EXPRESSA', 'ENTREGA NA RODOVIA', '#202024', '#ffd040', '#ff4020', 'pizza'),
-  A('R', 'BOLHA', 'CHICLETE TUTTI-FRUTTI', '#ff60b0', '#ffffff', '#ffe040', 'bubble'),
   A('L', 'SUCO TROPICAL', '100% DA FRUTA', '#ff9020', '#ffffff', '#2a8a3a', 'orange'),
   // eletrônicos, moda e outros
   A('L', 'VIDEO CLUBE', 'LANCAMENTOS EM VHS', '#1a1a4a', '#ffd020', '#ffd020', 'vhs'),
@@ -459,10 +467,6 @@ export const ADS: Ad[] = [
   A('L', 'TV TELA 29', 'CONTROLE REMOTO!', '#202024', '#ffffff', '#40a0ff', 'tv'),
   A('R', 'TURBO 16 BITS', 'O VIDEOGAME DO ANO', '#101010', '#ff4040', '#40a0ff', 'pad'),
   A('L', 'FOTO RAPIDA', 'REVELE EM 1 HORA', '#ffd020', '#d02020', '#d02020', 'camera'),
-  A('R', 'OCULOS SOLAR', 'ESTILO NA ESTRADA', '#ff40c0', '#ffffff', '#202020', 'glasses'),
-  A('L', 'JEANS INDIGO', 'O JEANS DA GALERA', '#3a5aa8', '#ffffff', '#e8a030', 'jeans'),
-  A('R', 'TENIS PULO', 'COM AMORTECEDOR', '#202024', '#ffffff', '#40ff60', 'shoe'),
-  A('L', 'DIGITAL 2000', 'RELOGIO CALCULADORA', '#2a2a30', '#a8ff90', '#a8ff90', 'watch'),
   A('R', 'MICRO 486', 'COM KIT MULTIMIDIA', '#e0dcc8', '#1a3aa8', '#1a3aa8', 'pc'),
   A('L', 'SHOPPING SUL', 'LIQUIDACAO DE VERAO', '#ff8a20', '#ffffff', '#d02020', 'bag'),
   A('S', 'DUEL RACER', 'O DESAFIO', '#1a0a3a', '#ffd020', '#ff40c0', 'car', '#ff4a8a'),
@@ -471,65 +475,184 @@ export const ADS: Ad[] = [
 ];
 
 // ---------- desenho de cada layout ----------
-function drawAd(g: Pen, a: Ad) {
-  const icon = a.i ? ICONS[a.i] : undefined;
-  const sh = 'rgba(0,0,0,0.45)';
-  g.r(0, 0, AW, AH, a.bg);
-  if (a.l === 'L' || a.l === 'R') {
-    const left = a.l === 'L';
-    // faixa diagonal de destaque atrás do ícone
-    for (let y = 0; y < AH; y++) g.r(left ? 0 : AW - 32 + Math.floor(y / 3), y, 32 - Math.floor(y / 3), 1, shade(a.bg.length === 7 ? a.bg : '#808080', 0.8));
-    const x0 = left ? 30 : 3, w = AW - 33;
-    const sub = a.ac === a.bg ? a.fg : a.ac;
-    if (textW(a.s, 1) <= w) {
-      icon?.(g, left ? 3 : AW - 27, 2, a);
-      g.fit(a.t, x0 + w / 2, 4, w, a.fg, 2, sh);
-      g.r(x0 + 2, 17, w - 4, 1, a.ac);
-      g.text(a.s, x0 + w / 2 - textW(a.s, 1) / 2, 20, sub, 1);
-    } else {
-            // frase longa: o ícone fica atrás de uma faixa na largura toda, com a frase centrada
-      icon?.(g, left ? 3 : AW - 27, 1, a);
-      g.fit(a.t, x0 + w / 2, 3, w, a.fg, 2, sh);
-      g.r(0, AH - 8, AW, 8, sub);
-      g.r(0, AH - 8, AW, 1, shade(sub, 1.3));
-      g.text(a.s, AW / 2 - textW(a.s, 1) / 2, AH - 6, luma(sub) > 140 ? '#151515' : '#ffffff', 1);
+// Tudo no visual das telas do jogo: a fonte e a tipografia da revista (logotipo com contorno,
+// chapéu, retícula de impressão) e, nas capas e concessionárias, os sprites dos carros do jogo.
+// A arte é feita em AW x AH unidades com 2 pixels por unidade (a fonte fica nítida em 8 e 16 px).
+const SC = 2;
+const fontOk = () => document.fonts?.check?.('16px "Press Start 2P"') ?? true;
+const coverCars = () => CARS.filter((c) => c.imgSide && c.rear.img && c.rear.frontImg && !c.arcadeOnly);
+// carro de cada capa/concessionária (em sequência pela lista de carros com arte)
+function adCar(a: Ad) {
+  const list = coverCars();
+  const k = a.l === 'M' ? ADS.filter((x) => x.l === 'M').indexOf(a) : ADS.filter((x) => x.l === 'K').indexOf(a) * 2 + 1;
+  return list.length ? list[k % list.length] : undefined;
+}
+const carReady = (car?: CarSpec) => !!car && !!spriteAspect(car.imgSide!) && !!spriteAspect(car.rear.img!) && !!spriteAspect(car.rear.frontImg!);
+
+function tw(c: CanvasRenderingContext2D, s: string, size: number) {
+  c.font = `${size}px ${FONT}`;
+  return c.measureText(fixGlyphs(s)).width;
+}
+// título com contorno (logotipo da revista): 8 unidades se couber na largura (em até `lines`
+// linhas), senão 4; o contorno contrasta com a cor do texto
+function title(c: CanvasRenderingContext2D, s: string, x: number, y: number, w: number, fill: string, _out: string, align: CanvasTextAlign = 'left', lines = 1) {
+  const out = luma(fill) > 120 ? '#1a1614' : 'rgba(255,255,255,0.7)';
+  let rows = [s];
+  let size = tw(c, s, 8) <= w ? 8 : 0;
+  if (!size && lines > 1) {
+    // duas linhas, quebrando no espaço que deixa as duas mais parecidas
+    const words = s.split(' ');
+    let best: string[] | null = null;
+    for (let k = 1; k < words.length; k++) {
+      const r = [words.slice(0, k).join(' '), words.slice(k).join(' ')];
+      if (Math.max(tw(c, r[0], 8), tw(c, r[1], 8)) <= w && (!best || Math.abs(r[0].length - r[1].length) < Math.abs(best[0].length - best[1].length))) best = r;
     }
-  } else if (a.l === 'C') {
-    for (let x = 0; x < AW; x += 6) { g.r(x, 0, 3, 3, a.ac); g.r(x + 3, AH - 3, 3, 3, a.ac); }
-    g.fit(a.t, AW / 2, 6, AW - 6, a.fg, 2, sh);
-    g.fit(a.s, AW / 2, 19, AW - 6, a.fg, 1);
-  } else if (a.l === 'S') {
-    // céu em faixas (degradê em degraus) e o sol listrado, estilo synthwave
-    const b = a.b ?? a.ac;
-    for (let y = 0; y < AH; y++) g.r(0, y, AW, 1, mix(a.bg, b, Math.min(1, y / (AH - 6))));
-    g.disc(AW - 20, AH - 6, 11, a.ac);
-    for (let y = AH - 12; y < AH; y += 3) g.r(AW - 32, y, 24, 1, mix(a.bg, b, 0.8));
-    g.r(0, AH - 5, AW, 5, '#120a20');
-    for (let x = 0; x < AW; x += 8) g.r(x, AH - 4, 1, 4, b);
-    g.r(0, AH - 5, AW, 1, b);
-    icon?.(g, AW - 32, AH - 28, a);
-    g.text(a.t, 3, 4, a.fg, textW(a.t, 2) <= 58 ? 2 : 1, sh);
-    g.text(a.s, 3, textW(a.t, 2) <= 58 ? 16 : 11, '#ffffff', 1);
-  } else if (a.l === 'M') {
-    // capa de revista: título no alto, carro grande, chamadas e o selo de preço
-    g.r(0, 0, AW, 9, a.ac);
-    g.fit(a.t, AW / 2, 2, AW - 4, a.ac === '#202020' || a.ac === '#202024' ? '#ffd020' : '#ffffff', 1);
-    for (let y = 9; y < 23; y++) g.r(0, y, AW, 1, mix('#9cc8e8', '#e8f0f8', (y - 9) / 14));
-    g.r(0, 20, AW, 3, '#5a5a62');
-    car(g, 26, 22, 44, a.ac === '#202020' || a.ac === '#202024' ? '#d02020' : a.ac, a.i);
-    g.r(0, 23, AW, 6, a.bg);
-    g.fit(a.s, AW / 2, 23, AW - 4, a.fg, 1);
-    g.disc(9, 15, 7, '#ffd020');
-    g.text('R$5', 3, 13, '#d02020');
-  } else {
-    // anúncio de carro: fundo em degraus, carro de lado, marca e a faixa com a frase
+    if (best) {
+      rows = best;
+      size = 8;
+    }
+  }
+  if (!size) size = 4;
+  const ax = align === 'center' ? x + w / 2 : align === 'right' ? x + w : x;
+  rows.forEach((row, k) => {
+    const yy = y + k * 9 + (size === 4 ? 2 : 0);
+    if (size === 8) for (const [dx, dy] of [[-0.5, 0], [0.5, 0], [0, -0.5], [0, 0.5], [1, 1]]) text(c, row, ax + dx, yy + dy, size, out, align, null);
+    else text(c, row, ax + 0.5, yy + 0.5, size, out, align, null);
+    text(c, row, ax, yy, size, fill, align, null);
+  });
+  return size;
+}
+// faixa com texto pequeno (chapéu de revista)
+function ribbon(c: CanvasRenderingContext2D, s: string, x: number, y: number, bg: string, fg: string, w?: number) {
+  const ww = w ?? tw(c, s, 4) + 4;
+  c.fillStyle = bg;
+  c.fillRect(x, y, ww, 7);
+  text(c, s, w ? x + ww / 2 : x + 2, y + 1.5, 4, fg, w ? 'center' : 'left', null);
+}
+function dots(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, col: string) {
+  c.fillStyle = col;
+  for (let yy = y; yy < y + h; yy += 2) for (let xx = x + ((yy - y) / 2) % 2; xx < x + w; xx += 2) c.fillRect(xx, yy, 0.5, 0.5);
+}
+const ink2 = (bg: string) => (luma(bg) > 140 ? '#1a1614' : '#ffffff');
+
+function drawAd(c: CanvasRenderingContext2D, a: Ad) {
+  const g = new Pen(c);
+  const icon = a.i ? ICONS[a.i] : undefined;
+  g.r(0, 0, AW, AH, a.bg);
+  if (a.l === 'M') {
+    // capa da revista DUEL RACER: faixa vermelha com o logotipo, foto de estúdio com o carro
+    const car = adCar(a);
+    c.fillStyle = '#efe6d2';
+    c.fillRect(0, 0, AW, AH);
+    dots(c, 0, 0, AW, AH, 'rgba(120,96,60,0.18)');
+    c.fillStyle = '#d01f26';
+    c.fillRect(0, 0, AW, 11);
+    title(c, 'DUEL RACER', 3, 1.5, 90, '#ffd21a', '#1a1614');
+    text(c, 'Nº' + String((ADS.indexOf(a) % 12) + 1).padStart(2, '0'), AW - 3, 1, 4, '#ffe0a0', 'right', null);
+    text(c, '1994', AW - 3, 6, 4, '#ffe0a0', 'right', null);
+    // foto: fundo infinito de estúdio
+    const py = 12, ph = AH - py - 1;
+    for (let y = 0; y < ph; y++) {
+      const f = y / ph;
+      c.fillStyle = f < 0.66 ? mix('#5e6670', '#c8cdd2', f / 0.66) : mix('#aeb3b8', '#d2d6da', (f - 0.66) / 0.34);
+      c.fillRect(1, py + y, AW - 2, 1);
+    }
+    if (car) {
+      c.save();
+      c.beginPath();
+      c.rect(1, py, AW - 2, ph);
+      c.clip();
+      const look = { color: car.color, rear: car.rear };
+      if (a.i === 'front') drawCar(c, AW - 34, AH - 3, 40, { ...look, front: true });
+      else if (a.i === 'rear') drawCar(c, AW - 34, AH - 3, 40, look);
+      else if (a.i === 'compare') {
+        const other = coverCars()[(coverCars().indexOf(car) + 5) % coverCars().length];
+        c.save();
+        c.translate(2 * (AW - 88) + 44, 0);
+        c.scale(-1, 1);
+        drawCarSide(c, AW - 88, AH - 3, 44, car);
+        c.restore();
+        drawCarSide(c, AW - 46, AH - 3, 44, other);
+        text(c, 'X', AW - 46, py + 10, 8, '#ffd21a', 'center', '#1a1614');
+      } else drawCarSide(c, AW - 70, AH - 3, 68, car);
+      c.restore();
+      ribbon(c, a.t, 3, py + 2, a.ac, a.ac === '#1a1614' ? '#ffd21a' : '#ffffff');
+      title(c, car.name.toUpperCase(), 3, py + 11, a.i === 'compare' ? 40 : 56, '#ffffff', '#1a1614');
+      ribbon(c, `${car.power} • ${Math.round(car.maxSpeed * KMH)} KM/H`, 3, AH - 9, 'rgba(26,22,20,0.82)', '#ffffff');
+    }
+  } else if (a.l === 'K') {
+    // concessionária: salão de vendas com o carro do jogo, nome da loja e a oferta
+    const car = adCar(a);
     const b = a.b ?? shade(a.bg, 0.6);
-    for (let y = 0; y < AH; y++) g.r(0, y, AW, 1, mix(a.bg, b, y / AH));
-    for (let k = 0; k < 4; k++) g.r(0, 18 + k * 2, AW, 1, mix(a.bg, b, 0.4 + k * 0.1));
-    car(g, 3, 22, 40, a.ac, a.i);
-    g.fit(a.t, 67, 4, 44, a.fg, 2, sh);
-    g.r(0, AH - 6, AW, 6, shade(b.length === 7 ? b : '#404040', 0.7));
-    g.fit(a.s, AW / 2, AH - 5, AW - 4, a.fg, 1);
+    for (let y = 0; y < AH; y++) {
+      c.fillStyle = mix(a.bg, b, y / AH);
+      c.fillRect(0, y, AW, 1);
+    }
+    dots(c, 0, 24, AW, 9, 'rgba(255,255,255,0.12)');
+    c.fillStyle = 'rgba(0,0,0,0.18)';
+    c.fillRect(0, 31, AW, 2);
+    title(c, a.t, 3, 2, AW - 6, a.fg, '#1a1614', 'left');
+    if (car) {
+      drawCarSide(c, 4, 33, 62, car);
+      ribbon(c, car.name.toUpperCase(), 70, 16, a.ac, ink2(a.ac));
+      text(c, '0KM', 72, 24, 4, a.fg, 'left', '#1a1614');
+    }
+    c.fillStyle = a.ac;
+    c.fillRect(0, AH - 8, AW, 8);
+    text(c, a.s, AW / 2, AH - 6.5, 4, ink2(a.ac), 'center', null);
+  } else if (a.l === 'L' || a.l === 'R') {
+    // anúncio de produto: retícula de impressão, ícone grande, título com contorno e a faixa
+    const left = a.l === 'L';
+    dots(c, 0, 0, AW, AH, 'rgba(0,0,0,0.16)');
+    c.fillStyle = shade(a.bg, 0.8);
+    c.beginPath();
+    if (left) { c.moveTo(0, 0); c.lineTo(40, 0); c.lineTo(30, AH); c.lineTo(0, AH); }
+    else { c.moveTo(AW, 0); c.lineTo(AW - 40, 0); c.lineTo(AW - 30, AH); c.lineTo(AW, AH); }
+    c.fill();
+    c.save();
+    c.translate(left ? 3 : AW - 33, 1);
+    c.scale(1.25, 1.25);
+    icon?.(g, 0, 0, a);
+    c.restore();
+    const x0 = left ? 36 : 3, w = AW - 39;
+    title(c, a.t, x0, tw(c, a.t, 8) <= w ? 8 : 4, w, a.fg, '#1a1614', 'center', 2);
+    const sub = a.ac === a.bg ? a.fg : a.ac;
+    c.fillStyle = sub;
+    c.fillRect(x0 - 1, 25, w + 2, 9);
+    text(c, a.s, x0 + w / 2, 27.5, 4, ink2(sub), 'center', null);
+  } else if (a.l === 'C') {
+    dots(c, 0, 0, AW, AH, 'rgba(0,0,0,0.14)');
+    for (let x = 0; x < AW; x += 8) {
+      c.fillStyle = a.ac;
+      c.fillRect(x, 0, 4, 3);
+      c.fillRect(x + 4, AH - 3, 4, 3);
+    }
+    title(c, a.t, 3, tw(c, a.t, 8) <= AW - 6 ? 9 : 5, AW - 6, a.fg, '#1a1614', 'center', 2);
+    text(c, a.s, AW / 2, 26, 4, a.fg, 'center', '#1a1614');
+  } else {
+    // pôr do sol synthwave (rádios e lugares)
+    const b = a.b ?? a.ac;
+    for (let y = 0; y < AH; y++) {
+      c.fillStyle = mix(a.bg, b, Math.min(1, y / (AH - 8)));
+      c.fillRect(0, y, AW, 1);
+    }
+    g.disc(AW - 28, AH - 8, 14, a.ac);
+    for (let y = AH - 18; y < AH; y += 3) {
+      c.fillStyle = mix(a.bg, b, 0.85);
+      c.fillRect(AW - 44, y, 32, 1);
+    }
+    c.fillStyle = '#120a20';
+    c.fillRect(0, AH - 7, AW, 7);
+    c.fillStyle = b;
+    c.fillRect(0, AH - 7, AW, 1);
+    for (let x = 0; x < AW; x += 10) c.fillRect(x, AH - 6, 1, 6);
+    c.save();
+    c.translate(AW - 42, AH - 37);
+    c.scale(1.2, 1.2);
+    icon?.(g, 0, 0, a);
+    c.restore();
+    title(c, a.t, 3, 4, 76, a.fg, '#1a1614', 'left', 2);
+    text(c, a.s, 3, 23, 4, '#ffffff', 'left', '#1a1614');
   }
 }
 function luma(c: string) {
@@ -543,18 +666,25 @@ function mix(a: string, b: string, t: number) {
   return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
 }
 
+// anúncios prontos (fonte e sprites carregados): enquanto não, o outdoor mostra a versão
+// provisória e não guarda em cache
 const cache = new Map<number, HTMLCanvasElement>();
-// arte do anúncio n (0..99), em pixels nativos
+export function adsReady(n: number) {
+  const a = ADS[((n % ADS.length) + ADS.length) % ADS.length];
+  return fontOk() && (a.l !== 'M' && a.l !== 'K' ? true : carReady(adCar(a)));
+}
+// arte do anúncio n (0..99): AW x AH unidades, 2 pixels por unidade
 export function adCanvas(n: number) {
   const i = ((n % ADS.length) + ADS.length) % ADS.length;
   let cv = cache.get(i);
-  if (!cv) {
-    cv = document.createElement('canvas');
-    cv.width = AW;
-    cv.height = AH;
-    const c = cv.getContext('2d')!;
-    drawAd(new Pen(c), ADS[i]);
-    cache.set(i, cv);
-  }
+  if (cv) return cv;
+  cv = document.createElement('canvas');
+  cv.width = AW * SC;
+  cv.height = AH * SC;
+  const c = cv.getContext('2d')!;
+  c.imageSmoothingEnabled = false;
+  c.scale(SC, SC);
+  drawAd(c, ADS[i]);
+  if (adsReady(i)) cache.set(i, cv);
   return cv;
 }

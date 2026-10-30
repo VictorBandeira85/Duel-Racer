@@ -73,6 +73,7 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
 }
 #settings button span { float: right; color: #1f4fd0; max-width: 28vh; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 2.4vh; line-height: 2.8vh; }
 #settings #setBack { background: #1a1614; color: #fff; text-align: center; min-width: 40vh; }
+#settings #credits { font-size: 1.7vh; color: rgba(255,255,255,0.4); }
 #settings button:active { background: #d01f26; color: #ffd21a; }
 
 #rotate { display: none; position: absolute; inset: 0; background: #000; align-items: center; justify-content: center; text-align: center; padding: 10vw; font-size: 4vw; line-height: 1.6; }

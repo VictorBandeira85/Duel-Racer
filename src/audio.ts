@@ -1,5 +1,6 @@
 import { engineSpec, WORKLET, type EngineSpec } from './enginesynth';
 import { MENU_TRACKS, RACE_TRACKS, Synthwave } from './music';
+import { FILE_TRACKS } from './tracks';
 
 // Som sintetizado (sem arquivos de áudio): motor com timbre por tipo de motor, turbo,
 // troca de marcha, pneu cantando, batida, sirene e trilha no estilo dos 16 bits.
@@ -564,6 +565,33 @@ function trackFor(id: string) {
   if (id.startsWith('race:')) return RACE_TRACKS[Number(id.slice(5)) % RACE_TRACKS.length];
   return MENU_TRACKS[Math.floor(Math.random() * MENU_TRACKS.length)];
 }
+// as faixas baixadas tocam num elemento <audio> ligado ao mesmo volume da música; se o arquivo
+// não carregar (sem internet), toca a versão sintetizada de mesmo número
+let fileEl: HTMLAudioElement | null = null;
+let fileIdx = -1;
+let filesOk = true;
+function playFile(i: number) {
+  const t = FILE_TRACKS[i];
+  if (!ctx || !musicGain || !t || !filesOk) return false;
+  if (!fileEl) {
+    fileEl = new Audio();
+    fileEl.loop = true;
+    fileEl.preload = 'auto';
+    ctx.createMediaElementSource(fileEl).connect(musicGain);
+  }
+  const el = fileEl;
+  el.onerror = () => {
+    if (fileEl !== el || fileIdx !== i) return;
+    filesOk = false;
+    fileIdx = -1;
+    music!.play(i);
+  };
+  fileIdx = i;
+  el.src = `music/${t.file}`;
+  el.currentTime = 0;
+  el.play().catch(() => {});
+  return true;
+}
 function startMusic(id: string) {
   if (!ctx) return;
   if (!musicGain) {
@@ -574,9 +602,11 @@ function startMusic(id: string) {
   musicGain.gain.setTargetAtTime(musicOn ? musicVol : 0, ctx.currentTime, 0.05);
   if (current === id) return;
   current = id;
-  music!.play(trackFor(id));
+  const i = trackFor(id);
+  if (playFile(i)) music!.stop();
+  else music!.play(i);
 }
-export const musicTitle = () => music?.title ?? '';
+export const musicTitle = () => (fileIdx >= 0 ? `${FILE_TRACKS[fileIdx].title} - ${FILE_TRACKS[fileIdx].artist}` : music?.title ?? '');
 let musicVol = 0.5;
 export function setMusicVolume(v: number) {
   musicVol = 0.5 * v;
@@ -593,6 +623,8 @@ export function stopMusic() {
   pendingMusic = null;
   current = null;
   music?.stop();
+  fileEl?.pause();
+  fileIdx = -1;
 }
 
 export function setMusicOn(on: boolean) {

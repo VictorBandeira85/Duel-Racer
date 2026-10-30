@@ -823,10 +823,12 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
   if (d.face === false) return needle(c, cx, cy, r, a0 + sweep * Math.max(0, Math.min(1.02, frac)), art);
   // fundo preto (por linhas, sem antialias), por cima do mostrador da arte; cut: o mostrador
   // da arte é cortado embaixo pela borda do painel, o fundo para ali
+  // linhas com meio pixel de sobra para cima e para baixo: com o centro entre dois pixels, as
+  // bordas das linhas saem meio transparentes e a arte de baixo aparecia em riscos finos
   c.fillStyle = d.bg ?? '#050506';
   for (let dy = -Math.floor(ry); dy <= Math.min(Math.floor(ry), d.cut ?? 99); dy++) {
     const hw = Math.round(r * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
-    c.fillRect(cx - hw, cy + dy, hw * 2 + 1, 1);
+    c.fillRect(cx - hw, cy + dy - 0.5, hw * 2 + 1, 2);
   }
   // cut: marcações e números também param na borda do painel
   c.save();
@@ -940,7 +942,7 @@ function face(c: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
   c.fillStyle = '#050506';
   for (let dy = -Math.floor(ry); dy <= Math.floor(ry); dy++) {
     const hw = Math.round(r * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
-    c.fillRect(cx - hw, cy + dy, hw * 2 + 1, 1);
+    c.fillRect(cx - hw, cy + dy - 0.5, hw * 2 + 1, 2); // sem emendas (ver artDial)
   }
 }
 const half = (c: CanvasRenderingContext2D, x: number, y: number) => c.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, 0.5, 0.5);

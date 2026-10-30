@@ -1,3 +1,4 @@
+import { touch } from './input';
 import { ghostTimeAt } from './records';
 import { DASH_Y, KMH, ROOF_H, view } from './config';
 import type { Race } from './race';
@@ -1741,6 +1742,8 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
       text(c, 'DESAFIOS', w / 2, vp.y + 52, 5, '#ffd400', 'center');
       r.challenges.forEach((ch, i) => text(c, ch.label, w / 2, vp.y + 61 + i * 8, 5, '#ffffff', 'center'));
     }
+    // no computador: lembrete dos comandos do teclado (o controle segue o padrão dos consoles)
+    if (!touch.ui) text(c, 'SETAS OU WASD: DIRIGIR · Q/E: MARCHAS · ESC: PAUSA', w / 2, vp.y + vp.h - 10, 5, '#ffd400', 'center');
   } else if (r.state === 'drive' && r.time < 1 && r.crashes === 0) {
     text(c, 'VAI!', w / 2, vp.y + 28, 16, '#30e060', 'center');
   }

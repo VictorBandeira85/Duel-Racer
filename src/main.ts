@@ -13,7 +13,7 @@ import { CHALLENGE_PRIZE, checkChallenge, saveMedal, stageAchievements, stageCha
 import { paintHex } from './paint';
 import { preloadCockpit, renderCockpit } from './cockpit';
 import { applyBtnSize, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
-import { input, pollGamepad, releaseAll, setupInput } from './input';
+import { input, pollGamepad, releaseAll, setupInput, touch } from './input';
 import { MUSIC_CREDITS } from './tracks';
 import { initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicOn, setMusicVolume, setMuted, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
@@ -27,6 +27,7 @@ const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
 const $ = (id: string) => document.getElementById(id)!;
 $('credits').textContent = MUSIC_CREDITS;
+$('version').textContent = __APP_VERSION__;
 
 const state: AppState = {
   screen: 'title', t: 0, sel: 1, auto: true, sound: true, music: true,
@@ -50,8 +51,17 @@ let paused = false;
 
 const totalTime = () => state.results.reduce((a, r) => a + r.time, 0);
 
+// botões de toque só onde há tela de toque (no computador joga-se no teclado ou no controle);
+// se alguém tocar a tela depois (notebook com tela touch), eles passam a aparecer
+window.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'touch' && !touch.ui) {
+    touch.ui = true;
+    if (state.screen === 'race') $('controls').classList.remove('hidden');
+  }
+}, { capture: true });
+
 function showControls(on: boolean) {
-  $('controls').classList.toggle('hidden', !on);
+  $('controls').classList.toggle('hidden', !on || !touch.ui);
   $('pauseBtn').classList.toggle('hidden', !on);
   $('gearBtns').classList.toggle('hidden', state.auto);
   $('pause').classList.add('hidden');
@@ -234,6 +244,14 @@ const MENU_KEYS: Record<string, MenuKey> = {
   ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
   Enter: 'ok', Space: 'ok', Escape: 'back', Backspace: 'back',
 };
+// tela cheia: F11 ou Alt+Enter (no navegador e na versão de computador)
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'F11' || (e.code === 'Enter' && e.altKey)) {
+    e.preventDefault();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else document.documentElement.requestFullscreen?.().catch(() => {});
+  }
+});
 window.addEventListener('keydown', (e) => {
   if (state.screen === 'race') {
     if (e.code === 'Escape') setPaused(!paused);

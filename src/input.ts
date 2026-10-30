@@ -1,5 +1,7 @@
 // Controles: teclado (desenvolvimento) e botões de toque (celular)
 export const input = { left: false, right: false, gas: false, brake: false };
+// há tela de toque? (no computador os botões de toque somem e aparecem as dicas do teclado)
+export const touch = { ui: navigator.maxTouchPoints > 0 || matchMedia('(pointer: coarse)').matches };
 const queue = { shiftUp: 0, shiftDown: 0 };
 
 export function takeShift(kind: 'shiftUp' | 'shiftDown') {

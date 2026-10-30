@@ -87,3 +87,4 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
 .acc.ced::before { top: 0.55em; }
 /* espaço em cima para o acento não ser cortado nas caixas com reticências */
 #settings button span { padding-top: 0.5em; margin-top: -0.5em; }
+#settings #version { font-size: 1.5vh; color: rgba(255,255,255,0.3); }

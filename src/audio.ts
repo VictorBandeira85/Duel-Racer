@@ -572,7 +572,8 @@ let fileIdx = -1;
 let filesOk = true;
 function playFile(i: number) {
   const t = FILE_TRACKS[i];
-  if (!ctx || !musicGain || !t || !filesOk) return false;
+  // aberto direto do arquivo (file://) o navegador não deixa o Web Audio ler as faixas: usa a sintetizada
+  if (!ctx || !musicGain || !t || !filesOk || location.protocol === 'file:') return false;
   if (!fileEl) {
     fileEl = new Audio();
     fileEl.loop = true;

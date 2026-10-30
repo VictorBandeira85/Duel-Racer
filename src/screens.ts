@@ -311,6 +311,8 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
   c.fillRect(0, 0, w, 50);
   halftone(c, { x: 0, y: 0, w, h: 50 }, 'rgba(120,0,0,0.35)');
   ink(c, 'Nº 01  •  ANO I  •  OUTUBRO DE 1994', x + 6, 4, 5, '#ffe0a0');
+  // versão de teste, discreta no pé da capa
+  ink(c, `${__APP_VERSION__} · teste`, w - 3, view.h - 7, 4, 'rgba(26,22,20,0.35)', 'right');
   ink(c, 'Cr$ 2.500,00', x + SAFE_W - 6, 4, 5, '#ffe0a0', 'right');
   logo(c, 'DUEL RACER', w / 2, 14, 24, YELLOW, INK, 'center');
   c.fillStyle = INK;

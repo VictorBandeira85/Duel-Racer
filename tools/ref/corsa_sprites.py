@@ -78,6 +78,16 @@ def taillights(a):
                     a[y, x, :3] = (128, 12, 12) if (x + y) % 5 else (150, 20, 18)
 
 
+def white_body(a, m):
+    # a foto da traseira é de um carro vermelho; o Corsário é branco de lado e de frente: a lataria
+    # vira o mesmo branco levemente azulado, mantendo o sombreado (luminância relativa à média)
+    px = a[m][:, :3].astype(float)
+    L = px @ np.array([0.3, 0.59, 0.11])
+    base = np.array([224.0, 230.0, 234.0])
+    nl = np.clip(229 + (L - np.median(L)) * 1.1, 60, 252)
+    a[m, :3] = np.clip(base[None, :] * (nl / 229)[:, None], 0, 255).astype(np.uint8)
+
+
 def main():
     src, cars = sys.argv[1], sys.argv[2]
     for view in ('side', 'rear', 'front'):
@@ -120,6 +130,8 @@ def main():
             yy, xx = np.mgrid[0:H, 0:W]
             for cx, cy, rx, ry in LAMPS_FRONT:
                 m &= ((xx + 0.5 - cx) / rx) ** 2 + ((yy + 0.5 - cy) / ry) ** 2 > 1
+        if view == 'rear':
+            white_body(a, m)
         flatten(a, m, 10)
         outline(a)
         fix_glass(a, m, view)

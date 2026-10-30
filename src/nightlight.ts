@@ -162,6 +162,12 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
     g.fill();
   };
   // perto do carro, abaixo do primeiro trecho de pista visível: continua o trapézio até o painel
+  // só o chão à frente: o que aparece pelas janelas laterais, abaixo da linha do painel, fica ao
+  // lado do carro, fora do facho
+  g.save();
+  g.beginPath();
+  g.rect(0, 0, w, seen + 6);
+  g.clip();
   // o alcance conta a partir do chão que aparece acima do capô/painel: num carro de painel alto
   // (o trecho perto fica escondido) o facho continua aparecendo à frente
   const d0 = Math.max(0, (road.find((p) => p.y < seen - 1)?.d ?? 0) - 6);
@@ -189,6 +195,7 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
     quad(cx, p.y + 0.5, cx, q.y - 0.5, wp * 0.7, wq * 0.7, a * 0.45);
     quad(cx, p.y + 0.5, cx, q.y - 0.5, wp * 0.42, wq * 0.42, a * 0.45);
   }
+  g.restore();
 }
 
 // luz de um poste: uma faixa de luz atravessando a pista inteira no trecho do poste (em degraus,

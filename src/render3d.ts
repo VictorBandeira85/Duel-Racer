@@ -4,7 +4,7 @@ import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from '
 import { CARS, drawCar } from './cars';
 import { lowFx } from './perf';
 import { adsReady } from './billboards';
-import { beginLights, finishNight, mirrorGlare, mirrorWash, pushFacade, pushStreetLight, setLightClip, type Pass, type RoadPt } from './nightlight';
+import { beginLights, finishNight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, type Pass, type RoadPt } from './nightlight';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
 import { SPRITES } from './sprites';
 import { FOG_COLOR, type BgLayer } from './themes';
@@ -291,6 +291,8 @@ function mix(a: string, b: string, t: number) {
 }
 
 // objetos grandes, que aparecem de longe
+// placas e outdoors que refletem o farol à noite
+const REFLECT = new Set(['signL', 'signR', 'warnL', 'warnR', 'sharpL', 'sharpR', 'billboard', 'gasSign', 'stop']);
 const FAR_KINDS = ['building', 'station', 'bridge', 'billboard', 'barn', 'factory', 'silo', 'spire', 'lighthouse'];
 
 export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport) {
@@ -389,6 +391,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       drawCrisp(c, `${sp.kind}${seed}${sp.kind === 'billboard' && !adsReady(seed) ? 'w' : ''}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed));
       // poste aceso à noite: a lâmpada fica na ponta do braço, sobre o acostamento
       if (lit && (sp.kind === 'station' || sp.kind === 'gasSign')) pushFacade(sp.kind, sx, s.p1.screen.y, sw, sh);
+      if (lit && REFLECT.has(sp.kind)) pushReflector(sp.kind, sx, s.p1.screen.y, sw, sh, dist);
       if (lit && sp.kind === 'lamp') pushStreetLight(sx - sw * 1.3, s.p1.screen.y - sh + sw * 0.5, sw * 9, dist, (sx - sw * 1.3 - s.p1.screen.x) / Math.max(1, s.p1.screen.w));
     }
     for (const e of s.cars) {

@@ -68,8 +68,44 @@ function facades(c: CanvasRenderingContext2D, strength: number) {
   }
   fronts.length = 0;
 }
+// placas e outdoors que o farol alcança: brilham mais conforme o carro se aproxima
+interface Reflector { kind: string; x: number; y: number; w: number; h: number; dist: number; clip: number }
+const refl: Reflector[] = [];
+export function pushReflector(kind: string, x: number, y: number, w: number, h: number, dist: number) {
+  if (collecting && w > 2 && dist < 70) refl.push({ kind, x, y, w, h, dist, clip: clipY });
+}
+function reflectors(c: CanvasRenderingContext2D, strength: number) {
+  for (const r of refl) {
+    const k = Math.min(1, (1 - r.dist / 70) * 1.4) ** 1.5; // perto: mais claro
+    if (k <= 0.02) continue;
+    const { x, y, w, h } = r;
+    c.save();
+    c.beginPath();
+    c.rect(x - w, y - h * 1.2, w * 2, Math.min(h * 1.2, r.clip + 1 - (y - h * 1.2)));
+    c.clip();
+    // placas refletivas brilham mais que o papel dos outdoors
+    const a = (r.kind === 'billboard' ? 0.3 : 0.45) * k * strength;
+    c.fillStyle = `rgba(255,244,215,${a.toFixed(3)})`;
+    if (r.kind === 'billboard') c.fillRect(x - w / 2 + w * 0.03, y - h + h * 0.05, w * 0.94, h * 0.42);
+    else if (r.kind === 'gasSign') c.fillRect(x - w / 2, y - h, w, h * 0.45);
+    else if (r.kind.startsWith('warn') || r.kind.startsWith('sharp')) {
+      const cy = y - h * 0.78, rr = w * 0.5;
+      c.beginPath();
+      c.moveTo(x, cy - rr);
+      c.lineTo(x + rr, cy);
+      c.lineTo(x, cy + rr);
+      c.lineTo(x - rr, cy);
+      c.closePath();
+      c.fill();
+    } else if (r.kind === 'stop') c.fillRect(x - w / 2, y - h, w, h * 0.45);
+    else c.fillRect(x - w / 2, y - h, w, h * 0.55);
+    c.restore();
+  }
+  refl.length = 0;
+}
 export function beginLights() {
   lastLight = null;
+  refl.length = 0;
   fronts.length = 0;
   clipY = Infinity;
   lights.length = 0;
@@ -117,9 +153,9 @@ function groundAhead(road: RoadPt[]) {
   return road.slice(0, n + 1);
 }
 function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: number, road: RoadPt[], scale: number) {
-  // facho em trapézio: largo na frente do capô e afinando com a distância (quase um triângulo
-  // até o fim do alcance), com bordas retas, focado na pista; só o chão que se vê (para na crista)
-  const width = (f: number) => 0.32 + 0.63 * f; // em meias larguras da pista; f = 1 perto, 0 no fim
+  // facho em trapézio que abre com a distância: estreito na frente do capô e cada vez mais largo
+  // à frente, pegando a outra mão, o acostamento e o canteiro; bordas retas, só o chão que se vê
+  const width = (f: number) => 1.75 - 1.1 * f; // em meias larguras da pista; f = 1 perto, 0 no fim (abre com a distância)
   const quad = (x0: number, y0: number, x1: number, y1: number, h0: number, h1: number, alpha: number) => {
     g.fillStyle = `rgba(0,0,0,${alpha.toFixed(3)})`;
     g.beginPath();
@@ -134,7 +170,7 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
   const p0 = road[0];
   if (p0 && p0.d <= REACH) {
     const h0 = p0.w * width(1 - p0.d / REACH);
-    quad(cx, seen + 6, cx, p0.y + 0.5, h0 * 1.25, h0, scale);
+    quad(cx, seen + 6, cx, p0.y + 0.5, h0 * 0.85, h0, scale);
   }
   for (let k = 0; k + 1 < road.length; k++) {
     const p = road[k], q = road[k + 1];
@@ -150,14 +186,14 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
 
 // luz de um poste: uma faixa de luz atravessando a pista inteira no trecho do poste (em degraus,
 // mais forte embaixo da lâmpada), como nos jogos de corrida em pixel art; só o chão que se vê
-const POOL = 3; // meia largura da faixa, em segmentos
+const POOL = 8; // meia largura da faixa, em segmentos (os postes ficam a 14: as faixas se encontram)
 function streetPool(g: CanvasRenderingContext2D, road: RoadPt[], st: Street, rgb: string, a0: number) {
   for (let k = 0; k + 1 < road.length; k++) {
     const p = road[k], q = road[k + 1];
     if (q.d - p.d > 2) continue; // entre os dois há chão escondido (crista)
     const dd = Math.abs((p.d + q.d) / 2 - st.d);
     if (dd > POOL) continue;
-    const a = a0 * (dd <= 1 ? 1 : dd <= 2 ? 0.6 : 0.3);
+    const a = a0 * (dd <= 1.5 ? 1 : dd <= 3.5 ? 0.72 : dd <= 5.5 ? 0.48 : 0.3);
     // da outra borda da pista até um pouco além do poste
     const u0 = st.u > 0 ? -1.2 : st.u - 0.3, u1 = st.u > 0 ? st.u + 0.3 : 1.2;
     g.fillStyle = `${rgb}${a.toFixed(3)})`;
@@ -192,6 +228,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   if (strength <= 0.02) {
     streets.length = 0;
     fronts.length = 0;
+    refl.length = 0;
     return;
   }
   const top = Math.max(vp.y, Math.floor(vp.horizon) - 60);
@@ -248,6 +285,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     c.fillStyle = `rgba(255,244,210,${(0.95 * strength).toFixed(3)})`;
     c.fillRect(Math.round(st.x - lw / 2), Math.round(st.head - lh / 2), lw, lh);
   }
+  reflectors(c, strength);
   facades(c, strength);
   streets.length = 0;
   // cada luz é desenhada numa camada à parte e recortada pela silhueta (pixel a pixel) dos carros

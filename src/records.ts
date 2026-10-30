@@ -46,8 +46,9 @@ export function bestTime(course: string, stage: number, car: string): number | u
   return read<Record<string, number>>(KEY_T, {})[`${stageKey(course, stage)}:${car}`];
 }
 
-export function loadGhost(course: string, stage: number): Ghost | null {
-  if (!ghostOn()) return null;
+// force: carrega mesmo com o fantasma desligado (para poder ligá-lo na pausa)
+export function loadGhost(course: string, stage: number, force = false): Ghost | null {
+  if (!force && !ghostOn()) return null;
   // o fantasma de um amigo (código colado) tem a vez sobre o seu
   const friend = read<Record<string, Ghost>>('duel-racer:fantasmas-amigo', {})[stageKey(course, stage)];
   return friend ?? read<Record<string, Ghost>>(KEY_G, {})[stageKey(course, stage)] ?? null;

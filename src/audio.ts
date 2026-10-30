@@ -1,4 +1,5 @@
 import { engineSpec, WORKLET, type EngineSpec } from './enginesynth';
+import { MENU_TRACKS, RACE_TRACKS, Synthwave } from './music';
 
 // Som sintetizado (sem arquivos de áudio): motor com timbre por tipo de motor, turbo,
 // troca de marcha, pneu cantando, batida, sirene e trilha no estilo dos 16 bits.
@@ -551,116 +552,38 @@ export function setSiren(on: boolean) {
   sirenGain!.gain.setTargetAtTime(on ? 0.04 : 0, ctx.currentTime, 0.1);
 }
 
-// ---------- trilha (sequenciador simples, 4 vozes de chip) ----------
-// Cada música: andamento, tom, progressão de acordes (graus) e um padrão de melodia
-// que se repete sobre os acordes, com baixo e bateria. Tudo gerado aqui, sem arquivos.
-interface Song { bpm: number; root: number; minor: boolean; chords: number[]; lead: number[]; bassStyle: 0 | 1 }
-const SONGS: Record<string, Song> = {
-  menu: { bpm: 112, root: 57, minor: false, chords: [0, 5, 3, 4], lead: [0, 2, 4, 2, 7, 4, 2, -1], bassStyle: 0 },
-  r0: { bpm: 148, root: 52, minor: true, chords: [0, 5, 3, 4], lead: [7, -1, 7, 9, 10, 9, 7, 4, 7, -1, 4, 5, 7, -1, 2, -1], bassStyle: 1 },
-  r1: { bpm: 156, root: 55, minor: false, chords: [0, 3, 4, 0], lead: [4, 4, 7, 4, 9, -1, 7, -1, 4, 2, 0, 2, 4, -1, -1, -1], bassStyle: 1 },
-  r2: { bpm: 140, root: 50, minor: true, chords: [0, 6, 5, 4], lead: [0, 3, 7, 10, 12, 10, 7, 3, 5, -1, 7, -1, 3, 2, 0, -1], bassStyle: 0 },
-  r3: { bpm: 164, root: 53, minor: true, chords: [0, 3, 6, 4], lead: [12, -1, 10, 12, 15, -1, 12, 10, 7, -1, 8, 7, 5, -1, 3, -1], bassStyle: 1 },
-};
-const MAJOR = [0, 2, 4, 5, 7, 9, 11], MINOR = [0, 2, 3, 5, 7, 8, 10];
-const hz = (midi: number) => 440 * 2 ** ((midi - 69) / 12);
-
+// ---------- trilha synthwave (music.ts) ----------
 let musicGain: GainNode | null = null;
-let timer: number | undefined;
-let song: Song | null = null;
-let step = 0, nextT = 0;
+let music: Synthwave | null = null;
 let pendingMusic: string | null = null;
 let current: string | null = null;
 
-function note(type: OscillatorType, freq: number, t: number, dur: number, vol: number) {
-  const o = ctx!.createOscillator();
-  const g = ctx!.createGain();
-  o.type = type;
-  o.frequency.value = freq;
-  g.gain.setValueAtTime(vol, t);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g).connect(musicGain!);
-  o.start(t);
-  o.stop(t + dur + 0.02);
+// id: 'menu' (sorteia uma das do menu), 'race:<n>' (n escolhe uma das de corrida) ou 't:<i>' (faixa i)
+function trackFor(id: string) {
+  if (id.startsWith('t:')) return Number(id.slice(2));
+  if (id.startsWith('race:')) return RACE_TRACKS[Number(id.slice(5)) % RACE_TRACKS.length];
+  return MENU_TRACKS[Math.floor(Math.random() * MENU_TRACKS.length)];
 }
-
-function drum(kind: 'kick' | 'snare' | 'hat', t: number) {
-  if (kind === 'kick') {
-    const o = ctx!.createOscillator();
-    const g = ctx!.createGain();
-    o.frequency.setValueAtTime(150, t);
-    o.frequency.exponentialRampToValueAtTime(40, t + 0.12);
-    g.gain.setValueAtTime(0.5, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
-    o.connect(g).connect(musicGain!);
-    o.start(t);
-    o.stop(t + 0.15);
-    return;
-  }
-  const src = ctx!.createBufferSource();
-  src.buffer = noiseBuffer(kind === 'hat' ? 0.04 : 0.12);
-  const f = ctx!.createBiquadFilter();
-  f.type = kind === 'hat' ? 'highpass' : 'bandpass';
-  f.frequency.value = kind === 'hat' ? 7000 : 1800;
-  const g = ctx!.createGain();
-  g.gain.setValueAtTime(kind === 'hat' ? 0.12 : 0.35, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + (kind === 'hat' ? 0.04 : 0.12));
-  src.connect(f).connect(g).connect(musicGain!);
-  src.start(t);
-}
-
-function schedule() {
-  if (!ctx || !song) return;
-  const s = song;
-  const six = 60 / s.bpm / 4; // semicolcheia
-  const scale = s.minor ? MINOR : MAJOR;
-  const deg = (d: number) => {
-    const o = Math.floor(d / 7), i = ((d % 7) + 7) % 7;
-    return scale[i] + 12 * o;
-  };
-  while (nextT < ctx.currentTime + 0.12) {
-    const bar = Math.floor(step / 16) % s.chords.length;
-    const pos = step % 16;
-    const chord = s.chords[bar];
-    const root = s.root + deg(chord);
-    // baixo
-    if (s.bassStyle === 1 ? pos % 2 === 0 : pos % 4 === 0) {
-      const oct = s.bassStyle === 1 && pos % 4 === 2 ? 12 : 0;
-      note('triangle', hz(root - 12 + oct), nextT, six * 1.8, 0.22);
-    }
-    // arpejo do acorde (onda quadrada baixinha)
-    if (pos % 2 === 1) {
-      const arp = [0, 2, 4, 7][(pos >> 1) % 4];
-      note('square', hz(s.root + 12 + deg(chord + arp)), nextT, six * 0.9, 0.025);
-    }
-    // melodia
-    const ln = s.lead[(step % (s.lead.length * 2)) >> 1];
-    if (pos % 2 === 0 && ln >= 0) note('square', hz(s.root + 12 + deg(chord + ln) + (bar === 3 ? 0 : 0)), nextT, six * 1.7, 0.045);
-    // bateria
-    if (pos % 8 === 0) drum('kick', nextT);
-    if (pos % 8 === 4) drum('snare', nextT);
-    if (pos % 2 === 0) drum('hat', nextT);
-    step++;
-    nextT += six;
-  }
-}
-
 function startMusic(id: string) {
   if (!ctx) return;
   if (!musicGain) {
     musicGain = ctx.createGain();
     musicGain.connect(master);
+    music = new Synthwave(ctx, musicGain);
   }
-  musicGain.gain.setTargetAtTime(musicOn ? 0.5 : 0, ctx.currentTime, 0.05);
+  musicGain.gain.setTargetAtTime(musicOn ? musicVol : 0, ctx.currentTime, 0.05);
   if (current === id) return;
   current = id;
-  song = SONGS[id] ?? SONGS.menu;
-  step = 0;
-  nextT = ctx.currentTime + 0.05;
-  if (timer === undefined) timer = window.setInterval(schedule, 25);
+  music!.play(trackFor(id));
+}
+export const musicTitle = () => music?.title ?? '';
+let musicVol = 0.5;
+export function setMusicVolume(v: number) {
+  musicVol = 0.5 * v;
+  if (ctx && musicGain) musicGain.gain.setTargetAtTime(musicOn ? musicVol : 0, ctx.currentTime, 0.05);
 }
 
-// toca a música indicada ('menu' ou 'r0'..'r3'); começa assim que o áudio for liberado
+// toca a música indicada ('menu', 'race:<n>' ou 't:<faixa>'); começa assim que o áudio for liberado
 export function playMusic(id: string) {
   pendingMusic = id;
   startMusic(id);
@@ -669,12 +592,12 @@ export function playMusic(id: string) {
 export function stopMusic() {
   pendingMusic = null;
   current = null;
-  song = null;
+  music?.stop();
 }
 
 export function setMusicOn(on: boolean) {
   musicOn = on;
-  if (ctx && musicGain) musicGain.gain.setTargetAtTime(on ? 0.5 : 0, ctx.currentTime, 0.05);
+  if (ctx && musicGain) musicGain.gain.setTargetAtTime(on ? musicVol : 0, ctx.currentTime, 0.05);
 }
 
 export function isMuted() {

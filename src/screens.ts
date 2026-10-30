@@ -371,6 +371,8 @@ function btnSizeIdx() {
     return 1;
   }
 }
+export const btnSizeLabel = () => BTN_SIZES[btnSizeIdx()].label;
+export const cycleBtnSize = () => setBtnSize((btnSizeIdx() + 1) % BTN_SIZES.length);
 export function applyBtnSize() {
   document.documentElement.style.setProperty('--btn', String(BTN_SIZES[btnSizeIdx()].k));
 }

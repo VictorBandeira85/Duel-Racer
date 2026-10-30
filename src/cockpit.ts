@@ -564,12 +564,24 @@ COCKPIT_ART['br-passat'] = {
     const T = ART_TOP;
     odometer(c, ox, r, { x: 102, y: 53, w: 8, h: 3 }, 14387, 5, 0.5);
     odometer(c, ox, r, { x: 102.3, y: 68.5, w: 6, h: 3 }, 26.4, 3, 0.5, true);
-    // água e combustível: arcos curtos embaixo do conta-giros (como no VDO do carro)
-    const mini = (x: number, v: number, warn: boolean) => {
-      for (let k = 0; k < 5; k++) rect(c, ox + x + k * 1.5, T + 77 - (k === 2 ? 0.5 : 0), 1, 1.5, k < Math.round(v * 5) ? (warn && k === 4 ? '#ff6a1a' : '#e8e8e8') : '#3a3a3e');
+    // água e combustível como no VDO do carro: dois arcos curtos na parte de baixo do
+    // conta-giros, cada um com seu ponteiro creme; marca branca no começo, laranja no fim
+    // (água quente / reserva) e o ícone embaixo
+    const mini = (cx: number, cy: number, a0: number, a1: number, v: number, warnEnd: boolean, icon: 'temp' | 'fuel') => {
+      const R = 7;
+      const at = (a: number, rr: number): [number, number] => [ox + cx + Math.cos(a) * rr, T + cy + Math.sin(a) * rr * PIX_Y];
+      for (let i = 0; i <= 4; i++) {
+        const a = a0 + ((a1 - a0) * i) / 4;
+        const [x, y] = at(a, R);
+        c.fillStyle = i === 0 ? '#f0f0f0' : i === 4 ? '#ff7a1a' : '#c8c8c8';
+        c.fillRect(Math.round(x * 2) / 2 - 0.25, Math.round(y * 2) / 2 - 0.25, i === 0 || i === 4 ? 1 : 0.5, i === 0 || i === 4 ? 1 : 0.5);
+      }
+      const a = a0 + (a1 - a0) * clamp(warnEnd ? v : 1 - v, 0, 1);
+      hand(c, ox + cx, T + cy, a, R - 0.5, '#f0e0b8');
+      drawIcon(c, icon, ox + cx + (icon === 'temp' ? -9 : 7), T + cy - 1.5, '#d8d8d8'); // embaixo, por fora do arco
     };
-    mini(160, gauges.water, gauges.water > 0.8);
-    mini(176, gauges.fuel, gauges.fuel < 0.2);
+    mini(166, 79.5, Math.PI * 1.12, Math.PI * 1.42, gauges.water, true, 'temp');
+    mini(177.5, 79.5, Math.PI * 1.88, Math.PI * 1.58, gauges.fuel, false, 'fuel');
     // coluna de luzes: duas fileiras de cinco (apagadas escuras na cor) e o relógio
     const blink = r.signal !== 0 && blinkOn();
     const wreck = r.state === 'crash' || r.damage > 0.6;

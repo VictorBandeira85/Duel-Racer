@@ -117,6 +117,20 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
     segments[i].sprites.push({ kind: 'post', x: -(roadW + 900), seed: 0 }, { kind: 'post', x: roadW + 900, seed: 0 });
   }
 
+  // iluminação pública: postes do lado direito em alguns trechos (perto das cidades, das
+  // pontes e da chegada); na cidade e na zona industrial, em quase toda a estrada
+  const urban = theme.scenery.includes('lamp');
+  const stretches = urban ? 6 : 2;
+  for (let k = 0; k < stretches; k++) {
+    const start = Math.floor(segments.length * (k + 0.2 + rand() * 0.5) / stretches);
+    const len = 120 + Math.floor(rand() * 160);
+    for (let i = start; i < Math.min(segments.length - 1, start + len); i += 14) {
+      segments[i].sprites = segments[i].sprites.filter((sp) => !(sp.x > 0 && sp.x < roadW + 2500));
+      segments[i].sprites.push({ kind: 'lamp', x: roadW + 1300, seed: 0 });
+    }
+  }
+  for (let i = finishIndex - 90; i < finishIndex + 30; i += 14) if (segments[i]) segments[i].sprites.push({ kind: 'lamp', x: roadW + 1300, seed: 0 });
+
   // posto de gasolina na chegada
   for (const k of [60, 35]) segments[finishIndex - k].sprites.push({ kind: 'gasSign', x: roadW + 2200, seed: 0 });
   segments[finishIndex + 4].sprites.push({ kind: 'station', x: roadW + 5200, seed: 0 });

@@ -42,17 +42,38 @@ def main():
     gw = ((wr[..., 1] + wr[..., 2]) // 2).astype(np.uint8)
     for k in range(3):
         w[..., k] = np.where(redw, gw, w[..., k])
-    # o volante é desenhado 10 colunas à direita (wheelDx, centrado no quadro): a parte da faixa
-    # do aro antigo que fica à esquerda do aro novo aparecia como um aro-sombra; vira o painel
-    # da esquerda na mesma linha (o painel tem estrutura horizontal)
+    # o volante é desenhado 10 colunas à direita (wheelDx, centrado no quadro): a faixa do aro
+    # antigo (refeita borrada por gtb_rim_fix) fica exposta fora do aro novo e dentro do vão
+    # dele. Cada trecho exposto vira a passagem, na mesma linha, entre o painel limpo à esquerda
+    # e à direita dele (o painel tem estrutura horizontal), com um leve borrão vertical
     rho_new = np.hypot((xx + 0.5 - 240.1) / 96.1, (yy + 0.5 - 103.8) / 104.2)
-    old = (rho > 0.78) & (rho < 1.13) & (xx < 230) & (rho_new > 1.0)
+    old = (rho > 0.76) & (rho < 1.15) & (a[..., 3] > 0) & ~((rho_new > 0.9) & (rho_new < 1.0))
+    rgb0 = a[..., :3].astype(int)
+    # o vermelho das marcas do conta-giros não serve de referência (riscaria o painel)
+    known = (a[..., 3] > 0) & ~old & ~(rgb0[..., 0] > rgb0[..., 1] + 10)
+    f = a[..., :3].astype(np.float32)
+    out = f.copy()
     for y in range(H):
         xs = np.nonzero(old[y])[0]
         if not len(xs):
             continue
-        src = a[y, max(0, xs.min() - 1)].copy()
-        a[y, xs] = src
+        runs = np.split(xs, np.nonzero(np.diff(xs) > 1)[0] + 1)
+        for r in runs:
+            l, rgt = r[0] - 1, r[-1] + 1
+            while l >= 0 and not known[y, l]:
+                l -= 1
+            while rgt < W and not known[y, rgt]:
+                rgt += 1
+            cl = f[y, l] if l >= 0 else None
+            cr = f[y, rgt] if rgt < W else None
+            for x in r:
+                if cl is not None and cr is not None:
+                    k = (x - l) / (rgt - l)
+                    out[y, x] = cl * (1 - k) + cr * k
+                else:
+                    out[y, x] = cl if cl is not None else cr if cr is not None else f[y, x]
+    sm = cv2.blur(out, (1, 5))
+    a[old, :3] = np.clip(sm[old], 0, 255).astype(np.uint8)
     # emblema do volante
     cx, cy = 128.5, 112.0
     yy, xx = np.mgrid[0:w.shape[0], 0:w.shape[1]]

@@ -7,16 +7,16 @@ import { ui as careerUi } from './careerScreens';
 import { setupOf, REGIONS, carById, eventCourse, levels, loadCareer, saveCareer, settleEvent, tunedCar } from './career';
 import type { CarSpec } from './cars';
 import { Race } from './race';
-import { loadGhost, saveRun } from './records';
+import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
 import { CHALLENGE_PRIZE, checkChallenge, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
 import { paintHex } from './paint';
 import { preloadCockpit, renderCockpit } from './cockpit';
-import { applyBtnSize, drawScreen, drawToast, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
+import { applyBtnSize, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { input, pollGamepad, releaseAll, setupInput } from './input';
-import { initAudio, playMusic, setEngine, setMusicOn, setMuted, setSiren, setTires } from './audio';
+import { initAudio, musicTitle, playMusic, setEngine, setMusicOn, setMusicVolume, setMuted, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
 import { preloadSvg } from './svgsprites';
-import { lowFx, perfSample } from './perf';
+import { FX_LABEL, fxMode, lowFx, perfSample, setFxMode } from './perf';
 import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
 
 preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.sideMask, c.rear.img, c.rear.imgMask, c.rear.frontImg, c.rear.frontMask]).filter((s): s is string => !!s), ...TRAFFIC_IMAGES);
@@ -44,10 +44,6 @@ let run: Run = { course: COURSES[0], car: CARS[0], rival: null, opts: {} };
 let race: Race | null = null;
 let liveDone = new Set<number>(); // desafios do trecho já avisados
 let paused = false;
-// fantasma visível na corrida (escolha do jogador no menu de pausa, guardada)
-const GHOST_KEY = 'duel-racer:fantasma-visivel';
-let ghostOn = true;
-try { ghostOn = localStorage.getItem(GHOST_KEY) !== '0'; } catch { /* sem armazenamento */ }
 
 const totalTime = () => state.results.reduce((a, r) => a + r.time, 0);
 
@@ -119,8 +115,8 @@ function begin(lives: number) {
 function startStage(i: number) {
   preloadCockpit(run.car.dash);
   const r = new Race(run.course, i, run.car, run.rival, state.auto, run.opts);
-  r.ghostRun = loadGhost(run.course.id, i);
-  r.showGhost = ghostOn;
+  r.ghostRun = loadGhost(run.course.id, i, true);
+  r.showGhost = ghostOn();
   r.challenges = stageChallenges(r);
   liveDone = new Set();
   r.onArrive = () => {
@@ -160,7 +156,8 @@ function startStage(i: number) {
   state.screen = 'race';
   resize();
   showControls(true);
-  playMusic(`r${(run.event ? run.event.region : state.courseIdx) % 4}`);
+  // uma faixa por trecho (muda a cada trecho e a cada percurso)
+  playMusic(`race:${(run.event ? run.event.region * 3 + run.event.event : state.courseIdx * 5) + i}`);
 }
 
 // resultado de um evento da carreira (dinheiro, prêmio, progresso)
@@ -246,13 +243,12 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-function ghostLabel() {
-  $('ghostTgl').textContent = `FANTASMA: ${ghostOn ? 'LIGADO' : 'DESLIGADO'}`;
-}
 function setPaused(p: boolean) {
   paused = p;
   $('pause').classList.toggle('hidden', !p);
-  ghostLabel();
+  $('settings').classList.add('hidden');
+  $('pause').classList.remove('hidden');
+  $('nowPlaying').textContent = musicTitle() ? `♪ ${musicTitle()}` : '';
   if (p) {
     setEngine(0, false, false);
     stopTrafficAudio();
@@ -267,11 +263,61 @@ $('quit').addEventListener('click', () => actions.go('title'));
 $('restart').addEventListener('click', () => {
   if (race) startStage(race.stageIdx);
 });
-$('ghostTgl').addEventListener('click', () => {
-  ghostOn = !ghostOn;
-  try { localStorage.setItem(GHOST_KEY, ghostOn ? '1' : '0'); } catch { /* sem armazenamento */ }
-  if (race) race.showGhost = ghostOn;
-  ghostLabel();
+// ajustes durante a corrida (os mesmos do menu principal, e mais o volume e a faixa)
+const VOLS = [0.25, 0.5, 0.75, 1];
+let volIdx = 3;
+try { volIdx = Math.max(0, Math.min(3, Number(localStorage.getItem('duel-racer:volume-musica') ?? 3))); } catch { /* sem armazenamento */ }
+setMusicVolume(VOLS[volIdx]);
+function settingsLabels() {
+  const lab: Record<string, [string, string]> = {
+    sound: ['SOM', state.sound ? 'LIGADO' : 'DESLIGADO'],
+    music: ['MÚSICA', state.music ? 'LIGADA' : 'DESLIGADA'],
+    volume: ['VOLUME', `${VOLS[volIdx] * 100}%`],
+    track: ['FAIXA ▶', musicTitle() || '-'],
+    gear: ['CÂMBIO', state.auto ? 'AUTOMÁTICO' : 'MANUAL'],
+    buttons: ['BOTÕES', btnSizeLabel()],
+    ghost: ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'],
+    fx: ['EFEITOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')],
+  };
+  document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b) => {
+    const [k, v] = lab[b.dataset.set!];
+    b.innerHTML = `${k}<span>${v}</span>`;
+  });
+}
+let trackStep = 0;
+document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b) => b.addEventListener('click', () => {
+  switch (b.dataset.set) {
+    case 'sound': actions.toggleSound(); break;
+    case 'music': actions.toggleMusic(); break;
+    case 'volume':
+      volIdx = (volIdx + 1) % VOLS.length;
+      setMusicVolume(VOLS[volIdx]);
+      try { localStorage.setItem('duel-racer:volume-musica', String(volIdx)); } catch { /* sem armazenamento */ }
+      break;
+    case 'track': playMusic(`race:${state.courseIdx * 5 + (race?.stageIdx ?? 0) + ++trackStep}`); break;
+    case 'gear':
+      state.auto = !state.auto;
+      if (race) race.auto = state.auto;
+      $('gearBtns').classList.toggle('hidden', state.auto);
+      break;
+    case 'buttons': cycleBtnSize(); break;
+    case 'ghost':
+      setGhostOn(!ghostOn());
+      if (race) race.showGhost = ghostOn();
+      break;
+    case 'fx': setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]); break;
+  }
+  settingsLabels();
+}));
+$('setBtn').addEventListener('click', () => {
+  settingsLabels();
+  $('settings').classList.remove('hidden');
+  $('pause').classList.add('hidden');
+});
+$('setBack').addEventListener('click', () => {
+  $('settings').classList.add('hidden');
+  $('pause').classList.remove('hidden');
+  $('nowPlaying').textContent = musicTitle() ? `♪ ${musicTitle()}` : '';
 });
 
 setupInput();

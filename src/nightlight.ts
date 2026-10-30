@@ -72,13 +72,13 @@ function facades(c: CanvasRenderingContext2D, strength: number) {
 interface Reflector { kind: string; x: number; y: number; w: number; h: number; dist: number; clip: number }
 const refl: Reflector[] = [];
 export function pushReflector(kind: string, x: number, y: number, w: number, h: number, dist: number) {
-  if (collecting && w > 2 && dist < 70) refl.push({ kind, x, y, w, h, dist, clip: clipY });
+  if (collecting && w > 1.5 && dist < 120) refl.push({ kind, x, y, w, h, dist, clip: clipY });
 }
 // o farol ilumina a face da placa: recorta a escuridão em cima dela (as cores verdadeiras
 // aparecem, mais fortes conforme o carro chega perto); (ox, oy) desloca para a camada da escuridão
 function reflectors(g: CanvasRenderingContext2D, ox: number, oy: number, rgb: string, mul: number) {
   for (const r of refl) {
-    const k = Math.min(1, (1 - r.dist / 70) * 1.4) ** 1.5; // perto: mais claro
+    const k = Math.min(1, (1 - r.dist / 120) * 1.5) ** 1.3; // começa a refletir de longe; perto: mais claro
     if (k <= 0.02) continue;
     const x = r.x - ox, y = r.y - oy, { w, h } = r;
     g.save();
@@ -136,7 +136,7 @@ export interface RoadPt { d: number; x: number; y: number; w: number } // distâ
 let darkCv: HTMLCanvasElement | null = null;
 const occCv = document.createElement('canvas'), tmpCv = document.createElement('canvas');
 let warmCv: HTMLCanvasElement | null = null;
-const REACH = 25; // alcance do farol baixo, em segmentos (~35 m de chão bem iluminado)
+const REACH = 30; // alcance do farol baixo, em segmentos (~35 m de chão bem iluminado)
 // degraus chapados (sem pontilhado): cada pixel vai para o nível mais próximo; a escuridão lisa
 // continua lisa e o facho vira poucas faixas de luz bem definidas, como na pixel art
 function quantize(g: CanvasRenderingContext2D, w: number, h: number, levels: number) {
@@ -175,17 +175,22 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
   const p0 = road[0];
   if (p0 && fd(p0.d) >= 0) {
     const h0 = p0.w * width(fd(p0.d));
-    quad(cx, seen + 6, cx, p0.y + 0.5, h0 * 0.85, h0, scale);
+    quad(cx, seen + 6, cx, p0.y + 0.5, h0 * 0.85, h0, scale * 0.5);
+    quad(cx, seen + 6, cx, p0.y + 0.5, h0 * 0.6, h0 * 0.7, scale * 0.45);
+    quad(cx, seen + 6, cx, p0.y + 0.5, h0 * 0.36, h0 * 0.42, scale * 0.45);
   }
   for (let k = 0; k + 1 < road.length; k++) {
     const p = road[k], q = road[k + 1];
     if (fd(p.d) < 0) break;
     const f = fd(p.d), fq = Math.max(0, fd(q.d));
-    const a = scale * Math.min(1, f * 1.5);
+    // brilho caindo aos poucos até o fim do alcance (sem corte seco)
+    const a = scale * Math.min(1, 1.2 * f ** 0.85);
     if (a <= 0.02) continue;
-    quad(cx, p.y + 0.5, cx, q.y - 0.5, p.w * width(f), q.w * width(fq), a);
-    // sobra fraca logo além da borda do facho (sem iluminar o chão dos lados)
-    quad(cx, p.y + 0.5, cx, q.y - 0.5, p.w * (width(f) + 0.12), q.w * (width(fq) + 0.12), a * 0.18);
+    // centro mais forte e bordas do trapézio mais fracas (três faixas sobrepostas)
+    const wp = p.w * width(f), wq = q.w * width(fq);
+    quad(cx, p.y + 0.5, cx, q.y - 0.5, wp, wq, a * 0.5);
+    quad(cx, p.y + 0.5, cx, q.y - 0.5, wp * 0.7, wq * 0.7, a * 0.45);
+    quad(cx, p.y + 0.5, cx, q.y - 0.5, wp * 0.42, wq * 0.42, a * 0.45);
   }
 }
 

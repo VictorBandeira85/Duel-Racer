@@ -210,7 +210,15 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   // carroceria dos carros mais perto (recorte com os retângulos deles)
   for (let li = 0; li < lights.length; li++) {
     const l = lights[li];
-    let clipped = false;
+    // carro atrás de uma crista: só o que fica acima da linha da crista aparece (halo, raios e o
+    // clarão no asfalto dele não passam por cima do chão nem dos carros na frente da crista)
+    let clipped = l.clip < vp.y + vp.h;
+    if (clipped) {
+      c.save();
+      c.beginPath();
+      c.rect(vp.x, vp.y - 50, vp.w, l.clip + 1 - (vp.y - 50));
+      c.clip();
+    }
     for (let j = li + 1; j < lights.length; j++) {
       const n = lights[j];
       if (n.w <= l.w) continue; // mesmo tamanho ou menor: não está mais perto

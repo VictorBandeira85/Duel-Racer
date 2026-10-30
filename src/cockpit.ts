@@ -555,7 +555,7 @@ COCKPIT_ART['br-corsa'] = {
 // luzes-espia (seta, bateria, óleo, farol alto, freio de mão) e o relógio digital
 COCKPIT_ART['br-passat'] = {
   dash: cp('br-passat-dash'), top: cp('br-passat-top'), wheel: cp('br-passat-wheel'),
-  pivot: [128.1, 103.8], speedMax: 220, needle: '#f0e0b8', needleW: 1.5, needleTail: 3, hub: '#161618', radar: [206, 4],
+  pivot: [128.1, 103.8], wheelDx: 10, speedMax: 220, needle: '#f0e0b8', needleW: 1.5, needleTail: 3, hub: '#161618', radar: [206, 4],
   glass: { at: [30, 100] }, tells: null,
   speed: { x: 105.3, y: 61.2, r: 20.5, max: 220, labels: [20, 60, 100, 140, 180, 220], tick: 10, boldTicks: true, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, bg: '#101113' },
   tach: { x: 171.8, y: 61.2, r: 20.5, max: 7, labels: [1, 2, 3, 4, 5, 6, 7], tick: 0.5, boldTicks: true, red: 6, a0: Math.PI * 0.75, sweep: Math.PI * 1.25, labelScale: 0.7, redLabels: false, redInk: '#ff6a1a', bg: '#101113' },

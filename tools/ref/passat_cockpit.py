@@ -42,6 +42,17 @@ def main():
     gw = ((wr[..., 1] + wr[..., 2]) // 2).astype(np.uint8)
     for k in range(3):
         w[..., k] = np.where(redw, gw, w[..., k])
+    # o volante é desenhado 10 colunas à direita (wheelDx, centrado no quadro): a parte da faixa
+    # do aro antigo que fica à esquerda do aro novo aparecia como um aro-sombra; vira o painel
+    # da esquerda na mesma linha (o painel tem estrutura horizontal)
+    rho_new = np.hypot((xx + 0.5 - 240.1) / 96.1, (yy + 0.5 - 103.8) / 104.2)
+    old = (rho > 0.78) & (rho < 1.13) & (xx < 230) & (rho_new > 1.0)
+    for y in range(H):
+        xs = np.nonzero(old[y])[0]
+        if not len(xs):
+            continue
+        src = a[y, max(0, xs.min() - 1)].copy()
+        a[y, xs] = src
     # emblema do volante
     cx, cy = 128.5, 112.0
     yy, xx = np.mgrid[0:w.shape[0], 0:w.shape[1]]

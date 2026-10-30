@@ -458,6 +458,30 @@ COCKPIT_ART['br-kadett'] = {
   extra: (c, ox, r) => kadettCluster(c, ox, r),
 };
 
+// Unão Turbo: quadro Veglia Borletti como o do carro — velocímetro 0-240 com hodômetro e parcial,
+// conta-giros 0-80 (× 100 rpm, "electronic") com faixa amarela e vermelha, manômetro do turbo
+// (0-1 bar) em cima no meio, óleo duplo (temperatura e pressão) embaixo, combustível à
+// esquerda e água à direita; ponteiros vermelhos
+const VEGLIA_INK = '#ececec';
+COCKPIT_ART['br-uno'] = {
+  dash: cp('br-uno-dash'), top: cp('br-uno-top'), wheel: cp('br-uno-wheel'),
+  pivot: [129, 104.2], speedMax: 240, needle: '#ff3a1a', needleW: 1.5, needleTail: 3, hub: '#141416', radar: [206, 4],
+  glass: { at: [25, 106] },
+  tells: [112, 77.5],
+  speed: { x: 101, y: 57, r: 17.5, max: 240, labels: [0, 40, 80, 120, 160, 200, 240], tick: 10, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, ink: VEGLIA_INK, bg: '#121416' },
+  tach: { x: 159.5, y: 57, r: 17.5, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], labelMul: 10, tick: 0.25, yellow: 5.8, red: 6.2, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, redLabels: false, ink: VEGLIA_INK, bg: '#121416' },
+  aux: [
+    { x: 130.3, y: 44.2, r: 9.5, kind: 'single', show: ['boost'], icon: 'turbo', labels: ['0', '0,5', '1'] },
+    { x: 130.3, y: 67.8, r: 8.8, kind: 'twin', show: ['oiltemp', 'oil'], icon: 'oil' },
+    { x: 73.5, y: 65.9, r: 8.4, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1/2', '1'] },
+    { x: 187.9, y: 65.9, r: 8.4, kind: 'single', show: ['water'], icon: 'temp', labels: ['60', '100', '140'] },
+  ],
+  extra: (c, ox, r) => {
+    odometer(c, ox, r, { x: 95, y: 50.5, w: 12, h: 3.5 }, 40230, 6, 0.5);
+    odometer(c, ox, r, { x: 97, y: 62, w: 8, h: 3.5 }, 142.5, 4, 0.5, true);
+  },
+};
+
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
 COCKPIT_ART.zr1 = {
   tells: null,

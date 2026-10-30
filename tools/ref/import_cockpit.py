@@ -111,6 +111,16 @@ CARS = {
         'hub_fill': ((30, 30, 33), 430),
         'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 206,
     },
+    # Unão Turbo: quadro Veglia como o do carro (combustível, velocímetro 0-240 com hodômetro,
+    # turbo 0-1 bar em cima, óleo duplo embaixo, conta-giros 0-80 e água): o jogo redesenha tudo
+    'br-uno': {
+        'scale': 0.43, 'x0': 250, 'y0': 247,
+        'gauges': {'speed': (485, 363, 42), 'tach': (621, 363, 42), 'turbo': (553, 337, 23), 'oil': (553, 385, 21),
+                   'fuel': (421, 381, 20), 'water': (687, 381, 20)},
+        'top_art': [(720, 0, 950, 145)], 'sky_left': True, 'despeckle': True,
+        'hub_fill': ((26, 26, 29), 470),
+        'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 262,
+    },
     # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
     'zr1': {
         'scale': 0.35, 'x0': 153, 'y0': 175,

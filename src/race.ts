@@ -1,3 +1,4 @@
+import { prewarmAds } from './billboards';
 import { CAR_W, KMH, LANE_W, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { aeroMul, CARS, G, LAUNCH_BOOST, Powertrain, perfClass, resistAcc, toGame, toMs, type CarLook, type CarSpec, type PerfClass, SHIFT_T } from './cars';
 import { PAINTS } from './paint';
@@ -254,6 +255,7 @@ export class Race {
     this.theme = this.def.night ? nightTheme(base) : this.def.weather === 'rain' ? rainTheme(base) : this.def.weather === 'fog' ? fogTheme(base) : base;
     const seed = (course.seed ?? course.id.length * 1000) + stageIdx * 97 + 11;
     this.track = buildTrack(this.def, this.theme, seed);
+    prewarmAds(this.track.segments.flatMap((sg) => sg.sprites.filter((sp) => sp.kind === 'billboard').map((sp) => sp.seed % 100)));
     this.region = themeRegion(this.def.theme);
     this.rand = rng(seed + 5);
 

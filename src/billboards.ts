@@ -688,3 +688,17 @@ export function adCanvas(n: number) {
   if (adsReady(i)) cache.set(i, cv);
   return cv;
 }
+
+// desenha antes os anúncios da pista, um por quadro, para não travar quando o outdoor aparece
+export function prewarmAds(ids: number[]) {
+  const todo = [...new Set(ids)];
+  let tries = 0;
+  const step = () => {
+    const i = todo.shift();
+    if (i === undefined) return;
+    adCanvas(i);
+    if (!cache.has(i) && tries++ < 200) todo.push(i); // fonte ou sprites ainda carregando: tenta depois
+    setTimeout(step, 30);
+  };
+  setTimeout(step, 30);
+}

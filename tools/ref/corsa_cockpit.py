@@ -4,6 +4,7 @@ gtb_rim_fix.py ... ceu):
   cromado com traços de velocidade)
 - faixa do aro antigo: a média puxou o vermelho das luzes-espia do quadro; volta a cinza
 - linha branca entre o painel e o para-brisa (fundo da arte entre as palhetas): transparente
+- luzes-espia do quadro (vinham acesas na arte): viram o fundo escuro, o jogo as acende
 
 Uso: python3 tools/ref/corsa_cockpit.py src/assets/cockpit
 """
@@ -43,6 +44,9 @@ def main():
     a[red, 0] = g[red]
     a[red, 1] = g[red]
     a[red, 2] = np.minimum(255, g[red] + 2)
+    # luzes-espia da arte (bateria e óleo à esquerda, freio à direita): fundo escuro
+    a[55:62, 181:194, :3] = (16, 18, 20)
+    a[55:62, 279:288, :3] = (16, 18, 20)
     # linha branca no alto do painel e no teto: vira vidro (transparente)
     for img, rows in ((a, slice(0, 24)), (t, slice(t.shape[0] - 12, t.shape[0]))):
         sub = img[rows]

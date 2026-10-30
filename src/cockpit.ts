@@ -496,6 +496,16 @@ COCKPIT_ART['br-corsa'] = {
   ],
   extra: (c, ox, r) => {
     odometer(c, ox, r, { x: 149.5, y: 64.5, w: 12, h: 3.5 }, 7908, 6, 0.5);
+    // luzes-espia: bateria (vermelha) e óleo (âmbar) à esquerda do conta-giros, freio à
+    // direita do velocímetro; apagadas ficam escuras na cor
+    const idle = r.speed < 1 && !r.throttle;
+    const lamp = (x: number, w: number, on: boolean, lit: string, off: string) => {
+      rect(c, ox + x, ART_TOP + 56, w, 4, on ? lit : off);
+      if (on) rect(c, ox + x + 0.5, ART_TOP + 56.5, w - 1, 0.5, '#ffd8c8');
+    };
+    lamp(80.5, 3.5, idle || r.damage > 0.6, '#ff3020', '#3a0e0c');
+    lamp(85, 5.5, gauges.oil < 0.36 || r.damage > 0.6, '#ffb020', '#3a2a0c');
+    lamp(178.5, 6, r.braking && r.state === 'drive', '#ff3020', '#3a0e0c');
     // visor do console: hora e temperatura em cima, data embaixo (laranja, como o do carro)
     const now = new Date();
     const p2 = (n: number) => String(n).padStart(2, '0');

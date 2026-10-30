@@ -463,6 +463,37 @@ COCKPIT_ART['br-kadett'] = {
 // (0-1 bar) em cima no meio, óleo duplo (temperatura e pressão) embaixo, combustível à
 // esquerda e água à direita; ponteiros vermelhos
 const VEGLIA_INK = '#ececec';
+// óleo duplo do Veglia: duas escalas em arco que se olham (temperatura 60-140 °C à esquerda,
+// pressão 0-8 bar à direita), cada ponteiro vermelho saindo da borda do seu lado, a última
+// marca de cada escala vermelha
+function oilDuo(c: CanvasRenderingContext2D, cx: number, cy: number, R: number) {
+  face(c, cx, cy, R + 1); // um pouco maior: cobre as marcas vermelhas do mostrador da arte
+  const half = (x: number, y: number) => c.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, 0.5, 0.5);
+  const mx = cx + 0.5, my = cy + 0.5;
+  const A = 0.62; // meia abertura de cada escala (rad)
+  for (const side of [-1, 1]) {
+    const px = mx + side * (R - 0.5), py = my + 0.5; // pivô do ponteiro na borda
+    const rr = R * 0.86; // raio da escala a partir do pivô
+    // valor baixo embaixo, alto em cima (como no Veglia)
+    const ang = (v: number) => (side < 0 ? A - 2 * A * v : Math.PI - A + 2 * A * v);
+    for (let i = 0; i <= 8; i++) {
+      const v = i / 8, a = ang(v);
+      c.fillStyle = i === 8 ? '#ff3020' : '#e8e8e8';
+      const long = i % 4 === 0 ? 1.5 : 0.5;
+      for (let k = 0; k <= long; k += 0.5) half(px + Math.cos(a) * (rr - k), py + Math.sin(a) * (rr - k) * PIX_Y);
+    }
+    // números nas pontas e no meio (fora da escala, do lado de dentro do mostrador)
+    const labels: [string, number][] = side < 0 ? [['60', 0], ['140', 1]] : [['0', 0], ['8', 1]];
+    for (const [l, v0] of labels) {
+      const a = ang(v0);
+      const back = 2.6 + pixWidth(l, 0.5) * 0.5;
+      pix(c, l, px + Math.cos(a) * (rr - back), py + Math.sin(a) * (rr - 1.5) * PIX_Y, '#f2f2f2', 0.5);
+    }
+    const v = side < 0 ? (gauges.oiltemp - 0.25) / 0.5 : gauges.oil;
+    hand(c, px, py, ang(clamp(v, 0, 1)), rr - 0.5, '#ff3a1a');
+  }
+}
+
 COCKPIT_ART['br-uno'] = {
   dash: cp('br-uno-dash'), top: cp('br-uno-top'), wheel: cp('br-uno-wheel'),
   pivot: [129, 104.2], speedMax: 240, needle: '#ff3a1a', needleW: 1.5, needleTail: 3, hub: '#141416', radar: [206, 4],
@@ -472,7 +503,6 @@ COCKPIT_ART['br-uno'] = {
   tach: { x: 159.5, y: 57, r: 17.5, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], labelMul: 10, tick: 0.25, yellow: 5.8, red: 6.2, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, redLabels: false, ink: VEGLIA_INK, bg: '#121416' },
   aux: [
     { x: 130.3, y: 44.2, r: 9.5, kind: 'single', show: ['boost'], icon: 'turbo', labels: ['0', '0,5', '1'] },
-    { x: 130.3, y: 67.8, r: 8.8, kind: 'twin', show: ['oiltemp', 'oil'], icon: 'oil' },
     { x: 73.5, y: 65.9, r: 8.4, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1/2', '1'] },
     { x: 187.9, y: 65.9, r: 8.4, kind: 'single', show: ['water'], icon: 'temp', labels: ['60', '100', '140'] },
   ],
@@ -480,6 +510,7 @@ COCKPIT_ART['br-uno'] = {
     // só o hodômetro, na boca de baixo do mostrador, abaixo do 0 e do 240 (o mostrador é pequeno
     // demais para o hodômetro e a parcial sem cobrir números)
     odometer(c, ox, r, { x: 95.5, y: 67.5, w: 11, h: 3 }, 40230, 6, 0.5);
+    oilDuo(c, ox + 130.3, ART_TOP + 67.8, 8.8);
   },
 };
 

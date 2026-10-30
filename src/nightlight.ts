@@ -137,14 +137,8 @@ let darkCv: HTMLCanvasElement | null = null;
 const occCv = document.createElement('canvas'), tmpCv = document.createElement('canvas');
 let warmCv: HTMLCanvasElement | null = null;
 const REACH = 30; // alcance do farol baixo, em segmentos (~35 m de chão bem iluminado)
-// degraus chapados (sem pontilhado): cada pixel vai para o nível mais próximo; a escuridão lisa
-// continua lisa e o facho vira poucas faixas de luz bem definidas, como na pixel art
-function quantize(g: CanvasRenderingContext2D, w: number, h: number, levels: number) {
-  const img = g.getImageData(0, 0, w, h);
-  const d = img.data;
-  for (let i = 3; i < d.length; i += 4) d[i] = Math.round(Math.round((d[i] / 255) * levels) / levels * 255);
-  g.putImageData(img, 0, 0);
-}
+// a escuridão e as luzes são polígonos de brilho chapado (degraus da pixel art) desenhados direto,
+// sem reprocessar os pixels a cada quadro
 // pinta o facho (alpha) em g: faixas do chão de perto para longe, cada uma pela distância
 // trecho contínuo de chão à frente do carro: para na crista (o que vem depois do topo da subida
 // está escondido; a luz que passa da crista vai para o ar e não aparece em nada)
@@ -255,7 +249,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     darkCv.width = W;
     darkCv.height = H;
   }
-  const g = darkCv.getContext('2d', { willReadFrequently: true })!;
+  const g = darkCv.getContext('2d')!;
   g.globalCompositeOperation = 'source-over';
   g.clearRect(0, 0, W, H);
   g.fillStyle = `rgba(0,0,10,${(0.8 * strength).toFixed(3)})`;
@@ -267,7 +261,6 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   for (const st of streets) streetPool(g, rd, st, 'rgba(0,0,0,', 0.85);
   reflectors(g, vp.x, top, 'rgba(0,0,0,', 1);
   g.globalCompositeOperation = 'source-over';
-  quantize(g, W, H, 6);
   const prev = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = false;
   c.drawImage(darkCv, vp.x, top);
@@ -277,7 +270,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     warmCv.width = W;
     warmCv.height = H;
   }
-  const wg = warmCv.getContext('2d', { willReadFrequently: true })!;
+  const wg = warmCv.getContext('2d')!;
   wg.globalCompositeOperation = 'source-over';
   wg.clearRect(0, 0, W, H);
   beamShape(wg, W, cx, seen - top, ground, 0.3);
@@ -287,7 +280,6 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   wg.globalCompositeOperation = 'source-over';
   for (const st of streets) streetPool(wg, rd, st, 'rgba(255,190,90,', 0.3 * strength); // luz de sódio
   reflectors(wg, vp.x, top, 'rgba(255,230,170,', 0.12 * strength); // tom quente do farol
-  quantize(wg, W, H, 6);
   c.save();
   c.globalCompositeOperation = 'lighter';
   c.drawImage(warmCv, vp.x, top);

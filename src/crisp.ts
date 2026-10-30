@@ -14,7 +14,9 @@ const cache = new Map<string, Crisp>();
 const MAX = 400;
 let work: HTMLCanvasElement | null = null;
 
-const bucket = (v: number) => (v <= 48 ? Math.max(1, Math.round(v)) : Math.round(v / 2) * 2);
+// tamanhos agrupados: pequenos de 1 em 1 px, médios de 2 em 2, grandes de 4 em 4 (menos redesenhos
+// enquanto o objeto cresce na tela; a ampliação final cobre a diferença)
+const bucket = (v: number) => (v <= 48 ? Math.max(1, Math.round(v)) : v <= 120 ? Math.round(v / 2) * 2 : Math.round(v / 4) * 4);
 
 export function crisp(key: string, w: number, h: number, draw: Draw): Crisp {
   const bw = bucket(w), bh = bucket(h);

@@ -121,6 +121,16 @@ CARS = {
         'hub_fill': ((26, 26, 29), 470),
         'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 262,
     },
+    # Corsário GSi: conta-giros e velocímetro grandes, combustível e água pequenos nas pontas e o
+    # visor do console (hora, temperatura e data): fundo liso, o jogo desenha tudo funcionando
+    'br-corsa': {
+        'scale': 0.46, 'x0': 237, 'y0': 183,
+        'gauges': {'tach': (484, 297, 42), 'speed': (575, 297, 42), 'fuel': (420, 327, 21), 'water': (637, 327, 21)},
+        'lcd': [((14, 10, 8), (798, 247, 884, 279))],
+        'top_art': [], 'sky_left': True, 'despeckle': True,
+        'hub_fill': ((26, 26, 29), 440),
+        'wheel_rows': 230, 'paint': 'column', 'rim_margin': 6, 'hole_sky_above': 205,
+    },
     # Corvette C4: painel digital (os visores de LCD são redesenhados funcionando no jogo)
     'zr1': {
         'scale': 0.35, 'x0': 153, 'y0': 175,

@@ -482,6 +482,30 @@ COCKPIT_ART['br-uno'] = {
   },
 };
 
+// Corsário GSi: conta-giros 0-7 e velocímetro 20-220 grandes, combustível e água pequenos nas
+// pontas; no alto do console o visor laranja com a hora, a temperatura e a data de verdade
+COCKPIT_ART['br-corsa'] = {
+  dash: cp('br-corsa-dash'), top: cp('br-corsa-top'), wheel: cp('br-corsa-wheel'),
+  pivot: [127.9, 104.1], speedMax: 220, needle: '#f2f2f2', needleW: 1.5, needleTail: 3, hub: '#161618', radar: [206, 4],
+  glass: { at: [20, 106] },
+  tach: { x: 113.6, y: 59.9, r: 18.5, max: 7, labels: [0, 1, 2, 3, 4, 5, 6, 7], tick: 0.25, red: 6.2, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, redLabels: false, redW: 1.5, bg: '#0e0f11' },
+  speed: { x: 155.5, y: 59.9, r: 18.5, max: 220, labels: [20, 60, 100, 140, 180, 220], minor: [40, 80, 120, 160, 200], tick: 10, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, bg: '#0e0f11' },
+  aux: [
+    { x: 84.2, y: 75.7, r: 9, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1/2', '1'] },
+    { x: 184, y: 75.7, r: 9, kind: 'single', show: ['water'], icon: 'temp', labels: ['50', '90', '130'] },
+  ],
+  extra: (c, ox, r) => {
+    odometer(c, ox, r, { x: 149.5, y: 64.5, w: 12, h: 3.5 }, 7908, 6, 0.5);
+    // visor do console: hora e temperatura em cima, data embaixo (laranja, como o do carro)
+    const now = new Date();
+    const p2 = (n: number) => String(n).padStart(2, '0');
+    const T = ART_TOP;
+    pix(c, `${p2(now.getHours())}:${p2(now.getMinutes())} 25°`, ox + 277.8, T + 39, '#ff8a20', 1);
+    pix(c, `${p2(now.getDate())}.${p2(now.getMonth() + 1)}.${p2(now.getFullYear() % 100)}`, ox + 277.8, T + 46, '#ff8a20', 1);
+    void r;
+  },
+};
+
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
 COCKPIT_ART.zr1 = {
   tells: null,

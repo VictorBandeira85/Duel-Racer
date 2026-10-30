@@ -4,7 +4,7 @@
 // vem atrás ofusca nos retrovisores e, ao emparelhar, clareia o lado da tela por onde passa.
 import type { CarLook } from './cars';
 
-interface Light { x: number; y: number; w: number; h: number; front: boolean; brake: boolean; signal: number; dots: number[][]; high: boolean; clip: number; shape?: (g: CanvasRenderingContext2D) => void }
+interface Light { x: number; y: number; w: number; h: number; front: boolean; brake: boolean; signal: number; dots: number[][]; high: boolean; clip: number; shape?: (g: CanvasRenderingContext2D) => void; plate?: number[] }
 const lights: Light[] = [];
 let collecting = false;
 
@@ -69,6 +69,7 @@ function facades(c: CanvasRenderingContext2D, strength: number) {
   fronts.length = 0;
 }
 export function beginLights() {
+  lastLight = null;
   fronts.length = 0;
   clipY = Infinity;
   lights.length = 0;
@@ -76,10 +77,17 @@ export function beginLights() {
   collecting = true;
 }
 // chamado por drawCar: guarda onde estão as luzes do carro (só durante a pista, à noite)
+// placa iluminada do último carro registrado (drawPlate é chamado logo depois de pushCarLights)
+let lastLight: Light | null = null;
+export function pushPlateLight(x: number, y: number, w: number, h: number) {
+  if (collecting && lastLight && !lastLight.front) lastLight.plate = [x, y, w, h];
+  lastLight = null;
+}
 // shape: redesenha o carro (só a silhueta importa) para recortar a luz dos carros de trás
 export function pushCarLights(x: number, y: number, w: number, look: CarLook, spots: { h: number; dots: number[][] }, shape?: (g: CanvasRenderingContext2D) => void) {
   if (!collecting || !look.night || w < 1.5) return;
   lights.push({ x, y, w, h: spots.h, front: !!look.front, brake: !!look.brake, signal: look.signal ?? 0, dots: spots.dots, high: !!look.flash || !!look.lamps?.high, clip: clipY, shape });
+  lastLight = lights[lights.length - 1];
 }
 const blinkOn = () => Math.floor(performance.now() / 250) % 2 === 0;
 
@@ -310,7 +318,16 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
           }
           blob(dc, l.x, l.y + l.w * 0.03, l.w * (l.brake ? 0.85 : 0.6), l.w * 0.1, '255,30,16', (l.brake ? 0.28 : 0.12) * strength);
         }
-        // seta piscando: brilho âmbar do lado para onde vai
+        // luz da placa: fraca e amarelada, só se nota de perto
+    if (l.plate && l.plate[2] >= 3) {
+      const [px, py, pw, ph] = l.plate;
+      const k = Math.min(1, (pw - 3) / 10);
+      dc.fillStyle = `rgba(255,236,170,${(0.32 * k * strength).toFixed(3)})`;
+      dc.fillRect(px, py, pw, ph);
+      dc.fillStyle = `rgba(255,236,170,${(0.12 * k * strength).toFixed(3)})`;
+      dc.fillRect(px - pw * 0.08, py - ph * 0.35, pw * 1.16, ph * 0.35);
+    }
+    // seta piscando: brilho âmbar do lado para onde vai
         if (l.signal && blinkOn()) {
           const [px, py] = pts[l.signal > 0 ? pts.length - 1 : 0] ?? [l.x, l.y - l.h / 2];
           const sx = l.front ? (l.signal > 0 ? L + l.w * 0.08 : L + l.w * 0.92) : px; // de frente o lado se inverte

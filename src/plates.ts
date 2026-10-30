@@ -2,10 +2,11 @@
 // Brasil: cinza (de 1990 em diante, três letras) ou amarela (antes de 1990, duas letras); a
 // primeira letra é a da região (como as faixas de letras por estado) e a tira de cima tem a cor
 // da região. Fora do Brasil, a placa do país de origem do carro: Itália, Alemanha, EUA e Japão.
+import { pushPlateLight } from './nightlight';
 import type { ThemeId } from './themes';
 
 export type PlateStyle = 'br' | 'brOld' | 'it' | 'de' | 'us' | 'jp';
-export interface Plate { style: PlateStyle; text: string; tag?: string }
+export interface Plate { style: PlateStyle; text: string; tag?: string; year?: number }
 
 // regiões da carreira: letra e cor da tira de cima
 export const REGION_PLATE: Record<string, { letter: string; tag: string }> = {
@@ -37,6 +38,11 @@ const digits = (r: () => number, n: number) => Array.from({ length: n }, () => S
 
 // placa de um carro: art = chave da arte (undefined = trânsito genérico, nacional), year = ano do modelo
 export function makePlate(r: () => number, region: string, art?: string, year = 1992): Plate {
+  const p = plateFor(r, region, art, year);
+  p.year = year;
+  return p;
+}
+function plateFor(r: () => number, region: string, art: string | undefined, year: number): Plate {
   const country = (art && ART_COUNTRY[art]) || 'br';
   if (country === 'br') {
     const reg = REGION_PLATE[region] ?? REGION_PLATE.costa;
@@ -113,6 +119,8 @@ function plateCanvas(p: Plate) {
 // placa no retângulo box (frações do sprite) do carro desenhado em (L, T, w, h)
 export function drawPlate(c: CanvasRenderingContext2D, L: number, T: number, w: number, h: number, box: number[], p: Plate) {
   const bw = (box[2] - box[0]) * w, bh = (box[3] - box[1]) * h;
+  // luz da placa (à noite, carros de 1980 em diante): fica presa à luz do próprio carro
+  if (p.year === undefined || p.year >= 1980) pushPlateLight(L + box[0] * w, T + box[1] * h, bw, bh);
   if (bw < 6) return; // longe: a placa da arte basta
   const prev = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = false;

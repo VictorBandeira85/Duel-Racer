@@ -500,6 +500,10 @@ function tapDealer(s: AppState, a: Actions, x: number, y: number) {
 export function drawCareerEnd(c: CanvasRenderingContext2D, s: AppState) {
   const cs = s.career!;
   const res = s.careerResult as EventResult;
+  if (!res) {
+    s.screen = 'career'; // sem resultado para mostrar: volta ao campeonato
+    return;
+  }
   const reg = REGIONS[ui.region];
   const ev = reg.events[ui.event];
   const x = ox();

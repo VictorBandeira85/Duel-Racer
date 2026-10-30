@@ -34,6 +34,7 @@ interface CockpitArt {
   // x nas coordenadas do painel (pode ser negativo: fica na área esticada de tela larga), y a
   // partir do topo da arte (topo de 76 linhas + painel)
   mirror?: { img: string; x: number; y: number };
+  lit?: [number, number, number, number][]; // visores com luz própria na arte do painel (x0, y0, x1, y1 inclusivos, pixels do painel): continuam acesos à noite
   glass?: { at: [number, number]; thr?: number };
   tells?: [number, number] | null; // luzes da seta no quadro (null: a cabine já desenha as dela) // ponto dentro do vidro do retrovisor (teto + painel), ver findGlass
   dy?: number; // desce a cabine inteira (painel alto demais tapando a pista)
@@ -607,6 +608,8 @@ COCKPIT_ART.zr1 = {
   tells: null,
   dash: cp('zr1-dash'), top: cp('zr1-top'), wheel: cp('zr1-wheel'),
   pivot: [128, 86], speedMax: 240, needle: '#ff3a1a', hub: '#26262a', aux: [], radar: [206, 4],
+  // rádio, visor do ar-condicionado e as barrinhas da ventilação (zr1_console.py)
+  lit: [[315, 60, 348, 67], [321, 83, 342, 90], [323, 93, 343, 94]],
   under: (c, ox) => {
     // caixa do quadro: a arte tinha os três visores espalhados (o conta-giros fora do volante);
     // fica a moldura cinza-escura lisa e o jogo desenha o quadro dentro do volante
@@ -867,6 +870,17 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     c.drawImage(dash, DASH_W - 2, 0, 2, 124, dx + DASH_W, ART_TOP, w - dx - DASH_W, 124);
   }
   c.drawImage(dash, dx, ART_TOP);
+  // à noite os visores iluminados da arte continuam acesos, com um brilho leve em volta
+  if (dk > 0.02 && art.lit) {
+    for (const [x0, y0, x1, y1] of art.lit) c.drawImage(dash0, x0, y0, x1 - x0 + 1, y1 - y0 + 1, dx + x0, ART_TOP + y0, x1 - x0 + 1, y1 - y0 + 1);
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (const [x0, y0, x1, y1] of art.lit) {
+      c.fillStyle = `rgba(255,170,60,${(0.045 * dk / 0.6).toFixed(3)})`;
+      c.fillRect(dx + x0 - 2, ART_TOP + y0 - 2, x1 - x0 + 5, y1 - y0 + 5);
+    }
+    c.restore();
+  }
   const top0 = svgSprite(art.top, DASH_W, TOP_EXT, tint(art.topMask));
   const top = top0 && nightImg(top0, dk);
   if (top) {

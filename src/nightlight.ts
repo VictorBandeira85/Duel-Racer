@@ -168,15 +168,19 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
     g.fill();
   };
   // perto do carro, abaixo do primeiro trecho de pista visível: continua o trapézio até o painel
+  // o alcance conta a partir do chão que aparece acima do capô/painel: num carro de painel alto
+  // (o trecho perto fica escondido) o facho continua aparecendo à frente
+  const d0 = Math.max(0, (road.find((p) => p.y < seen - 1)?.d ?? 0) - 6);
+  const fd = (d: number) => 1 - (d - d0) / REACH;
   const p0 = road[0];
-  if (p0 && p0.d <= REACH) {
-    const h0 = p0.w * width(1 - p0.d / REACH);
+  if (p0 && fd(p0.d) >= 0) {
+    const h0 = p0.w * width(fd(p0.d));
     quad(cx, seen + 6, cx, p0.y + 0.5, h0 * 0.85, h0, scale);
   }
   for (let k = 0; k + 1 < road.length; k++) {
     const p = road[k], q = road[k + 1];
-    if (p.d > REACH) break;
-    const f = 1 - p.d / REACH, fq = Math.max(0, 1 - q.d / REACH);
+    if (fd(p.d) < 0) break;
+    const f = fd(p.d), fq = Math.max(0, fd(q.d));
     const a = scale * Math.min(1, f * 1.5);
     if (a <= 0.02) continue;
     quad(cx, p.y + 0.5, cx, q.y - 0.5, p.w * width(f), q.w * width(fq), a);
@@ -283,8 +287,9 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   // a lâmpada de cada poste
   for (const st of streets) {
     // a lâmpada: um retângulo aceso nítido (como na arte) e um halo pequeno
-    blob(c, st.x, st.head, Math.max(2, st.r * 0.12), Math.max(1.5, st.r * 0.06), '255,200,110', 0.45 * strength);
-    const lw = Math.max(1, Math.round(st.r * 0.07)), lh = Math.max(1, Math.round(st.r * 0.025));
+    blob(c, st.x, st.head, Math.max(4, st.r * 0.26), Math.max(3, st.r * 0.14), '255,190,100', 0.5 * strength);
+    blob(c, st.x, st.head, Math.max(2, st.r * 0.1), Math.max(1.5, st.r * 0.05), '255,230,170', 0.8 * strength);
+    const lw = Math.max(2, Math.round(st.r * 0.09)), lh = Math.max(1, Math.round(st.r * 0.03));
     c.fillStyle = `rgba(255,244,210,${(0.95 * strength).toFixed(3)})`;
     c.fillRect(Math.round(st.x - lw / 2), Math.round(st.head - lh / 2), lw, lh);
   }

@@ -74,34 +74,35 @@ const refl: Reflector[] = [];
 export function pushReflector(kind: string, x: number, y: number, w: number, h: number, dist: number) {
   if (collecting && w > 2 && dist < 70) refl.push({ kind, x, y, w, h, dist, clip: clipY });
 }
-function reflectors(c: CanvasRenderingContext2D, strength: number) {
+// o farol ilumina a face da placa: recorta a escuridão em cima dela (as cores verdadeiras
+// aparecem, mais fortes conforme o carro chega perto); (ox, oy) desloca para a camada da escuridão
+function reflectors(g: CanvasRenderingContext2D, ox: number, oy: number, rgb: string, mul: number) {
   for (const r of refl) {
     const k = Math.min(1, (1 - r.dist / 70) * 1.4) ** 1.5; // perto: mais claro
     if (k <= 0.02) continue;
-    const { x, y, w, h } = r;
-    c.save();
-    c.beginPath();
-    c.rect(x - w, y - h * 1.2, w * 2, Math.min(h * 1.2, r.clip + 1 - (y - h * 1.2)));
-    c.clip();
-    // placas refletivas brilham mais que o papel dos outdoors
-    const a = (r.kind === 'billboard' ? 0.3 : 0.45) * k * strength;
-    c.fillStyle = `rgba(255,244,215,${a.toFixed(3)})`;
-    if (r.kind === 'billboard') c.fillRect(x - w / 2 + w * 0.03, y - h + h * 0.05, w * 0.94, h * 0.42);
-    else if (r.kind === 'gasSign') c.fillRect(x - w / 2, y - h, w, h * 0.45);
+    const x = r.x - ox, y = r.y - oy, { w, h } = r;
+    g.save();
+    g.beginPath();
+    g.rect(x - w, y - h * 1.2, w * 2, Math.min(h * 1.2, r.clip - oy + 1 - (y - h * 1.2)));
+    g.clip();
+    // placas refletivas acendem mais que o papel dos outdoors
+    const a = (r.kind === 'billboard' ? 0.75 : 0.95) * k * mul;
+    g.fillStyle = `${rgb}${a.toFixed(3)})`;
+    if (r.kind === 'billboard') g.fillRect(x - w / 2, y - h, w, h * 0.52);
+    else if (r.kind === 'gasSign') g.fillRect(x - w / 2, y - h, w, h * 0.45);
     else if (r.kind.startsWith('warn') || r.kind.startsWith('sharp')) {
       const cy = y - h * 0.78, rr = w * 0.5;
-      c.beginPath();
-      c.moveTo(x, cy - rr);
-      c.lineTo(x + rr, cy);
-      c.lineTo(x, cy + rr);
-      c.lineTo(x - rr, cy);
-      c.closePath();
-      c.fill();
-    } else if (r.kind === 'stop') c.fillRect(x - w / 2, y - h, w, h * 0.45);
-    else c.fillRect(x - w / 2, y - h, w, h * 0.55);
-    c.restore();
+      g.beginPath();
+      g.moveTo(x, cy - rr);
+      g.lineTo(x + rr, cy);
+      g.lineTo(x, cy + rr);
+      g.lineTo(x - rr, cy);
+      g.closePath();
+      g.fill();
+    } else if (r.kind === 'stop') g.fillRect(x - w / 2, y - h, w, h * 0.45);
+    else g.fillRect(x - w / 2, y - h, w, h * 0.55);
+    g.restore();
   }
-  refl.length = 0;
 }
 export function beginLights() {
   lastLight = null;
@@ -252,6 +253,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   beamShape(g, W, cx, seen - top, ground, 0.9);
   // postes acesos: o círculo de luz no chão embaixo de cada um, deitado na pista como o facho
   for (const st of streets) streetPool(g, rd, st, 'rgba(0,0,0,', 0.85);
+  reflectors(g, vp.x, top, 'rgba(0,0,0,', 1);
   g.globalCompositeOperation = 'source-over';
   quantize(g, W, H, 6);
   const prev = c.imageSmoothingEnabled;
@@ -272,6 +274,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   wg.fillRect(0, 0, W, H);
   wg.globalCompositeOperation = 'source-over';
   for (const st of streets) streetPool(wg, rd, st, 'rgba(255,190,90,', 0.3 * strength); // luz de sódio
+  reflectors(wg, vp.x, top, 'rgba(255,230,170,', 0.12 * strength); // tom quente do farol
   quantize(wg, W, H, 6);
   c.save();
   c.globalCompositeOperation = 'lighter';
@@ -285,7 +288,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     c.fillStyle = `rgba(255,244,210,${(0.95 * strength).toFixed(3)})`;
     c.fillRect(Math.round(st.x - lw / 2), Math.round(st.head - lh / 2), lw, lh);
   }
-  reflectors(c, strength);
+  refl.length = 0;
   facades(c, strength);
   streets.length = 0;
   // cada luz é desenhada numa camada à parte e recortada pela silhueta (pixel a pixel) dos carros

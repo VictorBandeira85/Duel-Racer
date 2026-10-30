@@ -28,22 +28,40 @@ def body_fill(a, x0, y0, x1, y1, ref):
         a[y, x0:x1] = a[y, ref]
 
 
-def plate(a, x0, y0, x1, y1):
-    """Placa genérica: moldura escura, fundo cinza-claro e caracteres em blocos escuros."""
+FONT = {  # 3x5
+    'A': '010101111101101', 'B': '110101110101110', 'C': '011100100100011', 'D': '110101101101110',
+    'R': '110101110101101', 'P': '110101110100100', 'V': '101101101101010', 'G': '011100101101011', 'U': '101101101101111', 'X': '101101010101101', 'E': '111100110100111',
+    '0': '111101101101111', '1': '010110010010111', '2': '111001111100111', '3': '111001111001111',
+    '4': '101101111001001', '5': '111100111001111', '6': '111100111101111', '7': '111001001010010',
+    '8': '111101111101111', '9': '111101111001111', '-': '000000111000000',
+}
+
+
+def plate(a, x0, y0, x1, y1, text='DRC-1990'):
+    """Placa genérica como as cinzas dos anos 80/90: moldura escura, faixa de cima com a cidade
+    (traços miúdos), letras e números escuros centrados."""
     a[y0:y1, x0:x1] = INK
-    a[y0 + 1:y1 - 1, x0 + 1:x1 - 1] = (206, 208, 212, 255)
-    a[y0 + 1, x0 + 1:x1 - 1] = (232, 234, 238, 255)
-    cy0, cy1 = y0 + (y1 - y0) // 2 - 3, y0 + (y1 - y0) // 2 + 3
-    w = x1 - x0 - 6
-    x = x0 + 4
-    glyphs = [3, 3, 3, 0, 3, 3, 3, 3]  # "AAA 0000": três letras, espaço, quatro números
-    step = w / len(glyphs)
-    for i, g in enumerate(glyphs):
+    a[y0 + 1:y1 - 1, x0 + 1:x1 - 1] = (198, 200, 204, 255)
+    a[y0 + 1, x0 + 1:x1 - 1] = (226, 228, 232, 255)
+    h = y1 - y0
+    # faixa da cidade
+    sy = y0 + 2
+    for x in range(x0 + (x1 - x0) // 2 - 6, x0 + (x1 - x0) // 2 + 6, 2):
+        a[sy, x] = (90, 92, 98, 255)
+    # caracteres: 3x5, escala 1 ou 2 conforme a altura da placa
+    k = 2 if h >= 16 and (x1 - x0) >= len(text) * 8 + 4 else 1
+    gw = 3 * k + k
+    tw = len(text) * gw - k
+    tx = x0 + (x1 - x0 - tw) // 2
+    ty = y0 + 3 + max(0, (h - 4 - 5 * k) // 2)
+    for i, ch in enumerate(text):
+        g = FONT.get(ch)
         if not g:
             continue
-        gx = int(round(x + i * step))
-        a[cy0:cy1, gx:gx + g] = (40, 40, 46, 255)
-        a[cy0 + 2:cy1 - 2, gx + 1:gx + g - 1] = (206, 208, 212, 255)  # miolo vazado
+        for j, bit in enumerate(g):
+            if bit == '1':
+                px, py = tx + i * gw + (j % 3) * k, ty + (j // 3) * k
+                a[py:py + k, px:px + k] = (34, 34, 40, 255)
 
 
 def emblem(a, cx, cy):
@@ -76,7 +94,7 @@ def main():
         if view == 'rear':
             body_fill(a, 19, 62, 39, 72, 17)      # emblema da marca
             body_fill(a, 131, 61, 171, 73, 128)   # letreiro com o nome do modelo
-            plate(a, 70, 81, 118, 100)            # placa de loja -> genérica
+            plate(a, 70, 81, 118, 100, 'DRU-1994')  # placa de loja -> genérica
             # adesivo no vidro traseiro: vira o vidro em volta
             for y in range(45, 55):
                 a[y, 86:102] = a[y, 84]

@@ -44,7 +44,7 @@ def main():
             for y in range(43, 51):  # emblema + nome da marca e nome do modelo: lataria
                 a[y, 12:50] = a[y, 10]
                 a[y, 122:160] = a[y, 162]
-            plate(a, 63, 58, 109, 72)
+            plate(a, 63, 58, 109, 72, 'DRP-1985')
         if view == 'front':
             glass(a)  # o branco do para-brisa é o fundo da arte
             for y in range(58, 70):  # emblema e "1.8" da grade: grade lisa e o fictício

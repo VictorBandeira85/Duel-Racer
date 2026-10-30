@@ -576,14 +576,17 @@ COCKPIT_ART['br-passat'] = {
     const lamps: [string, string, boolean][] = [
       ['#123a18', '#3cf048', blink], ['#3a0e0c', '#ff3020', wreck], ['#3a2a0c', '#ffb020', gauges.oil < 0.36 || wreck], ['#0e1a40', '#4a7cff', !!r.def?.night], ['#3a0e0c', '#ff3020', r.state === 'ticket'],
     ];
-    rect(c, ox + 136, T + 47, 14, 12, '#0a0a0c');
+    // centrados na coluna do meio do quadro (colunas 131-145 da arte, meio em 138,5)
+    const CX = 138;
     lamps.forEach(([off, on, lit], i) => {
-      const x = ox + 137 + (i % 3) * 4.5, y = T + 48 + Math.floor(i / 3) * 5;
-      rect(c, x, y, 3, 3.5, lit ? on : off);
+      const row = Math.floor(i / 3), n = row ? 2 : 3, k = i % 3;
+      const x = ox + CX - (n * 2.5 + (n - 1) * 1.5) / 2 + k * 4, y = T + 47 + row * 4.5;
+      rect(c, x, y, 2.5, 3, lit ? on : off);
     });
-    rect(c, ox + 136.5, T + 66, 13, 6, '#9aa88a');
+    rect(c, ox + CX - 5, T + 66, 10, 5.5, '#9aa88a');
+    rect(c, ox + CX - 5, T + 66, 10, 0.5, '#c4d0b4');
     const now = new Date();
-    pix(c, `${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, '0')}`, ox + 143, T + 69, '#1c2418', 0.5);
+    pix(c, `${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, '0')}`, ox + CX, T + 68.75, '#1c2418', 0.5);
   },
 };
 

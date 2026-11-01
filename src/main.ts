@@ -1,3 +1,4 @@
+import { prefs, savePrefs } from './prefs';
 import { clearArcade, loadArcade, saveArcade } from './arcadesave';
 import { capsHtml } from './ui';
 import { stageResult } from './score';
@@ -28,10 +29,12 @@ const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
 const $ = (id: string) => document.getElementById(id)!;
 $('credits').textContent = MUSIC_CREDITS;
+setMuted(!prefs.sound);
+setMusicOn(prefs.music);
 $('version').textContent = __APP_VERSION__;
 
 const state: AppState = {
-  screen: 'title', t: 0, sel: 1, auto: true, sound: true, music: true,
+  screen: 'title', t: 0, sel: 1, auto: prefs.auto, sound: prefs.sound, music: prefs.music,
   carIdx: 0, oppIdx: 0, courseIdx: 0, scoreCourse: 0,
   lives: 5, results: [], gameOver: false,
   mode: 'arcade', career: loadCareer(), careerResult: null, gasPage: 0, arcadeNight: false, courseTop: 0, newMap: null, lockedT: 0, carFilter: null, oppFilter: null,
@@ -76,6 +79,7 @@ const actions: Actions = {
     state.sel = s === 'title' ? 1 : s === 'course' ? unlockedCourses() - 1 : 0; // percursos: já no mapa liberado mais novo
     state.lockedT = 0;
     showControls(false);
+    $('settings').classList.add('hidden'); // ajustes da pausa não ficam abertos sobre o menu
     setEngine(0, false, false);
     stopTrafficAudio();
     setSiren(false);
@@ -128,10 +132,12 @@ const actions: Actions = {
   toggleSound() {
     state.sound = !state.sound;
     setMuted(!state.sound);
+    savePrefs({ sound: state.sound });
   },
   toggleMusic() {
     state.music = !state.music;
     setMusicOn(state.music);
+    savePrefs({ music: state.music });
   },
 };
 
@@ -294,7 +300,9 @@ function setPaused(p: boolean) {
   paused = p;
   $('pause').classList.toggle('hidden', !p);
   $('settings').classList.add('hidden');
+  quickLabels();
   $('nowPlaying').textContent = musicTitle() ? `♪ ${musicTitle()}` : '';
+  // ajustes abertos no menu principal ficam fechados ao entrar/sair da pausa
   if (p) {
     setEngine(0, false, false);
     stopTrafficAudio();
@@ -303,6 +311,21 @@ function setPaused(p: boolean) {
   }
 }
 $('pauseBtn').addEventListener('click', () => setPaused(true));
+// atalhos da pausa: música e efeitos sonoros sem abrir os ajustes
+function quickLabels() {
+  $('qMusic').innerHTML = capsHtml(`MÚSICA: ${state.music ? 'LIGADA' : 'DESLIGADA'}`);
+  $('qSound').innerHTML = capsHtml(`SONS: ${state.sound ? 'LIGADOS' : 'DESLIGADOS'}`);
+  $('qMusic').classList.toggle('off', !state.music);
+  $('qSound').classList.toggle('off', !state.sound);
+}
+$('qMusic').addEventListener('click', () => {
+  actions.toggleMusic();
+  quickLabels();
+});
+$('qSound').addEventListener('click', () => {
+  actions.toggleSound();
+  quickLabels();
+});
 $('resume').addEventListener('click', () => setPaused(false));
 $('quit').addEventListener('click', () => {
   // o que foi feito no trecho interrompido (ultrapassagens, túneis) entra nas estatísticas
@@ -327,7 +350,8 @@ function settingsLabels() {
     gear: ['CÂMBIO', state.auto ? 'AUTOMÁTICO' : 'MANUAL'],
     buttons: ['BOTÕES', btnSizeLabel()],
     ghost: ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'],
-    fx: ['EFEITOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')],
+    hints: ['DICAS', prefs.hints ? 'LIGADAS' : 'DESLIGADAS'],
+    fx: ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')],
   };
   document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b) => {
     const [k, v] = lab[b.dataset.set!];
@@ -347,6 +371,7 @@ document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b)
     case 'track': playMusic(`race:${state.courseIdx * 5 + (race?.stageIdx ?? 0) + ++trackStep}`); break;
     case 'gear':
       state.auto = !state.auto;
+      savePrefs({ auto: state.auto });
       if (race) race.auto = state.auto;
       $('gearBtns').classList.toggle('hidden', state.auto);
       break;
@@ -355,6 +380,7 @@ document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b)
       setGhostOn(!ghostOn());
       if (race) race.showGhost = ghostOn();
       break;
+    case 'hints': savePrefs({ hints: !prefs.hints }); break;
     case 'fx': setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]); break;
   }
   settingsLabels();
@@ -367,6 +393,7 @@ $('setBtn').addEventListener('click', () => {
 $('setBack').addEventListener('click', () => {
   $('settings').classList.add('hidden');
   $('pause').classList.remove('hidden');
+  quickLabels();
   $('nowPlaying').textContent = musicTitle() ? `♪ ${musicTitle()}` : '';
 });
 

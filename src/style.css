@@ -88,3 +88,7 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
 /* espaço em cima para o acento não ser cortado nas caixas com reticências */
 #settings button span { padding-top: 0.5em; margin-top: -0.5em; }
 #settings #version { font-size: 1.5vh; color: rgba(255,255,255,0.3); }
+/* atalhos da pausa (música e sons), lado a lado, menores que os botões principais */
+#pause .quick { display: flex; gap: 2vh; }
+#pause .quick button { min-width: 32vh; padding: 1.6vh 2vh; font-size: 2.2vh; background: #efe6d2; color: #1a1614; border-bottom-color: #1f4fd0; }
+#pause .quick button.off { color: #9a9286; border-bottom-color: #9a9286; }

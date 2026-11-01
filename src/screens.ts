@@ -1,3 +1,4 @@
+import { prefs, savePrefs } from './prefs';
 import { clearArcade, loadArcade } from './arcadesave';
 import { gasQuip } from './score';
 import { clearFriendGhosts, friendGhostCount, ghostCode, ghostOn, loadGhostCode, setGhostOn } from './records';
@@ -363,7 +364,7 @@ function activateTitle(s: AppState, i: number, a: Actions) {
 }
 
 // ---------- opções ----------
-const optionRects = () => [0, 1, 2, 3, 4, 5, 6].map((i): Rect => ({ x: ox() + 40, y: 40 + i * 27, w: 240, h: 24 }));
+const optionRects = () => [0, 1, 2, 3, 4, 5, 6, 7].map((i): Rect => ({ x: ox() + 40, y: 36 + i * 23, w: 240, h: 21 }));
 // tamanho dos botões de toque (direção, acelerador, freio, marchas), salvo no aparelho
 const BTN_SIZES = [{ label: 'PEQUENOS', k: 0.8 }, { label: 'MÉDIOS', k: 1 }, { label: 'GRANDES', k: 1.22 }, { label: 'ENORMES', k: 1.45 }];
 const BTN_KEY = 'duel-racer:botoes';
@@ -397,28 +398,32 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
   const items: [string, string][] = [
     ['CÂMBIO', s.auto ? 'AUTOMÁTICO' : 'MANUAL'], ['SOM', s.sound ? 'LIGADO' : 'DESLIGADO'], ['MÚSICA', s.music ? 'LIGADA' : 'DESLIGADA'],
     ['BOTÕES', BTN_SIZES[btnSizeIdx()].label], ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'],
-    ['EFEITOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')], ['', ''],
+    ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')], ['DICAS NA TELA', prefs.hints ? 'LIGADAS' : 'DESLIGADAS'], ['', ''],
   ];
   optionRects().forEach((r, i) => {
     const hot = s.sel === i;
-    if (i === 6) return tag(c, { x: r.x + 60, y: r.y + 5, w: r.w - 120, h: 16 }, '◀ VOLTAR À CAPA', hot, 5);
+    if (i === 7) return tag(c, { x: r.x + 60, y: r.y + 3, w: r.w - 120, h: 16 }, '◀ VOLTAR À CAPA', hot, 5);
     c.fillStyle = hot ? '#fff8e4' : '#f6efdd';
     c.fillRect(r.x, r.y, r.w, r.h);
     c.strokeStyle = hot ? RED : 'rgba(26,22,20,0.35)';
     c.lineWidth = hot ? 2 : 1;
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
-    ink(c, items[i][0], r.x + 10, r.y + 8, 8, INK);
-    ink(c, items[i][1], r.x + r.w - 10, r.y + 9, 5, hot ? RED : BLUE, 'right');
+    ink(c, items[i][0], r.x + 10, r.y + 7, 8, INK);
+    ink(c, items[i][1], r.x + r.w - 10, r.y + 8, 5, hot ? RED : BLUE, 'right');
   });  // créditos da trilha, discretos no rodapé
   MUSIC_CREDIT_LINES.forEach((l, i) => ink(c, l, x + SAFE_W / 2, Math.min(view.h - 13, 227) + i * 6, 4, 'rgba(26,22,20,0.45)', 'center'));
 }
 function activateOption(s: AppState, a: Actions, i: number) {
-  if (i === 0) s.auto = !s.auto;
+  if (i === 0) {
+    s.auto = !s.auto;
+    savePrefs({ auto: s.auto });
+  }
   else if (i === 1) a.toggleSound();
   else if (i === 2) a.toggleMusic();
   else if (i === 3) setBtnSize((btnSizeIdx() + 1) % BTN_SIZES.length);
   else if (i === 4) setGhostOn(!ghostOn());
   else if (i === 5) setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]);
+  else if (i === 6) savePrefs({ hints: !prefs.hints });
   else a.go('title');
 }
 
@@ -1375,7 +1380,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection'].includes(s.screen)) return keyCareerScreen(s, a, k);
-  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 7, opponent: oppList(s).length, course: COURSES.length };
+  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 8, opponent: oppList(s).length, course: COURSES.length };
   // percursos: cima/baixo escolhem, esquerda/direita trocam dia e noite
   if (s.screen === 'course' && (k === 'left' || k === 'right')) {
     s.arcadeNight = !s.arcadeNight;

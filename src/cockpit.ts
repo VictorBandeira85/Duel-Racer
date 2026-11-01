@@ -1,3 +1,4 @@
+import { prefs } from './prefs';
 import { touch } from './input';
 import { ghostTimeAt } from './records';
 import { DASH_Y, KMH, ROOF_H, view } from './config';
@@ -1737,15 +1738,22 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   if (r.state === 'countdown') {
     const n = Math.ceil(r.timer);
     text(c, n > 3 ? 'PRONTO?' : String(n), w / 2, vp.y + 28, 16, '#ffd400', 'center');
-    // os desafios deste trecho, para o jogador saber o que buscar
-    if (r.challenges.length) {
-      text(c, 'DESAFIOS', w / 2, vp.y + 52, 5, '#ffd400', 'center');
-      r.challenges.forEach((ch, i) => text(c, ch.label, w / 2, vp.y + 61 + i * 8, 5, '#ffffff', 'center'));
-    }
     // no computador: lembrete dos comandos do teclado (o controle segue o padrão dos consoles)
-    if (!touch.ui) text(c, 'SETAS OU WASD: DIRIGIR · Q/E: MARCHAS · ESC: PAUSA', w / 2, vp.y + vp.h - 10, 5, '#ffd400', 'center');
+    if (!touch.ui && prefs.hints) text(c, 'SETAS OU WASD: DIRIGIR · Q/E: MARCHAS · ESC: PAUSA', w / 2, vp.y + vp.h - 10, 5, '#ffd400', 'center');
   } else if (r.state === 'drive' && r.time < 1 && r.crashes === 0) {
     text(c, 'VAI!', w / 2, vp.y + 28, 16, '#30e060', 'center');
+  }
+  // desafios do trecho: quadro pequeno no canto do para-brisa, na largada e nos primeiros segundos
+  if (r.challenges.length && (r.state === 'countdown' || (r.state === 'drive' && r.time < 5))) {
+    const a = r.state === 'countdown' ? 1 : Math.min(1, (5 - r.time) / 1.2);
+    const bx = coreX() + 6, by = vp.y + 4, bw = Math.max(...r.challenges.map((ch) => ch.label.length)) * 4 + 8;
+    c.save();
+    c.globalAlpha = a;
+    c.fillStyle = 'rgba(10,8,6,0.6)';
+    c.fillRect(bx, by, bw, 9 + r.challenges.length * 6);
+    text(c, 'DESAFIOS', bx + 3, by + 2, 4, '#ffd400', 'left', null);
+    r.challenges.forEach((ch, i) => text(c, ch.label, bx + 3, by + 8 + i * 6, 4, '#ffffff', 'left', null));
+    c.restore();
   }
   if (r.messageT > 0) text(c, r.message, w / 2, vp.y + 10, 8, '#ffd400', 'center');
   if (r.officer?.phase === 'show' && r.fine) drawFine(c, r, vp);

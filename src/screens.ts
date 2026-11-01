@@ -1,3 +1,4 @@
+import { ACTIONS, binding, binds, keyName, resetBinds } from './input';
 import { drawPerson } from './people';
 import { prefs, savePrefs } from './prefs';
 import { clearArcade, loadArcade } from './arcadesave';
@@ -22,7 +23,7 @@ import { BLUE, GREY, INK, RED, YELLOW, arrow, barcode, box, burst, halftone, hea
 import { formatTime, shade } from './util';
 import { setEngine, setTires, shiftSound } from './audio';
 
-export type ScreenId = 'title' | 'options' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores' | 'achievements'
+export type ScreenId = 'title' | 'options' | 'controls' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores' | 'achievements'
   | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd' | 'collection';
 export type MenuKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back';
 
@@ -366,7 +367,7 @@ function activateTitle(s: AppState, i: number, a: Actions) {
 }
 
 // ---------- opções ----------
-const optionRects = () => [0, 1, 2, 3, 4, 5, 6, 7, 8].map((i): Rect => ({ x: ox() + 40, y: 34 + i * 21, w: 240, h: 19 }));
+const optionRects = () => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i): Rect => ({ x: ox() + 40, y: 33 + i * 19, w: 240, h: 17 }));
 // tamanho dos botões de toque (direção, acelerador, freio, marchas), salvo no aparelho
 const BTN_SIZES = [{ label: 'PEQUENOS', k: 0.8 }, { label: 'MÉDIOS', k: 1 }, { label: 'GRANDES', k: 1.22 }, { label: 'ENORMES', k: 1.45 }];
 const BTN_KEY = 'duel-racer:botoes';
@@ -400,21 +401,58 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
   const items: [string, string][] = [
     ['CÂMBIO', s.auto ? 'AUTOMÁTICO' : 'MANUAL'], ['SOM', s.sound ? 'LIGADO' : 'DESLIGADO'], ['MÚSICA', s.music ? 'LIGADA' : 'DESLIGADA'],
     ['BOTÕES', BTN_SIZES[btnSizeIdx()].label], ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'],
-    ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')], ['DICAS NA TELA', prefs.hints ? 'LIGADAS' : 'DESLIGADAS'], ['MOSTRAR FPS', prefs.fps ? 'SIM' : 'NÃO'], ['', ''],
+    ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')], ['DICAS NA TELA', prefs.hints ? 'LIGADAS' : 'DESLIGADAS'], ['MOSTRAR FPS', prefs.fps ? 'SIM' : 'NÃO'], ['CONTROLES', 'TECLAS ▶'], ['', ''],
   ];
   optionRects().forEach((r, i) => {
     const hot = s.sel === i;
-    if (i === 8) return tag(c, { x: r.x + 60, y: r.y + 2, w: r.w - 120, h: 15 }, '◀ VOLTAR À CAPA', hot, 5);
+    if (i === 9) return tag(c, { x: r.x + 60, y: r.y + 1, w: r.w - 120, h: 15 }, '◀ VOLTAR À CAPA', hot, 5);
     c.fillStyle = hot ? '#fff8e4' : '#f6efdd';
     c.fillRect(r.x, r.y, r.w, r.h);
     c.strokeStyle = hot ? RED : 'rgba(26,22,20,0.35)';
     c.lineWidth = hot ? 2 : 1;
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
-    ink(c, items[i][0], r.x + 10, r.y + 6, 8, INK);
-    ink(c, items[i][1], r.x + r.w - 10, r.y + 7, 5, hot ? RED : BLUE, 'right');
+    ink(c, items[i][0], r.x + 10, r.y + 5, 8, INK);
+    ink(c, items[i][1], r.x + r.w - 10, r.y + 6, 5, hot ? RED : BLUE, 'right');
   });  // créditos da trilha, discretos no rodapé
   MUSIC_CREDIT_LINES.forEach((l, i) => ink(c, l, x + SAFE_W / 2, Math.min(view.h - 13, 227) + i * 6, 4, 'rgba(26,22,20,0.45)', 'center'));
 }
+// ---------- controles: teclas do teclado (trocáveis) e o mapa do controle ----------
+const ctrlRects = () => [...ACTIONS.map((_, i): Rect => ({ x: ox() + 20, y: 40 + i * 20, w: 160, h: 17 })), { x: ox() + 20, y: 166, w: 160, h: 15 } as Rect, { x: ox() + 20, y: 186, w: 160, h: 15 } as Rect];
+function drawControls(c: CanvasRenderingContext2D, s: AppState) {
+  const x = ox();
+  paper(c);
+  masthead(c, 'CONTROLES');
+  kicker(c, 'TECLADO', x + 20, 24, RED, '#fff');
+  ink(c, binding.action ? 'Aperte a tecla nova (Esc cancela)' : 'Escolha e aperte Enter para trocar', x + 70, 26, 5, binding.action ? RED : GREY);
+  ctrlRects().forEach((r, i) => {
+    const hot = s.sel === i;
+    if (i === ACTIONS.length) return tag(c, r, 'TECLAS DE FÁBRICA', hot, 5);
+    if (i === ACTIONS.length + 1) return tag(c, r, '◀ VOLTAR', hot, 5);
+    const a = ACTIONS[i];
+    const wait = binding.action === a.id;
+    c.fillStyle = wait ? '#ffe9a8' : hot ? '#fff8e4' : '#f6efdd';
+    c.fillRect(r.x, r.y, r.w, r.h);
+    c.strokeStyle = hot ? RED : 'rgba(26,22,20,0.35)';
+    c.lineWidth = hot ? 2 : 1;
+    c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+    ink(c, a.label, r.x + 8, r.y + 6, 5, INK);
+    const fixed = { gas: '↑', brake: '↓', left: '←', right: '→', shiftUp: 'X', shiftDown: 'Z' }[a.id];
+    ink(c, wait ? '...' : `${keyName(binds[a.id])}  ou  ${fixed}`, r.x + r.w - 8, r.y + 6, 5, hot ? RED : BLUE, 'right');
+  });
+  // controle de videogame (fixo)
+  box(c, { x: x + 192, y: 38, w: 124, h: 146 }, 'CONTROLE');
+  [['Acelerar', 'A / X  ou  RT'], ['Frear', 'B / O  ou  LT'], ['Direção', 'Direcional / alavanca'], ['Marchas', 'LB  /  RB'], ['Pausa', 'Start'], ['Menus', 'Direcional + A'], ['Voltar', 'B / O']].forEach(([k, v], i) => {
+    ink(c, k, x + 198, 56 + i * 17, 5, INK);
+    ink(c, v, x + 198, 63 + i * 17, 4, GREY);
+  });
+  ink(c, 'Esc: pausa  ·  F11: tela cheia', x + 20, 210, 5, GREY);
+}
+function activateControl(s: AppState, a: Actions, i: number) {
+  if (i < ACTIONS.length) binding.action = ACTIONS[i].id;
+  else if (i === ACTIONS.length) resetBinds();
+  else a.go('options');
+}
+
 function activateOption(s: AppState, a: Actions, i: number) {
   if (i === 0) {
     s.auto = !s.auto;
@@ -427,6 +465,7 @@ function activateOption(s: AppState, a: Actions, i: number) {
   else if (i === 5) setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]);
   else if (i === 6) savePrefs({ hints: !prefs.hints });
   else if (i === 7) savePrefs({ fps: !prefs.fps });
+  else if (i === 8) a.go('controls');
   else a.go('title');
 }
 
@@ -1327,6 +1366,7 @@ export function drawScreen(c: CanvasRenderingContext2D, s: AppState) {
   switch (s.screen) {
     case 'title': return drawTitle(c, s);
     case 'options': return drawOptions(c, s);
+    case 'controls': return drawControls(c, s);
     case 'car': return drawCarSelect(c, s);
     case 'opponent': return drawOpponent(c, s);
     case 'course': return drawCourse(c, s);
@@ -1442,12 +1482,16 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
     case 'achievements':
       a.go('scores');
       return;
+    case 'controls':
+      if (binding.action) return;
+      ctrlRects().forEach((r, i) => inside(x, y, r) && activateControl(s, a, i));
+      return;
   }
 }
 
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection'].includes(s.screen)) return keyCareerScreen(s, a, k);
-  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 9, opponent: oppList(s).length, course: COURSES.length };
+  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 10, opponent: oppList(s).length, course: COURSES.length };
   // percursos: cima/baixo escolhem, esquerda/direita trocam dia e noite
   if (s.screen === 'course' && (k === 'left' || k === 'right')) {
     s.arcadeNight = !s.arcadeNight;
@@ -1471,6 +1515,14 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (s.screen === 'end') return k === 'ok' && tapScreen(s, a, 0, 100);
   if (s.screen === 'achievements') {
     if (k === 'ok' || k === 'back' || k === 'up') a.go('scores');
+    return;
+  }
+  if (s.screen === 'controls') {
+    const n = ctrlRects().length;
+    if (k === 'up') s.sel = (s.sel + n - 1) % n;
+    if (k === 'down') s.sel = (s.sel + 1) % n;
+    if (k === 'ok') activateControl(s, a, s.sel);
+    if (k === 'back') a.go('options');
     return;
   }
   if (s.screen === 'scores') {

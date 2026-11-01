@@ -16,13 +16,15 @@ COMO JOGAR NO NAVEGADOR (qualquer computador)
 COMANDOS
 - Setas ou WASD: acelerar, frear e virar
 - Q / E: reduzir / subir marcha (no câmbio manual)
+- As teclas podem ser trocadas em AJUSTES > CONTROLES
 - Esc: pausa (ajustes de som, câmbio, controles e gráficos); na capa, sair do jogo
 - Menus: setas para escolher, Enter para confirmar, Esc para voltar
 - F11 ou Alt+Enter: tela cheia / janela
 - Controle de Xbox ou PlayStation também funciona (conecte antes de abrir o jogo).
 
 ENCONTROU UM PROBLEMA?
-Mande no grupo:
+Pause o jogo (Esc) e toque em REPORTAR PROBLEMA: o relatório é copiado; cole no grupo
+e escreva o que aconteceu. Ou mande no grupo:
 1. O número da versão (aparece no canto de baixo da capa e no painel de pausa);
 2. O carro, o roteiro e o trecho;
 3. O que aconteceu (uma foto ou vídeo da tela ajuda muito).

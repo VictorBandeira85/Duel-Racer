@@ -1,5 +1,5 @@
 import { prefs } from './prefs';
-import { touch } from './input';
+import { binds, keyName, touch } from './input';
 import { ghostTimeAt } from './records';
 import { DASH_Y, KMH, ROOF_H, view } from './config';
 import type { Race } from './race';
@@ -1743,7 +1743,7 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
     const n = Math.ceil(r.timer);
     text(c, n > 3 ? 'PRONTO?' : String(n), w / 2, vp.y + 28, 16, '#ffd400', 'center');
     // no computador: lembrete dos comandos do teclado (o controle segue o padrão dos consoles)
-    if (!touch.ui && prefs.hints) text(c, 'SETAS OU WASD: DIRIGIR · Q/E: MARCHAS · ESC: PAUSA', w / 2, vp.y + vp.h - 10, 5, '#ffd400', 'center');
+    if (!touch.ui && prefs.hints) text(c, `SETAS OU ${[binds.gas, binds.left, binds.brake, binds.right].map(keyName).join('')}: DIRIGIR · ${keyName(binds.shiftDown)}/${keyName(binds.shiftUp)}: MARCHAS · ESC: PAUSA`, w / 2, vp.y + vp.h - 10, 5, '#ffd400', 'center');
   } else if (r.state === 'drive' && r.time < 1 && r.crashes === 0) {
     text(c, 'VAI!', w / 2, vp.y + 28, 16, '#30e060', 'center');
   }

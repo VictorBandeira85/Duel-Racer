@@ -15,7 +15,7 @@ import { CHALLENGE_PRIZE, checkChallenge, partialStats, saveMedal, stageAchievem
 import { paintHex } from './paint';
 import { preloadCockpit, renderCockpit } from './cockpit';
 import { applyBtnSize, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
-import { input, pollGamepad, releaseAll, setupInput, touch } from './input';
+import { binding, input, pollGamepad, releaseAll, setBind, setupInput, touch } from './input';
 import { MUSIC_CREDITS } from './tracks';
 import { initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicOn, setMusicVolume, setMuted, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
@@ -288,6 +288,13 @@ window.addEventListener('keydown', (e) => {
   }
 });
 window.addEventListener('keydown', (e) => {
+  // tela CONTROLES esperando a tecla nova: Esc cancela, qualquer outra vira a tecla da ação
+  if (binding.action) {
+    e.preventDefault();
+    if (e.code !== 'Escape' && !MENU_KEYS[e.code]?.match(/^(ok)$/)) setBind(binding.action, e.code);
+    binding.action = null;
+    return;
+  }
   const k = MENU_KEYS[e.code];
   // janela "Sair do jogo?" aberta: setas escolhem, Enter confirma, Esc fecha
   if (quitOpen()) {
@@ -353,6 +360,47 @@ function closeQuit() {
   $('quitDlg').classList.add('hidden');
 }
 $('quitYes').addEventListener('click', () => window.close());
+
+// relatório de problema (pausa): junta versão, aparelho, carro, roteiro e desempenho num texto e
+// copia para colar no grupo de teste
+function reportText() {
+  const st = race?.def;
+  const fpsAvg = fpsHist.length ? Math.round(fpsHist.reduce((a, b) => a + b, 0) / fpsHist.length) : 0;
+  const fpsMin = fpsHist.length ? Math.min(...fpsHist) : 0;
+  const ua = navigator.userAgent;
+  const sys = /Windows/.test(ua) ? 'Windows' : /Mac OS/.test(ua) ? (touch.ui ? 'iPad' : 'Mac') : /iPhone/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Linux/.test(ua) ? 'Linux' : 'outro';
+  return [
+    'DUEL RACER - RELATÓRIO DE PROBLEMA',
+    `Versão: ${__APP_VERSION__} (${DESKTOP ? 'programa de PC' : 'navegador'}, ${sys})`,
+    `Modo: ${state.mode === 'career' ? 'Carreira' : 'Arcade'} · Roteiro: ${state.mode === 'career' ? '-' : COURSES[state.courseIdx]?.name} · Trecho ${(race?.stageIdx ?? 0) + 1}`,
+    `Carro: ${run.car.name} · Rival: ${run.rival?.name ?? '-'}`,
+    `Pista: ${st?.theme ?? '-'}${st?.night ? ' · noite' : ''}${st?.dusk ? ' · pôr do sol' : ''}${st?.weather ? ` · ${st.weather}` : ''} · ${race ? Math.round((race.playerZ / race.track.finishZ) * 100) : 0}% do trecho`,
+    `Gráficos: ${FX_LABEL[fxMode()]}${lowFx() ? ' (econômico ativo)' : ''} · FPS médio ${fpsAvg} (mín ${fpsMin})`,
+    `Tela: ${window.innerWidth}x${window.innerHeight} · densidade ${window.devicePixelRatio} · resolução interna ${RES}x`,
+    'O que aconteceu: ',
+  ].join('\n');
+}
+$('report').addEventListener('click', async () => {
+  const t = reportText();
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(t);
+    ok = true;
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = t;
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      ok = document.execCommand('copy');
+    } catch {
+      ok = false;
+    }
+    ta.remove();
+  }
+  $('report').textContent = ok ? 'COPIADO! COLE NO GRUPO' : 'NÃO FOI POSSÍVEL COPIAR';
+  setTimeout(() => ($('report').textContent = 'REPORTAR PROBLEMA'), 2500);
+});
 $('quitNo').addEventListener('click', closeQuit);
 
 function setPaused(p: boolean) {
@@ -478,13 +526,14 @@ let acc = 0;
 // contador de quadros por segundo no canto de cima à esquerda (opção MOSTRAR FPS)
 const fpsEl = document.getElementById('fps')!;
 let fpsN = 0, fpsT0 = 0;
+let fpsHist: number[] = []; // médias dos últimos ~10 s (para o relatório de problema)
 function countFps(now: number) {
   fpsEl.classList.toggle('hidden', !prefs.fps);
   fpsEl.classList.toggle('race', state.screen === 'race');
-  if (!prefs.fps) return;
   fpsN++;
   if (now - fpsT0 >= 500) {
     const v = Math.round((fpsN * 1000) / (now - fpsT0));
+    if (state.screen === 'race' && !paused) fpsHist = [...fpsHist.slice(-19), v];
     fpsEl.textContent = `${v} FPS`;
     fpsEl.classList.toggle('low', v < 55);
     fpsN = 0;

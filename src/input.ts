@@ -10,7 +10,7 @@ export function takeShift(kind: 'shiftUp' | 'shiftDown') {
   return n > 0;
 }
 
-type Key = keyof typeof input | keyof typeof queue;
+export type Key = keyof typeof input | keyof typeof queue;
 
 const press = (k: Key, down: boolean) => {
   if (k === 'shiftUp' || k === 'shiftDown') {
@@ -18,17 +18,57 @@ const press = (k: Key, down: boolean) => {
   } else input[k] = down;
 };
 
-const KEYMAP: Record<string, Key> = {
-  ArrowLeft: 'left', KeyA: 'left',
-  ArrowRight: 'right', KeyD: 'right',
-  ArrowUp: 'gas', KeyW: 'gas',
-  ArrowDown: 'brake', KeyS: 'brake',
-  KeyE: 'shiftUp', KeyX: 'shiftUp',
-  KeyQ: 'shiftDown', KeyZ: 'shiftDown',
-};
+// teclas: as setas sempre valem; a outra de cada ação pode ser trocada na tela CONTROLES
+export const ACTIONS: { id: Key; label: string }[] = [
+  { id: 'gas', label: 'ACELERAR' }, { id: 'brake', label: 'FREAR' }, { id: 'left', label: 'ESQUERDA' },
+  { id: 'right', label: 'DIREITA' }, { id: 'shiftUp', label: 'SOBE MARCHA' }, { id: 'shiftDown', label: 'REDUZ MARCHA' },
+];
+const FIXED: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'gas', ArrowDown: 'brake', KeyX: 'shiftUp', KeyZ: 'shiftDown' };
+const DEFAULT_BIND: Record<Key, string> = { left: 'KeyA', right: 'KeyD', gas: 'KeyW', brake: 'KeyS', shiftUp: 'KeyE', shiftDown: 'KeyQ' };
+const BIND_KEY = 'duel-racer:teclas';
+export const binds: Record<Key, string> = (() => {
+  try {
+    return { ...DEFAULT_BIND, ...JSON.parse(localStorage.getItem(BIND_KEY) || '{}') };
+  } catch {
+    return { ...DEFAULT_BIND };
+  }
+})();
+let KEYMAP: Record<string, Key> = {};
+function rebuild() {
+  KEYMAP = { ...FIXED };
+  for (const a of ACTIONS) KEYMAP[binds[a.id]] = a.id;
+}
+rebuild();
+// troca a tecla de uma ação (a que já usava essa tecla fica com a antiga desta)
+export function setBind(id: Key, code: string) {
+  const other = ACTIONS.find((a) => a.id !== id && binds[a.id] === code);
+  if (other) binds[other.id] = binds[id];
+  binds[id] = code;
+  try {
+    localStorage.setItem(BIND_KEY, JSON.stringify(binds));
+  } catch {
+    /* sem armazenamento */
+  }
+  rebuild();
+}
+export function resetBinds() {
+  Object.assign(binds, DEFAULT_BIND);
+  try {
+    localStorage.removeItem(BIND_KEY);
+  } catch {
+    /* sem armazenamento */
+  }
+  rebuild();
+}
+// nome curto da tecla para mostrar na tela
+export const keyName = (code: string) =>
+  code.replace(/^Key/, '').replace(/^Digit/, '').replace(/^Arrow(.*)/, (_, d) => ({ Up: '↑', Down: '↓', Left: '←', Right: '→' } as Record<string, string>)[d]).replace('ShiftLeft', 'SHIFT').replace('ShiftRight', 'SHIFT D').replace('ControlLeft', 'CTRL').replace('ControlRight', 'CTRL D').replace('Space', 'ESPAÇO').replace(/^Numpad/, 'NUM ').toUpperCase();
+// tecla esperando ser escolhida na tela CONTROLES (o jogo não reage a ela enquanto isso)
+export const binding = { action: null as Key | null };
 
 export function setupInput() {
   window.addEventListener('keydown', (e) => {
+    if (binding.action) return;
     const k = KEYMAP[e.code];
     if (k && !e.repeat) press(k, true);
     if (k) e.preventDefault();

@@ -3,8 +3,8 @@ export const FONT = '"Press Start 2P", monospace';
 
 // símbolos que a fonte de pixel não tem (o navegador os desenharia com outra fonte, pequenos
 // e borrados): trocados por equivalentes que ela tem
-const GLYPH_FIX: Record<string, string> = { '◀': '<', '▶': '>', '▲': '^', '▼': 'v', '•': '·', '✓': '', '—': '-', '−': '-', '→': '>', '×': 'x', '≈': '~', '★': '*' };
-export const fixGlyphs = (s: string) => s.replace(/[◀▶▲▼•✓—−→×≈★]/g, (ch) => GLYPH_FIX[ch] ?? ch).trimEnd();
+const GLYPH_FIX: Record<string, string> = { '◀': '<', '▶': '>', '▲': '^', '▼': 'v', '•': '·', '✓': '', '—': '-', '−': '-', '→': '>', '←': '<', '×': 'x', '≈': '~', '★': '*' };
+export const fixGlyphs = (s: string) => s.replace(/[◀▶▲▼•✓—−→←×≈★]/g, (ch) => GLYPH_FIX[ch] ?? ch).trimEnd();
 
 // maiúsculas acentuadas: a fonte de pixel as desenha com corpo de minúscula ("MúSICA"); a letra
 // sai como maiúscula normal e o acento é desenhado por cima, nos pixels da fonte (8 por letra)

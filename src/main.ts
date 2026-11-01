@@ -412,6 +412,7 @@ function settingsLabels() {
     buttons: ['BOTÕES', btnSizeLabel()],
     ghost: ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'],
     hints: ['DICAS', prefs.hints ? 'LIGADAS' : 'DESLIGADAS'],
+    fps: ['MOSTRAR FPS', prefs.fps ? 'SIM' : 'NÃO'],
     fx: ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')],
   };
   document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b) => {
@@ -442,6 +443,7 @@ document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b)
       if (race) race.showGhost = ghostOn();
       break;
     case 'hints': savePrefs({ hints: !prefs.hints }); break;
+    case 'fps': savePrefs({ fps: !prefs.fps }); break;
     case 'fx': setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]); resize(); break;
   }
   settingsLabels();
@@ -473,7 +475,25 @@ resize();
 const STEP = 1 / 60;
 let last = performance.now();
 let acc = 0;
+// contador de quadros por segundo no canto de cima à esquerda (opção MOSTRAR FPS)
+const fpsEl = document.getElementById('fps')!;
+let fpsN = 0, fpsT0 = 0;
+function countFps(now: number) {
+  fpsEl.classList.toggle('hidden', !prefs.fps);
+  fpsEl.classList.toggle('race', state.screen === 'race');
+  if (!prefs.fps) return;
+  fpsN++;
+  if (now - fpsT0 >= 500) {
+    const v = Math.round((fpsN * 1000) / (now - fpsT0));
+    fpsEl.textContent = `${v} FPS`;
+    fpsEl.classList.toggle('low', v < 55);
+    fpsN = 0;
+    fpsT0 = now;
+  }
+}
+
 function frame(now: number) {
+  countFps(now);
   // um erro num quadro (desenho, áudio) não pode parar o jogo: registra e segue no próximo
   try {
     frameInner(now);

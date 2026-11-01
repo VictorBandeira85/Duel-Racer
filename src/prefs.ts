@@ -1,8 +1,8 @@
 // Ajustes do jogador que valem entre uma abertura e outra (som, música, câmbio, dicas na tela)
-export interface Prefs { sound: boolean; music: boolean; auto: boolean; hints: boolean }
+export interface Prefs { sound: boolean; music: boolean; auto: boolean; hints: boolean; fps: boolean }
 const KEY = 'duel-racer:ajustes';
 export const prefs: Prefs = (() => {
-  const d: Prefs = { sound: true, music: true, auto: true, hints: true };
+  const d: Prefs = { sound: true, music: true, auto: true, hints: true, fps: false };
   try {
     return { ...d, ...JSON.parse(localStorage.getItem(KEY) || '{}') };
   } catch {

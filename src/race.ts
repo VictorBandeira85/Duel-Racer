@@ -379,8 +379,11 @@ export class Race {
     const lanes = this.track.lanes;
     const lane = Math.floor(r() * lanes);
     const oncoming = lane < lanes / 2;
+    // não nasce em cima de outro carro da mesma faixa: avança até achar espaço
+    const lx = laneCenter(this.track, lane);
+    for (let k = 0; k < 6 && this.traffic.some((o) => o !== c && Math.abs(o.x - lx) < CAR_W && Math.abs(o.z - z) < 5 * SEG_LEN); k++) z += 6 * SEG_LEN;
     c.z = z;
-    c.x = laneCenter(this.track, lane) + (r() - 0.5) * 300;
+    c.x = lx + (r() - 0.5) * 300;
     c.speed = (oncoming ? -1 : 1) * (0.2 + r() * 0.16) * 12000;
     c.color = TRAFFIC_COLORS[Math.floor(r() * TRAFFIC_COLORS.length)];
     c.truck = r() < 0.18;
@@ -434,6 +437,8 @@ export class Race {
       // segurando o giro na contagem o turbo já sobe pressão
       if (this.pt.boost < 1) this.pt.boost = lerp(this.pt.boost, input.gas ? LAUNCH_BOOST : 0.1, Math.min(1, dt * 2));
       setEngine(this.rpm, input.gas, true, this.pt.boost < 1 ? this.pt.boost : 0);
+      // o trânsito não espera a largada: segue circulando (quem vem atrás na faixa do jogador freia)
+      this.updateTraffic(dt);
       return;
     }
 
@@ -851,7 +856,14 @@ export class Race {
     if (dir > 0) look(this.playerZ, this.x, this.speed); // não atropela o jogador parado
     if (this.rival && dir > 0) look(this.rival.z, this.rival.x, this.rival.speed);
     let desired = c.base;
-    if (gapAhead < 6 * SEG_LEN && Math.abs(aheadSpeed) < Math.abs(desired)) desired = aheadSpeed * (gapAhead < 2 * SEG_LEN ? 0.85 : 1);
+    // distância segura do carro da frente: a velocidade se ajusta para ficar a ~3,5 segmentos dele
+    // (mais perto freia, mais longe pode alcançar), sem colar na traseira
+    if (gapAhead < 8 * SEG_LEN) {
+      const safe = 3.5 * SEG_LEN;
+      const v = Math.max(0, Math.abs(aheadSpeed) + (gapAhead - safe) * 1.6);
+      const mag = gapAhead < 1.5 * SEG_LEN ? Math.min(v, Math.abs(aheadSpeed) * 0.6) : v;
+      if (mag < Math.abs(desired)) desired = dir * mag;
+    }
     // contramão com o jogador vindo de frente na mesma faixa: buzina, pisca o farol e, em cima,
     // freia forte e joga o carro para o acostamento
     c.panic = 0;
@@ -863,7 +875,9 @@ export class Race {
         if (c.panic > 1.8) c.x = Math.max(-t.roadW - CAR_W * 0.25, c.x - dt * 1600); // até o acostamento
       }
     }
-    c.speed += (desired - c.speed) * Math.min(1, dt * (c.panic > 1.5 ? 3 : 1.2));
+    // freia mais depressa do que acelera (motorista vê o carro da frente e tira o pé)
+    const braking = Math.abs(desired) < Math.abs(c.speed);
+    c.speed += (desired - c.speed) * Math.min(1, dt * (c.panic > 1.5 || braking ? 3.5 : 1.2));
     // passado o susto, volta devagar para a sua faixa
     if (c.panic === 0 && !c.moving && !c.signal && Math.abs(c.x - c.tx) > 150) c.x += clamp(c.tx - c.x, -dt * 500, dt * 500);
 
@@ -889,7 +903,8 @@ export class Race {
     const lane = clamp(Math.floor((c.x + t.roadW) / lw), 0, t.lanes - 1);
     const group = lane < t.lanes / 2 ? 0 : t.lanes / 2;
     const tx = laneCenter(t, group + (1 - (lane - group)));
-    const busy = this.traffic.some((o) => o !== c && Math.abs(o.x - tx) < CAR_W && Math.abs(o.z - c.z) < SEG_LEN * 3.5)
+    // faixa de destino livre com folga: ninguém a menos de 5 segmentos à frente nem 4 atrás
+    const busy = this.traffic.some((o) => o !== c && Math.abs(o.x - tx) < CAR_W && (o.z - c.z) * Math.sign(c.speed || 1) < SEG_LEN * 5 && (o.z - c.z) * Math.sign(c.speed || 1) > -SEG_LEN * 4)
       || (Math.abs(this.x - tx) < CAR_W * 1.2 && Math.abs(this.playerZ - c.z) < SEG_LEN * 4)
       || (!!this.rival && Math.abs(this.rival.x - tx) < CAR_W * 1.2 && Math.abs(this.rival.z - c.z) < SEG_LEN * 4);
     if (busy) return;

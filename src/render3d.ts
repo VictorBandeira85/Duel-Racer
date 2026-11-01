@@ -3,7 +3,7 @@ import { drawSmoke } from './smoke';
 import { drawCrisp } from './crisp';
 import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { CARS, drawCar } from './cars';
-import { lowFx } from './perf';
+import { lowFx, fxMode } from './perf';
 import { adsReady } from './billboards';
 import { beginLights, finishNight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, type Pass, type RoadPt } from './nightlight';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
@@ -282,7 +282,9 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   // altura da câmera: o chão logo abaixo do motorista
   // (no salto, o chão fica lá embaixo: a câmera sobe com o carro)
   const playerY = lerp(base.p1.world.y, base.p2.world.y, basePct) + r.lift;
-  const end = Math.min(segs.length, base.index + (lowFx() ? Math.round(DRAW_DIST * 0.65) : DRAW_DIST));
+  // distância de desenho: menor no econômico, bem maior no MÁXIMO
+  const far = fxMode() === 'alto' ? 1.4 : lowFx() ? 0.65 : 1;
+  const end = Math.min(segs.length, base.index + Math.round(DRAW_DIST * far));
   const ground = dither(c, r.theme.ground[0], r.theme.ground[1]);
   // chão por baixo de tudo: em vales, parte da tela não é coberta por nenhum segmento
   c.fillStyle = ground;
@@ -340,7 +342,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
     c.globalAlpha = 1 - fk;
     for (const sp of s.sprites) {
       // objetos pequenos e distantes só poluem o horizonte
-      if (dist > (sp.kind === 'post' || sp.kind === 'rail' ? 90 : FAR_KINDS.includes(sp.kind) ? 400 : 170)) continue;
+      if (dist > (sp.kind === 'post' || sp.kind === 'rail' ? 90 : FAR_KINDS.includes(sp.kind) ? 400 : 170) * Math.max(1, far * 0.85)) continue;
       const def = SPRITES[sp.kind];
       const sc = s.p1.screen.scale;
       const sw = def.w * sc * vp.K;

@@ -1,3 +1,4 @@
+import { fxMode } from './perf';
 import { pushCarLights } from './nightlight';
 import { drawPlate, type Plate } from './plates';
 import { drawCrisp } from './crisp';
@@ -640,7 +641,8 @@ function glow(c: CanvasRenderingContext2D, x: number, y: number, w: number, rgb:
 
 // carros grandes na tela são rasterizados na resolução real (RES pixels por pixel do jogo);
 // os pequenos e distantes, na do jogo (economiza memória e tempo na corrida)
-const hiRes = (w: number) => (w >= 20 ? RES : Math.max(1, RES / 2)); // os longe, na metade (economiza memória)
+// os longe na metade da resolução (economiza memória), menos no gráfico MÁXIMO
+const hiRes = (w: number) => (w >= 20 || fxMode() === 'alto' ? RES : Math.max(1, RES / 2));
 
 // Carro visto de trás (ou de frente, se vier na contramão). (x, y) = centro da base.
 // Trânsito e viatura em pixel art (tools/art/traffic.py); a cor de cada carro vem da máscara

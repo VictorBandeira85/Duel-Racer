@@ -188,6 +188,7 @@ export class Race {
   slip = 0; // derrapagem (0 = com aderência, 1 = escorregando)
   spin = 0; // rodas patinando na arrancada
   balance = 0; // equilíbrio do carro: < 0 sai de frente, > 0 a traseira solta
+  head = 0; // cabeça do motorista olhando para onde o carro vai na derrapagem (rad, só a vista)
   yaw = 0; // quanto o carro está "atravessado" (rad, + = virado para dentro da curva à direita)
   drift = 0; // ângulo de derrapagem (rad, + = frente virada para a direita); passou de ~32°, roda
   private spinOut = 0; // animação de rodada
@@ -630,6 +631,10 @@ export class Race {
       this.speed -= max * 0.5 * dt;
     }
     this.yaw = lerp(this.yaw, yawTarget, Math.min(1, dt * (this.spinOut > 0 ? 7 : 12)));
+    // na derrapagem o motorista vira a cabeça de leve para o lado da saída da curva, com um pouco
+    // de atraso (movimento suave); rodando, não acompanha
+    const lookTarget = this.spinOut > 0 || Math.abs(this.drift) < 0.04 ? 0 : clamp(-this.drift * 0.35, -0.07, 0.07);
+    this.head = lerp(this.head, lookTarget, Math.min(1, dt * 2.5));
 
     // ---- fora da pista ----
     this.shake = 0;

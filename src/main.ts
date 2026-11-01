@@ -257,7 +257,9 @@ function resize() {
   // resolução de desenho: acompanha os pixels reais da tela (pista, carros e objetos mais
   // definidos); no econômico fica em 2
   const dev = scale * (window.devicePixelRatio || 1);
-  setRes(dev >= 3.5 && !lowFx() ? 4 : 2);
+  // (no MÁXIMO usa 4 também em monitores comuns de computador: carros e cenário bem definidos;
+  // no automático só em telas densas, e se o aparelho não der conta volta para 2 sozinho)
+  setRes(!lowFx() && dev >= (fxMode() === 'alto' ? 1.4 : 3.5) ? 4 : 2);
   canvas.width = view.w * RES;
   canvas.height = view.h * RES;
   ctx.setTransform(RES, 0, 0, RES, 0, 0);
@@ -382,7 +384,7 @@ document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b)
       if (race) race.showGhost = ghostOn();
       break;
     case 'hints': savePrefs({ hints: !prefs.hints }); break;
-    case 'fx': setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]); break;
+    case 'fx': setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]); resize(); break;
   }
   settingsLabels();
 }));

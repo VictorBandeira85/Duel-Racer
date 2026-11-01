@@ -182,7 +182,8 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
   }
   for (let k = 0; k + 1 < road.length; k++) {
     // longe, dois trechos por vez (o facho é largo e suave ali: menos desenho por quadro)
-    const step = fd(road[k].d) < 0.7 && k + 2 < road.length && road[k + 2].d - road[k].d <= 4 ? 2 : 1;
+    const fk = fd(road[k].d);
+    const step = fk < 0.4 && k + 3 < road.length && road[k + 3].d - road[k].d <= 6 ? 3 : fk < 0.75 && k + 2 < road.length && road[k + 2].d - road[k].d <= 4 ? 2 : 1;
     const p = road[k], q = road[k + step];
     k += step - 1;
     if (fd(p.d) < 0) break;

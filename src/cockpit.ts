@@ -1706,7 +1706,11 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   const art = COCKPIT_ART[r.car.dash];
   ART_TOP = 100 + (art?.dy ?? 0);
   // nas cabines desenhadas, os vidros laterais vão abaixo do painel: a estrada desce até o fim
+  // a cabeça do motorista: só a vista pelo para-brisa gira (a cabine não se mexe nem é cortada)
+  const yaw0 = r.yaw;
+  r.yaw += r.head;
   renderRoad(c, r, art ? { ...vp, h: view.h - vp.y, dash: ART_TOP } : vp);
+  r.yaw = yaw0;
   weather(c, r, vp, dt);
   drawWipers(c, r, vp, dt, dashTopFn(art), coreX());
   drawGlassMarks(c, r, vp);

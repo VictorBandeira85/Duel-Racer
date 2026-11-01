@@ -1745,19 +1745,19 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   }
   // chegada: placa grande com a seta para a direita, piscando, indicando a entrada do posto
   if (r.state === 'arrived' && Math.floor(performance.now() / 300) % 2 === 0) {
-    const cx = w / 2, cy = vp.y + 30;
+    const cx = w / 2 - 8, cy = vp.y + 30;
     c.fillStyle = '#1a1614';
-    c.fillRect(cx - 41, cy - 13, 84, 28);
+    c.fillRect(cx - 41, cy - 13, 100, 28);
     c.fillStyle = '#ffd21a';
-    c.fillRect(cx - 42, cy - 14, 84, 28);
+    c.fillRect(cx - 42, cy - 14, 100, 28);
     c.fillStyle = '#1a1614';
-    c.fillRect(cx - 30, cy - 3, 34, 6);
+    c.fillRect(cx - 34, cy - 3, 34, 6);
     c.beginPath();
-    c.moveTo(cx + 4, cy - 10);
-    c.lineTo(cx + 18, cy);
-    c.lineTo(cx + 4, cy + 10);
+    c.moveTo(cx, cy - 10);
+    c.lineTo(cx + 14, cy);
+    c.lineTo(cx, cy + 10);
     c.fill();
-    text(c, 'POSTO', cx + 22, cy - 3, 5, '#1a1614', 'left', null);
+    text(c, 'POSTO', cx + 20, cy - 3, 5, '#1a1614', 'left', null);
   }
   // desafios do trecho: quadro pequeno no canto do para-brisa, na largada e nos primeiros segundos
   if (r.challenges.length && (r.state === 'countdown' || (r.state === 'drive' && r.time < 5))) {

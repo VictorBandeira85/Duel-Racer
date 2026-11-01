@@ -6,6 +6,15 @@ const { pathToFileURL } = require('node:url');
 
 // os arquivos do jogo são servidos por app://jogo/ (origem fixa: salvamentos e recordes ficam
 // guardados entre as aberturas, e a música carrega como no site)
+// placa de vídeo sempre: sem estas opções, placas de vídeo/drivers na lista de bloqueio do
+// Chromium desenhavam o jogo pelo processador (queda de quadros, principalmente à noite)
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+// notebooks com duas placas: prefere a dedicada
+app.commandLine.appendSwitch('force_high_performance_gpu');
+
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
 ]);

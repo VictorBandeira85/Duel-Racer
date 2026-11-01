@@ -1,3 +1,4 @@
+import { touch } from './input';
 // Telas do modo Carreira: central (regiões e eventos), evento, garagem, concessionária e resultado.
 import { SAFE_W, view, KMH } from './config';
 import { CARS, DEALER_CARS, RIMS, drawCarSide, gearbox, layout, type CarSpec } from './cars';
@@ -24,7 +25,7 @@ const STYLE: Record<string, [string, string]> = {
 export const money = (v: number) => `$${Math.round(v).toLocaleString('pt-BR')}`;
 
 // estado da interface da carreira (não vai para o save)
-export const ui = { region: 0, event: 0, dealer: 0, garage: 0, msg: '', msgT: 0, filter: null as ClassFilter };
+export const ui = { region: 0, event: 0, dealer: 0, garage: 0, gFocus: 6, msg: '', msgT: 0, filter: null as ClassFilter };
 function flash(s: AppState, msg: string) {
   ui.msg = msg;
   ui.msgT = s.t + 2.2;
@@ -211,6 +212,12 @@ const garageButtons = () => {
     use: { x: x + 110, y: 211, w: 100, h: 15 }, back: { x: x + 4, y: 211, w: 100, h: 15 }, dealer: { x: x + 216, y: 211, w: 100, h: 15 },
   };
 };
+// itens da oficina que o teclado percorre (cima/baixo): as 3 melhorias, os 3 ajustes, cor, usar,
+// classificados e voltar
+const garageFocusRects = (): Rect[] => {
+  const b = garageButtons();
+  return [...upgradeRows(), ...setupTags(), b.use, b.dealer, b.back];
+};
 const ownedCars = (cs: CareerSave) => CARS.filter((c) => cs.owned.includes(c.id));
 
 // carro com melhorias, guardado por nível (o índice de desempenho é medido uma vez)
@@ -291,6 +298,13 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   tag(c, b.back, '◀ VOLTAR');
   tag(c, b.use, active ? 'EM USO' : 'USAR ESTE', !active);
   tag(c, b.dealer, 'CLASSIFICADOS ▶');
+  // teclado: o item escolhido com as setas fica marcado
+  const kf = garageFocusRects()[ui.gFocus % garageFocusRects().length];
+  if (kf && !touch.ui) {
+    c.strokeStyle = YELLOW;
+    c.lineWidth = 2;
+    c.strokeRect(kf.x - 1.5, kf.y - 1.5, kf.w + 3, kf.h + 3);
+  }
   toast(c, s);
 }
 
@@ -600,12 +614,16 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
       if (k === 'ok') a.startEvent(ui.region, ui.event);
       if (k === 'back') a.go('career');
       return;
-    case 'garage':
+    case 'garage': {
+      const n = garageFocusRects().length;
       if (k === 'left') b(garageButtons().prev);
       if (k === 'right') b(garageButtons().next);
-      if (k === 'ok') b(garageButtons().use);
+      if (k === 'up') ui.gFocus = (ui.gFocus + n - 1) % n;
+      if (k === 'down') ui.gFocus = (ui.gFocus + 1) % n;
+      if (k === 'ok') b(garageFocusRects()[ui.gFocus % n]);
       if (k === 'back') a.go('career');
       return;
+    }
     case 'dealer':
       if (k === 'left') b(dealerButtons().prev);
       if (k === 'right') b(dealerButtons().next);

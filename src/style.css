@@ -92,3 +92,10 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
 #pause .quick { display: flex; gap: 2vh; }
 #pause .quick button { min-width: 32vh; padding: 1.6vh 2vh; font-size: 2.2vh; background: #efe6d2; color: #1a1614; border-bottom-color: #1f4fd0; }
 #pause .quick button.off { color: #9a9286; border-bottom-color: #9a9286; }
+/* sair para a área de trabalho */
+#quitDlg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; background: rgba(20,14,8,0.8); font-size: 6vh; z-index: 40; }
+#quitDlg b { background: #d01f26; color: #ffd21a; padding: 2vh 5vh; text-shadow: 0.5vh 0.5vh 0 #1a1614; box-shadow: 0 0 0 0.6vh #efe6d2; }
+#quitDlg .quick { display: flex; gap: 3vh; }
+#quitDlg button { background: #1a1614; color: #fff; border: 0; border-bottom: 0.8vh solid #d01f26; padding: 2.2vh 6vh; font-size: 3.2vh; min-width: 24vh; }
+/* item escolhido pelo teclado ou pelo controle */
+.kfocus { outline: 0.6vh solid #ffd21a !important; outline-offset: 0.4vh; }

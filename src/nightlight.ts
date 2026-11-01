@@ -69,10 +69,10 @@ function facades(c: CanvasRenderingContext2D, strength: number) {
   fronts.length = 0;
 }
 // placas e outdoors que o farol alcança: brilham mais conforme o carro se aproxima
-interface Reflector { kind: string; x: number; y: number; w: number; h: number; dist: number; clip: number }
+interface Reflector { kind: string; x: number; y: number; w: number; h: number; dist: number; clip: number; n: number }
 const refl: Reflector[] = [];
 export function pushReflector(kind: string, x: number, y: number, w: number, h: number, dist: number) {
-  if (collecting && w > 1.5 && dist < 120) refl.push({ kind, x, y, w, h, dist, clip: clipY });
+  if (collecting && w > 1.5 && dist < 120) refl.push({ kind, x, y, w, h, dist, clip: clipY, n: lights.length });
 }
 // o farol ilumina a face da placa: recorta a escuridão em cima dela (as cores verdadeiras
 // aparecem, mais fortes conforme o carro chega perto); (ox, oy) desloca para a camada da escuridão
@@ -85,6 +85,16 @@ function reflectors(g: CanvasRenderingContext2D, ox: number, oy: number, rgb: st
     g.beginPath();
     g.rect(x - w, y - h * 1.2, w * 2, Math.min(h * 1.2, r.clip - oy + 1 - (y - h * 1.2)));
     g.clip();
+    // os carros desenhados depois da placa (mais perto) tapam o brilho dela
+    for (let j = r.n; j < lights.length; j++) {
+      const n = lights[j];
+      const L = n.x - ox - n.w / 2, T = n.y - oy - n.h;
+      if (L > x + w || L + n.w < x - w || T > y || n.y - oy < y - h * 1.2) continue;
+      g.beginPath();
+      g.rect(x - w - 1, y - h * 1.2 - 1, w * 2 + 2, h * 1.2 + 2);
+      g.rect(L, T, n.w, n.h);
+      g.clip('evenodd');
+    }
     // placas refletivas acendem mais que o papel dos outdoors
     const a = (r.kind === 'billboard' ? 0.75 : 0.95) * k * mul;
     g.fillStyle = `${rgb}${a.toFixed(3)})`;
@@ -137,7 +147,7 @@ export interface RoadPt { d: number; x: number; y: number; w: number } // distâ
 let darkCv: HTMLCanvasElement | null = null;
 const occCv = document.createElement('canvas'), tmpCv = document.createElement('canvas');
 let warmCv: HTMLCanvasElement | null = null;
-const REACH = 42; // alcance do farol baixo, em segmentos (~50 m de chão bem iluminado)
+const REACH = 64; // alcance do farol, em segmentos (~90 m de chão iluminado)
 // a escuridão e as luzes são polígonos de brilho chapado (degraus da pixel art) desenhados direto,
 // sem reprocessar os pixels a cada quadro
 // pinta o facho (alpha) em g: faixas do chão de perto para longe, cada uma pela distância
@@ -362,7 +372,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
           }
           // clarão no asfalto entre o carro e o jogador
           // (longo: o farol de quem vem ilumina a pista bem à frente dele)
-          blob(dc, l.x, l.y + l.w * 0.14, l.w * 1.5 * k, l.w * 0.42, '255,240,190', 0.38 * strength);
+          blob(dc, l.x, l.y + l.w * 0.2, l.w * 1.6 * k, l.w * 0.6, '255,240,190', 0.38 * strength);
         } else {
           // lanternas: brilho vermelho em cada lâmpada; no freio fica bem mais forte, com halo
           // grande e o reflexo vermelho no asfalto atrás do carro

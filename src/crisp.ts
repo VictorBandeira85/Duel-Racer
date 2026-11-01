@@ -1,3 +1,4 @@
+import { scratch } from './svgsprites';
 // Pixel art nítida a partir de desenho vetorial: o desenho é feito em 4x e reduzido
 // pegando um pixel por bloco (sem misturar cores), a transparência vira 0/1 e ganha um
 // contorno escuro de 1 pixel, como na arte dos carros. Cada tamanho fica em cache.
@@ -11,12 +12,12 @@ export interface Crisp {
 }
 
 const cache = new Map<string, Crisp>();
-const MAX = 400;
+const MAX = 900;
 let work: HTMLCanvasElement | null = null;
 
 // tamanhos agrupados: pequenos de 1 em 1 px, médios de 2 em 2, grandes de 4 em 4 (menos redesenhos
 // enquanto o objeto cresce na tela; a ampliação final cobre a diferença)
-const bucket = (v: number) => (v <= 48 ? Math.max(1, Math.round(v)) : v <= 120 ? Math.round(v / 2) * 2 : Math.round(v / 4) * 4);
+const bucket = (v: number) => (v <= 24 ? Math.max(1, Math.round(v)) : v <= 64 ? Math.round(v / 2) * 2 : v <= 160 ? Math.round(v / 4) * 4 : Math.round(v / 8) * 8);
 
 export function crisp(key: string, w: number, h: number, draw: Draw): Crisp {
   const bw = bucket(w), bh = bucket(h);
@@ -33,16 +34,15 @@ export function crisp(key: string, w: number, h: number, draw: Draw): Crisp {
     work.width = Math.max(work.width, bw * S);
     work.height = Math.max(work.height, bh * S);
   }
-  const wc = work.getContext('2d')!;
+  const wc = work.getContext('2d', { willReadFrequently: true })!; // de CPU: copiar para o rascunho não lê da placa de vídeo
   wc.setTransform(1, 0, 0, 1, 0, 0);
   wc.clearRect(0, 0, bw * S, bh * S);
   wc.setTransform(S, 0, 0, S, 0, 0);
   draw(wc, bw, bh);
 
-  const cv = document.createElement('canvas');
-  cv.width = bw + 2;
-  cv.height = bh + 2;
-  const c = cv.getContext('2d')!;
+  // leitura dos pixels num canvas de CPU (não trava a placa de vídeo); só o resultado vai para o
+  // canvas do sprite
+  const c = scratch(bw + 2, bh + 2);
   c.imageSmoothingEnabled = false;
   c.drawImage(work, 0, 0, bw * S, bh * S, 1, 1, bw, bh);
   const W = bw + 2, H = bh + 2;
@@ -67,7 +67,10 @@ export function crisp(key: string, w: number, h: number, draw: Draw): Crisp {
       d[i + 3] = 255;
     }
   }
-  c.putImageData(img, 0, 0);
+  const cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = H;
+  cv.getContext('2d')!.putImageData(img, 0, 0);
   const out = { cv, w: bw, h: bh };
   if (cache.size >= MAX) cache.delete(cache.keys().next().value!);
   cache.set(k, out);

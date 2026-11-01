@@ -288,21 +288,79 @@ window.addEventListener('keydown', (e) => {
   }
 });
 window.addEventListener('keydown', (e) => {
-  if (state.screen === 'race') {
-    if (e.code === 'Escape') setPaused(!paused);
+  const k = MENU_KEYS[e.code];
+  // janela "Sair do jogo?" aberta: setas escolhem, Enter confirma, Esc fecha
+  if (quitOpen()) {
+    if (k) {
+      e.preventDefault();
+      panelKey(k);
+    }
     return;
   }
-  const k = MENU_KEYS[e.code];
+  if (state.screen === 'race') {
+    if (paused && k) {
+      e.preventDefault();
+      panelKey(k);
+    } else if (e.code === 'Escape') setPaused(true);
+    return;
+  }
   if (k) {
     initAudio();
+    // Esc na capa: pergunta se quer sair para a área de trabalho (só no programa de computador)
+    if (k === 'back' && state.screen === 'title' && DESKTOP) return openQuit();
     keyScreen(state, actions, k);
   }
 });
+
+// ---- painéis em HTML (pausa, ajustes, sair) pelo teclado e pelo controle ----
+const DESKTOP = /electron/i.test(navigator.userAgent);
+let focusIdx = 0;
+function panelButtons(): HTMLButtonElement[] {
+  const root = quitOpen() ? $('quitDlg') : !$('settings').classList.contains('hidden') ? $('settings') : $('pause');
+  return Array.from(root.querySelectorAll<HTMLButtonElement>('button')).filter((b) => b.offsetParent !== null);
+}
+function showFocus() {
+  const bs = panelButtons();
+  document.querySelectorAll('.kfocus').forEach((el) => el.classList.remove('kfocus'));
+  if (!bs.length) return;
+  focusIdx = ((focusIdx % bs.length) + bs.length) % bs.length;
+  bs[focusIdx].classList.add('kfocus');
+}
+function panelKey(k: MenuKey) {
+  const bs = panelButtons();
+  if (k === 'up' || k === 'left') focusIdx--;
+  else if (k === 'down' || k === 'right') focusIdx++;
+  else if (k === 'ok') {
+    // continua no mesmo botão (ligar/desligar música); trocou de painel, começa do primeiro
+    const before = panelButtons()[0];
+    bs[((focusIdx % bs.length) + bs.length) % bs.length]?.click();
+    if (panelButtons()[0] !== before) focusIdx = 0;
+  } else if (k === 'back') {
+    if (quitOpen()) closeQuit();
+    else if (!$('settings').classList.contains('hidden')) $('setBack').click();
+    else setPaused(false);
+    focusIdx = 0;
+  }
+  showFocus();
+}
+const quitOpen = () => !$('quitDlg').classList.contains('hidden');
+function openQuit() {
+  $('quitDlg').classList.remove('hidden');
+  focusIdx = 1; // começa no NÃO
+  showFocus();
+}
+function closeQuit() {
+  $('quitDlg').classList.add('hidden');
+}
+$('quitYes').addEventListener('click', () => window.close());
+$('quitNo').addEventListener('click', closeQuit);
 
 function setPaused(p: boolean) {
   paused = p;
   $('pause').classList.toggle('hidden', !p);
   $('settings').classList.add('hidden');
+  focusIdx = 0;
+  if (p) setTimeout(showFocus);
   quickLabels();
   $('nowPlaying').textContent = musicTitle() ? `♪ ${musicTitle()}` : '';
   // ajustes abertos no menu principal ficam fechados ao entrar/sair da pausa
@@ -434,11 +492,12 @@ function frameInner(now: number) {
   state.t += dt;
   // controle Bluetooth: na corrida mexe direto nos comandos; nos menus vira navegação
   for (const k of pollGamepad()) {
-    if (state.screen === 'race') {
+    if (quitOpen()) panelKey(k === 'start' ? 'ok' : k);
+    else if (state.screen === 'race') {
       if (k === 'start') setPaused(!paused);
-      else if (paused && k === 'ok') setPaused(false);
-      else if (paused && k === 'back') actions.go('title');
-    } else if (k !== 'start') {
+      else if (paused) panelKey(k);
+    } else if (k === 'back' && state.screen === 'title' && DESKTOP) openQuit();
+    else if (k !== 'start') {
       initAudio();
       keyScreen(state, actions, k);
     } else keyScreen(state, actions, 'ok');

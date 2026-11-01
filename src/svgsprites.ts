@@ -4,7 +4,7 @@
 
 const images = new Map<string, HTMLImageElement>();
 const rasters = new Map<string, HTMLCanvasElement>();
-const MAX_RASTERS = 160;
+const MAX_RASTERS = 400;
 
 // aceita o texto de um SVG ou o endereço de uma imagem (PNG gerado de foto)
 function image(src: string): HTMLImageElement | null {
@@ -93,19 +93,43 @@ function paintImage(src: string, paint: Paint): HTMLCanvasElement | null {
   return cv;
 }
 
+export const bucketPx = (v: number) => {
+  const q = v <= 32 ? 2 : v <= 96 ? 4 : v <= 256 ? 8 : 16;
+  return Math.max(2, Math.round(v / q) * q);
+};
+// canvas de rascunho de CPU (leitura de pixels barata), reaproveitado
+let scratchCv: HTMLCanvasElement | null = null;
+export function scratch(w: number, h: number) {
+  if (!scratchCv) scratchCv = document.createElement('canvas');
+  if (scratchCv.width < w || scratchCv.height < h) {
+    scratchCv.width = Math.max(scratchCv.width, w);
+    scratchCv.height = Math.max(scratchCv.height, h);
+  }
+  const c = scratchCv.getContext('2d', { willReadFrequently: true })!;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.globalCompositeOperation = 'source-over';
+  c.globalAlpha = 1;
+  c.clearRect(0, 0, w, h);
+  return c;
+}
+
 // Sprite do SVG no tamanho pedido (null enquanto a imagem ainda carrega)
 export function svgSprite(svg: string, w: number, h: number, paint?: Paint): HTMLCanvasElement | null {
   const img: CanvasImageSource | null = paint ? paintImage(svg, paint) : image(svg);
   if (!img) return null;
-  // tamanhos agrupados de 2 em 2 px para não gerar um sprite por quadro
-  const bw = Math.max(2, Math.round(w / 2) * 2), bh = Math.max(2, Math.round(h / 2) * 2);
+  // tamanhos agrupados (2 px nos pequenos, até 16 px nos grandes): um carro chegando perto não
+  // gera um sprite novo a cada quadro; quem desenha amplia/reduz a diferença
+  const bw = bucketPx(w), bh = bucketPx(h);
   const key = `${svg.length}:${svg.slice(-40)}:${bw}x${bh}:${paint?.color ?? ''}`;
   let cv = rasters.get(key);
-  if (cv) return cv;
-  cv = document.createElement('canvas');
-  cv.width = bw;
-  cv.height = bh;
-  const c = cv.getContext('2d')!;
+  if (cv) {
+    rasters.delete(key); // LRU: volta para o fim
+    rasters.set(key, cv);
+    return cv;
+  }
+  // o recorte do alfa precisa ler os pixels: feito num canvas de CPU (willReadFrequently), que não
+  // trava a placa de vídeo, e só o resultado vai para o canvas do sprite
+  const c = scratch(bw, bh);
   // pixel art: redução por vizinho mais próximo (um pixel da arte por pixel da tela, sem
   // misturar cores); SVG é rasterizado em 4x e reduzido do mesmo jeito, para não ter antialias
   c.imageSmoothingEnabled = false;
@@ -129,7 +153,10 @@ export function svgSprite(svg: string, w: number, h: number, paint?: Paint): HTM
   const data = c.getImageData(0, 0, bw, bh);
   const d = data.data;
   for (let i = 3; i < d.length; i += 4) d[i] = d[i] >= 128 ? 255 : 0;
-  c.putImageData(data, 0, 0);
+  cv = document.createElement('canvas');
+  cv.width = bw;
+  cv.height = bh;
+  cv.getContext('2d')!.putImageData(data, 0, 0);
   if (rasters.size >= MAX_RASTERS) rasters.delete(rasters.keys().next().value!);
   rasters.set(key, cv);
   return cv;

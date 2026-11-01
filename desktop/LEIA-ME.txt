@@ -16,7 +16,8 @@ COMO JOGAR NO NAVEGADOR (qualquer computador)
 COMANDOS
 - Setas ou WASD: acelerar, frear e virar
 - Q / E: reduzir / subir marcha (no câmbio manual)
-- Esc: pausa (ajustes de som, câmbio, controles e efeitos)
+- Esc: pausa (ajustes de som, câmbio, controles e gráficos); na capa, sair do jogo
+- Menus: setas para escolher, Enter para confirmar, Esc para voltar
 - F11 ou Alt+Enter: tela cheia / janela
 - Controle de Xbox ou PlayStation também funciona (conecte antes de abrir o jogo).
 

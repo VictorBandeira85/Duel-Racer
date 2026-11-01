@@ -479,7 +479,8 @@ export const ADS: Ad[] = [
 // chapéu, retícula de impressão) e, nas capas e concessionárias, os sprites dos carros do jogo.
 // A arte é feita em AW x AH unidades com 2 pixels por unidade (a fonte fica nítida em 8 e 16 px).
 const SC = 2;
-const fontOk = () => document.fonts?.check?.('16px "Press Start 2P"') ?? true;
+let fontLoaded = false; // depois de carregada não precisa conferir de novo (a cada quadro custava)
+const fontOk = () => fontLoaded || (fontLoaded = document.fonts?.check?.('16px "Press Start 2P"') ?? true);
 const coverCars = () => CARS.filter((c) => c.imgSide && c.rear.img && c.rear.frontImg && !c.arcadeOnly);
 // carro de cada capa/concessionária (em sequência pela lista de carros com arte)
 function adCar(a: Ad) {

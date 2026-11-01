@@ -148,6 +148,15 @@ function grant(ids: string[]) {
   if (changed) write(ACH_KEY, got);
 }
 
+// trecho interrompido (saiu pela pausa): soma só as estatísticas do que já foi feito
+export function partialStats(r: Race) {
+  const s = loadStats();
+  s.passes += r.stats.passes;
+  s.near += r.stats.near;
+  s.tunnels += r.stats.tunnels;
+  write(STATS_KEY, s);
+}
+
 // fim do trecho: soma as estatísticas e confere as conquistas
 export function stageAchievements(r: Race, o: { won: boolean; record: boolean; medal: number; unlocked: number; legend: boolean }) {
   const s = loadStats();

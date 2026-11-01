@@ -1,3 +1,4 @@
+import { clearArcade, loadArcade } from './arcadesave';
 import { gasQuip } from './score';
 import { clearFriendGhosts, friendGhostCount, ghostCode, ghostOn, loadGhostCode, setGhostOn } from './records';
 import { toast as notify } from './challenges';
@@ -64,6 +65,7 @@ export interface Actions {
   toggleSound: () => void;
   toggleMusic: () => void;
   startEvent: (region: number, event: number) => void;
+  resumeCourse: () => void;
 }
 
 export const ox = () => Math.floor((view.w - SAFE_W) / 2);
@@ -804,6 +806,7 @@ function drawCourse(c: CanvasRenderingContext2D, s: AppState) {
   tag(c, b.back, '◀ VOLTAR');
   tag(c, b.time, s.arcadeNight ? 'NOITE' : 'DIA', false);
   ink(c, `${unlocked} de ${COURSES.length} roteiros liberados`, x + 160, 24, 5, GREY, 'center');
+  const sv = loadArcade();
   courseRects().forEach((r, row) => {
     const i = s.courseTop + row;
     if (i >= COURSES.length) return;
@@ -827,6 +830,11 @@ function drawCourse(c: CanvasRenderingContext2D, s: AppState) {
       c.fillRect(r.x + 40, r.y + 25, r.w - 42, 18);
       padlock(c, r.x + r.w - 14, r.y + 12);
       ink(c, 'BLOQUEADO', r.x + r.w - 26, r.y + 18, 5, RED, 'right');
+    } else if (sv && sv.courseIdx === i) {
+      // roteiro em andamento: continua do próximo trecho (ou recomeça do primeiro)
+      ink(c, `CONTINUAR T${sv.results.length + 1} ▶`, r.x + r.w - 6, r.y + 6, 5, RED, 'right');
+      ink(c, 'RECOMEÇAR', r.x + r.w - 6, r.y + 16, 5, GREY, 'right');
+      ink(c, CARS[sv.carIdx]?.name ?? '', r.x + r.w - 60, r.y + 16, 5, BLUE, 'right');
     } else if (hot) ink(c, 'CORRER ▶', r.x + r.w - 6, r.y + 6, 5, RED, 'right');
   });
   arrow(c, b.up, 'up', true);
@@ -1332,7 +1340,14 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
               return;
             }
             s.courseIdx = i;
-            a.startCourse();
+            const sv = loadArcade();
+            if (sv && sv.courseIdx === i) {
+              // RECOMEÇAR (na linha de baixo, à direita) ou CONTINUAR (o resto da linha)
+              if (x > r.x + r.w - 60 && y > r.y + 13 && y < r.y + 25) {
+                clearArcade();
+                a.startCourse();
+              } else a.resumeCourse();
+            } else a.startCourse();
           }
         });
       scrollCourses(s);
@@ -1410,7 +1425,8 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
       if (s.sel >= unlockedCourses()) s.lockedT = 1.6;
       else {
         s.courseIdx = s.sel;
-        a.startCourse();
+        if (loadArcade()?.courseIdx === s.sel) a.resumeCourse();
+        else a.startCourse();
       }
     }
   }

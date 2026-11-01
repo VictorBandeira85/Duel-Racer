@@ -1,3 +1,4 @@
+import { clearArcade, loadArcade, saveArcade } from './arcadesave';
 import { capsHtml } from './ui';
 import { stageResult } from './score';
 import '@fontsource/press-start-2p/400.css';
@@ -9,7 +10,7 @@ import { setupOf, REGIONS, carById, eventCourse, levels, loadCareer, saveCareer,
 import type { CarSpec } from './cars';
 import { Race } from './race';
 import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
-import { CHALLENGE_PRIZE, checkChallenge, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
+import { CHALLENGE_PRIZE, checkChallenge, partialStats, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
 import { paintHex } from './paint';
 import { preloadCockpit, renderCockpit } from './cockpit';
 import { applyBtnSize, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
@@ -89,6 +90,24 @@ const actions: Actions = {
     };
     begin(5);
   },
+  // continua o roteiro do Arcade de onde parou (trechos feitos e carros restantes)
+  resumeCourse() {
+    const sv = loadArcade();
+    if (!sv) return;
+    Object.assign(state, { courseIdx: sv.courseIdx, carIdx: sv.carIdx, oppIdx: sv.oppIdx, arcadeNight: sv.night });
+    state.mode = 'arcade';
+    run = {
+      course: withTimeOfDay(COURSES[sv.courseIdx], sv.night), car: CARS[sv.carIdx],
+      rival: sv.oppIdx < CARS.length ? CARS[sv.oppIdx] : null, opts: {},
+    };
+    initAudio();
+    state.lives = sv.lives;
+    state.results = sv.results;
+    state.gameOver = false;
+    state.newMap = null;
+    if (state.results.length >= run.course.stages.length) finishCourse();
+    else startStage(state.results.length);
+  },
   startEvent(region: number, event: number) {
     const cs = state.career!;
     const ev = REGIONS[region].events[event];
@@ -153,6 +172,9 @@ function startStage(i: number) {
     });
     state.results.push(res);
     if (r.clean) state.lives++;
+    if (state.mode === 'arcade') {
+      saveArcade({ course: run.course.id, courseIdx: state.courseIdx, carIdx: state.carIdx, oppIdx: state.oppIdx, night: state.arcadeNight, lives: state.lives, results: state.results });
+    }
     state.gasPage = 0;
     actions.go('gas');
   };
@@ -161,7 +183,10 @@ function startStage(i: number) {
     if (state.lives <= 0) {
       state.gameOver = true;
       if (state.mode === 'career') settle(false, r);
-      else actions.go('end');
+      else {
+        clearArcade(); // sem carros: o roteiro acabou
+        actions.go('end');
+      }
     }
   };
   race = r;
@@ -190,6 +215,7 @@ function finishCourse() {
     settle(total <= rival);
     return;
   }
+  clearArcade();
   const course = COURSES[state.courseIdx];
   const total = totalTime();
   const rivalOk = state.results.every((r) => r.rival >= 0);
@@ -278,7 +304,11 @@ function setPaused(p: boolean) {
 }
 $('pauseBtn').addEventListener('click', () => setPaused(true));
 $('resume').addEventListener('click', () => setPaused(false));
-$('quit').addEventListener('click', () => actions.go('title'));
+$('quit').addEventListener('click', () => {
+  // o que foi feito no trecho interrompido (ultrapassagens, túneis) entra nas estatísticas
+  if (race) partialStats(race);
+  actions.go('title');
+});
 // recomeça o trecho atual do zero (as vidas e os trechos já feitos continuam)
 $('restart').addEventListener('click', () => {
   if (race) startStage(race.stageIdx);

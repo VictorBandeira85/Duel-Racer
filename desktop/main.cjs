@@ -18,6 +18,9 @@ function createWindow() {
     webPreferences: { contextIsolation: true, sandbox: true, backgroundThrottling: false },
   });
   win.loadURL('app://jogo/index.html');
+  // grava no disco os salvamentos (progresso, recordes, carreira) ao fechar, sem esperar o
+  // gravador automático do Chromium
+  win.on('close', () => win.webContents.session.flushStorageData());
   win.webContents.on('before-input-event', (e, input) => {
     if (input.type === 'keyDown' && input.key === 'F11') {
       win.setFullScreen(!win.isFullScreen());
@@ -36,5 +39,9 @@ app.whenReady().then(() => {
     return net.fetch(pathToFileURL(file).toString(), { headers: req.headers });
   });
   createWindow();
+});
+app.on('before-quit', () => {
+  const { session } = require('electron');
+  session.defaultSession.flushStorageData();
 });
 app.on('window-all-closed', () => app.quit());

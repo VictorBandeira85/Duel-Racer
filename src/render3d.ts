@@ -1,3 +1,4 @@
+import { drawPerson } from './people';
 import { drawSmoke } from './smoke';
 import { drawCrisp } from './crisp';
 import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from './config';
@@ -27,45 +28,7 @@ const OFFICER_H = 1050; // altura do policial (unidades do mundo)
 
 // Policial visto de frente: quepe, óculos escuros, camisa azul. (x, y) = pés.
 function drawOfficer(c: CanvasRenderingContext2D, x: number, y: number, h: number, paper: boolean) {
-  if (h < 3) return;
-  const w = h * 0.36;
-  c.fillStyle = 'rgba(0,0,0,0.3)';
-  c.fillRect(x - w * 0.6, y - h * 0.02, w * 1.2, h * 0.03);
-  c.fillStyle = '#1c2440';
-  c.fillRect(x - w * 0.42, y - h * 0.46, w * 0.38, h * 0.44);
-  c.fillRect(x + w * 0.04, y - h * 0.46, w * 0.38, h * 0.44);
-  c.fillStyle = '#0c0c0c';
-  c.fillRect(x - w * 0.46, y - h * 0.03, w * 0.42, h * 0.03);
-  c.fillRect(x + w * 0.04, y - h * 0.03, w * 0.42, h * 0.03);
-  c.fillStyle = '#5a7ac8';
-  c.fillRect(x - w / 2, y - h * 0.82, w, h * 0.38);
-  c.fillRect(x - w * 0.72, y - h * 0.8, w * 0.24, h * 0.3);
-  c.fillRect(x + w * 0.48, y - h * 0.8, w * 0.24, h * 0.3);
-  c.fillStyle = '#e0b088';
-  c.fillRect(x - w * 0.7, y - h * 0.52, w * 0.2, h * 0.06);
-  c.fillStyle = '#141414';
-  c.fillRect(x - w / 2, y - h * 0.48, w, h * 0.04);
-  c.fillStyle = '#e8c018';
-  c.fillRect(x - w * 0.32, y - h * 0.76, w * 0.12, h * 0.05);
-  if (paper) {
-    c.fillStyle = '#f6f2e6';
-    c.fillRect(x + w * 0.3, y - h * 0.7, w * 0.5, h * 0.22);
-  } else {
-    c.fillStyle = '#e0b088';
-    c.fillRect(x + w * 0.5, y - h * 0.52, w * 0.2, h * 0.06);
-  }
-  c.fillStyle = '#e0b088';
-  c.fillRect(x - w * 0.1, y - h * 0.86, w * 0.2, h * 0.05);
-  c.beginPath();
-  c.arc(x, y - h * 0.9, w * 0.26, 0, Math.PI * 2);
-  c.fill();
-  c.fillStyle = '#101010';
-  c.fillRect(x - w * 0.22, y - h * 0.92, w * 0.44, h * 0.03);
-  c.fillStyle = '#1c2440';
-  c.fillRect(x - w * 0.3, y - h * 1.0, w * 0.6, h * 0.07);
-  c.fillRect(x - w * 0.36, y - h * 0.95, w * 0.72, h * 0.025);
-  c.fillStyle = '#e8c018';
-  c.fillRect(x - w * 0.05, y - h * 0.985, w * 0.1, h * 0.035);
+  drawPerson(c, 'cop', paper ? 'paper' : 'wave', x, y, h);
 }
 
 // yaw: carro atravessado, a câmera gira (desloca mais quanto mais longe)
@@ -292,7 +255,7 @@ function mix(a: string, b: string, t: number) {
 
 // objetos grandes, que aparecem de longe
 // placas e outdoors que refletem o farol à noite
-const REFLECT = new Set(['signL', 'signR', 'warnL', 'warnR', 'sharpL', 'sharpR', 'billboard', 'gasSign', 'stop']);
+const REFLECT = new Set(['signL', 'signR', 'warnL', 'warnR', 'sharpL', 'sharpR', 'billboard', 'gasSign', 'gasKm', 'stop']);
 const FAR_KINDS = ['building', 'station', 'bridge', 'billboard', 'barn', 'factory', 'silo', 'spire', 'lighthouse'];
 
 export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport) {
@@ -386,7 +349,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       if (sx + sw / 2 < vp.x || sx - sw / 2 > vp.x + vp.w || sw < 1.2) continue;
       // desenhado como pixel art nítida (sem antialias, com contorno); a caixa é um pouco
       // mais larga que o objeto para caber o que passa da largura (braço do poste etc.)
-      const seed = sp.kind === 'building' ? sp.seed % 45 : sp.kind === 'billboard' ? sp.seed % 100 : sp.kind === 'house' ? sp.seed % 6 : sp.kind === 'autumn' || sp.kind === 'umbrella' ? sp.seed % 3 : 0;
+      const seed = sp.kind === 'building' ? sp.seed % 45 : sp.kind === 'billboard' ? sp.seed % 100 : sp.kind === 'gasKm' ? sp.seed : sp.kind === 'house' ? sp.seed % 6 : sp.kind === 'autumn' || sp.kind === 'umbrella' ? sp.seed % 3 : 0;
       const bw = sw * (sp.kind === 'lamp' ? 3.4 : 1.1);
       drawCrisp(c, `${sp.kind}${seed}${sp.kind === 'billboard' && !adsReady(seed) ? 'w' : ''}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed));
       // poste aceso à noite: a lâmpada fica na ponta do braço, sobre o acostamento

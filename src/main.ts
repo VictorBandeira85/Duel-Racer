@@ -182,6 +182,7 @@ function startStage(i: number) {
       saveArcade({ course: run.course.id, courseIdx: state.courseIdx, carIdx: state.carIdx, oppIdx: state.oppIdx, night: state.arcadeNight, lives: state.lives, results: state.results });
     }
     state.gasPage = 0;
+    state.gasNight = !!r.def.night && !r.def.dusk;
     actions.go('gas');
   };
   r.onCrash = () => {

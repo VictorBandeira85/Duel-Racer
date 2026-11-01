@@ -1743,6 +1743,22 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   } else if (r.state === 'drive' && r.time < 1 && r.crashes === 0) {
     text(c, 'VAI!', w / 2, vp.y + 28, 16, '#30e060', 'center');
   }
+  // chegada: placa grande com a seta para a direita, piscando, indicando a entrada do posto
+  if (r.state === 'arrived' && Math.floor(performance.now() / 300) % 2 === 0) {
+    const cx = w / 2, cy = vp.y + 30;
+    c.fillStyle = '#1a1614';
+    c.fillRect(cx - 41, cy - 13, 84, 28);
+    c.fillStyle = '#ffd21a';
+    c.fillRect(cx - 42, cy - 14, 84, 28);
+    c.fillStyle = '#1a1614';
+    c.fillRect(cx - 30, cy - 3, 34, 6);
+    c.beginPath();
+    c.moveTo(cx + 4, cy - 10);
+    c.lineTo(cx + 18, cy);
+    c.lineTo(cx + 4, cy + 10);
+    c.fill();
+    text(c, 'POSTO', cx + 22, cy - 3, 5, '#1a1614', 'left', null);
+  }
   // desafios do trecho: quadro pequeno no canto do para-brisa, na largada e nos primeiros segundos
   if (r.challenges.length && (r.state === 'countdown' || (r.state === 'drive' && r.time < 5))) {
     const a = r.state === 'countdown' ? 1 : Math.min(1, (5 - r.time) / 1.2);

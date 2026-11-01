@@ -1,4 +1,4 @@
-import { LANE_W, SEG_LEN } from './config';
+import { KMH, LANE_W, SEG_LEN } from './config';
 import type { StageDef } from './courses';
 import { SPRITES, type SpriteKind } from './sprites';
 import type { Theme } from './themes';
@@ -131,7 +131,15 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
   }
   for (let i = finishIndex - 90; i < finishIndex + 30; i += 14) if (segments[i]) segments[i].sprites.push({ kind: 'lamp', x: roadW + 1300, seed: 0 });
 
-  // posto de gasolina na chegada
+  // posto de gasolina na chegada: placas de aviso a cada km (de 5 km para baixo) e a 500 m
+  const SEG_M = (SEG_LEN * KMH) / 3.6; // metros por segmento
+  for (const m of [5000, 4000, 3000, 2000, 1000, 500]) {
+    const i = finishIndex - Math.round(m / SEG_M);
+    if (i > 80 && segments[i]) {
+      segments[i].sprites = segments[i].sprites.filter((sp) => !(sp.x > 0 && sp.x < roadW + 3000));
+      segments[i].sprites.push({ kind: 'gasKm', x: roadW + 1100, seed: m });
+    }
+  }
   for (const k of [60, 35]) segments[finishIndex - k].sprites.push({ kind: 'gasSign', x: roadW + 2200, seed: 0 });
   segments[finishIndex + 4].sprites.push({ kind: 'station', x: roadW + 5200, seed: 0 });
   // placa de PARE: o trecho termina parando no posto, como no Test Drive II

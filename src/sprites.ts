@@ -11,7 +11,7 @@ export type SpriteKind =
   | 'rail' | 'billboard' | 'bridge' | 'barn' | 'stop'
   | 'autumn' | 'acacia' | 'umbrella' | 'kiosk' | 'factory' | 'silo' | 'banana' | 'spire' | 'lighthouse' | 'chalet'
   | 'snowrock' | 'snowchalet' | 'snowman'
-  | 'warnL' | 'warnR' | 'sharpL' | 'sharpR';
+  | 'warnL' | 'warnR' | 'sharpL' | 'sharpR' | 'gasKm';
 
 type Draw = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, seed: number) => void;
 
@@ -278,6 +278,33 @@ const gasSign: Draw = (c, x, y, w, h) => {
     c.textBaseline = 'middle';
     c.fillStyle = '#ffd400';
     c.fillText('GAS', x, y - h * 0.84);
+  }
+};
+
+// placa azul de serviço avisando o posto: bomba de combustível e a distância (seed = metros)
+const gasKm: Draw = (c, x, y, w, h, seed) => {
+  for (const px of [-0.3, 0.3]) {
+    rect(c, '#6a6a70', x + w * px - w * 0.03, y - h * 0.45, w * 0.06, h * 0.45);
+    rect(c, '#9a9aa0', x + w * px - w * 0.03, y - h * 0.45, w * 0.022, h * 0.45);
+  }
+  rect(c, '#f2f2f2', x - w / 2, y - h, w, h * 0.57);
+  rect(c, '#1a4ab8', x - w / 2 + w * 0.03, y - h + h * 0.03, w * 0.94, h * 0.51);
+  // bomba (ícone branco)
+  const bx = x - w * 0.3, by = y - h * 0.82;
+  rect(c, '#ffffff', bx - w * 0.07, by - h * 0.11, w * 0.14, h * 0.22);
+  rect(c, '#1a4ab8', bx - w * 0.045, by - h * 0.08, w * 0.09, h * 0.06);
+  rect(c, '#ffffff', bx + w * 0.07, by - h * 0.06, w * 0.03, h * 0.02);
+  rect(c, '#ffffff', bx + w * 0.09, by - h * 0.06, w * 0.02, h * 0.12);
+  // distância
+  if (w > 10) {
+    const label = seed >= 1000 ? `${seed / 1000} km` : `${seed} m`;
+    c.font = `bold ${Math.floor(h * 0.17)}px monospace`;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillStyle = '#ffffff';
+    c.fillText(label, x + w * 0.14, y - h * 0.86);
+    c.font = `bold ${Math.floor(h * 0.1)}px monospace`;
+    c.fillText('POSTO', x + w * 0.14, y - h * 0.66);
   }
 };
 
@@ -553,6 +580,7 @@ export const SPRITES: Record<SpriteKind, { w: number; h: number; draw: Draw; sol
   sharpL: { w: 760, h: 1500, draw: warn(-1, true), solid: true },
   sharpR: { w: 760, h: 1500, draw: warn(1, true), solid: true },
   gasSign: { w: 1600, h: 2600, draw: gasSign, solid: true },
+  gasKm: { w: 1500, h: 1500, draw: gasKm, solid: true },
   station: { w: 6500, h: 3200, draw: station, solid: true },
   stop: { w: 900, h: 1900, draw: stop, solid: false },
   rail: { w: 700, h: 420, draw: rail, solid: false },

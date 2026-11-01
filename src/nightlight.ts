@@ -10,10 +10,10 @@ let collecting = false;
 
 // postes de luz acesos (render3d registra cada um visível: lâmpada na tela, tamanho, trecho da
 // pista onde está e posição lateral em meias larguras da pista a partir do centro)
-interface Street { x: number; head: number; r: number; d: number; u: number }
+interface Street { x: number; head: number; r: number; d: number; u: number; clip: number }
 const streets: Street[] = [];
 export function pushStreetLight(x: number, head: number, r: number, d: number, u: number) {
-  if (collecting && r > 2) streets.push({ x, head, r: Math.min(r, 110), d, u });
+  if (collecting && r > 2) streets.push({ x, head, r: Math.min(r, 110), d, u, clip: clipY });
 }
 // linha da tela abaixo da qual o trecho sendo desenhado fica escondido (crista de morro à frente)
 let clipY = Infinity;
@@ -90,6 +90,7 @@ function reflectors(g: CanvasRenderingContext2D, ox: number, oy: number, rgb: st
     g.fillStyle = `${rgb}${a.toFixed(3)})`;
     if (r.kind === 'billboard') g.fillRect(x - w / 2, y - h, w, h * 0.52);
     else if (r.kind === 'gasSign') g.fillRect(x - w / 2, y - h, w, h * 0.45);
+    else if (r.kind === 'gasKm') g.fillRect(x - w / 2, y - h, w, h * 0.57);
     else if (r.kind.startsWith('warn') || r.kind.startsWith('sharp')) {
       const cy = y - h * 0.78, rr = w * 0.5;
       g.beginPath();
@@ -136,7 +137,7 @@ export interface RoadPt { d: number; x: number; y: number; w: number } // distâ
 let darkCv: HTMLCanvasElement | null = null;
 const occCv = document.createElement('canvas'), tmpCv = document.createElement('canvas');
 let warmCv: HTMLCanvasElement | null = null;
-const REACH = 30; // alcance do farol baixo, em segmentos (~35 m de chão bem iluminado)
+const REACH = 42; // alcance do farol baixo, em segmentos (~50 m de chão bem iluminado)
 // a escuridão e as luzes são polígonos de brilho chapado (degraus da pixel art) desenhados direto,
 // sem reprocessar os pixels a cada quadro
 // pinta o facho (alpha) em g: faixas do chão de perto para longe, cada uma pela distância
@@ -293,12 +294,19 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   c.imageSmoothingEnabled = prev;
   // a lâmpada de cada poste
   for (const st of streets) {
-    // a lâmpada: um retângulo aceso nítido (como na arte) e um halo pequeno
+    // a lâmpada: um retângulo aceso nítido (como na arte) e um halo pequeno; poste atrás do topo
+    // de uma subida: a luz dele não passa por cima do asfalto que está na frente
+    if (st.head > st.clip) continue;
+    c.save();
+    c.beginPath();
+    c.rect(st.x - st.r, st.head - st.r, st.r * 2, st.clip - (st.head - st.r));
+    c.clip();
     blob(c, st.x, st.head, Math.max(4, st.r * 0.26), Math.max(3, st.r * 0.14), '255,190,100', 0.5 * strength);
     blob(c, st.x, st.head, Math.max(2, st.r * 0.1), Math.max(1.5, st.r * 0.05), '255,230,170', 0.8 * strength);
     const lw = Math.max(2, Math.round(st.r * 0.09)), lh = Math.max(1, Math.round(st.r * 0.03));
     c.fillStyle = `rgba(255,244,210,${(0.95 * strength).toFixed(3)})`;
     c.fillRect(Math.round(st.x - lw / 2), Math.round(st.head - lh / 2), lw, lh);
+    c.restore();
   }
   refl.length = 0;
   facades(c, strength);
@@ -352,7 +360,8 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
             dc.fillRect(px - 0.5, py - l.w * 0.18 * k, 1, l.w * 0.36 * k);
           }
           // clarão no asfalto entre o carro e o jogador
-          blob(dc, l.x, l.y + l.w * 0.08, l.w * 1.3 * k, l.w * 0.26, '255,240,190', 0.38 * strength);
+          // (longo: o farol de quem vem ilumina a pista bem à frente dele)
+          blob(dc, l.x, l.y + l.w * 0.14, l.w * 1.5 * k, l.w * 0.42, '255,240,190', 0.38 * strength);
         } else {
           // lanternas: brilho vermelho em cada lâmpada; no freio fica bem mais forte, com halo
           // grande e o reflexo vermelho no asfalto atrás do carro

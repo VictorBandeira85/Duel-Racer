@@ -668,6 +668,11 @@ export class Race {
     if (this.ghost > 0) this.ghost -= dt;
 
     this.updateSignal(dt, driving);
+    // chegando ao posto: seta para a direita e o carro encosta à direita enquanto reduz
+    if (this.state === 'arrived') {
+      this.signal = 1;
+      this.x += clamp(t.roadW - CAR_W * 0.7 - this.x, -dt * 1400, dt * 1400);
+    }
     this.updateTraffic(dt);
     if (driving) this.stones(dt);
     updateTrafficAudio(this, dt);

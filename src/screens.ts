@@ -1,3 +1,4 @@
+import { drawPerson } from './people';
 import { prefs, savePrefs } from './prefs';
 import { clearArcade, loadArcade } from './arcadesave';
 import { gasQuip } from './score';
@@ -46,6 +47,7 @@ export interface AppState {
   scoreCourse: number;
   lives: number;
   results: StageResult[];
+  gasNight?: boolean; // posto à noite (o trecho que acabou era noturno)
   gameOver: boolean;
   mode: 'arcade' | 'career';
   career: CareerSave | null;
@@ -892,60 +894,80 @@ function gasArrival(s: AppState) {
 function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const { w, h } = view;
   const x = ox();
-  c.fillStyle = '#2a5ae0';
+  const night = !!s.gasNight;
+  const t = s.t - gasT0;
+  // céu e morros: de dia azul; de noite escuro com estrelas e lua
+  c.fillStyle = night ? '#0a0e24' : '#2a5ae0';
   c.fillRect(0, 0, w, 150);
-  c.fillStyle = '#3a7a3a';
+  if (night) {
+    c.fillStyle = '#dfe6ff';
+    for (let k = 0; k < 70; k++) {
+      const sx = (k * 97.3) % w, sy = (k * 37.1) % 96;
+      if ((k + Math.floor(s.t * 2)) % 11) c.fillRect(Math.round(sx), Math.round(sy), 1, 1);
+    }
+    c.fillStyle = '#f2ecd0';
+    c.beginPath();
+    c.arc(x + 300, 22, 7, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.fillStyle = night ? '#16301c' : '#3a7a3a';
   c.beginPath();
   c.moveTo(0, 110);
   for (let i = 0; i <= w; i += 10) c.lineTo(i, 104 + Math.sin(i * 0.03) * 6);
   c.lineTo(w, 150);
   c.lineTo(0, 150);
   c.fill();
-  c.fillStyle = dither(c, '#2a8a2a', '#38a034');
+  c.fillStyle = night ? dither(c, '#12301a', '#173a1e') : dither(c, '#2a8a2a', '#38a034');
   c.fillRect(0, 140, w, 60);
-  // placa
+  // pátio de concreto embaixo da cobertura
+  c.fillStyle = night ? '#3a3a42' : '#9a9aa2';
+  c.fillRect(x + 20, 158, 280, 30);
+  // placa (iluminada por dentro à noite)
   panel(c, { x: x + 104, y: 6, w: 112, h: 38 }, '#f0f4ff', '#6a8ac0');
   text(c, 'POSTO', x + 160, 12, 8, '#c02020', 'center', null);
   text(c, 'DUELO', x + 160, 24, 16, '#1a3aa8', 'center', null);
-  // prédio
-  c.fillStyle = '#ececec';
+  // prédio da loja
+  c.fillStyle = night ? '#5e5e6c' : '#ececec';
   c.fillRect(x + 48, 66, 224, 96);
+  c.fillStyle = '#202020';
+  c.fillRect(x + 54, 68, 6, 94);
+  c.fillRect(x + 260, 68, 6, 94);
+  // vitrines: azul de dia, acesas (amarelo-claro) à noite
+  c.fillStyle = night ? '#ffe9a8' : '#2a4a9a';
+  c.fillRect(x + 72, 84, 40, 30);
+  c.fillRect(x + 168, 84, 40, 30);
+  c.fillStyle = night ? '#d8b860' : '#3a3a48';
+  c.fillRect(x + 124, 82, 32, 60);
+  text(c, 'ABERTO', x + 140, 92, 5, night ? '#c01818' : '#ffd400', 'center', null);
+  // cobertura das bombas (faixa vermelha) com as luminárias embaixo
   c.fillStyle = '#c82020';
   c.fillRect(x + 36, 56, 248, 12);
   c.fillStyle = '#e04040';
   c.fillRect(x + 36, 56, 248, 3);
-  c.fillStyle = '#202020';
-  c.fillRect(x + 54, 68, 6, 94);
-  c.fillRect(x + 260, 68, 6, 94);
-  c.fillStyle = '#2a4a9a';
-  c.fillRect(x + 72, 84, 40, 30);
-  c.fillRect(x + 168, 84, 40, 30);
-  c.fillStyle = '#3a3a48';
-  c.fillRect(x + 124, 82, 32, 60);
-  text(c, 'ABERTO', x + 140, 92, 5, '#ffd400', 'center', null);
+  if (night) {
+    c.fillStyle = '#fffbe6';
+    for (let lx = x + 50; lx < x + 280; lx += 32) c.fillRect(lx, 67, 14, 2);
+  }
   // gelo
-  c.fillStyle = '#f8f8ff';
+  c.fillStyle = night ? '#9aa0b4' : '#f8f8ff';
   c.fillRect(x + 66, 122, 46, 40);
   text(c, 'GELO', x + 89, 136, 8, '#3a6ad0', 'center', null);
-  // bombas
-  for (const bx of [x + 160, x + 196]) {
+  // bombas, com o contador de litros
+  const arr = gasArrival(s);
+  const fill = Math.max(0, Math.min(1, (t - GAS_STOP - 0.9) / 3)); // abastecimento: 0..1
+  const liters = Math.round(fill * 38 * 10) / 10;
+  for (const [k, bx] of [x + 160, x + 196].entries()) {
     c.fillStyle = '#c82020';
     c.fillRect(bx, 110, 22, 50);
-    c.fillStyle = '#f0f0f0';
-    c.fillRect(bx + 4, 116, 14, 10);
+    c.fillStyle = night ? '#d8ffd0' : '#f0f0f0';
+    c.fillRect(bx + 3, 116, 16, 10);
+    if (k === 1) text(c, liters.toFixed(1).replace('.', ','), bx + 11, 118, 4, '#1a3a1a', 'center', null);
     c.fillStyle = '#e8e8e8';
     c.beginPath();
     c.arc(bx + 11, 104, 8, 0, Math.PI * 2);
     c.fill();
     text(c, 'GAS', bx + 11, 102, 5, '#555', 'center', null);
   }
-  // frentista
-  c.fillStyle = '#2a4aa0';
-  c.fillRect(x + 222, 118, 16, 30);
-  c.fillStyle = '#e8b890';
-  c.fillRect(x + 225, 108, 10, 10);
-  c.fillStyle = '#1a3a8a';
-  c.fillRect(x + 223, 104, 14, 5);
   // refrigerante
   c.fillStyle = '#c81e1e';
   c.fillRect(x + 268, 96, 22, 66);
@@ -958,10 +980,54 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   'REFRI'.split('').forEach((ch, i) => c.fillText(ch, 0, i * 11));
   c.restore();
   // o carro chega freando até a bomba, reduz as marchas, fica em marcha lenta e desliga
-  const arr = gasArrival(s);
   // rodas girando conforme o carro anda (para a esquerda: giro anti-horário), paradas na bomba
   const wr = (car.wheels?.[0]?.[2] ?? 0.07) * 170;
-  drawCarSide(c, Math.round(x + 80 + 320 * (1 - arr.pos)), 176 + arr.dip, 170, car, paintHex(car.id), (-320 * arr.pos) / wr);
+  const carX = Math.round(x + 80 + 320 * (1 - arr.pos));
+  drawCarSide(c, carX, 176 + arr.dip, 170, car, paintHex(car.id), (-320 * arr.pos) / wr);
+  // frentista: espera ao lado da bomba, vai até o carro com a mangueira e abastece
+  // (o tanque fica na traseira do carro, à direita: ele para ali, de frente para o carro)
+  const walk = Math.max(0, Math.min(1, (t - GAS_STOP - 0.2) / 0.7));
+  const ax = x + 292 + (x + 262 - (x + 292)) * walk;
+  const pumping = fill > 0 && fill < 1;
+  if (walk > 0 && fill < 1) {
+    // mangueira da bomba (atrás do carro) até o bocal na mão do frentista
+    c.strokeStyle = '#141414';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(x + 218, 124);
+    c.bezierCurveTo(x + 236, 120, x + 250, 150, ax - 12, 146);
+    c.stroke();
+  }
+  drawPerson(c, 'att', walk > 0 && fill < 1 ? 'nozzle' : t > GAS_STOP + 5 ? 'wave' : 'stand', ax, 180, 66, true);
+  if (pumping || fill >= 1) {
+    // indicador de abastecimento
+    const bx = x + 108, by = 8;
+    c.fillStyle = 'rgba(10,8,6,0.75)';
+    c.fillRect(bx - 4, by + 40, 112, 16);
+    text(c, fill >= 1 ? 'TANQUE CHEIO!' : 'ABASTECENDO...', bx + 52, by + 43, 5, fill >= 1 ? '#30e060' : '#ffd400', 'center', null);
+    c.fillStyle = '#3a3a3e';
+    c.fillRect(bx, by + 50, 104, 3);
+    c.fillStyle = '#ffd400';
+    c.fillRect(bx, by + 50, Math.round(104 * fill), 3);
+  }
+  if (night) {
+    // luz da cobertura sobre o pátio e as bombas, e o brilho da loja e da placa
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    c.fillStyle = 'rgba(255,245,210,0.10)';
+    c.beginPath();
+    c.moveTo(x + 40, 68);
+    c.lineTo(x + 280, 68);
+    c.lineTo(x + 300, 188);
+    c.lineTo(x + 20, 188);
+    c.fill();
+    c.fillStyle = 'rgba(255,230,160,0.12)';
+    c.fillRect(x + 66, 80, 52, 38);
+    c.fillRect(x + 162, 80, 52, 38);
+    c.fillStyle = 'rgba(170,190,255,0.12)';
+    c.fillRect(x + 98, 2, 124, 48);
+    c.restore();
+  }
 
   // fala do frentista, como no Test Drive II
   c.fillStyle = '#3a3a3e';

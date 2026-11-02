@@ -10,6 +10,21 @@ let master: GainNode;
 // fxBus leva o som do trânsito e da sirene também para o eco do túnel
 let sfx: GainNode, fxBus: GainNode;
 let sfxVol = 1;
+let meter: AnalyserNode | null = null;
+// nível dos efeitos (0..1), para o relatório de problema: mostra se o motor está saindo som
+export function sfxLevel() {
+  if (!meter) return -1;
+  const d = new Float32Array(meter.fftSize);
+  meter.getFloatTimeDomainData(d);
+  let m = 0;
+  for (const v of d) m = Math.max(m, Math.abs(v));
+  return m;
+}
+// o sistema pode suspender o áudio (tela bloqueada, outro app, iPhone): volta no próximo toque
+export function resumeAudio() {
+  if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
+}
+export const audioState = () => ctx?.state ?? 'none';
 let muted = false;
 let musicOn = true;
 
@@ -88,9 +103,12 @@ export function initAudio() {
   master.connect(ctx.destination);
   sfx = ctx.createGain();
   sfx.gain.value = muted ? 0 : sfxVol;
-  sfx.connect(sfx);
+  sfx.connect(master);
   fxBus = ctx.createGain();
   fxBus.connect(sfx);
+  meter = ctx.createAnalyser();
+  meter.fftSize = 1024;
+  sfx.connect(meter);
 
   // motor: dente de serra no ritmo das explosões + onda quadrada uma oitava abaixo (ronco)
   osc1 = ctx.createOscillator();

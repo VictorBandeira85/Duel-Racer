@@ -17,7 +17,7 @@ import { preloadCockpit, renderCockpit } from './cockpit';
 import { applyBtnSize, beginLoading, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { binding, input, pollGamepad, releaseAll, setBind, setupInput, touch } from './input';
 import { MUSIC_CREDITS } from './tracks';
-import { setSfxVolume, initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicOn, setMusicVolume, setMuted, setSiren, setTires } from './audio';
+import { audioCtx, audioState, resumeAudio, sfxLevel, synthReady, setSfxVolume, initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicOn, setMusicVolume, setMuted, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
 import { preloadSvg } from './svgsprites';
 import { FX_LABEL, fxMode, lowFx, perfSample, setFxMode, lowRes } from './perf';
@@ -404,6 +404,7 @@ function reportText() {
     `Pista: ${st?.theme ?? '-'}${st?.night ? ' · noite' : ''}${st?.dusk ? ' · pôr do sol' : ''}${st?.weather ? ` · ${st.weather}` : ''} · ${race ? Math.round((race.playerZ / race.track.finishZ) * 100) : 0}% do trecho`,
     `Gráficos: ${FX_LABEL[fxMode()]}${lowFx() ? ' (econômico ativo)' : ''} · FPS médio ${fpsAvg} (mín ${fpsMin})`,
     `Tela: ${window.innerWidth}x${window.innerHeight} · densidade ${window.devicePixelRatio} · resolução interna ${RES}x`,
+    `Áudio: ${audioState()} · motor ${synthReady() ? 'sintetizado' : 'simples'} · nível ${sfxLevel().toFixed(3)} · efeitos ${state.sound ? 'ligados' : 'desligados'} ${VOLS[prefs.sfxVol] * 100}%`,
     'O que aconteceu: ',
   ].join('\n');
 }
@@ -577,7 +578,15 @@ function countFps(now: number) {
 // não); a física continua no passo fixo de 60 Hz, então o carro anda igual, só com menos
 // quadros desenhados (como no iPhone em modo de economia)
 let nextDraw = 0;
+// áudio suspenso pelo sistema (tela bloqueada, outro app, iPhone em segundo plano): volta no
+// primeiro toque ou tecla e, onde o navegador deixa, sozinho a cada segundo durante a corrida
+for (const ev of ['pointerdown', 'touchend', 'keydown']) window.addEventListener(ev, resumeAudio, { capture: true, passive: true });
+let audioCheck = 0;
 function frame(now: number) {
+  if (now - audioCheck > 1000 && !document.hidden) {
+    audioCheck = now;
+    if (audioState() !== 'running' && audioState() !== 'none') resumeAudio();
+  }
   if (prefs.fps30) {
     const gap = 1000 / 30;
     if (now < nextDraw - 3) {
@@ -657,7 +666,7 @@ beginLoading(state, () => actions.go('title'), 1.4);
 requestAnimationFrame(frame);
 
 // para testes automatizados
-Object.assign(window, { app: { state, actions, beginLoading, get race() { return race; } }, input });
+Object.assign(window, { app: { state, actions, beginLoading, get race() { return race; } }, input, audio: { audioCtx, synthReady, sfxLevel } });
 
 // app instalável: funciona sem internet (não no arquivo único usado para testes)
 if ('serviceWorker' in navigator && import.meta.env.MODE !== 'single' && (location.protocol === 'https:' || location.hostname === 'localhost')) {

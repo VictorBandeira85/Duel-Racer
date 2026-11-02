@@ -414,12 +414,12 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       // poste aceso à noite: a lâmpada fica na ponta do braço, sobre o acostamento
       if (lit && (sp.kind === 'station' || sp.kind === 'gasSign')) pushFacade(sp.kind, sx, s.p1.screen.y, sw, sh);
       if (lit && REFLECT.has(sp.kind)) pushReflector(sp.kind, sx, s.p1.screen.y, sw, sh, dist);
-      if (lit && sp.kind === 'lamp') pushStreetLight(sx - sw * 1.3, s.p1.screen.y - sh + sw * 0.5, sw * 9, dist, (sx - sw * 1.3 - s.p1.screen.x) / Math.max(1, s.p1.screen.w));
+      if (lit && sp.kind === 'lamp') pushStreetLight(sx - sw * 1.3, s.p1.screen.y - sh + sw * 0.5, sw * 9, dist, (sx - sw * 1.3 - s.p1.screen.x) / Math.max(1, s.p1.screen.w), s.p1.screen.y);
     }
     // farol de quem vai na mesma mão, à nossa frente: luz no asfalto alguns segmentos adiante
     const beamAhead = (ex: number, w: number) => {
       if (!lit) return;
-      const a = segs[i + 2], f = segs[Math.min(end - 1, i + 28)];
+      const a = segs[i + 1], f = segs[Math.min(end - 1, i + 28)];
       if (!a || !f || f.index <= a.index) return;
       const pa = a.p1.screen, pf = f.p1.screen;
       if (pf.y >= pa.y - 1) return; // atrás de um topo: a luz não aparece

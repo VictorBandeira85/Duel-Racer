@@ -319,5 +319,14 @@ export function panorama(kind: BgLayer, near: boolean, night: boolean, seed: num
   cv.height = PANO_H;
   cv.getContext('2d')!.putImageData(img.data, 0, 0);
   cache.set(key, cv);
+  // linha do topo dos morros/árvores em cada coluna (para o sol nascer/se pôr atrás deles)
+  const top = new Int16Array(PANO_W).fill(PANO_H);
+  const d = img.data.data;
+  for (let x = 0; x < PANO_W; x++) {
+    for (let y = 0; y < PANO_H; y++) if (d[(y * PANO_W + x) * 4 + 3]) { top[x] = y; break; }
+  }
+  skylines.set(cv, top);
   return cv;
 }
+const skylines = new WeakMap<HTMLCanvasElement, Int16Array>();
+export const skyline = (cv: HTMLCanvasElement) => skylines.get(cv);

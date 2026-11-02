@@ -5,7 +5,7 @@ import { stageResult } from './score';
 import '@fontsource/press-start-2p/400.css';
 import { RES, setRes, view } from './config';
 import { CARS, TRAFFIC_IMAGES } from './cars';
-import { COURSES, completeCourse, unlockedCourses, withTimeOfDay, type Course } from './courses';
+import { COURSES, completeCourse, unlockedCourses, withTimeOfDay, type ArcadeTime, type Course } from './courses';
 import { ui as careerUi } from './careerScreens';
 import { setupOf, REGIONS, carById, eventCourse, levels, loadCareer, saveCareer, settleEvent, tunedCar } from './career';
 import type { CarSpec } from './cars';
@@ -38,7 +38,7 @@ const state: AppState = {
   screen: 'title', t: 0, sel: 1, auto: prefs.auto, sound: prefs.sound, music: prefs.music,
   carIdx: 0, oppIdx: 0, courseIdx: 0, scoreCourse: 0,
   lives: 5, results: [], gameOver: false,
-  mode: 'arcade', career: loadCareer(), careerResult: null, gasPage: 0, arcadeNight: false, courseTop: 0, newMap: null, lockedT: 0, carFilter: null, oppFilter: null,
+  mode: 'arcade', career: loadCareer(), careerResult: null, gasPage: 0, arcadeTime: 'day', courseTop: 0, newMap: null, lockedT: 0, carFilter: null, oppFilter: null,
 };
 
 // corrida em andamento: percurso, carro (com melhorias, na carreira) e rival
@@ -90,7 +90,7 @@ const actions: Actions = {
   startCourse() {
     state.mode = 'arcade';
     run = {
-      course: withTimeOfDay(COURSES[state.courseIdx], state.arcadeNight), car: CARS[state.carIdx],
+      course: withTimeOfDay(COURSES[state.courseIdx], state.arcadeTime), car: CARS[state.carIdx],
       rival: state.oppIdx < CARS.length ? CARS[state.oppIdx] : null, opts: {},
     };
     begin(5);
@@ -100,10 +100,10 @@ const actions: Actions = {
   resumeCourse() {
     const sv = loadArcade();
     if (!sv) return;
-    Object.assign(state, { courseIdx: sv.courseIdx, arcadeNight: sv.night });
+    Object.assign(state, { courseIdx: sv.courseIdx, arcadeTime: (sv.time as ArcadeTime | undefined) ?? (sv.night ? 'night' : 'day') });
     state.mode = 'arcade';
     run = {
-      course: withTimeOfDay(COURSES[sv.courseIdx], sv.night), car: CARS[state.carIdx],
+      course: withTimeOfDay(COURSES[sv.courseIdx], state.arcadeTime), car: CARS[state.carIdx],
       rival: state.oppIdx < CARS.length ? CARS[state.oppIdx] : null, opts: {},
     };
     initAudio();
@@ -195,7 +195,7 @@ function startStageNow(i: number) {
     state.results.push(res);
     if (r.clean) state.lives++;
     if (state.mode === 'arcade') {
-      saveArcade({ course: run.course.id, courseIdx: state.courseIdx, carIdx: state.carIdx, oppIdx: state.oppIdx, night: state.arcadeNight, lives: state.lives, results: state.results });
+      saveArcade({ course: run.course.id, courseIdx: state.courseIdx, carIdx: state.carIdx, oppIdx: state.oppIdx, night: state.arcadeTime === 'night', time: state.arcadeTime, lives: state.lives, results: state.results });
     }
     state.gasPage = 0;
     state.gasNight = !!r.def.night && !r.def.dusk;
@@ -401,7 +401,7 @@ function reportText() {
     `Versão: ${__APP_VERSION__} (${DESKTOP ? 'programa de PC' : 'navegador'}, ${sys})`,
     `Modo: ${state.mode === 'career' ? 'Carreira' : 'Arcade'} · Roteiro: ${state.mode === 'career' ? '-' : COURSES[state.courseIdx]?.name} · Trecho ${(race?.stageIdx ?? 0) + 1}`,
     `Carro: ${run.car.name} · Rival: ${run.rival?.name ?? '-'}`,
-    `Pista: ${st?.theme ?? '-'}${st?.night ? ' · noite' : ''}${st?.dusk ? ' · pôr do sol' : ''}${st?.weather ? ` · ${st.weather}` : ''} · ${race ? Math.round((race.playerZ / race.track.finishZ) * 100) : 0}% do trecho`,
+    `Pista: ${st?.theme ?? '-'}${st?.night ? ' · noite' : ''}${st?.dusk ? ' · pôr do sol' : ''}${st?.tod ? ` · ${st.tod === 'dawn' ? 'amanhecer' : 'entardecer'}` : ''}${st?.weather ? ` · ${st.weather}` : ''} · ${race ? Math.round((race.playerZ / race.track.finishZ) * 100) : 0}% do trecho`,
     `Gráficos: ${FX_LABEL[fxMode()]}${lowFx() ? ' (econômico ativo)' : ''} · FPS médio ${fpsAvg} (mín ${fpsMin})`,
     `Tela: ${window.innerWidth}x${window.innerHeight} · densidade ${window.devicePixelRatio} · resolução interna ${RES}x`,
     `Áudio: ${audioState()} · motor ${synthReady() ? 'sintetizado' : 'simples'} · nível ${sfxLevel().toFixed(3)} · efeitos ${state.sound ? 'ligados' : 'desligados'} ${VOLS[prefs.sfxVol] * 100}%`,

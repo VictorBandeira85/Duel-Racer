@@ -119,6 +119,28 @@ export function sunsetTheme(t: Theme): Theme {
   };
 }
 
+// hora dourada fixa: entardecer (céu do lilás ao amarelo-alaranjado, luz quente e baixa) e
+// amanhecer (azul claro ao amarelo pálido, um pouco rosado; chão ainda frio e escuro)
+export function goldenTheme(t: Theme, kind: 'sunset' | 'dawn'): Theme {
+  return kind === 'sunset'
+    ? {
+        ...t,
+        sky: ['#6a4e8a', '#ffc860'],
+        ground: [shade(t.ground[0], -0.12), shade(t.ground[1], -0.12)],
+        shoulder: shade(t.shoulder, -0.08),
+        road: shade(t.road, -0.04),
+        bgColors: [shade(t.bgColors[0], -0.16), shade(t.bgColors[1], -0.18)],
+      }
+    : {
+        ...t,
+        sky: ['#6e8ec8', '#ffe2a0'],
+        ground: [shade(t.ground[0], -0.16), shade(t.ground[1], -0.16)],
+        shoulder: shade(t.shoulder, -0.12),
+        road: shade(t.road, -0.08),
+        bgColors: [shade(t.bgColors[0], -0.22), shade(t.bgColors[1], -0.24)],
+      };
+}
+
 // mistura de dois temas (as cores; o resto vem do primeiro)
 export function blendTheme(a: Theme, b: Theme, k: number): Theme {
   // as cores vêm como #rrggbb ou rgb(r,g,b) (shade devolve rgb); a saída é sempre #rrggbb

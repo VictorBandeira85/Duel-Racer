@@ -3,7 +3,7 @@
 // o Guia de Roteiros oferece CONTINUAR do próximo trecho.
 import type { StageResult } from './screens';
 
-export interface ArcadeSave { course: string; courseIdx: number; carIdx: number; oppIdx: number; night: boolean; lives: number; results: StageResult[] }
+export interface ArcadeSave { course: string; courseIdx: number; carIdx: number; oppIdx: number; night: boolean; time?: string; lives: number; results: StageResult[] }
 const KEY = 'duel-racer:arcade-andamento';
 
 export function loadArcade(): ArcadeSave | null {

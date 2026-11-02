@@ -4,7 +4,7 @@ import { aeroMul, CARS, G, LAUNCH_BOOST, Powertrain, perfClass, resistAcc, toGam
 import { PAINTS } from './paint';
 import type { Course, StageDef } from './courses';
 import { makePlate, modelYear, themeRegion, REGION_PLATE, type Plate } from './plates';
-import { THEMES, blendTheme, fogTheme, nightTheme, rainTheme, sunsetTheme, type Theme } from './themes';
+import { THEMES, blendTheme, fogTheme, nightTheme, rainTheme, sunsetTheme, goldenTheme, type Theme } from './themes';
 import { SPRITES } from './sprites';
 import { buildTrack, laneCenter, type Segment, type Track } from './track';
 import { input, takeShift } from './input';
@@ -254,6 +254,11 @@ export class Race {
     const base = THEMES[this.def.theme];
     this.dayTheme = base;
     this.theme = this.def.night ? nightTheme(base) : this.def.weather === 'rain' ? rainTheme(base) : this.def.weather === 'fog' ? fogTheme(base) : base;
+    // entardecer/amanhecer: o céu e o chão da hora dourada (com chuva ou neblina, meio a meio)
+    if (this.def.tod && !this.def.night && !this.def.dusk) {
+      const g = goldenTheme(base, this.def.tod);
+      this.theme = this.def.weather === 'rain' || this.def.weather === 'fog' ? blendTheme(this.theme, g, 0.5) : g;
+    }
     const seed = (course.seed ?? course.id.length * 1000) + stageIdx * 97 + 11;
     this.track = buildTrack(this.def, this.theme, seed);
     prewarmAds(this.track.segments.flatMap((sg) => sg.sprites.filter((sp) => sp.kind === 'billboard').map((sp) => sp.seed % 100)));

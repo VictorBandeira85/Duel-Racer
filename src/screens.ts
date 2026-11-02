@@ -14,7 +14,7 @@ import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
 import { MUSIC_CREDIT_LINES } from './tracks';
 import { CARS, CLASS_COLOR, accelCurve, drawCar, drawCarSide, gearbox, layout, perfClass, perfIndex, type CarSpec } from './cars';
-import { COURSES, unlockedCourses, withTimeOfDay, type Course } from './courses';
+import { COURSES, TIME_LABEL, TIME_NEXT, unlockedCourses, withTimeOfDay, type ArcadeTime, type Course } from './courses';
 import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import { THEMES } from './themes';
 import { dither, inside, panel, text, type Rect } from './ui';
@@ -55,7 +55,7 @@ export interface AppState {
   career: CareerSave | null;
   careerResult: EventResult | null;
   gasPage: number; // posto: 0 = chegada com o frentista, 1 = resultado do trecho
-  arcadeNight: boolean; // Arcade: corrida de dia ou de noite
+  arcadeTime: ArcadeTime; // Arcade: dia (como o mapa), entardecer, amanhecer ou noite
   carFilter: ClassFilter; // escolha de carro: só uma classe de desempenho (null = todas)
   oppFilter: ClassFilter; // escolha de adversário, idem
   courseTop: number; // primeiro percurso visível na lista
@@ -729,7 +729,7 @@ function drawOpponent(c: CanvasRenderingContext2D, s: AppState) {
 const COURSE_ROWS = 4;
 const courseRects = () => Array.from({ length: COURSE_ROWS }, (_, i): Rect => ({ x: ox() + 4, y: 38 + i * 48, w: SAFE_W - 30, h: 45 }));
 const courseButtons = () => ({
-  time: { x: ox() + SAFE_W - 70, y: 20, w: 66, h: 13 } as Rect,
+  time: { x: ox() + SAFE_W - 84, y: 20, w: 80, h: 13 } as Rect,
   back: { x: ox() + 4, y: 20, w: 58, h: 13 } as Rect,
   up: { x: ox() + SAFE_W - 22, y: 38, w: 18, h: 92 } as Rect,
   down: { x: ox() + SAFE_W - 22, y: 135, w: 18, h: 92 } as Rect,
@@ -830,8 +830,8 @@ export function stageChip(c: CanvasRenderingContext2D, x: number, y: number, st:
   c.fillRect(x - 1, y - 1, W + 2, H + 2);
   c.fillStyle = st.night ? shade(th.mapColor, -0.45) : th.mapColor;
   c.fillRect(x, y, W, H);
-  if (st.dusk) {
-    c.fillStyle = '#ff8a3a';
+  if (st.dusk || st.tod) {
+    c.fillStyle = st.tod === 'dawn' ? '#ffb4a0' : '#ff8a3a';
     c.fillRect(x, y + H - 4, W, 2);
   }
   text(c, (PLACE[st.theme] ?? st.theme).slice(0, 7), x + 2, y + 2, 5, '#fff', 'left', INK);
@@ -853,6 +853,14 @@ export function stageChip(c: CanvasRenderingContext2D, x: number, y: number, st:
     c.fillStyle = '#ffd040';
     c.fillRect(ix, iy, 4, 2);
   }
+  // entardecer/amanhecer: meio sol no horizonte
+  if (st.tod && !st.night) {
+    c.fillStyle = st.tod === 'dawn' ? '#fff0a0' : '#ffb030';
+    c.fillRect(ix + 1, iy, 3, 1);
+    c.fillRect(ix, iy + 1, 5, 1);
+    c.fillStyle = INK;
+    c.fillRect(ix - 1, iy + 2, 7, 1);
+  }
 }
 
 function drawCourse(c: CanvasRenderingContext2D, s: AppState) {
@@ -863,7 +871,7 @@ function drawCourse(c: CanvasRenderingContext2D, s: AppState) {
   scrollCourses(s);
   const b = courseButtons();
   tag(c, b.back, '◀ VOLTAR');
-  tag(c, b.time, s.arcadeNight ? 'NOITE' : 'DIA', false);
+  tag(c, b.time, TIME_LABEL[s.arcadeTime] + ' ▶', false);
   ink(c, `${unlocked} de ${COURSES.length} roteiros liberados`, x + 160, 24, 5, GREY, 'center');
   const sv = loadArcade();
   courseRects().forEach((r, row) => {
@@ -882,7 +890,7 @@ function drawCourse(c: CanvasRenderingContext2D, s: AppState) {
     ink(c, co.name.toUpperCase(), r.x + 44, r.y + 6, 8, locked ? GREY : INK);
     ink(c, co.level.toUpperCase(), r.x + 44, r.y + 18, 5, GREY);
     stars(c, r.x + 44 + co.level.length * 5 + 6, r.y + 17, LEVEL_STARS[co.level] ?? 1, 5);
-    const day = withTimeOfDay(co, s.arcadeNight);
+    const day = withTimeOfDay(co, s.arcadeTime);
     day.stages.forEach((st, k) => stageChip(c, r.x + 44 + k * 40, r.y + 27, st));
     if (locked) {
       c.fillStyle = 'rgba(239,230,210,0.6)';
@@ -1537,7 +1545,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
     }
     case 'course': {
       const b = courseButtons();
-      if (inside(x, y, b.time)) s.arcadeNight = !s.arcadeNight;
+      if (inside(x, y, b.time)) s.arcadeTime = TIME_NEXT[s.arcadeTime];
       else if (inside(x, y, b.back)) a.go('opponent');
       else if (inside(x, y, b.up)) s.sel = Math.max(0, Math.min(s.sel, s.courseTop + COURSE_ROWS - 1) - COURSE_ROWS);
       else if (inside(x, y, b.down)) s.sel = Math.min(COURSES.length - 1, Math.max(s.sel, s.courseTop) + COURSE_ROWS);
@@ -1591,9 +1599,10 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection'].includes(s.screen)) return keyCareerScreen(s, a, k);
   const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 11, opponent: oppList(s).length, course: COURSES.length };
-  // percursos: cima/baixo escolhem, esquerda/direita trocam dia e noite
+  // percursos: cima/baixo escolhem, esquerda/direita trocam a hora (dia, entardecer, amanhecer, noite)
   if (s.screen === 'course' && (k === 'left' || k === 'right')) {
-    s.arcadeNight = !s.arcadeNight;
+    const order: ArcadeTime[] = ['day', 'sunset', 'dawn', 'night'];
+    s.arcadeTime = order[(order.indexOf(s.arcadeTime) + (k === 'right' ? 1 : 3)) % 4];
     return;
   }
   const n = counts[s.screen];

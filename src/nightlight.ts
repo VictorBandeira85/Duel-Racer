@@ -266,9 +266,15 @@ function blob(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry:
 export interface Pass { x: number; dz: number } // quem vem atrás com farol aceso (dz > 0 atrás)
 
 // fim da pista: escuridão, luzes dos carros somadas e a claridade de quem emparelha
+// lua (ou outra luz do céu) que não deve ser apagada pela escuridão da noite
+let sky: { x: number; y: number; r: number } | null = null;
+export function setSkyLight(x: number, y: number, r: number) {
+  sky = { x, y, r };
+}
 export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: number; w: number; h: number; horizon: number; dash?: number }, strength: number, passers: Pass[], segLen: number, road: RoadPt[] = []) {
   collecting = false;
   if (strength <= 0.02) {
+    sky = null;
     streets.length = 0;
     fronts.length = 0;
     refl.length = 0;
@@ -296,6 +302,16 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   // postes acesos: o círculo de luz no chão embaixo de cada um, deitado na pista como o facho
   for (const st of streets) streetPool(g, rd, st, 'rgba(0,0,0,', 0.85);
   reflectors(g, vp.x, top, 'rgba(0,0,0,', 1);
+  if (sky) {
+    const sx = sky.x - vp.x, sy = sky.y - top;
+    const sg = g.createRadialGradient(sx, sy, 0, sx, sy, sky.r);
+    sg.addColorStop(0, 'rgba(0,0,0,1)');
+    sg.addColorStop(0.4, 'rgba(0,0,0,0.8)');
+    sg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = sg;
+    g.fillRect(sx - sky.r, sy - sky.r, sky.r * 2, sky.r * 2);
+    sky = null;
+  }
   g.globalCompositeOperation = 'source-over';
   const prev = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = false;

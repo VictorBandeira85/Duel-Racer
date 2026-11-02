@@ -38,10 +38,14 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
   font-size: calc(4.5vh * var(--btn, 1)); line-height: 1.2;
 }
 
+/* pausa: no mínimo 44 px (tamanho de toque da Apple) e área de toque maior que o desenho */
 #pauseBtn {
-  position: absolute; top: calc(0.5vh + env(safe-area-inset-top)); left: calc(1vw + env(safe-area-inset-left));
-  width: 8vh; height: 8vh; border-radius: 1vh; background: rgba(0,0,0,0.5); font-size: 2.6vh;
+  position: absolute; z-index: 40; top: calc(1vh + env(safe-area-inset-top)); left: calc(1.5vw + env(safe-area-inset-left));
+  width: max(44px, 11vh); height: max(44px, 11vh); border-radius: 1.4vh; background: rgba(0,0,0,0.55);
+  border: 0.3vh solid rgba(255,255,255,0.35); font-size: max(14px, 3.4vh); touch-action: none;
 }
+#pauseBtn::before { content: ''; position: absolute; inset: -2.5vh -3vh -3vh -3vh; }
+#pauseBtn.on { background: rgba(255,255,255,0.35); }
 /* pausa no estilo da revista: página de papel com a manchete e etiquetas pretas */
 #pause {
   position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.6vh;
@@ -102,7 +106,7 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
 /* contador de FPS (opção MOSTRAR FPS): canto de cima à esquerda; na corrida, ao lado do botão de pausa */
 #fps { position: absolute; z-index: 50; pointer-events: none; top: calc(0.8vh + env(safe-area-inset-top)); left: calc(1vw + env(safe-area-inset-left));
   font-size: 2.2vh; color: #30e060; background: rgba(0,0,0,0.6); padding: 0.6vh 1vh; }
-#fps.race { left: calc(1vw + 9.5vh + env(safe-area-inset-left)); }
+#fps.race { left: calc(1.5vw + max(44px, 11vh) + 1vh + env(safe-area-inset-left)); }
 #fps.low { color: #ffd21a; }
 /* botões que só existem no programa de computador (minimizar) */
 .desk { display: none; }

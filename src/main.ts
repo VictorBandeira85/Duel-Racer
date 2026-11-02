@@ -431,7 +431,12 @@ function setPaused(p: boolean) {
     releaseAll();
   }
 }
-$('pauseBtn').addEventListener('click', () => setPaused(true));
+// pausa no toque (pointerdown): o click do iOS se perde se o dedo mexer um pouco
+$('pauseBtn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  setPaused(true);
+});
 // atalhos da pausa: música e efeitos sonoros sem abrir os ajustes
 function quickLabels() {
   $('qMusic').innerHTML = capsHtml(`MÚSICA: ${state.music ? 'LIGADA' : 'DESLIGADA'}`);

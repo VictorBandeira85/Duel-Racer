@@ -590,14 +590,16 @@ export class Race {
     const tire = this.car.lateralG * surf;
     const lonDrive = clamp(aDrive / (G * tire), 0, 1);
     const lonBrake = this.braking && speedPct > 0.15 ? clamp(this.car.brakeG / this.car.lateralG, 0, 1) : 0;
-    const shared = 1 - 0.5 * lonDrive * lonDrive - 0.35 * lonBrake * lonBrake;
+    // círculo de atrito mais tolerante (antes acelerar fundo na curva cortava até metade da
+    // aderência e o carro saía de traseira à toa; o rival usa a aderência inteira)
+    const shared = 1 - 0.28 * lonDrive * lonDrive - 0.25 * lonBrake * lonBrake;
     const offGrip = Math.abs(this.x) > t.roadW + 700 ? 0.6 : 1;
     const grip = tire * aero * shared * (1 - this.air * 0.6) * offGrip;
     const demand = latG / grip;
-    const excess = Math.max(0, demand - 1);
+    const excess = Math.max(0, demand - 1.1); // o pneu aguenta um pouco além do limite antes de soltar
     // a aderência some rápido e volta mais devagar (o pneu precisa voltar a agarrar)
-    const slipTarget = driving ? clamp(excess / 0.35, 0, 1) : 0;
-    this.slip = lerp(this.slip, slipTarget, Math.min(1, dt * (slipTarget > this.slip ? 6 : 2.5)));
+    const slipTarget = driving ? clamp(excess / 0.6, 0, 1) : 0;
+    this.slip = lerp(this.slip, slipTarget, Math.min(1, dt * (slipTarget > this.slip ? 4 : 3.5)));
     // transferência de peso: freando, a frente carrega e a traseira alivia; acelerando com a
     // traseira, a potência solta o carro. Motor central é mais arisco, integral é mais neutro.
     // tração dianteira: acelerar puxa o carro para fora (sai de frente); tirar o pé solta a traseira
@@ -623,10 +625,10 @@ export class Race {
       // Atravessou demais (~32°): rodou.
       if (this.spinOut <= 0) {
         const loose = clamp(Math.abs(this.drift) / 0.08 + over, 0, 1) * clamp(speedPct * 2.5, 0, 1);
-        const rotIn = dir * over * (1.2 + (rwd && this.throttle ? 1.0 * lonDrive : 0));
+        const rotIn = dir * over * (0.75 + (rwd && this.throttle ? 0.5 * lonDrive : 0));
         // contraesterço segura bem; esterçar a favor da derrapagem gira mais (só um pouco)
         const steerYaw = this.steer * (Math.sign(this.steer) === -Math.sign(this.drift) ? 2.0 : 0.7) * loose;
-        const align = -this.drift * ((over < 0.12 ? 2.6 : 0.5) + (speedPct < 0.15 ? 4 : 0));
+        const align = -this.drift * ((over < 0.12 ? 3.2 : 0.9) + (speedPct < 0.15 ? 4 : 0));
         this.drift = clamp(this.drift + (rotIn + steerYaw + align) * dt, -0.8, 0.8);
         // atravessado, o carro escorrega para o lado de fora e perde um pouco de velocidade
         this.x -= Math.sign(this.drift) * dt * Math.abs(this.drift) * steerMax * 0.9;

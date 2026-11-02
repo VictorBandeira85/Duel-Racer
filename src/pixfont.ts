@@ -49,14 +49,17 @@ export function pix(c: CanvasRenderingContext2D, s: string, x: number, y: number
   const snap = (v: number) => Math.round(v / g) * g;
   let px = snap(x - pixWidth(s, scale) / 2);
   const py = snap(y - (5 * scale) / 2);
+  // todos os pixels do texto num caminho só: um comando de desenho (antes era um por pixel)
+  c.beginPath();
   for (const ch of s) {
     const g = GLYPHS[ch];
     if (g) {
       for (let r = 0; r < 5; r++)
-        for (let k = 0; k < 3; k++) if (g[r][k] === '1') c.fillRect(px + k * scale, py + r * scale, scale, scale);
+        for (let k = 0; k < 3; k++) if (g[r][k] === '1') c.rect(px + k * scale, py + r * scale, scale, scale);
     }
     px += 4 * scale;
   }
+  c.fill();
 }
 
 // Dígitos de 5x7 em meio pixel: tamanho entre o 3x5 inteiro e o 3x5 em meio pixel
@@ -84,9 +87,11 @@ export function pix7(c: CanvasRenderingContext2D, s: string, x: number, y: numbe
   const bw = bold ? 1 : 0.5;
   let px = Math.round((x - pix7Width(s) / 2) * 2) / 2;
   const py = Math.round((y - 1.75) * 2) / 2;
+  c.beginPath();
   for (const ch of s) {
     const g = GLYPHS7[ch];
-    if (g) for (let r = 0; r < 7; r++) for (let k = 0; k < 5; k++) if (g[r][k] === '1') c.fillRect(px + k * 0.5, py + r * 0.5, bw, 0.5);
+    if (g) for (let r = 0; r < 7; r++) for (let k = 0; k < 5; k++) if (g[r][k] === '1') c.rect(px + k * 0.5, py + r * 0.5, bw, 0.5);
     px += bold ? 3.5 : 3;
   }
+  c.fill();
 }

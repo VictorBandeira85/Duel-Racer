@@ -473,6 +473,7 @@ function settingsLabels() {
     ghost: ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'],
     hints: ['DICAS', prefs.hints ? 'LIGADAS' : 'DESLIGADAS'],
     fps: ['MOSTRAR FPS', prefs.fps ? 'SIM' : 'NÃO'],
+    fps30: ['QUADROS', prefs.fps30 ? '30 FPS' : '60 FPS'],
     fx: ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')],
   };
   document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b) => {
@@ -504,6 +505,7 @@ document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b)
       break;
     case 'hints': savePrefs({ hints: !prefs.hints }); break;
     case 'fps': savePrefs({ fps: !prefs.fps }); break;
+    case 'fps30': savePrefs({ fps30: !prefs.fps30 }); break;
     case 'fx': setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]); resize(); break;
   }
   settingsLabels();
@@ -547,13 +549,25 @@ function countFps(now: number) {
     const v = Math.round((fpsN * 1000) / (now - fpsT0));
     if (state.screen === 'race' && !paused) fpsHist = [...fpsHist.slice(-19), v];
     fpsEl.textContent = `${v} FPS`;
-    fpsEl.classList.toggle('low', v < 55);
+    fpsEl.classList.toggle('low', v < (prefs.fps30 ? 28 : 55));
     fpsN = 0;
     fpsT0 = now;
   }
 }
 
+// opção QUADROS 30 FPS: desenha um quadro a cada ~33 ms (em telas de 60 Hz, um sim e um
+// não); a física continua no passo fixo de 60 Hz, então o carro anda igual, só com menos
+// quadros desenhados (como no iPhone em modo de economia)
+let nextDraw = 0;
 function frame(now: number) {
+  if (prefs.fps30) {
+    const gap = 1000 / 30;
+    if (now < nextDraw - 3) {
+      requestAnimationFrame(frame);
+      return;
+    }
+    nextDraw = now - nextDraw > gap ? now + gap : nextDraw + gap;
+  }
   countFps(now);
   // um erro num quadro (desenho, áudio) não pode parar o jogo: registra e segue no próximo
   try {
@@ -604,7 +618,8 @@ function frameInner(now: number) {
       if (gearEl.textContent !== g) gearEl.textContent = g;
     }
     if (state.screen === 'race') {
-      if (!paused) perfSample(dt);
+      // a 30 FPS o tempo de quadro é avaliado pela metade: só baixa os gráficos se nem 30 segurar
+      if (!paused) perfSample(prefs.fps30 ? dt / 2 : dt);
       // o econômico (escolhido ou automático) também baixa a resolução de desenho para 2x
       if (lowFx() !== lastLow || lowRes() !== lastRes) {
         lastLow = lowFx();

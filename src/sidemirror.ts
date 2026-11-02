@@ -202,19 +202,19 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
     const center = lanes === 4 ? i === 2 : i === 1 && lanes === 2;
     v.fillStyle = center ? '#f2c81e' : '#e8e8e8';
     const step = SEG_LEN / 2;
+    v.beginPath(); // a linha inteira num desenho só
     for (let dz = near; dz < far; dz += step) {
       const on = edge || center || Math.floor((dz + r.position) / dashLen) % 2 === 0;
       if (!on) continue;
       const x0 = sx(X, dz), y0 = sy(dz), x1 = sx(X, dz + step), y1 = sy(dz + step);
       const lw = Math.max(0.5, (90 * f) / dz);
-      v.beginPath();
       v.moveTo(x0 - lw / 2, y0);
       v.lineTo(x0 + lw / 2, y0);
       v.lineTo(x1 + lw / 2, y1);
       v.lineTo(x1 - lw / 2, y1);
       v.closePath();
-      v.fill();
     }
+    v.fill();
   }
   // quem vem atrás (do mais longe para o mais perto)
   const behind: { dz: number; x: number; w: number; look: Parameters<typeof drawCar>[4] }[] = [];

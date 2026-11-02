@@ -47,11 +47,18 @@ function line(c: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y
   c.fillStyle = color;
   const len = Math.hypot(x1 - x0, y1 - y0);
   const n = Math.max(1, Math.ceil(len * 4));
+  // a linha inteira num comando de desenho, sem repetir o mesmo meio pixel
+  c.beginPath();
+  let lx = NaN, ly = NaN;
   for (let i = 0; i <= n; i++) {
     const t = i / n;
     const x = Math.round((x0 + (x1 - x0) * t) * 2) / 2, y = Math.round((y0 + (y1 - y0) * t) * 2) / 2;
-    c.fillRect(x - w / 2 + 0.25, y - w / 2 + 0.25, w, w);
+    if (x === lx && y === ly) continue;
+    lx = x;
+    ly = y;
+    c.rect(x - w / 2 + 0.25, y - w / 2 + 0.25, w, w);
   }
+  c.fill();
 }
 
 function drawWiper(c: CanvasRenderingContext2D, px: number, py: number, L: number, a: number) {

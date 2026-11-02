@@ -322,6 +322,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   for (let i = end - 1; i > base.index; i--) {
     const s = segs[i];
     if (s.p1.camera.z <= CAM_DEPTH * 4) continue;
+    if (!s.tunnel && !s.sprites.length && !s.cars.length) continue; // nada a desenhar: poupa o recorte
     c.save();
     c.beginPath();
     c.rect(vp.x, vp.y, vp.w, s.clip - vp.y);

@@ -204,11 +204,13 @@ function golMini(c: CanvasRenderingContext2D, x: number, y: number, R: number, a
   for (let i = 0; i <= 4; i++) {
     const a = a0 + ((a1 - a0) * i) / 4, px = -Math.sin(a) * 0.5, py = Math.cos(a) * 0.5;
     c.fillStyle = i >= 3 ? '#ff3a18' : GTI_INK;
+    c.beginPath();
     for (const k of i === 0 || i === 4 ? [0, 0.5, 1, 1.5] : [0, 0.5, 1]) {
       const [xx, yy] = at(a, R - k);
       half(c, xx, yy);
       half(c, xx + px, yy + py);
     }
+    c.fill();
   }
   hand(c, x, y, a1 + (a0 - a1) * clamp(v, 0, 1), R - 2.5, art.needle);
   c.fillStyle = '#060607';
@@ -471,7 +473,6 @@ const VEGLIA_INK = '#ececec';
 // marca de cada escala vermelha
 function oilDuo(c: CanvasRenderingContext2D, cx: number, cy: number, R: number) {
   face(c, cx, cy, R + 1); // um pouco maior: cobre as marcas vermelhas do mostrador da arte
-  const half = (x: number, y: number) => c.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, 0.5, 0.5);
   const mx = cx + 0.5, my = cy + 0.5;
   const A = 0.62; // meia abertura de cada escala (rad)
   for (const side of [-1, 1]) {
@@ -483,7 +484,9 @@ function oilDuo(c: CanvasRenderingContext2D, cx: number, cy: number, R: number) 
       const v = i / 8, a = ang(v);
       c.fillStyle = i === 8 ? '#ff3020' : '#e8e8e8';
       const long = i % 4 === 0 ? 1.5 : 0.5;
-      for (let k = 0; k <= long; k += 0.5) half(px + Math.cos(a) * (rr - k), py + Math.sin(a) * (rr - k) * PIX_Y);
+      c.beginPath();
+      for (let k = 0; k <= long; k += 0.5) half(c, px + Math.cos(a) * (rr - k), py + Math.sin(a) * (rr - k) * PIX_Y);
+      c.fill();
     }
     // números nas pontas e no meio (fora da escala, do lado de dentro do mostrador)
     const labels: [string, number][] = side < 0 ? [['60', 0], ['140', 1]] : [['0', 0], ['8', 1]];
@@ -995,15 +998,24 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
   }
   const at = (a: number, rr: number): [number, number] => [cx + 0.5 + Math.cos(a) * rr, cy + 0.5 + Math.sin(a) * rr * PIX_Y];
   const fr = (v: number) => a0 + (sweep * v) / d.max;
-  const half = (x: number, y: number) => c.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, 0.5, 0.5);
+  // meios pixels juntados num caminho por cor (um desenho em vez de centenas)
+  let ink = '';
+  const paint = (col: string) => {
+    if (col === ink) return;
+    if (ink) c.fill();
+    ink = col;
+    c.fillStyle = col;
+    c.beginPath();
+  };
+  const half = (x: number, y: number) => c.rect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, 0.5, 0.5);
   // faixa amarela (aviso) e vermelha
   if (d.yellow !== undefined) {
-    c.fillStyle = '#f0c818';
+    paint('#f0c818');
     for (let a = fr(d.yellow); a <= fr(d.red) + 0.001; a += 0.02)
       for (const k of [0.75, 1.25, 1.75, 2.25]) half(...at(a, r - k));
   }
   if (d.red < d.max) {
-    c.fillStyle = d.redInk ?? '#d81818';
+    paint(d.redInk ?? '#d81818');
     const ks = [];
     for (let k = 0.75; k <= (d.redW ?? 2) + 0.25 + 1e-6; k += 0.5) ks.push(k);
     for (let a = fr(d.red), i = 0; a <= a0 + sweep + 0.001; a += 0.02, i++)
@@ -1012,7 +1024,7 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
   // marcações: traço de 1,5 px nos números, meio pixel no meio (resolução interna 2x)
   for (let v = 0; v <= d.max + 1e-6; v += d.tick) {
     const major = d.labels.some((l) => Math.abs(l - v) < 1e-6);
-    c.fillStyle = d.ink ?? (v >= d.red ? '#ffd0d0' : '#ececec');
+    paint(d.ink ?? (v >= d.red ? '#ffd0d0' : '#ececec'));
     if (d.boldTicks) {
       // traço de 1 px: a linha do raio e outra meio pixel ao lado (na perpendicular)
       const a = fr(v), px = -Math.sin(a) * 0.5, py = Math.cos(a) * 0.5;
@@ -1027,6 +1039,7 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
     half(...at(fr(v), r - 0.75));
     if (major) for (const k of [1.25, 1.75]) half(...at(fr(v), r - k));
   }
+  if (ink) c.fill();
   for (const v of d.minor ?? []) {
     const l = String(v), a = fr(v);
     const [lx, ly] = at(a, r - 2.6 - Math.abs(Math.cos(a)) * pixWidth(l, 0.5) * 0.5 - Math.abs(Math.sin(a)) * 1.3);
@@ -1063,11 +1076,17 @@ function needle(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, 
   const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y;
   const w = art.needleW ?? 1;
   c.fillStyle = art.needle;
+  c.beginPath(); // o ponteiro inteiro num comando de desenho
+  let lx = NaN, ly = NaN;
   for (let t = -(art.needleTail ?? 0); t <= len; t += 0.25) {
     const x = Math.round((cx + 0.5 + ca * t) * 2) / 2, y = Math.round((cy + 0.5 + sa * t) * 2) / 2;
+    if (x === lx && y === ly) continue;
+    lx = x;
+    ly = y;
     const ww = t > len - 3 ? Math.min(w, 1) : w; // ponta mais fina
-    c.fillRect(x - ww / 2, y - ww / 2, ww, ww);
+    c.rect(x - ww / 2, y - ww / 2, ww, ww);
   }
+  c.fill();
   c.fillStyle = art.hub;
   if (w > 1) c.fillRect(cx - 1.5, cy - 1.5, 4, 4);
   c.fillRect(cx - 1, cy - 1, 3, 3);
@@ -1089,7 +1108,9 @@ function drawIcon(c: CanvasRenderingContext2D, name: keyof typeof ICONS, cx: num
   const ic = ICONS[name];
   const x0 = Math.round((cx - 3.25) * 2) / 2, y0 = Math.round(top * 2) / 2;
   c.fillStyle = color;
-  ic.forEach((row, j) => [...row].forEach((ch, i) => ch === '1' && c.fillRect(x0 + i * 0.5, y0 + j * 0.5, 0.5, 0.5)));
+  c.beginPath();
+  ic.forEach((row, j) => [...row].forEach((ch, i) => ch === '1' && c.rect(x0 + i * 0.5, y0 + j * 0.5, 0.5, 0.5)));
+  c.fill();
 }
 
 // fundo preto do mostrador, por linhas (centro no meio do pixel cx, cy)
@@ -1101,15 +1122,22 @@ function face(c: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
     c.fillRect(cx - hw, cy + dy - 0.5, hw * 2 + 1, 2); // sem emendas (ver artDial)
   }
 }
-const half = (c: CanvasRenderingContext2D, x: number, y: number) => c.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, 0.5, 0.5);
+// meio pixel no caminho atual (quem chama abre com beginPath e fecha com fill: um só desenho por cor)
+const half = (c: CanvasRenderingContext2D, x: number, y: number) => c.rect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, 0.5, 0.5);
 // ponteiro em meio pixel a partir de (x0, y0), ângulo a, comprimento len (horizontal)
 function hand(c: CanvasRenderingContext2D, x0: number, y0: number, a: number, len: number, color: string, w = 1) {
   const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y;
   c.fillStyle = color;
+  c.beginPath();
+  let lx = NaN, ly = NaN;
   for (let t = 0; t <= len; t += 0.25) {
     const x = Math.round((x0 + ca * t) * 2) / 2, y = Math.round((y0 + sa * t) * 2) / 2;
-    c.fillRect(x - w / 2, y - w / 2, w, w);
+    if (x === lx && y === ly) continue;
+    lx = x;
+    ly = y;
+    c.rect(x - w / 2, y - w / 2, w, w);
   }
+  c.fill();
 }
 
 // Leitura dos mostradores auxiliares (0..1 da escala), cada um com sua função:
@@ -1142,12 +1170,14 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
   const at = (x: number, y: number, a: number, rr: number): [number, number] => [x + Math.cos(a) * rr, y + Math.sin(a) * rr * PIX_Y];
   const ticks = (x: number, y: number, rr: number, a0: number, a1: number, n: number) => {
     c.fillStyle = '#e8e8e8';
+    c.beginPath();
     for (let i = 0; i <= n; i++) {
       const a = a0 + ((a1 - a0) * i) / n;
       half(c, ...at(x, y, a, rr));
       half(c, ...at(x, y, a, rr - 0.5));
       if (i === 0 || i === n || i * 2 === n) half(c, ...at(x, y, a, rr - 1));
     }
+    c.fill();
   };
   const val = (k: Gauge) => gauges[k];
   const PI = Math.PI;
@@ -1172,7 +1202,9 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
     // combustível: reserva em vermelho no começo da escala
     if (k1 === 'fuel' && small) {
       c.fillStyle = '#d81818';
+      c.beginPath();
       for (let a = a0; a <= a0 + (a1 - a0) * 0.18; a += 0.05) half(c, ...at(mx, my, a, R - 0.75));
+      c.fill();
     }
     ticks(mx, my, R - 0.75, a0, a1, 4);
     // números nas pontas e no meio (água 60/90/120, turbo 0/0,8/1,5 da F40)
@@ -1192,7 +1224,9 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
     // na direita, ponteiros saindo das bordas; no meio a luz-espia do nível do óleo
     const lx = mx - R * 0.95, rx = mx + R * 0.95;
     c.fillStyle = '#d81818';
+    c.beginPath();
     for (let a = -0.62; a <= -0.42; a += 0.04) half(c, ...at(lx, my, a, R * 0.8));
+    c.fill();
     ticks(lx, my, R * 0.86, -0.62, 0.62, 6);
     ticks(rx, my, R * 0.86, PI - 0.62, PI + 0.62, 5);
     pix(c, '170', ...at(lx, my, -0.62, R * 0.58), '#f2f2f2', 0.5);
@@ -1438,11 +1472,13 @@ function boostSubdial(c: CanvasRenderingContext2D, x: number, y: number, R: numb
   const a0 = Math.PI * 1.2, a1 = Math.PI * 1.8;
   const at = (a: number, rr: number): [number, number] => [x + Math.cos(a) * rr, y + Math.sin(a) * rr * PIX_Y];
   c.fillStyle = '#e8e8e8';
+  c.beginPath();
   for (let i = 0; i <= 5; i++) {
     const a = a0 + ((a1 - a0) * i) / 5;
     half(c, ...at(a, R));
     half(c, ...at(a, R - 0.5));
   }
+  c.fill();
   for (const [l, v] of [['0', 0], ['1,5', 0.6], ['2,5', 1]] as [string, number][])
     pix(c, l, ...at(a0 + (a1 - a0) * v, R + 1.8), '#f2f2f2', 0.5);
   hand(c, x, y, a0 + (a1 - a0) * clamp(gauges.boost / 1.25, 0, 1), R - 0.5, color);

@@ -1240,7 +1240,22 @@ export const RIMS: Record<string, { label: string; op: GlobalCompositeOperation;
   douradas: { label: 'DOURADAS', op: 'color', color: '#d8a422' },
   grafite: { label: 'GRAFITE', op: 'multiply', color: '#8a8c94' },
 };
+// comprimento real (m) de cada carro: na vista lateral todos ficam na mesma escala (o Uno não
+// aparece do tamanho do Diablo); a referência de 4,5 m ocupa o espaço inteiro que a tela reserva
+const LENGTH_M: Record<string, number> = {
+  'furia-f4': 4.36, 'silber-95': 4.26, 'toro-v12': 4.47, 'vortex-zr': 4.48, 'furia-tr': 4.49, 'toro-lp5': 4.14,
+  'kaze-nx': 4.4, 'serpe-v10': 4.45, patrol: 5.42, 'patrol-sv': 4.47,
+  'br-vectra': 4.43, 'br-tempra': 4.36, 'br-gol16v': 3.81, 'br-tipo16v': 3.96, 'br-omega': 4.74, 'br-uno': 3.69,
+  'br-charger': 5.1, 'br-maverick': 4.9, 'br-golgti': 3.81, 'br-kadett': 4.0, 'br-xr3': 4.05, 'br-corsa': 3.73,
+  'br-monza': 4.37, 'br-opala': 4.78, 'br-pumagtb': 4.29, 'br-passat': 4.19, 'br-pumagte': 3.98, 'br-chevette': 4.17,
+  'br-147': 3.63, 'br-sp2': 4.21,
+};
+export const sideScale = (car: CarSpec) => Math.min(1.06, (LENGTH_M[car.id] ?? 4.5) / 4.5);
 export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string, spin?: number) {
+  // mesma escala para todos, centrado no espaço reservado
+  const k = sideScale(car);
+  x += (len * (1 - k)) / 2;
+  len *= k;
   if (car.imgSide) {
     const img = (paint && car.sideVariants?.[paint]) || car.imgSide;
     const aspect = spriteAspect(img);

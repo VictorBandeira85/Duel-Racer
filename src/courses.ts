@@ -239,7 +239,11 @@ export const COURSES: Course[] = ORDER.map((id) => ALL.find((c) => c.id === id)!
 
 // mapas liberados no Arcade (no começo só o primeiro), guardado no aparelho
 const UNLOCK_KEY = 'duel-racer:mapas';
+// FASE DE TESTES: todos os mapas do Arcade liberados para conferir à mão antes do lançamento.
+// Para voltar ao desbloqueio em sequência, troque para false.
+const TEST_UNLOCK_ALL = true;
 export function unlockedCourses(): number {
+  if (TEST_UNLOCK_ALL) return COURSES.length;
   try {
     const v = Number(localStorage.getItem(UNLOCK_KEY) ?? 1);
     return Math.max(1, Math.min(COURSES.length, Number.isFinite(v) ? v : 1));

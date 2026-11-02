@@ -243,7 +243,7 @@ export class Race {
     public car: CarSpec,
     public rivalCar: CarSpec | null,
     public auto: boolean,
-    opts: { rivalStyle?: RivalStyle; rivalPaint?: string } = {},
+    opts: { rivalStyle?: RivalStyle; rivalPaint?: string; rivalAhead?: boolean } = {},
   ) {
     this.rivalPaint = opts.rivalPaint;
     this.pt = new Powertrain(car);
@@ -270,7 +270,9 @@ export class Race {
     const myLane = t.lanes - 1;
     this.x = laneCenter(t, myLane);
     if (rivalCar) {
-      this.rival = { z: this.playerZ, x: laneCenter(t, myLane - 1), targetX: laneCenter(t, myLane - 1), speed: 0, recover: 0, think: 0, finishTime: -1,
+      // largada: o rival sai à frente (1º trecho, ou ganhou o trecho anterior) ou atrás (perdeu)
+      const gap = opts.rivalAhead === false ? -8 * SEG_LEN : 14 * SEG_LEN;
+      this.rival = { z: Math.max(SEG_LEN * 2, this.playerZ + gap), x: laneCenter(t, myLane - 1), targetX: laneCenter(t, myLane - 1), speed: 0, recover: 0, think: 0, finishTime: -1,
         style: this.rivalStyleOverride ?? RIVAL_STYLE[this.rivalCar!.id] ?? 'cauteloso', mistake: 0, boost: 0, pt: new Powertrain(rivalCar),
         signal: 0, sigT: 0, flash: 0, flashCd: 4 };
       this.rival.pt.boost = LAUNCH_BOOST;
@@ -480,7 +482,15 @@ export class Race {
     const cSeg = this.findSegment(this.position);
     const slopeCam = clamp((cSeg.p2.world.y - cSeg.p1.world.y) / SEG_LEN, -0.6, 0.6);
     // no ar, o carro aponta para onde está indo (sobe de nariz e vai embicando na queda)
-    const pitchTo = this.airborne ? clamp(this.vy / Math.max(this.speed, 1), -0.6, 0.6) : (slope + slopeCam) / 2;
+    // câmera olha um pouco adiante: no começo de uma descida íngreme já aponta para baixo,
+    // acompanhando a pista (antes mirava o céu até o carro chegar na rampa)
+    let ahead = 0;
+    for (let k = 2; k <= 9; k++) {
+      const sg = this.findSegment(this.position + k * SEG_LEN);
+      ahead += (sg.p2.world.y - sg.p1.world.y) / SEG_LEN;
+    }
+    ahead = clamp(ahead / 8, -0.6, 0.6);
+    const pitchTo = this.airborne ? clamp(this.vy / Math.max(this.speed, 1), -0.6, 0.6) : slope * 0.3 + slopeCam * 0.2 + ahead * 0.5;
     this.pitch = lerp(this.pitch, pitchTo, Math.min(1, dt * (this.airborne ? 3 : 6)));
     // ---- salto: o carro é um corpo com velocidade vertical própria. Segue o chão enquanto a
     // gravidade dá conta; num topo de lombada que cai mais rápido do que ela puxa, decola,
@@ -536,7 +546,9 @@ export class Race {
     const rpmNow = this.speed / gearMax;
     // vácuo tira até 35% do arrasto; sem acelerar, o freio-motor segura conforme o giro
     const aResist = resistAcc(this.car, this.speed, 1 - 0.35 * this.draft) + (this.throttle ? 0 : 0.6 + 1.2 * clamp(rpmNow, 0, 1));
-    const aGrav = (G * slope) / Math.sqrt(1 + slope * slope);
+    // a pista desenhada exagera as rampas (~2,5×): a gravidade usa a inclinação de verdade
+    const realSlope = slope * RELIEF;
+    const aGrav = (G * realSlope) / Math.sqrt(1 + realSlope * realSlope);
     this.speed += toGame(aDrive - aResist - aGrav) * dt;
     // freio: ~1 g no seco (menos na chuva/neve e no topo das lombadas; a asa ajuda em alta)
     if (this.braking) {

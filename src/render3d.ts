@@ -5,7 +5,7 @@ import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from '
 import { CARS, drawCar } from './cars';
 import { lowFx, fxMode } from './perf';
 import { adsReady } from './billboards';
-import { beginLights, finishNight, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, type Pass, type RoadPt } from './nightlight';
+import { beginLights, finishNight, pushCarBeam, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, type Pass, type RoadPt } from './nightlight';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
 import { SPRITES } from './sprites';
 import { FOG_COLOR, type BgLayer } from './themes';
@@ -316,7 +316,7 @@ const FAR_KINDS = ['building', 'station', 'bridge', 'billboard', 'barn', 'factor
 
 export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport) {
   // câmera inclinada junto com o carro: na subida o horizonte desce, na descida sobe
-  const vp = { ...view0, horizon: view0.horizon + Math.round(Math.max(-40, Math.min(40, r.pitch * CAM_DEPTH * view0.K))) };
+  const vp = { ...view0, horizon: view0.horizon + Math.round(Math.max(-80, Math.min(60, r.pitch * CAM_DEPTH * view0.K))) };
   const segs = r.track.segments;
   const roadW = r.track.roadW;
   const night = !!r.def.night;
@@ -416,6 +416,17 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       if (lit && REFLECT.has(sp.kind)) pushReflector(sp.kind, sx, s.p1.screen.y, sw, sh, dist);
       if (lit && sp.kind === 'lamp') pushStreetLight(sx - sw * 1.3, s.p1.screen.y - sh + sw * 0.5, sw * 9, dist, (sx - sw * 1.3 - s.p1.screen.x) / Math.max(1, s.p1.screen.w));
     }
+    // farol de quem vai na mesma mão, à nossa frente: luz no asfalto alguns segmentos adiante
+    const beamAhead = (ex: number, w: number) => {
+      if (!lit) return;
+      const a = segs[i + 2], f = segs[Math.min(end - 1, i + 28)];
+      if (!a || !f || f.index <= a.index) return;
+      const pa = a.p1.screen, pf = f.p1.screen;
+      if (pf.y >= pa.y - 1) return; // atrás de um topo: a luz não aparece
+      const xa = pa.x + pa.scale * ex * vp.K, xf = pf.x + pf.scale * ex * vp.K;
+      const ha = w * 0.45, hf = Math.max(1, CAR_W * 1.6 * pf.scale * vp.K);
+      pushCarBeam([xa - ha, pa.y, xa + ha, pa.y, xf + hf, pf.y, xf - hf, pf.y], s.clip);
+    };
     for (const e of s.cars) {
       if (e.z - r.position < 450) continue; // colado no para-brisa: some sob o painel
       const pct = (e.z % SEG_LEN) / SEG_LEN;
@@ -435,16 +446,19 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         }
       } else if (e === r.rival) {
         drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: r.rival.recover > 0 || r.rival.mistake > 0, night: lit, paint: r.rivalPaint, signal: r.rival.signal, plate: r.rivalPlate });
+        beamAhead(ex, CAR_W * sc * vp.K);
       } else if ('phase' in e) {
         drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, (e as Officer).phase === 'show');
       } else if ('spotZ' in e) {
         const p = e as Race['police'][number];
         const siren = p.state === 'chase' || p.state === 'pull' || p.state === 'stopped';
         drawCar(c, cx, cy, (p.sv ? CAR_W * 1.08 : POLICE_W) * sc * vp.K, { color: '#fff', police: true, sv: p.sv, siren, night: lit });
+        beamAhead(ex, POLICE_W * sc * vp.K);
       } else {
         const t = e as TrafficCar;
         const tw = (t.truck ? TRUCK_W : CAR_W) * sc * vp.K;
         drawCar(c, cx, cy, tw, trafficLook(t, t.base < 0, night || fog || !!s.tunnel, t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0));
+        if (t.base > 0) beamAhead(ex, tw);
         // batido: fumaça saindo do motor (frente: em cima do capô; de trás: por cima do carro)
         if (t.smoke > 0) drawSmoke(c, cx, cy - tw * (t.base < 0 ? 0.35 : 0.55), tw, t.smoke, Math.round(t.base));
       }

@@ -168,7 +168,11 @@ function startStage(i: number) {
   beginLoading(state, () => startStageNow(i));
 }
 function startStageNow(i: number) {
-  const r = new Race(run.course, i, run.car, run.rival, state.auto, run.opts);
+  // rival à frente no 1º trecho; depois, quem chegou primeiro ao posto no trecho anterior
+  // larga atrás e o outro à frente (vale no Arcade e na Carreira)
+  const prev = i > 0 ? state.results[i - 1] : undefined;
+  const rivalAhead = !prev || !(prev.rival < 0 || prev.time <= prev.rival);
+  const r = new Race(run.course, i, run.car, run.rival, state.auto, { ...run.opts, rivalAhead });
   r.ghostRun = loadGhost(run.course.id, i, true);
   r.showGhost = ghostOn();
   r.challenges = stageChallenges(r);

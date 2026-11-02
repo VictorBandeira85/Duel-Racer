@@ -117,6 +117,7 @@ function reflectors(g: CanvasRenderingContext2D, ox: number, oy: number, rgb: st
 }
 export function beginLights() {
   lastLight = null;
+  carBeams.length = 0;
   refl.length = 0;
   fronts.length = 0;
   clipY = Infinity;
@@ -263,6 +264,56 @@ function blob(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry:
   c.globalAlpha = ga;
 }
 
+// farol de quem vai à frente (na mesma mão): a mancha de luz no asfalto adiante dele
+// (quadrilátero em coordenadas de tela: perto esquerda/direita, longe direita/esquerda)
+const carBeams: { p: number[]; clip: number }[] = [];
+export function pushCarBeam(p: number[], clip: number) {
+  if (collecting) carBeams.push({ p, clip });
+}
+function drawCarBeams(g: CanvasRenderingContext2D, ox: number, oy: number, a: number) {
+  for (const b of carBeams) {
+    const [x0, y0, x1, , x2, y2, x3] = b.p;
+    const grad = g.createLinearGradient(0, y0 - oy, 0, y2 - oy);
+    grad.addColorStop(0, `rgba(0,0,0,${a})`);
+    grad.addColorStop(0.55, `rgba(0,0,0,${(a * 0.75).toFixed(3)})`);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.save();
+    g.beginPath();
+    g.rect(0, 0, g.canvas.width, b.clip - oy);
+    g.clip();
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(x0 - ox, y0 - oy);
+    g.lineTo(x1 - ox, y0 - oy);
+    g.lineTo(x2 - ox, y2 - oy);
+    g.lineTo(x3 - ox, y2 - oy);
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
+}
+function drawCarBeamsWarm(g: CanvasRenderingContext2D, ox: number, oy: number, a: number) {
+  for (const b of carBeams) {
+    const [x0, y0, x1, , x2, y2, x3] = b.p;
+    const grad = g.createLinearGradient(0, y0 - oy, 0, y2 - oy);
+    grad.addColorStop(0, `rgba(255,226,160,${a.toFixed(3)})`);
+    grad.addColorStop(0.55, `rgba(255,226,160,${(a * 0.7).toFixed(3)})`);
+    grad.addColorStop(1, 'rgba(255,226,160,0)');
+    g.save();
+    g.beginPath();
+    g.rect(0, 0, g.canvas.width, b.clip - oy);
+    g.clip();
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(x0 - ox, y0 - oy);
+    g.lineTo(x1 - ox, y0 - oy);
+    g.lineTo(x2 - ox, y2 - oy);
+    g.lineTo(x3 - ox, y2 - oy);
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
+}
 export interface Pass { x: number; dz: number } // quem vem atrás com farol aceso (dz > 0 atrás)
 
 // fim da pista: escuridão, luzes dos carros somadas e a claridade de quem emparelha
@@ -275,6 +326,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   collecting = false;
   if (strength <= 0.02) {
     sky = null;
+    carBeams.length = 0;
     streets.length = 0;
     fronts.length = 0;
     refl.length = 0;
@@ -302,6 +354,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   // postes acesos: o círculo de luz no chão embaixo de cada um, deitado na pista como o facho
   for (const st of streets) streetPool(g, rd, st, 'rgba(0,0,0,', 0.85);
   reflectors(g, vp.x, top, 'rgba(0,0,0,', 1);
+  drawCarBeams(g, vp.x, top, 0.95);
   if (sky) {
     const sx = sky.x - vp.x, sy = sky.y - top;
     const sg = g.createRadialGradient(sx, sy, 0, sx, sy, sky.r);
@@ -332,6 +385,10 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   wg.globalCompositeOperation = 'source-over';
   for (const st of streets) streetPool(wg, rd, st, 'rgba(255,190,90,', 0.3 * strength); // luz de sódio
   reflectors(wg, vp.x, top, 'rgba(255,230,170,', 0.12 * strength); // tom quente do farol
+  // farol de quem vai à frente: um pouco de luz amarelada somada no asfalto
+  wg.globalCompositeOperation = 'source-over';
+  drawCarBeamsWarm(wg, vp.x, top, 0.45 * strength);
+  carBeams.length = 0;
   c.save();
   c.globalCompositeOperation = 'lighter';
   c.drawImage(warmCv, vp.x, top);

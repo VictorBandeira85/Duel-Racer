@@ -20,13 +20,14 @@ import { MUSIC_CREDITS } from './tracks';
 import { initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicOn, setMusicVolume, setMuted, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
 import { preloadSvg } from './svgsprites';
-import { FX_LABEL, fxMode, lowFx, perfSample, setFxMode } from './perf';
+import { FX_LABEL, fxMode, lowFx, perfSample, setFxMode, lowRes } from './perf';
 import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
 
 preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.sideMask, c.rear.img, c.rear.imgMask, c.rear.frontImg, c.rear.frontMask]).filter((s): s is string => !!s), ...TRAFFIC_IMAGES);
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
-const ctx = canvas.getContext('2d')!;
+// opaco: a página não precisa misturar o jogo com o fundo (mais leve para a placa de vídeo)
+const ctx = canvas.getContext('2d', { alpha: false })!;
 const $ = (id: string) => document.getElementById(id)!;
 $('credits').textContent = MUSIC_CREDITS;
 setMuted(!prefs.sound);
@@ -259,7 +260,7 @@ function resize() {
   const dev = scale * (window.devicePixelRatio || 1);
   // (no MÁXIMO usa 4 também em monitores comuns de computador: carros e cenário bem definidos;
   // no automático só em telas densas, e se o aparelho não der conta volta para 2 sozinho)
-  setRes(!lowFx() && dev >= (fxMode() === 'alto' ? 1.4 : 3.5) ? 4 : 2);
+  setRes(!lowFx() && !lowRes() && dev >= (fxMode() === 'alto' ? 1.4 : 3.5) ? 4 : 2);
   canvas.width = view.w * RES;
   canvas.height = view.h * RES;
   ctx.setTransform(RES, 0, 0, RES, 0, 0);
@@ -553,7 +554,7 @@ function frame(now: number) {
   requestAnimationFrame(frame);
 }
 let frameErr = false;
-let lastLow = false;
+let lastLow = false, lastRes = false;
 const gearEl = document.getElementById('gearNum')!;
 function frameInner(now: number) {
   const dt = Math.max(0, Math.min(0.25, (now - last) / 1000)); // o primeiro quadro pode vir antes de `last`
@@ -594,8 +595,9 @@ function frameInner(now: number) {
     if (state.screen === 'race') {
       if (!paused) perfSample(dt);
       // o econômico (escolhido ou automático) também baixa a resolução de desenho para 2x
-      if (lowFx() !== lastLow) {
+      if (lowFx() !== lastLow || lowRes() !== lastRes) {
         lastLow = lowFx();
+        lastRes = lowRes();
         resize();
       }
       renderCockpit(ctx, race, state.lives, `${race.stageIdx + 1}/${run.course.stages.length}`, totalTime(), paused ? 0 : dt);

@@ -146,6 +146,7 @@ const blinkOn = () => Math.floor(performance.now() / 250) % 2 === 0;
 export interface RoadPt { d: number; x: number; y: number; w: number } // distância (segmentos), centro e linha na tela, meia largura da pista
 let darkCv: HTMLCanvasElement | null = null;
 const occCv = document.createElement('canvas'), tmpCv = document.createElement('canvas');
+let occDirty = true;
 let warmCv: HTMLCanvasElement | null = null;
 const REACH = 64; // alcance do farol, em segmentos (~90 m de chão iluminado)
 // a escuridão e as luzes são polígonos de brilho chapado (degraus da pixel art) desenhados direto,
@@ -232,18 +233,34 @@ function streetPool(g: CanvasRenderingContext2D, road: RoadPt[], st: Street, rgb
     g.fill();
   }
 }
+// brilho redondo: desenhado uma vez por cor num quadrado de 64 px e depois só ampliado e
+// esticado (criar um degradê por luz a cada quadro pesava na placa de vídeo integrada)
+const blobSprites = new Map<string, HTMLCanvasElement>();
+function blobSprite(rgb: string) {
+  let cv = blobSprites.get(rgb);
+  if (!cv) {
+    cv = document.createElement('canvas');
+    cv.width = cv.height = 64;
+    const g = cv.getContext('2d')!;
+    const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, `rgba(${rgb},1)`);
+    gr.addColorStop(0.35, `rgba(${rgb},0.45)`);
+    gr.addColorStop(1, `rgba(${rgb},0)`);
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 64, 64);
+    blobSprites.set(rgb, cv);
+  }
+  return cv;
+}
 function blob(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, rgb: string, a: number) {
   if (rx < 0.5 || a <= 0.01) return;
-  c.save();
-  c.translate(x, y);
-  c.scale(1, ry / rx);
-  const g = c.createRadialGradient(0, 0, 0, 0, 0, rx);
-  g.addColorStop(0, `rgba(${rgb},${a.toFixed(3)})`);
-  g.addColorStop(0.35, `rgba(${rgb},${(a * 0.45).toFixed(3)})`);
-  g.addColorStop(1, `rgba(${rgb},0)`);
-  c.fillStyle = g;
-  c.fillRect(-rx, -rx, rx * 2, rx * 2);
-  c.restore();
+  const ga = c.globalAlpha;
+  c.globalAlpha = ga * Math.min(1, a);
+  const sm = c.imageSmoothingEnabled;
+  c.imageSmoothingEnabled = true;
+  c.drawImage(blobSprite(rgb), x - rx, y - ry, rx * 2, ry * 2);
+  c.imageSmoothingEnabled = sm;
+  c.globalAlpha = ga;
 }
 
 export interface Pass { x: number; dz: number } // quem vem atrás com farol aceso (dz > 0 atrás)
@@ -330,7 +347,8 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   for (const cv of [occCv, tmpCv]) if (cv.width !== DW || cv.height !== DH) { cv.width = DW; cv.height = DH; }
   const oc = occCv.getContext('2d')!, lg = tmpCv.getContext('2d')!;
   oc.setTransform(1, 0, 0, 1, 0, 0);
-  oc.clearRect(0, 0, DW, DH);
+  if (occDirty) oc.clearRect(0, 0, DW, DH); // limpa a máscara só se o quadro anterior a usou
+  occDirty = false;
   let occ = false;
   for (let li = lights.length - 1; li >= 0; li--) {
     const l = lights[li];
@@ -432,6 +450,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
       l.shape(oc);
       oc.restore();
       occ = true;
+      occDirty = true;
     }
   }
   // quem vem atrás com farol aceso: o lado por onde passa clareia, mais forte ao emparelhar,

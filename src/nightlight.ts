@@ -4,7 +4,7 @@
 // vem atrás ofusca nos retrovisores e, ao emparelhar, clareia o lado da tela por onde passa.
 import type { CarLook } from './cars';
 
-interface Light { x: number; y: number; w: number; h: number; front: boolean; brake: boolean; signal: number; dots: number[][]; high: boolean; clip: number; shape?: (g: CanvasRenderingContext2D) => void; plate?: number[] }
+interface Light { x: number; y: number; w: number; h: number; front: boolean; brake: boolean; signal: number; dots: number[][]; high: boolean; clip: number; shape?: (g: CanvasRenderingContext2D, game?: boolean) => void; plate?: number[] }
 const lights: Light[] = [];
 let collecting = false;
 
@@ -133,7 +133,7 @@ export function pushPlateLight(x: number, y: number, w: number, h: number) {
   lastLight = null;
 }
 // shape: redesenha o carro (só a silhueta importa) para recortar a luz dos carros de trás
-export function pushCarLights(x: number, y: number, w: number, look: CarLook, spots: { h: number; dots: number[][] }, shape?: (g: CanvasRenderingContext2D) => void) {
+export function pushCarLights(x: number, y: number, w: number, look: CarLook, spots: { h: number; dots: number[][] }, shape?: (g: CanvasRenderingContext2D, game?: boolean) => void) {
   if (!collecting || !look.night || w < 1.5) return;
   lights.push({ x, y, w, h: spots.h, front: !!look.front, brake: !!look.brake, signal: look.signal ?? 0, dots: spots.dots, high: !!look.flash || !!look.lamps?.high, clip: clipY, shape });
   lastLight = lights[lights.length - 1];
@@ -214,14 +214,14 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
 
 // luz de um poste: uma faixa de luz atravessando a pista inteira no trecho do poste (em degraus,
 // mais forte embaixo da lâmpada), como nos jogos de corrida em pixel art; só o chão que se vê
-const POOL = 8; // meia largura da faixa, em segmentos (os postes ficam a 14: as faixas se encontram)
+const POOL = 6; // meia largura da faixa, em segmentos (luz concentrada embaixo do poste, sem virar névoa)
 function streetPool(g: CanvasRenderingContext2D, road: RoadPt[], st: Street, rgb: string, a0: number) {
   for (let k = 0; k + 1 < road.length; k++) {
     const p = road[k], q = road[k + 1];
     if (q.d - p.d > 2) continue; // entre os dois há chão escondido (crista)
     const dd = Math.abs((p.d + q.d) / 2 - st.d);
     if (dd > POOL) continue;
-    const a = a0 * (dd <= 1.5 ? 1 : dd <= 3.5 ? 0.72 : dd <= 5.5 ? 0.48 : 0.3);
+    const a = a0 * (dd <= 1 ? 1 : dd <= 2 ? 0.8 : dd <= 3.5 ? 0.55 : dd <= 5 ? 0.32 : 0.15);
     // da outra borda da pista até um pouco além do poste
     const u0 = st.u > 0 ? -1.2 : st.u - 0.3, u1 = st.u > 0 ? st.u + 0.3 : 1.2;
     g.fillStyle = `${rgb}${a.toFixed(3)})`;
@@ -314,6 +314,89 @@ function drawCarBeamsWarm(g: CanvasRenderingContext2D, ox: number, oy: number, a
     g.restore();
   }
 }
+// camada de luz secundária: desenha (draw) e apaga as silhuetas de todos os carros registrados
+const secCv = document.createElement('canvas');
+const carCv = document.createElement('canvas');
+// quanto cada carro está iluminado (0..1): nosso farol pela distância e posição na tela, mais a
+// luz de um poste perto do trecho dele
+function carLighting(rd: RoadPt[], cx: number, seen: number, top: number, ox: number) {
+  const d0 = Math.max(0, (rd.find((p) => p.y < seen - 1)?.d ?? 0) - 6);
+  return (l: Light) => {
+    const y = l.y - top;
+    let best: RoadPt | null = null;
+    for (const p of rd) if (!best || Math.abs(p.y - y) < Math.abs(best.y - y)) best = p;
+    if (!best) return 0;
+    const f = 1 - (best.d - d0) / REACH;
+    const half = best.w * (1.75 - 1.1 * Math.max(0, f));
+    let lit = 0;
+    if (f > 0 && Math.abs(l.x - ox - cx) < half + l.w / 2) lit = 0.9 * Math.min(1, 1.2 * f ** 0.85);
+    for (const st of streets) {
+      const dd = Math.abs(best.d - st.d);
+      if (dd <= POOL) lit += 0.7 * (dd <= 1 ? 1 : dd <= 2 ? 0.8 : dd <= 3.5 ? 0.55 : dd <= 5 ? 0.32 : 0.15);
+    }
+    return Math.min(1, lit);
+  };
+}
+// apaga a silhueta de cada carro da camada e pinta de novo com uma cor por inteiro (fill)
+function shadeCars(g: CanvasRenderingContext2D, W: number, H: number, ox: number, oy: number, fill: (l: Light) => string, erase: boolean) {
+  if (carCv.width !== W || carCv.height !== H) {
+    carCv.width = W;
+    carCv.height = H;
+  }
+  const t = carCv.getContext('2d')!;
+  // do mais longe (mais alto na tela) para o mais perto: o da frente cobre o de trás
+  for (const l of lights.filter((n) => n.shape).sort((a, b) => a.y - b.y)) {
+    if (!l.shape) continue;
+    const x0 = Math.max(0, Math.floor(l.x - l.w * 0.75 - ox)), x1 = Math.min(W, Math.ceil(l.x + l.w * 0.75 - ox));
+    const y0 = Math.max(0, Math.floor(l.y - l.w * 1.2 - oy)), y1 = Math.min(H, Math.ceil(l.y + l.w * 0.2 + 2 - oy), Math.ceil(Math.max(l.clip + 1, l.clip >= l.y - 1 ? l.y + l.w * 0.2 + 2 : 0) - oy));
+    if (x1 <= x0 || y1 <= y0) continue;
+    t.setTransform(1, 0, 0, 1, 0, 0);
+    t.globalCompositeOperation = 'source-over';
+    t.clearRect(x0, y0, x1 - x0, y1 - y0);
+    t.save();
+    t.beginPath();
+    t.rect(x0, y0, x1 - x0, y1 - y0);
+    t.clip();
+    t.translate(-ox, -oy);
+    l.shape(t, true);
+    t.restore();
+    if (erase) {
+      g.globalCompositeOperation = 'destination-out';
+      g.drawImage(carCv, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+    }
+    t.globalCompositeOperation = 'source-in';
+    t.fillStyle = fill(l);
+    t.fillRect(x0, y0, x1 - x0, y1 - y0);
+    g.globalCompositeOperation = 'source-over';
+    g.drawImage(carCv, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+  }
+  g.globalCompositeOperation = erase ? 'destination-out' : 'source-over';
+}
+function secondary(W: number, H: number, ox: number, oy: number, draw: (s: CanvasRenderingContext2D) => void) {
+  if (!streets.length && !carBeams.length) return null;
+  if (secCv.width !== W || secCv.height !== H) {
+    secCv.width = W;
+    secCv.height = H;
+  }
+  const s = secCv.getContext('2d')!;
+  s.setTransform(1, 0, 0, 1, 0, 0);
+  s.globalCompositeOperation = 'source-over';
+  s.clearRect(0, 0, W, H);
+  draw(s);
+  s.globalCompositeOperation = 'destination-out';
+  for (const l of lights) {
+    if (!l.shape) continue;
+    s.save();
+    s.translate(-ox, -oy);
+    s.beginPath();
+    s.rect(ox, oy - 60, W, Math.max(0, l.clip + 1 - (oy - 60)));
+    s.clip();
+    l.shape(s, true);
+    s.restore();
+  }
+  s.globalCompositeOperation = 'source-over';
+  return secCv;
+}
 export interface Pass { x: number; dz: number } // quem vem atrás com farol aceso (dz > 0 atrás)
 
 // fim da pista: escuridão, luzes dos carros somadas e a claridade de quem emparelha
@@ -351,10 +434,18 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   g.globalCompositeOperation = 'destination-out';
   const ground = groundAhead(rd);
   beamShape(g, W, cx, seen - top, ground, 0.9);
-  // postes acesos: o círculo de luz no chão embaixo de cada um, deitado na pista como o facho
-  for (const st of streets) streetPool(g, rd, st, 'rgba(0,0,0,', 0.85);
   reflectors(g, vp.x, top, 'rgba(0,0,0,', 1);
-  drawCarBeams(g, vp.x, top, 0.95);
+  // postes acesos e faróis de quem vai à frente: luz só no chão, numa camada à parte da qual as
+  // silhuetas dos carros são apagadas (a mancha de luz não passa por cima de nenhum carro)
+  const sec = secondary(W, H, vp.x, top, (s) => {
+    for (const st of streets) streetPool(s, rd, st, 'rgba(0,0,0,', 0.7);
+    drawCarBeams(s, vp.x, top, 0.95);
+  });
+  if (sec) g.drawImage(sec, 0, 0);
+  // cada carro com uma luz só no corpo inteiro (o facho ou a luz do poste não cortam a
+  // carroceria ao meio): conforme a distância no nosso farol e a proximidade de um poste
+  const litOf = carLighting(rd, cx, seen - top, top, vp.x);
+  shadeCars(g, W, H, vp.x, top, (l) => `rgba(0,0,10,${(0.8 * strength * (1 - 0.68 * litOf(l))).toFixed(3)})`, true);
   if (sky) {
     const sx = sky.x - vp.x, sy = sky.y - top;
     const sg = g.createRadialGradient(sx, sy, 0, sx, sy, sky.r);
@@ -383,11 +474,14 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   wg.fillStyle = 'rgb(255,226,160)';
   wg.fillRect(0, 0, W, H);
   wg.globalCompositeOperation = 'source-over';
-  for (const st of streets) streetPool(wg, rd, st, 'rgba(255,190,90,', 0.3 * strength); // luz de sódio
   reflectors(wg, vp.x, top, 'rgba(255,230,170,', 0.12 * strength); // tom quente do farol
-  // farol de quem vai à frente: um pouco de luz amarelada somada no asfalto
-  wg.globalCompositeOperation = 'source-over';
-  drawCarBeamsWarm(wg, vp.x, top, 0.45 * strength);
+  // luz de sódio dos postes e farol de quem vai à frente, sem pintar os carros
+  const secW = secondary(W, H, vp.x, top, (s) => {
+    for (const st of streets) streetPool(s, rd, st, 'rgba(255,190,90,', 0.2 * strength);
+    drawCarBeamsWarm(s, vp.x, top, 0.45 * strength);
+  });
+  if (secW) wg.drawImage(secW, 0, 0);
+  shadeCars(wg, W, H, vp.x, top, (l) => `rgba(255,226,160,${(0.1 * litOf(l)).toFixed(3)})`, false);
   carBeams.length = 0;
   c.save();
   c.globalCompositeOperation = 'lighter';

@@ -753,9 +753,10 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
     // silhueta para recortar as luzes dos carros de trás: o mesmo desenho, na mesma posição da tela
     const tf = c.getTransform();
     // carro transparente (fantasma): não tapa a luz dos outros
-    pushCarLights(x, y, w, look, lampSpots(w, look), c.globalAlpha < 0.99 ? undefined : (o) => {
+    // game: a camada já está em pixels do jogo (só deslocada), sem a escala da tela
+    pushCarLights(x, y, w, look, lampSpots(w, look), c.globalAlpha < 0.99 ? undefined : (o, game) => {
       o.save();
-      o.setTransform(tf);
+      if (!game) o.setTransform(tf);
       drawCar(o, x, y, w, { ...look, night: false, tilt: 0 });
       o.restore();
     });

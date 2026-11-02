@@ -360,7 +360,18 @@ function openQuit() {
 function closeQuit() {
   $('quitDlg').classList.add('hidden');
 }
-$('quitYes').addEventListener('click', () => window.close());
+type DeskApi = { minimize: () => void; quit: () => void };
+const desk = (window as unknown as { desktop?: DeskApi }).desktop;
+$('quitYes').addEventListener('click', () => (desk ? desk.quit() : window.close()));
+// minimizar a janela (só no programa de computador): na corrida, fica pausada
+const minimize = () => {
+  if (state.screen === 'race' && !paused) setPaused(true);
+  closeQuit();
+  desk?.minimize();
+};
+$('quitMin').addEventListener('click', minimize);
+$('pauseMin').addEventListener('click', minimize);
+document.body.classList.toggle('desktop', DESKTOP);
 
 // relatório de problema (pausa): junta versão, aparelho, carro, roteiro e desempenho num texto e
 // copia para colar no grupo de teste

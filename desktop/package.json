@@ -1,7 +1,7 @@
 {
   "name": "duel-racer-desktop",
   "productName": "Duel Racer",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "description": "Duel Racer para computador",
   "author": "Victor Bandeira",
   "main": "main.cjs",
@@ -21,6 +21,7 @@
     "productName": "Duel Racer",
     "files": [
       "main.cjs",
+      "preload.cjs",
       "app/**/*"
     ],
     "directories": {
@@ -29,13 +30,13 @@
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
         },
         {
-          "target": "nsis",
+          "target": "zip",
           "arch": [
             "x64"
           ]
@@ -48,9 +49,6 @@
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "Duel Racer"
     },
-    "portable": {
-      "artifactName": "DuelRacer-${version}-portatil.exe"
-    },
     "mac": {
       "target": "dmg",
       "icon": "icon.png",
@@ -60,6 +58,14 @@
       "target": "AppImage",
       "icon": "icon.png"
     },
-    "publish": null
+    "publish": null,
+    "electronLanguages": [
+      "pt-BR",
+      "en-US"
+    ],
+    "compression": "maximum",
+    "zip": {
+      "artifactName": "DuelRacer-${version}-Windows-pasta.${ext}"
+    }
   }
 }

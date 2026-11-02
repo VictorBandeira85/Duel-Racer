@@ -4,8 +4,9 @@ DUEL RACER - VERSÃO DE TESTE
 Obrigado por testar! Esta é uma versão em desenvolvimento.
 
 COMO JOGAR NO WINDOWS
-- DuelRacer-...-portatil.exe: dê dois cliques e jogue (não precisa instalar).
-- Duel Racer Setup ....exe: instala o jogo e cria atalhos.
+- DuelRacer-...-Windows-pasta.zip: extraia a pasta (botão direito > Extrair tudo) e abra
+  "Duel Racer.exe" dentro dela. Não precisa instalar e abre rápido.
+- Duel Racer Setup ....exe: instala o jogo e cria atalhos (também abre rápido).
 - O Windows pode mostrar "O Windows protegeu o computador" (o jogo ainda não tem assinatura
   digital). Clique em "Mais informações" e depois em "Executar assim mesmo".
 
@@ -20,6 +21,7 @@ COMANDOS
 - Esc: pausa (ajustes de som, câmbio, controles e gráficos); na capa, sair do jogo
 - Menus: setas para escolher, Enter para confirmar, Esc para voltar
 - F11 ou Alt+Enter: tela cheia / janela
+- MINIMIZAR: na pausa e na tela de sair (Esc no menu principal)
 - Controle de Xbox ou PlayStation também funciona (conecte antes de abrir o jogo).
 
 ENCONTROU UM PROBLEMA?

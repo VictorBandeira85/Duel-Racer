@@ -1,6 +1,6 @@
 // Duel Racer para computador: abre o jogo (a mesma versão web, em app/) numa janela própria,
 // em tela cheia, sem menus do navegador. F11 alterna tela cheia/janela.
-const { app, BrowserWindow, protocol, net, Menu } = require('electron');
+const { app, BrowserWindow, protocol, net, Menu, ipcMain } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
@@ -24,7 +24,7 @@ function createWindow() {
     width: 1280, height: 720, minWidth: 800, minHeight: 450,
     fullscreen: true, backgroundColor: '#000000', autoHideMenuBar: true, title: 'Duel Racer',
     icon: path.join(__dirname, 'app', 'icons', 'icon-512.png'),
-    webPreferences: { contextIsolation: true, sandbox: true, backgroundThrottling: false },
+    webPreferences: { contextIsolation: true, sandbox: true, backgroundThrottling: false, preload: path.join(__dirname, 'preload.cjs') },
   });
   win.loadURL('app://jogo/index.html');
   // grava no disco os salvamentos (progresso, recordes, carreira) ao fechar, sem esperar o
@@ -37,6 +37,14 @@ function createWindow() {
     }
   });
 }
+
+// pedidos do jogo (botões MINIMIZAR e SAIR)
+ipcMain.on('janela', (e, what) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  if (!win) return;
+  if (what === 'minimizar') win.minimize();
+  else if (what === 'sair') win.close();
+});
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);

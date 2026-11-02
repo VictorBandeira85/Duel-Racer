@@ -95,15 +95,16 @@ const actions: Actions = {
     };
     begin(5);
   },
-  // continua o roteiro do Arcade de onde parou (trechos feitos e carros restantes)
+  // continua o roteiro do Arcade de onde parou (trechos feitos e carros restantes), com o carro
+  // e o rival escolhidos agora (pode trocar de carro no meio do roteiro)
   resumeCourse() {
     const sv = loadArcade();
     if (!sv) return;
-    Object.assign(state, { courseIdx: sv.courseIdx, carIdx: sv.carIdx, oppIdx: sv.oppIdx, arcadeNight: sv.night });
+    Object.assign(state, { courseIdx: sv.courseIdx, arcadeNight: sv.night });
     state.mode = 'arcade';
     run = {
-      course: withTimeOfDay(COURSES[sv.courseIdx], sv.night), car: CARS[sv.carIdx],
-      rival: sv.oppIdx < CARS.length ? CARS[sv.oppIdx] : null, opts: {},
+      course: withTimeOfDay(COURSES[sv.courseIdx], sv.night), car: CARS[state.carIdx],
+      rival: state.oppIdx < CARS.length ? CARS[state.oppIdx] : null, opts: {},
     };
     initAudio();
     state.lives = sv.lives;

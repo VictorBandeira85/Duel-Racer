@@ -882,7 +882,7 @@ function drawCourse(c: CanvasRenderingContext2D, s: AppState) {
       // roteiro em andamento: continua do próximo trecho (ou recomeça do primeiro)
       ink(c, `CONTINUAR T${sv.results.length + 1} ▶`, r.x + r.w - 6, r.y + 6, 5, RED, 'right');
       ink(c, 'RECOMEÇAR', r.x + r.w - 6, r.y + 16, 5, GREY, 'right');
-      ink(c, CARS[sv.carIdx]?.name ?? '', r.x + r.w - 60, r.y + 16, 5, BLUE, 'right');
+      ink(c, CARS[s.carIdx]?.name ?? '', r.x + r.w - 60, r.y + 16, 5, BLUE, 'right'); // continua com o carro escolhido agora
     } else if (hot) ink(c, 'CORRER ▶', r.x + r.w - 6, r.y + 6, 5, RED, 'right');
   });
   arrow(c, b.up, 'up', true);

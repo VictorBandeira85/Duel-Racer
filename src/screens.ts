@@ -1,6 +1,6 @@
 import { ACTIONS, binding, binds, keyName, resetBinds } from './input';
 import { drawPerson } from './people';
-import { prefs, savePrefs } from './prefs';
+import { VOLS, prefs, savePrefs } from './prefs';
 import { clearArcade, loadArcade } from './arcadesave';
 import { gasQuip } from './score';
 import { clearFriendGhosts, friendGhostCount, ghostCode, ghostOn, loadGhostCode, setGhostOn } from './records';
@@ -21,9 +21,10 @@ import { dither, inside, panel, text, type Rect } from './ui';
 import { hasCockpitArt, interiorPhoto } from './cockpit';
 import { BLUE, GREY, INK, RED, YELLOW, arrow, barcode, box, burst, halftone, headline, ink, kicker, logo, masthead, paper, photo, rule, specRows, stars, tag } from './mag';
 import { formatTime, shade } from './util';
+import { drawEngine, drawParts, drawStation } from './loadart';
 import { setEngine, setTires, shiftSound } from './audio';
 
-export type ScreenId = 'title' | 'options' | 'controls' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores' | 'achievements'
+export type ScreenId = 'loading' | 'title' | 'options' | 'controls' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores' | 'achievements'
   | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd' | 'collection';
 export type MenuKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back';
 
@@ -68,6 +69,8 @@ export interface Actions {
   nextStage: () => void;
   toggleSound: () => void;
   toggleMusic: () => void;
+  cycleMusicVol: () => void;
+  cycleSfxVol: () => void;
   startEvent: (region: number, event: number) => void;
   resumeCourse: () => void;
 }
@@ -399,7 +402,7 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
   kicker(c, 'EXPEDIENTE', x + 4, 22, RED, '#fff');
   ink(c, 'Toque num item para mudar', x + 70, 24, 5, GREY);
   const items: [string, string][] = [
-    ['CÂMBIO', s.auto ? 'AUTOMÁTICO' : 'MANUAL'], ['SOM', s.sound ? 'LIGADO' : 'DESLIGADO'], ['MÚSICA', s.music ? 'LIGADA' : 'DESLIGADA'],
+    ['CÂMBIO', s.auto ? 'AUTOMÁTICO' : 'MANUAL'], ['EFEITOS', s.sound ? `${VOLS[prefs.sfxVol] * 100}%` : 'DESLIGADOS'], ['MÚSICA', s.music ? `${VOLS[prefs.musVol] * 100}%` : 'DESLIGADA'],
     ['BOTÕES', BTN_SIZES[btnSizeIdx()].label], ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'],
     ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')], ['DICAS NA TELA', prefs.hints ? 'LIGADAS' : 'DESLIGADAS'], ['MOSTRAR FPS', prefs.fps ? 'SIM' : 'NÃO'], ['QUADROS', prefs.fps30 ? '30 FPS' : '60 FPS'], ['CONTROLES', 'TECLAS ▶'], ['', ''],
   ];
@@ -458,8 +461,16 @@ function activateOption(s: AppState, a: Actions, i: number) {
     s.auto = !s.auto;
     savePrefs({ auto: s.auto });
   }
-  else if (i === 1) a.toggleSound();
-  else if (i === 2) a.toggleMusic();
+  // efeitos e música: 25% → 50% → 75% → 100% → desligado → 25%...
+  else if (i === 1) {
+    if (!s.sound) { a.toggleSound(); savePrefs({ sfxVol: VOLS.length - 1 }); a.cycleSfxVol(); }
+    else if (prefs.sfxVol === VOLS.length - 1) a.toggleSound();
+    else a.cycleSfxVol();
+  } else if (i === 2) {
+    if (!s.music) { a.toggleMusic(); savePrefs({ musVol: VOLS.length - 1 }); a.cycleMusicVol(); }
+    else if (prefs.musVol === VOLS.length - 1) a.toggleMusic();
+    else a.cycleMusicVol();
+  }
   else if (i === 3) setBtnSize((btnSizeIdx() + 1) % BTN_SIZES.length);
   else if (i === 4) setGhostOn(!ghostOn());
   else if (i === 5) setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]);
@@ -1362,9 +1373,96 @@ function drawScores(c: CanvasRenderingContext2D, s: AppState) {
   tag(c, achButton(), 'CONQUISTAS ▶', false);
 }
 
+// ---------- carregando: uma "página" da revista com foto e dica enquanto o jogo prepara a pista ----------
+const TIPS = [
+  'Freie antes da curva, não no meio dela: o carro aponta melhor e sai mais rápido.',
+  'Na contramão o trânsito vem de frente: passe rápido e volte para a sua faixa.',
+  'Ouviu a sirene? Encoste à direita e pare, ou acelere fundo e tente despistar.',
+  'Placas de posto avisam: a 5, 4, 3, 2, 1 km e 500 m. É lá que o trecho termina.',
+  'No câmbio manual, troque perto da faixa vermelha do conta-giros.',
+  'Turbo demora a encher: segure o giro alto na saída das curvas.',
+  'Carro de tração traseira escorrega a traseira: alivie o acelerador na curva.',
+  'À noite, quem vem de frente ofusca. Olhe para a sua faixa, não para os faróis.',
+  'Na neblina, o trânsito aparece de repente: tire o pé mais cedo.',
+  'Chuva tira aderência: freie mais cedo e com calma.',
+  'Batidas amassam o capô e esquentam o motor. Fique de olho na temperatura.',
+  'Cada trecho sem batidas devolve um carro extra.',
+  'Desafios do trecho dão medalhas: bronze, prata e ouro.',
+  'Na carreira, os desafios cumpridos também pagam em dinheiro.',
+  'O fantasma é a sua melhor passagem. Ultrapasse-o para bater o recorde.',
+  'Mande o seu fantasma para um amigo pelo código na tela de recordes.',
+  'Na oficina, marchas mais curtas dão arranque; mais longas, velocidade final.',
+  'Suspensão firme ajuda nas curvas, mas pula mais nas lombadas.',
+  'Em descidas o carro embala: cuidado com a curva no fim da descida.',
+  'Nas subidas cegas, fique na sua faixa: não dá para ver quem vem.',
+  'Radar na pista? O detector no painel pisca antes.',
+  'Pisca ligado avisa o rival e o trânsito de que você vai trocar de faixa.',
+  'Tela cheia no computador: F11. Pausa: Esc. Teclas trocam em AJUSTES > CONTROLES.',
+  'Máquina mais fraca? Em AJUSTES, escolha QUADROS 30 FPS e GRÁFICOS ECONÔMICO.',
+];
+const LOAD_PICS = ['cover', 'engine', 'parts', 'station', 'cover', 'interior', 'road', 'brasil'] as const;
+let load = { t0: 0, min: 1.6, next: null as null | (() => void), pic: 0, tip: 0, slot: 0 };
+let loadSeq = Math.floor(Math.random() * 1000);
+export function beginLoading(s: AppState, next: () => void, min = 1.6) {
+  loadSeq++;
+  load = { t0: s.t, min, next, pic: loadSeq % LOAD_PICS.length, tip: (loadSeq * 7) % TIPS.length, slot: loadSeq };
+  s.screen = 'loading';
+}
+function finishLoading() {
+  const n = load.next;
+  load.next = null;
+  n?.();
+}
+function drawLoading(c: CanvasRenderingContext2D, s: AppState) {
+  const { w } = view;
+  const x = ox();
+  const t = s.t - load.t0;
+  paper(c);
+  masthead(c, 'CARREGANDO');
+  const ph: Rect = { x: x + 8, y: 26, w: SAFE_W - 16, h: 128 };
+  const kind = LOAD_PICS[load.pic];
+  const car = coverCars()[load.slot % Math.max(1, coverCars().length)];
+  if (kind === 'engine' || kind === 'parts' || kind === 'station') {
+    photo(c, ph, () => (kind === 'engine' ? drawEngine(c, ph, s.t) : kind === 'parts' ? drawParts(c, ph, s.t) : drawStation(c, ph, car, s.t)));
+    captionShade(c, ph);
+    if (kind === 'engine') {
+      kicker(c, 'TÉCNICA', ph.x + 6, ph.y + 6, RED, '#fff');
+      logo(c, 'POR DENTRO DO V8', ph.x + 6, ph.y + 18, 8, '#fff', INK);
+    } else if (kind === 'parts') {
+      kicker(c, 'OFICINA', ph.x + 6, ph.y + 6, BLUE, '#fff');
+      logo(c, 'PEÇAS QUE FAZEM A DIFERENÇA', ph.x + 6, ph.y + 18, 8, '#fff', INK);
+    } else {
+      kicker(c, 'NA ESTRADA', ph.x + 6, ph.y + 6, INK, YELLOW);
+      logo(c, 'PARADA OBRIGATÓRIA', ph.x + 6, ph.y + 18, 8, '#fff', INK);
+    }
+  } else {
+    // as mesmas "edições" da capa (teste, interior, flagra na estrada, especial nacional)
+    const idx = { cover: load.slot % 3 === 0 ? 0 : 1, interior: 3, road: 6, brasil: 4 }[kind];
+    drawCoverSlide(c, s, ph, idx + 7 * (load.slot % 5), Math.min(1, t / 7));
+  }
+  // dica
+  const tb: Rect = { x: x + 8, y: 166, w: SAFE_W - 16, h: 42 };
+  c.fillStyle = '#fbf8f0';
+  c.fillRect(tb.x, tb.y, tb.w, tb.h);
+  c.strokeStyle = INK;
+  c.lineWidth = 1;
+  c.strokeRect(tb.x + 0.5, tb.y + 0.5, tb.w - 1, tb.h - 1);
+  kicker(c, 'DICA DO PILOTO', tb.x + 4, tb.y + 4, RED, '#fff');
+  wrap(TIPS[load.tip], 52).slice(0, 3).forEach((l, i) => ink(c, l, tb.x + 6, tb.y + 16 + i * 8, 5, INK));
+  // barra de progresso
+  const k = Math.min(1, t / load.min);
+  c.fillStyle = 'rgba(26,22,20,0.2)';
+  c.fillRect(x + 8, 216, SAFE_W - 16, 4);
+  c.fillStyle = RED;
+  c.fillRect(x + 8, 216, Math.round((SAFE_W - 16) * k), 4);
+  ink(c, k < 1 ? 'PREPARANDO A PISTA...' : 'PRONTO!', w / 2, 224, 5, GREY, 'center');
+  if (t >= load.min) finishLoading();
+}
+
 // ---------- roteamento ----------
 export function drawScreen(c: CanvasRenderingContext2D, s: AppState) {
   switch (s.screen) {
+    case 'loading': return drawLoading(c, s);
     case 'title': return drawTitle(c, s);
     case 'options': return drawOptions(c, s);
     case 'controls': return drawControls(c, s);

@@ -6,6 +6,10 @@ import { FILE_TRACKS } from './tracks';
 // troca de marcha, pneu cantando, batida, sirene e trilha no estilo dos 16 bits.
 let ctx: AudioContext | null = null;
 let master: GainNode;
+// efeitos (motor, pneus, trânsito, batidas) num volume próprio, separado da música;
+// fxBus leva o som do trânsito e da sirene também para o eco do túnel
+let sfx: GainNode, fxBus: GainNode;
+let sfxVol = 1;
 let muted = false;
 let musicOn = true;
 
@@ -53,7 +57,7 @@ let lastBoost = 0, lastThrottle = false;
 
 // acesso para os sons do trânsito (trafficaudio.ts)
 export const audioCtx = () => ctx;
-export const audioOut = () => master;
+export const audioOut = () => fxBus;
 export const synthReady = () => !!synth;
 export function noiseBuffer(seconds: number) {
   const len = Math.floor(ctx!.sampleRate * seconds);
@@ -80,8 +84,13 @@ export function initAudio() {
   if (!AC) return;
   ctx = new AC();
   master = ctx.createGain();
-  master.gain.value = muted ? 0 : 1;
+  master.gain.value = 1;
   master.connect(ctx.destination);
+  sfx = ctx.createGain();
+  sfx.gain.value = muted ? 0 : sfxVol;
+  sfx.connect(sfx);
+  fxBus = ctx.createGain();
+  fxBus.connect(sfx);
 
   // motor: dente de serra no ritmo das explosões + onda quadrada uma oitava abaixo (ronco)
   osc1 = ctx.createOscillator();
@@ -102,13 +111,13 @@ export function initAudio() {
   raspFilter.Q.value = 2;
   raspGain = ctx.createGain();
   loopNoise().connect(raspFilter).connect(raspGain).connect(filter);
-  filter.connect(gain).connect(master);
+  filter.connect(gain).connect(sfx);
   // assobio do turbo
   turbo = ctx.createOscillator();
   turbo.type = 'sine';
   turboGain = ctx.createGain();
   turboGain.gain.value = 0;
-  turbo.connect(turboGain).connect(master);
+  turbo.connect(turboGain).connect(sfx);
   osc1.start();
   osc2.start();
   turbo.start();
@@ -120,7 +129,7 @@ export function initAudio() {
   rf.frequency.value = 160;
   rumbleGain = ctx.createGain();
   rumbleGain.gain.value = 0;
-  loopNoise().connect(rf).connect(rumbleGain).connect(master);
+  loopNoise().connect(rf).connect(rumbleGain).connect(sfx);
   if (pendingMusic) startMusic(pendingMusic);
 
   // eco de túnel: o ronco e os pneus voltam das paredes (dois atrasos curtos com realimentação,
@@ -138,13 +147,14 @@ export function initAudio() {
     d.connect(lp).connect(g).connect(d);
     lp.connect(echoWet);
   }
-  echoWet.connect(master);
+  echoWet.connect(sfx);
   gain.connect(echoIn);
+  fxBus.connect(echoIn); // trânsito e sirene também ecoam nas paredes
 
   // ronco por cilindro (quando o navegador tem AudioWorklet)
   synthGain = ctx.createGain();
   synthGain.gain.value = 0.1;
-  synthGain.connect(master);
+  synthGain.connect(sfx);
   synthGain.connect(echoIn);
   if (ctx.audioWorklet) {
     const url = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }));
@@ -211,7 +221,7 @@ function blowOff(p: number) {
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(0.09 * p, t + 0.02);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
-  src.connect(f).connect(g).connect(master);
+  src.connect(f).connect(g).connect(sfx);
   src.start();
 }
 
@@ -226,7 +236,7 @@ export function shiftSound() {
   f.frequency.value = 500;
   const g = ctx.createGain();
   g.gain.value = 0.12;
-  src.connect(f).connect(g).connect(master);
+  src.connect(f).connect(g).connect(sfx);
   src.start();
 }
 
@@ -254,7 +264,7 @@ function buildTires() {
     n1.connect(b).connect(bg).connect(chatter);
     return b;
   });
-  chatter.connect(dryGain).connect(master);
+  chatter.connect(dryGain).connect(sfx);
   // molhado: chiado largo
   wetGain = c.createGain();
   wetGain.gain.value = 0;
@@ -268,7 +278,7 @@ function buildTires() {
   wb.type = 'peaking';
   wb.frequency.value = 1600;
   wb.gain.value = 6;
-  loopNoise().connect(wh).connect(wl).connect(wb).connect(wetGain).connect(master);
+  loopNoise().connect(wh).connect(wl).connect(wb).connect(wetGain).connect(sfx);
   // neve: grave e granulado (ruído modulado por ruído lento)
   snowGain = c.createGain();
   snowGain.gain.value = 0;
@@ -284,7 +294,7 @@ function buildTires() {
   const gd = c.createGain();
   gd.gain.value = 6;
   loopNoise().connect(gl).connect(gd).connect(grain.gain);
-  loopNoise().connect(sb).connect(grain).connect(snowGain).connect(master);
+  loopNoise().connect(sb).connect(grain).connect(snowGain).connect(sfx);
   // pista molhada: chiado dos pneus na água, cresce com a velocidade
   sprayGain = c.createGain();
   sprayGain.gain.value = 0;
@@ -292,7 +302,7 @@ function buildTires() {
   sh.type = 'bandpass';
   sh.frequency.value = 2600;
   sh.Q.value = 0.6;
-  loopNoise().connect(sh).connect(sprayGain).connect(master);
+  loopNoise().connect(sh).connect(sprayGain).connect(sfx);
 }
 
 export type Surface = 'dry' | 'wet' | 'snow';
@@ -322,7 +332,7 @@ export function beep(freq: number, dur = 0.15) {
   o.frequency.value = freq;
   g.gain.setValueAtTime(0.12, ctx.currentTime);
   g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
-  o.connect(g).connect(master);
+  o.connect(g).connect(sfx);
   o.start();
   o.stop(ctx.currentTime + dur);
 }
@@ -339,7 +349,7 @@ export function radarBeep(freq: number) {
   g.gain.linearRampToValueAtTime(0.09, t + 0.005);
   g.gain.setValueAtTime(0.09, t + 0.05);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.085);
-  o.connect(g).connect(master);
+  o.connect(g).connect(sfx);
   o.start(t);
   o.stop(t + 0.09);
 }
@@ -354,7 +364,7 @@ export function tickSound() {
   f.frequency.value = 2400;
   const g = ctx.createGain();
   g.gain.value = 0.18;
-  src.connect(f).connect(g).connect(master);
+  src.connect(f).connect(g).connect(sfx);
   src.start();
 }
 
@@ -372,7 +382,7 @@ function burst(at: number, dur: number, freq: number, q: number, vol: number, ty
   g.gain.setValueAtTime(0.0001, at);
   g.gain.exponentialRampToValueAtTime(vol, at + 0.006);
   g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-  src.connect(f).connect(g).connect(master);
+  src.connect(f).connect(g).connect(sfx);
   src.start(at);
 }
 
@@ -386,7 +396,7 @@ export function bumpSound(power = 0.5) {
   o.frequency.exponentialRampToValueAtTime(45, t + 0.18);
   g.gain.setValueAtTime(0.35 * power, t);
   g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-  o.connect(g).connect(master);
+  o.connect(g).connect(fxBus);
   o.start();
   o.stop(t + 0.25);
   burst(t, 0.12, 700, 2.5, 0.25 * power);
@@ -410,7 +420,7 @@ export function landSound(power = 0.5) {
     g.gain.setValueAtTime(0.0001, at);
     g.gain.exponentialRampToValueAtTime(0.42 * p, at + 0.008);
     g.gain.exponentialRampToValueAtTime(0.0001, at + 0.18);
-    o.connect(g).connect(master);
+    o.connect(g).connect(fxBus);
     o.start(at);
     o.stop(at + 0.2);
     // suspensão no batente
@@ -427,7 +437,7 @@ export function landSound(power = 0.5) {
     sg.gain.setValueAtTime(0.0001, at);
     sg.gain.exponentialRampToValueAtTime(0.11 * p, at + 0.012);
     sg.gain.exponentialRampToValueAtTime(0.0001, at + 0.07 + 0.08 * p);
-    sq.connect(sf).connect(sg).connect(master);
+    sq.connect(sf).connect(sg).connect(fxBus);
     sq.start(at);
     sq.stop(at + 0.2);
     burst(at + 0.004, 0.06 + 0.06 * p, 1200, 2, 0.12 * p, 'bandpass', 800);
@@ -466,7 +476,7 @@ export function setSteam(level: number) {
     const f = ctx.createBiquadFilter();
     f.type = 'highpass';
     f.frequency.value = 2800;
-    loopNoise().connect(f).connect(steamGain).connect(master);
+    loopNoise().connect(f).connect(steamGain).connect(sfx);
   }
   steamGain.gain.setTargetAtTime(Math.min(1, level) * 0.045, ctx.currentTime, 0.2);
 }
@@ -486,7 +496,7 @@ export function crashSound(power = 1) {
   thump.frequency.exponentialRampToValueAtTime(35, t + 0.4);
   tg.gain.setValueAtTime(0.5, t);
   tg.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-  thump.connect(tg).connect(master);
+  thump.connect(tg).connect(fxBus);
   thump.start();
   thump.stop(t + 0.5);
   const len = Math.floor(ctx.sampleRate * 0.7);
@@ -497,7 +507,7 @@ export function crashSound(power = 1) {
   const g = ctx.createGain();
   g.gain.value = 0.35;
   src.buffer = buf;
-  src.connect(g).connect(master);
+  src.connect(g).connect(fxBus);
   src.start();
   for (let k = 0; k < 6; k++) {
     const o = ctx.createOscillator();
@@ -508,7 +518,7 @@ export function crashSound(power = 1) {
     og.gain.setValueAtTime(0.0001, t);
     og.gain.setValueAtTime(0.05, at);
     og.gain.exponentialRampToValueAtTime(0.0001, at + 0.08);
-    o.connect(og).connect(master);
+    o.connect(og).connect(fxBus);
     o.start(t);
     o.stop(at + 0.1);
   }
@@ -526,7 +536,7 @@ export function scrapeSound() {
   const g = ctx.createGain();
   g.gain.setValueAtTime(0.25, ctx.currentTime);
   g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-  src.connect(f).connect(g).connect(master);
+  src.connect(f).connect(g).connect(fxBus);
   src.start();
 }
 
@@ -546,7 +556,7 @@ export function setSiren(on: boolean) {
     lfoGain.gain.value = 180;
     lfo.connect(lfoGain).connect(siren.frequency);
     siren.frequency.value = 720;
-    siren.connect(sirenGain).connect(master);
+    siren.connect(sirenGain).connect(fxBus);
     siren.start();
     lfo.start();
   }
@@ -656,5 +666,11 @@ export function toggleMute() {
 
 export function setMuted(m: boolean) {
   muted = m;
-  if (ctx) master.gain.setTargetAtTime(m ? 0 : 1, ctx.currentTime, 0.05);
+  if (ctx && sfx) sfx.gain.setTargetAtTime(m ? 0 : sfxVol, ctx.currentTime, 0.05); // SOM desliga só os efeitos
+}
+
+// volume dos efeitos (0..1), independente da música
+export function setSfxVolume(v: number) {
+  sfxVol = v;
+  if (ctx && sfx && !muted) sfx.gain.setTargetAtTime(v, ctx.currentTime, 0.05);
 }

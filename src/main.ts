@@ -1,4 +1,4 @@
-import { prefs, savePrefs } from './prefs';
+import { VOLS, prefs, savePrefs } from './prefs';
 import { clearArcade, loadArcade, saveArcade } from './arcadesave';
 import { capsHtml } from './ui';
 import { stageResult } from './score';
@@ -14,10 +14,10 @@ import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
 import { CHALLENGE_PRIZE, checkChallenge, partialStats, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
 import { paintHex } from './paint';
 import { preloadCockpit, renderCockpit } from './cockpit';
-import { applyBtnSize, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
+import { applyBtnSize, beginLoading, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { binding, input, pollGamepad, releaseAll, setBind, setupInput, touch } from './input';
 import { MUSIC_CREDITS } from './tracks';
-import { initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicOn, setMusicVolume, setMuted, setSiren, setTires } from './audio';
+import { setSfxVolume, initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicOn, setMusicVolume, setMuted, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
 import { preloadSvg } from './svgsprites';
 import { FX_LABEL, fxMode, lowFx, perfSample, setFxMode, lowRes } from './perf';
@@ -141,6 +141,15 @@ const actions: Actions = {
     setMusicOn(state.music);
     savePrefs({ music: state.music });
   },
+  // volumes: 25% → 50% → 75% → 100% → 25%... (música e efeitos separados)
+  cycleMusicVol() {
+    savePrefs({ musVol: (prefs.musVol + 1) % VOLS.length });
+    setMusicVolume(VOLS[prefs.musVol]);
+  },
+  cycleSfxVol() {
+    savePrefs({ sfxVol: (prefs.sfxVol + 1) % VOLS.length });
+    setSfxVolume(VOLS[prefs.sfxVol]);
+  },
 };
 
 function begin(lives: number) {
@@ -152,8 +161,13 @@ function begin(lives: number) {
   startStage(0);
 }
 
+// antes de cada trecho: página de carregamento (foto e dica) enquanto a cabine e a pista se preparam
 function startStage(i: number) {
   preloadCockpit(run.car.dash);
+  showControls(false);
+  beginLoading(state, () => startStageNow(i));
+}
+function startStageNow(i: number) {
   const r = new Race(run.course, i, run.car, run.rival, state.auto, run.opts);
   r.ghostRun = loadGhost(run.course.id, i, true);
   r.showGhost = ghostOn();
@@ -441,7 +455,7 @@ $('pauseBtn').addEventListener('pointerdown', (e) => {
 // atalhos da pausa: música e efeitos sonoros sem abrir os ajustes
 function quickLabels() {
   $('qMusic').innerHTML = capsHtml(`MÚSICA: ${state.music ? 'LIGADA' : 'DESLIGADA'}`);
-  $('qSound').innerHTML = capsHtml(`SONS: ${state.sound ? 'LIGADOS' : 'DESLIGADOS'}`);
+  $('qSound').innerHTML = capsHtml(`EFEITOS: ${state.sound ? 'LIGADOS' : 'DESLIGADOS'}`);
   $('qMusic').classList.toggle('off', !state.music);
   $('qSound').classList.toggle('off', !state.sound);
 }
@@ -464,15 +478,14 @@ $('restart').addEventListener('click', () => {
   if (race) startStage(race.stageIdx);
 });
 // ajustes durante a corrida (os mesmos do menu principal, e mais o volume e a faixa)
-const VOLS = [0.25, 0.5, 0.75, 1];
-let volIdx = 3;
-try { volIdx = Math.max(0, Math.min(3, Number(localStorage.getItem('duel-racer:volume-musica') ?? 3))); } catch { /* sem armazenamento */ }
-setMusicVolume(VOLS[volIdx]);
+setMusicVolume(VOLS[prefs.musVol]);
+setSfxVolume(VOLS[prefs.sfxVol]);
 function settingsLabels() {
   const lab: Record<string, [string, string]> = {
-    sound: ['SOM', state.sound ? 'LIGADO' : 'DESLIGADO'],
+    sound: ['EFEITOS', state.sound ? 'LIGADOS' : 'DESLIGADOS'],
     music: ['MÚSICA', state.music ? 'LIGADA' : 'DESLIGADA'],
-    volume: ['VOLUME', `${VOLS[volIdx] * 100}%`],
+    volume: ['VOL. MÚSICA', `${VOLS[prefs.musVol] * 100}%`],
+    sfxvol: ['VOL. EFEITOS', `${VOLS[prefs.sfxVol] * 100}%`],
     track: ['FAIXA ▶', musicTitle() || '-'],
     gear: ['CÂMBIO', state.auto ? 'AUTOMÁTICO' : 'MANUAL'],
     buttons: ['BOTÕES', btnSizeLabel()],
@@ -493,10 +506,9 @@ document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b)
     case 'sound': actions.toggleSound(); break;
     case 'music': actions.toggleMusic(); break;
     case 'volume':
-      volIdx = (volIdx + 1) % VOLS.length;
-      setMusicVolume(VOLS[volIdx]);
-      try { localStorage.setItem('duel-racer:volume-musica', String(volIdx)); } catch { /* sem armazenamento */ }
+      actions.cycleMusicVol();
       break;
+    case 'sfxvol': actions.cycleSfxVol(); break;
     case 'track': playMusic(`race:${state.courseIdx * 5 + (race?.stageIdx ?? 0) + ++trackStep}`); break;
     case 'gear':
       state.auto = !state.auto;
@@ -640,10 +652,12 @@ function frameInner(now: number) {
   }
   drawToast(ctx, dt);
 }
+// abertura: página de carregamento enquanto as artes dos carros chegam, depois a capa
+beginLoading(state, () => actions.go('title'), 1.4);
 requestAnimationFrame(frame);
 
 // para testes automatizados
-Object.assign(window, { app: { state, actions, get race() { return race; } }, input });
+Object.assign(window, { app: { state, actions, beginLoading, get race() { return race; } }, input });
 
 // app instalável: funciona sem internet (não no arquivo único usado para testes)
 if ('serviceWorker' in navigator && import.meta.env.MODE !== 'single' && (location.protocol === 'https:' || location.hostname === 'localhost')) {

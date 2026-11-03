@@ -82,11 +82,13 @@ export function crisp(key: string, w: number, h: number, draw: Draw): Crisp {
 export function drawCrisp(
   c: CanvasRenderingContext2D, key: string, x: number, y: number, w: number, h: number, draw: Draw, ref = 96,
 ) {
-  if (w < 1 || h < 1) return;
+  if (w < 1 || h < 1) return null;
   // rasterizado no dobro da resolução nativa: objetos da beira da pista mais definidos
   const Q = 2;
   const k = h > ref ? ref / h : 1;
   const s = crisp(key, w * k * Q, h * k * Q, draw);
   const sx = w / s.w, sy = h / s.h;
-  c.drawImage(s.cv, Math.round(x - w / 2 - sx), Math.round(y - h - sy), Math.round(s.cv.width * sx), Math.round(s.cv.height * sy));
+  const L = Math.round(x - w / 2 - sx), T = Math.round(y - h - sy), W = Math.round(s.cv.width * sx), H = Math.round(s.cv.height * sy);
+  c.drawImage(s.cv, L, T, W, H);
+  return { cv: s.cv, x: L, y: T, w: W, h: H };
 }

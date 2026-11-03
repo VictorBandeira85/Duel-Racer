@@ -5,7 +5,7 @@ import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from '
 import { CARS, drawCar } from './cars';
 import { lowFx, fxMode } from './perf';
 import { adsReady } from './billboards';
-import { beginLights, finishNight, pushCarBeam, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, type Pass, type RoadPt } from './nightlight';
+import { beginLights, finishNight, pushCarBeam, pushOccluder, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, type Pass, type RoadPt } from './nightlight';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
 import { SPRITES } from './sprites';
 import { FOG_COLOR, type BgLayer } from './themes';
@@ -440,7 +440,9 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       // mais larga que o objeto para caber o que passa da largura (braço do poste etc.)
       const seed = sp.kind === 'building' ? sp.seed % 45 : sp.kind === 'billboard' ? sp.seed % 100 : sp.kind === 'gasKm' ? sp.seed : sp.kind === 'house' ? sp.seed % 6 : sp.kind === 'autumn' || sp.kind === 'umbrella' ? sp.seed % 3 : 0;
       const bw = sw * (sp.kind === 'lamp' ? 3.4 : 1.1);
-      drawCrisp(c, `${sp.kind}${seed}${sp.kind === 'billboard' && !adsReady(seed) ? 'w' : ''}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed));
+      const drawn = drawCrisp(c, `${sp.kind}${seed}${sp.kind === 'billboard' && !adsReady(seed) ? 'w' : ''}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed));
+      // tapa o farol dos carros que estão atrás deste objeto
+      if (lit && drawn) pushOccluder({ ...drawn, idx: i, clip: s.clip });
       // poste aceso à noite: a lâmpada fica na ponta do braço, sobre o acostamento
       if (lit && (sp.kind === 'station' || sp.kind === 'gasSign')) pushFacade(sp.kind, sx, s.p1.screen.y, sw, sh);
       if (lit && REFLECT.has(sp.kind)) pushReflector(sp.kind, sx, s.p1.screen.y, sw, sh, dist);
@@ -451,13 +453,19 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       if (!lit) return;
       const a = segs[i + 1];
       if (!a) return;
+      // túnel: com a boca do túnel entre nós e o carro a luz não aparece; o facho para na boca
+      const inT = !!segs[i].tunnel;
+      for (let k = base.index; k < i; k++) if (!!segs[k].tunnel !== inT) return;
+      let fEnd = Math.min(end - 1, i + 45);
+      for (let k = i + 1; k <= fEnd; k++) if (!!segs[k].tunnel !== inT) { fEnd = k - 1; break; }
+      if (fEnd <= i + 1) return;
       const pa = a.p1.screen;
       const xa = pa.x + pa.scale * ex * vp.K;
       // de longe o facho tem só 1 ou 2 pixels: ganha um tamanho mínimo (como as lanternas), para a
       // luz no asfalto à frente do carro aparecer desde longe
       const far = Math.max(0, Math.min(1, (16 - w) / 13)); // 1 = bem longe
       const ha = Math.max(w * 0.45, 3 * far);
-      const f = segs[Math.min(end - 1, i + 45)];
+      const f = segs[fEnd];
       let xf = xa, yf = pa.y - Math.max(2.5, 9 * far), hf = Math.max(ha * 1.6, 6 * far);
       if (f && f.index > a.index) {
         const pf = f.p1.screen;
@@ -468,7 +476,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
           hf = Math.max(1, CAR_W * 2.3 * pf.scale * vp.K, 6 * far);
         }
       }
-      pushCarBeam([xa - ha, pa.y, xa + ha, pa.y, xf + hf, yf, xf - hf, yf], s.clip);
+      pushCarBeam([xa - ha, pa.y, xa + ha, pa.y, xf + hf, yf, xf - hf, yf], s.clip, fEnd);
     };
     for (const e of s.cars) {
       if (e.z - r.position < 450) continue; // colado no para-brisa: some sob o painel

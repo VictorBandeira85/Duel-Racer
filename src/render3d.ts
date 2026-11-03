@@ -370,6 +370,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   const playerY = lerp(base.p1.world.y, base.p2.world.y, basePct) + r.lift;
   // distância de desenho: menor no econômico, bem maior no MÁXIMO
   const far = fxMode() === 'alto' ? 1.4 : lowFx() ? 0.65 : 1;
+  const far0 = far; // (o facho dos carros à frente usa `far` para outra coisa)
   const end = Math.min(segs.length, base.index + Math.round(DRAW_DIST * far));
   const ground = dither(c, r.theme.ground[0], r.theme.ground[1]);
   // chão por baixo de tudo: em vales, parte da tela não é coberta por nenhum segmento
@@ -450,7 +451,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
     }
     // farol de quem vai na mesma mão, à nossa frente: luz no asfalto alguns segmentos adiante
     // len: comprimento do carro em segmentos (o desenho fica na traseira; o facho sai da frente)
-    const beamAhead = (ex: number, w: number, len = 14) => {
+    const beamAhead = (ex: number, w: number, len = 7) => {
       if (!lit) return;
       const i0 = i + len;
       const a = segs[i0];
@@ -479,7 +480,10 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
           hf = Math.max(1, CAR_W * 2.3 * pf.scale * vp.K, 6 * far);
         }
       }
-      pushCarBeam([xa - ha, pa.y, xa + ha, pa.y, xf + hf, yf, xf - hf, yf], s.clip, fEnd);
+      // longe: o facho acende aos poucos conforme o carro se aproxima (sem surgir de repente)
+      const dist = i - base.index, lim = Math.round(DRAW_DIST * far0);
+      const fade = Math.max(0, Math.min(1, (lim - dist) / (lim * 0.45)));
+      pushCarBeam([xa - ha, pa.y, xa + ha, pa.y, xf + hf, yf, xf - hf, yf], s.clip, fEnd, fade * fade);
     };
     for (const e of s.cars) {
       if (e.z - r.position < 450) continue; // colado no para-brisa: some sob o painel
@@ -507,12 +511,12 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         const p = e as Race['police'][number];
         const siren = p.state === 'chase' || p.state === 'pull' || p.state === 'stopped';
         drawCar(c, cx, cy, (p.sv ? CAR_W * 1.08 : POLICE_W) * sc * vp.K, { color: '#fff', police: true, sv: p.sv, siren, night: lit });
-        beamAhead(ex, POLICE_W * sc * vp.K, 16);
+        beamAhead(ex, POLICE_W * sc * vp.K, 8);
       } else {
         const t = e as TrafficCar;
         const tw = (t.truck ? TRUCK_W : CAR_W) * sc * vp.K;
         drawCar(c, cx, cy, tw, trafficLook(t, t.base < 0, night || fog || !!s.tunnel, t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0));
-        if (t.base > 0) beamAhead(ex, tw, t.truck ? 30 : 14);
+        if (t.base > 0) beamAhead(ex, tw, t.truck ? 18 : 7);
         // batido: fumaça saindo do motor (frente: em cima do capô; de trás: por cima do carro)
         if (t.smoke > 0) drawSmoke(c, cx, cy - tw * (t.base < 0 ? 0.35 : 0.55), tw, t.smoke, Math.round(t.base));
       }

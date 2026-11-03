@@ -268,10 +268,11 @@ function blob(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry:
 // farol de quem vai à frente (na mesma mão): a mancha de luz no asfalto adiante dele
 // (quadrilátero em coordenadas de tela: perto esquerda/direita, longe direita/esquerda)
 // end: índice do último segmento da pista que o facho alcança (objetos até ali tapam a luz)
-interface Beam { p: number[]; clip: number; end: number }
+interface Beam { p: number[]; clip: number; end: number; k: number }
 const carBeams: Beam[] = [];
-export function pushCarBeam(p: number[], clip: number, end = Infinity) {
-  if (collecting) carBeams.push({ p, clip, end });
+// k: intensidade (0..1) — de longe o facho entra aos poucos, sem aparecer de repente
+export function pushCarBeam(p: number[], clip: number, end = Infinity, k = 1) {
+  if (collecting && k > 0.01) carBeams.push({ p, clip, end, k });
 }
 // objetos do cenário (árvores, viadutos, placas, prédios...) com o índice do segmento: tapam o
 // facho dos carros de trás deles
@@ -281,14 +282,17 @@ export function pushOccluder(o: Occ) {
   if (collecting) occluders.push(o);
 }
 function drawCarBeams(g: CanvasRenderingContext2D, ox: number, oy: number, a: number, list: Beam[] = carBeams) {
-  const SPILL = `rgba(0,0,0,${a})`;
+  const SPILL = `rgba(0,0,0,${(a * 0.6).toFixed(3)})`;
   for (const b of list) {
     const [x0, y0, x1, , x2, y2, x3] = b.p;
     const grad = g.createLinearGradient(0, y0 - oy, 0, y2 - oy);
-    grad.addColorStop(0, `rgba(0,0,0,${a})`);
-    grad.addColorStop(0.55, `rgba(0,0,0,${(a * 0.75).toFixed(3)})`);
+    // começa suave junto ao para-choque, chega ao máximo logo adiante e vai sumindo
+    grad.addColorStop(0, `rgba(0,0,0,${(a * 0.35).toFixed(3)})`);
+    grad.addColorStop(0.2, `rgba(0,0,0,${a})`);
+    grad.addColorStop(0.6, `rgba(0,0,0,${(a * 0.7).toFixed(3)})`);
     grad.addColorStop(1, 'rgba(0,0,0,0)');
     g.save();
+    g.globalAlpha = b.k;
     g.beginPath();
     g.rect(0, 0, g.canvas.width, b.clip - oy);
     g.clip();
@@ -316,14 +320,16 @@ function drawCarBeams(g: CanvasRenderingContext2D, ox: number, oy: number, a: nu
   }
 }
 function drawCarBeamsWarm(g: CanvasRenderingContext2D, ox: number, oy: number, a: number, list: Beam[] = carBeams) {
-  const SPILL = `rgba(255,226,160,${(a * 1.2).toFixed(3)})`;
+  const SPILL = `rgba(255,226,160,${(a * 0.7).toFixed(3)})`;
   for (const b of list) {
     const [x0, y0, x1, , x2, y2, x3] = b.p;
     const grad = g.createLinearGradient(0, y0 - oy, 0, y2 - oy);
-    grad.addColorStop(0, `rgba(255,226,160,${Math.min(1, a).toFixed(3)})`);
-    grad.addColorStop(0.6, `rgba(255,226,160,${Math.min(1, a * 0.75).toFixed(3)})`);
+    grad.addColorStop(0, `rgba(255,226,160,${Math.min(1, a * 0.35).toFixed(3)})`);
+    grad.addColorStop(0.2, `rgba(255,226,160,${Math.min(1, a).toFixed(3)})`);
+    grad.addColorStop(0.6, `rgba(255,226,160,${Math.min(1, a * 0.7).toFixed(3)})`);
     grad.addColorStop(1, 'rgba(255,226,160,0)');
     g.save();
+    g.globalAlpha = b.k;
     g.beginPath();
     g.rect(0, 0, g.canvas.width, b.clip - oy);
     g.clip();

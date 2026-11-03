@@ -449,13 +449,26 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
     // farol de quem vai na mesma mão, à nossa frente: luz no asfalto alguns segmentos adiante
     const beamAhead = (ex: number, w: number) => {
       if (!lit) return;
-      const a = segs[i + 1], f = segs[Math.min(end - 1, i + 28)];
-      if (!a || !f || f.index <= a.index) return;
-      const pa = a.p1.screen, pf = f.p1.screen;
-      if (pf.y >= pa.y - 1) return; // atrás de um topo: a luz não aparece
-      const xa = pa.x + pa.scale * ex * vp.K, xf = pf.x + pf.scale * ex * vp.K;
-      const ha = w * 0.45, hf = Math.max(1, CAR_W * 1.6 * pf.scale * vp.K);
-      pushCarBeam([xa - ha, pa.y, xa + ha, pa.y, xf + hf, pf.y, xf - hf, pf.y], s.clip);
+      const a = segs[i + 1];
+      if (!a) return;
+      const pa = a.p1.screen;
+      const xa = pa.x + pa.scale * ex * vp.K;
+      // de longe o facho tem só 1 ou 2 pixels: ganha um tamanho mínimo (como as lanternas), para a
+      // luz no asfalto à frente do carro aparecer desde longe
+      const far = Math.max(0, Math.min(1, (16 - w) / 13)); // 1 = bem longe
+      const ha = Math.max(w * 0.45, 3 * far);
+      const f = segs[Math.min(end - 1, i + 28)];
+      let xf = xa, yf = pa.y - Math.max(2.5, 9 * far), hf = Math.max(ha * 1.6, 6 * far);
+      if (f && f.index > a.index) {
+        const pf = f.p1.screen;
+        if (pf.y >= pa.y - 0.3 && far < 0.2) return; // atrás de um topo: a luz não aparece
+        if (pf.y < pa.y - 0.3) {
+          xf = pf.x + pf.scale * ex * vp.K;
+          yf = Math.min(pf.y, pa.y - Math.max(2.5, 9 * far));
+          hf = Math.max(1, CAR_W * 1.6 * pf.scale * vp.K, 6 * far);
+        }
+      }
+      pushCarBeam([xa - ha, pa.y, xa + ha, pa.y, xf + hf, yf, xf - hf, yf], s.clip);
     };
     for (const e of s.cars) {
       if (e.z - r.position < 450) continue; // colado no para-brisa: some sob o painel

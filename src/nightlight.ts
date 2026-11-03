@@ -310,8 +310,8 @@ function drawCarBeamsWarm(g: CanvasRenderingContext2D, ox: number, oy: number, a
   for (const b of carBeams) {
     const [x0, y0, x1, , x2, y2, x3] = b.p;
     const grad = g.createLinearGradient(0, y0 - oy, 0, y2 - oy);
-    grad.addColorStop(0, `rgba(255,226,160,${a.toFixed(3)})`);
-    grad.addColorStop(0.55, `rgba(255,226,160,${(a * 0.7).toFixed(3)})`);
+    grad.addColorStop(0, `rgba(255,226,160,${Math.min(1, a).toFixed(3)})`);
+    grad.addColorStop(0.6, `rgba(255,226,160,${Math.min(1, a * 0.75).toFixed(3)})`);
     grad.addColorStop(1, 'rgba(255,226,160,0)');
     g.save();
     g.beginPath();
@@ -505,7 +505,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   // luz de sódio dos postes e farol de quem vai à frente, sem pintar os carros
   const secW = secondary(W, H, vp.x, top, (s) => {
     for (const st of streets) streetPool(s, rd, st, 'rgba(255,190,90,', 0.2 * strength);
-    drawCarBeamsWarm(s, vp.x, top, 0.6 * strength);
+    drawCarBeamsWarm(s, vp.x, top, 1.1 * strength);
   });
   if (secW) wg.drawImage(secW, 0, 0);
   shadeCars(wg, W, H, vp.x, top, (l) => `rgba(255,226,160,${(0.1 * litOf(l)).toFixed(3)})`, false);

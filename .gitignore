@@ -4,3 +4,4 @@ dist
 dist-single
 refs/
 __pycache__/
+vite.log

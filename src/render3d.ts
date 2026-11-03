@@ -449,41 +449,42 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       if (lit && REFLECT.has(sp.kind)) pushReflector(sp.kind, sx, s.p1.screen.y, sw, sh, dist);
       if (lit && sp.kind === 'lamp') pushStreetLight(sx - sw * 1.3, s.p1.screen.y - sh + sw * 0.5, sw * 9, dist, (sx - sw * 1.3 - s.p1.screen.x) / Math.max(1, s.p1.screen.w), s.p1.screen.y);
     }
-    // farol de quem vai na mesma mão, à nossa frente: luz no asfalto alguns segmentos adiante
-    // len: comprimento do carro em segmentos (o desenho fica na traseira; o facho sai da frente)
-    const beamAhead = (ex: number, w: number, len = 7) => {
+    // farol de quem vai na mesma mão, à nossa frente: luz no asfalto adiante dele. Posições
+    // calculadas pelo z contínuo do carro (interpolando dentro do segmento): o facho acompanha o
+    // carro suavemente, sem pular de segmento em segmento nem piscar.
+    // len: em segmentos, da traseira desenhada até onde a luz começa (logo à frente do carro)
+    const proj = (z: number) => {
+      const idx = Math.max(base.index, Math.min(end - 2, Math.floor(z / SEG_LEN)));
+      const sg = segs[idx], t = Math.max(0, Math.min(1, z / SEG_LEN - idx));
+      return { x: lerp(sg.p1.screen.x, sg.p2.screen.x, t), y: lerp(sg.p1.screen.y, sg.p2.screen.y, t), sc: lerp(sg.p1.screen.scale, sg.p2.screen.scale, t), idx };
+    };
+    const beamAhead = (ez: number, ex: number, w: number, len = 4) => {
       if (!lit) return;
-      const i0 = i + len;
-      const a = segs[i0];
-      if (!a) return;
+      const z0 = ez + len * SEG_LEN;
+      const a = proj(z0);
       // túnel: com a boca do túnel entre nós e o carro a luz não aparece; o facho para na boca
       const inT = !!segs[i].tunnel;
-      for (let k = base.index; k < i0; k++) if (!!segs[k].tunnel !== inT) return;
-      let fEnd = Math.min(end - 1, i0 + 40);
-      for (let k = i0 + 1; k <= fEnd; k++) if (!!segs[k].tunnel !== inT) { fEnd = k - 1; break; }
-      if (fEnd <= i0 + 1) return;
-      const pa = a.p1.screen;
-      const xa = pa.x + pa.scale * ex * vp.K;
-      // de longe o facho tem só 1 ou 2 pixels: ganha um tamanho mínimo (como as lanternas), para a
-      // luz no asfalto à frente do carro aparecer desde longe
+      for (let k = base.index; k < a.idx; k++) if (!!segs[k].tunnel !== inT) return;
+      let zEnd = z0 + 40 * SEG_LEN;
+      for (let k = a.idx + 1; k <= Math.min(end - 2, Math.floor(zEnd / SEG_LEN)); k++) if (!!segs[k].tunnel !== inT) { zEnd = k * SEG_LEN; break; }
+      zEnd = Math.min(zEnd, (end - 2) * SEG_LEN);
+      if (zEnd <= z0 + SEG_LEN) return;
+      const f = proj(zEnd);
+      const xa = a.x + a.sc * ex * vp.K;
+      // de longe o facho tem só 1 ou 2 pixels: ganha um tamanho mínimo (como as lanternas)
       const far = Math.max(0, Math.min(1, (16 - w) / 13)); // 1 = bem longe
-      // largura dos faróis na distância da frente do carro (mais longe que a traseira desenhada)
-      const ha = Math.max(w * (pa.scale / Math.max(1e-9, s.p1.screen.scale)) * 0.45, 3 * far);
-      const f = segs[fEnd];
-      let xf = xa, yf = pa.y - Math.max(2.5, 9 * far), hf = Math.max(ha * 1.6, 6 * far);
-      if (f && f.index > a.index) {
-        const pf = f.p1.screen;
-        if (pf.y >= pa.y - 0.3 && far < 0.2) return; // atrás de um topo: a luz não aparece
-        if (pf.y < pa.y - 0.3) {
-          xf = pf.x + pf.scale * ex * vp.K;
-          yf = Math.min(pf.y, pa.y - Math.max(2.5, 9 * far));
-          hf = Math.max(1, CAR_W * 2.3 * pf.scale * vp.K, 6 * far);
-        }
+      const ha = Math.max(CAR_W * a.sc * vp.K * 0.38, 2.5 * far);
+      const lift = Math.max(2.5, 8 * far);
+      let xf = xa, yf = a.y - lift, hf = Math.max(ha * 1.6, 5 * far);
+      if (f.y < a.y - lift) {
+        xf = f.x + f.sc * ex * vp.K;
+        yf = f.y;
+        hf = Math.max(1, CAR_W * 2.3 * f.sc * vp.K, 5 * far);
       }
       // longe: o facho acende aos poucos conforme o carro se aproxima (sem surgir de repente)
-      const dist = i - base.index, lim = Math.round(DRAW_DIST * far0);
-      const fade = Math.max(0, Math.min(1, (lim - dist) / (lim * 0.45)));
-      pushCarBeam([xa - ha, pa.y, xa + ha, pa.y, xf + hf, yf, xf - hf, yf], s.clip, fEnd, fade * fade);
+      const dist = (ez - r.position) / SEG_LEN, lim = DRAW_DIST * far0;
+      const fade = Math.max(0, Math.min(1, (lim - dist) / (lim * 0.5)));
+      pushCarBeam([xa - ha, a.y, xa + ha, a.y, xf + hf, yf, xf - hf, yf], s.clip, Math.floor(zEnd / SEG_LEN), fade * fade);
     };
     for (const e of s.cars) {
       if (e.z - r.position < 450) continue; // colado no para-brisa: some sob o painel
@@ -504,19 +505,19 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         }
       } else if (e === r.rival) {
         drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: r.rival.recover > 0 || r.rival.mistake > 0, night: lit, paint: r.rivalPaint, signal: r.rival.signal, plate: r.rivalPlate });
-        beamAhead(ex, CAR_W * sc * vp.K);
+        beamAhead(e.z, ex, CAR_W * sc * vp.K);
       } else if ('phase' in e) {
         drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, (e as Officer).phase === 'show');
       } else if ('spotZ' in e) {
         const p = e as Race['police'][number];
         const siren = p.state === 'chase' || p.state === 'pull' || p.state === 'stopped';
         drawCar(c, cx, cy, (p.sv ? CAR_W * 1.08 : POLICE_W) * sc * vp.K, { color: '#fff', police: true, sv: p.sv, siren, night: lit });
-        beamAhead(ex, POLICE_W * sc * vp.K, 8);
+        beamAhead(e.z, ex, POLICE_W * sc * vp.K, 5);
       } else {
         const t = e as TrafficCar;
         const tw = (t.truck ? TRUCK_W : CAR_W) * sc * vp.K;
         drawCar(c, cx, cy, tw, trafficLook(t, t.base < 0, night || fog || !!s.tunnel, t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0));
-        if (t.base > 0) beamAhead(ex, tw, t.truck ? 18 : 7);
+        if (t.base > 0) beamAhead(e.z, ex, tw, t.truck ? 12 : 4);
         // batido: fumaça saindo do motor (frente: em cima do capô; de trás: por cima do carro)
         if (t.smoke > 0) drawSmoke(c, cx, cy - tw * (t.base < 0 ? 0.35 : 0.55), tw, t.smoke, Math.round(t.base));
       }

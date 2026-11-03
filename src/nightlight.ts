@@ -305,7 +305,7 @@ function drawCarBeams(g: CanvasRenderingContext2D, ox: number, oy: number, a: nu
     g.closePath();
     g.fill();
     // clarão no asfalto logo à frente do para-choque
-    const mx = (x0 + x1) / 2 - ox, hw = (x1 - x0) * 0.85, my = y0 - oy - Math.max(2, (y0 - y2) * 0.3);
+    const mx = (x0 + x1) / 2 - ox, hw = (x1 - x0) * 0.6, my = y0 - oy - Math.max(2, (y0 - y2) * 0.3);
     const rg = g.createRadialGradient(mx, my, 0, mx, my, hw);
     rg.addColorStop(0, SPILL);
     rg.addColorStop(1, SPILL.replace(/[\d.]+\)$/, '0)'));
@@ -342,7 +342,7 @@ function drawCarBeamsWarm(g: CanvasRenderingContext2D, ox: number, oy: number, a
     g.closePath();
     g.fill();
     // clarão no asfalto logo à frente do para-choque
-    const mx = (x0 + x1) / 2 - ox, hw = (x1 - x0) * 0.85, my = y0 - oy - Math.max(2, (y0 - y2) * 0.3);
+    const mx = (x0 + x1) / 2 - ox, hw = (x1 - x0) * 0.6, my = y0 - oy - Math.max(2, (y0 - y2) * 0.3);
     const rg = g.createRadialGradient(mx, my, 0, mx, my, hw);
     rg.addColorStop(0, SPILL);
     rg.addColorStop(1, SPILL.replace(/[\d.]+\)$/, '0)'));

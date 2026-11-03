@@ -1,7 +1,7 @@
 import { CAM_H, CAR_W, POLICE_W, RES, SEG_LEN, TRUCK_W } from './config';
 import { drawCar } from './cars';
 import { fxTick, lowFx } from './perf';
-import { mirrorGlare, mirrorWash } from './nightlight';
+import { mirrorGlare, mirrorWash, sirenGlow, sirenWash } from './nightlight';
 import { trafficLook, type Race } from './race';
 
 // Retrovisor externo do lado do motorista, funcionando: o vidro das cabines desenhadas a partir
@@ -170,6 +170,8 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
   const glareK = r.def.night ? 1 : night ? 0.7 : 0;
   let nearest = 0;
   const glares: [number, number, number, number][] = [];
+  const sirens: [number, number, number, number][] = [];
+  let sirenNear = 0;
   const th = r.theme;
   v.fillStyle = th.sky[1];
   v.fillRect(0, 0, w, hz);
@@ -236,6 +238,11 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
       const near = Math.max(0, 1 - b.dz / (SEG_LEN * 14));
       nearest = Math.max(nearest, near);
       glares.push([sx(b.x, b.dz), sy(b.dz), bw, near]);
+      if (b.look.siren) {
+        const sn = Math.max(0, 1 - b.dz / (SEG_LEN * 25));
+        sirens.push([sx(b.x, b.dz), sy(b.dz), bw, sn]);
+        sirenNear = Math.max(sirenNear, sn);
+      }
     }
   }
   // o espelho escurece um pouco a imagem (mais à noite)
@@ -244,6 +251,9 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
   // faróis de quem vem atrás ofuscam (por cima do escurecido do espelho)
   for (const [gx, gy, gw, near] of glares) mirrorGlare(v, gx, gy, gw, near, glareK);
   mirrorWash(v, 0, 0, w, h, nearest, glareK);
+  // giroflex da viatura que persegue: pisca vermelho/azul e tinge o espelho
+  for (const [gx, gy, gw, near] of sirens) sirenGlow(v, gx, gy, gw, near, glareK * 1.3, 3);
+  sirenWash(v, 0, 0, w, h, sirenNear, glareK, 1.8);
   // flanco do próprio carro na borda de dentro do espelho
   const fw = Math.max(3, Math.round(w * 0.12));
   v.fillStyle = bodyColor;

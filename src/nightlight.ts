@@ -761,3 +761,36 @@ export function mirrorWash(c: CanvasRenderingContext2D, x: number, y: number, w:
   c.fillRect(x, y, w, h);
   c.restore();
 }
+
+// giroflex da polícia: vermelho e azul se alternando (o mesmo ritmo das lâmpadas da viatura)
+export const sirenPhase = () => Math.floor(performance.now() / 120) % 2 === 0;
+// no retrovisor: o brilho de cada cor em cima do teto da viatura (com tamanho mínimo, de longe é
+// um pisca vermelho/azul)
+export function sirenGlow(c: CanvasRenderingContext2D, x: number, y: number, bw: number, near: number, strength: number, minTop = -Infinity) {
+  if (strength <= 0.02) return;
+  const on = sirenPhase();
+  const r = Math.max(2.5, bw * 0.55), ry = Math.max(1.6, bw * 0.32), top = Math.max(minTop, y - Math.max(2, bw * 0.75));
+  c.save();
+  c.globalCompositeOperation = 'lighter';
+  blob(c, x - bw * 0.18, top, r, ry, '70,110,255', (on ? 0.95 : 0.25) * (0.5 + 0.5 * near) * strength);
+  blob(c, x + bw * 0.18, top, r, ry, '255,40,40', (on ? 0.25 : 0.95) * (0.5 + 0.5 * near) * strength);
+  c.restore();
+}
+// o espelho todo e a cabine tingidos pela luz que vem de trás, trocando de cor
+export function sirenWash(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, near: number, strength: number, k = 1) {
+  if (near <= 0.01 || strength <= 0.02) return;
+  const on = sirenPhase();
+  const a = near * strength;
+  c.save();
+  c.globalCompositeOperation = 'lighter';
+  const side = (x0: number, x1: number, rgb: string, k: number) => {
+    const g = c.createLinearGradient(x0, 0, x1, 0);
+    g.addColorStop(0, `rgba(${rgb},${(k * a).toFixed(3)})`);
+    g.addColorStop(1, `rgba(${rgb},0)`);
+    c.fillStyle = g;
+    c.fillRect(Math.min(x0, x1), y, Math.abs(x1 - x0), h);
+  };
+  side(x, x + w * 0.65, on ? '60,100,255' : '255,40,40', 0.32 * k);
+  side(x + w, x + w * 0.35, on ? '255,40,40' : '60,100,255', 0.12 * k);
+  c.restore();
+}

@@ -1,7 +1,8 @@
 import { prefs } from './prefs';
 import { binds, keyName, touch } from './input';
 import { ghostTimeAt } from './records';
-import { DASH_Y, KMH, ROOF_H, view } from './config';
+import { DASH_Y, KMH, ROOF_H, SEG_LEN, view } from './config';
+import { sirenWash } from './nightlight';
 import type { Race } from './race';
 import { renderMirror, renderRoad, type Viewport } from './render3d';
 import { pix, pix7, pix7Width, pixWidth } from './pixfont';
@@ -1680,6 +1681,24 @@ export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: numbe
   if (r.jolt > 0.02) c.translate(Math.round((Math.random() - 0.5) * r.jolt * 8), Math.round((Math.random() - 0.5) * r.jolt * 6));
   renderCockpitInner(c, r, lives, stageLabel, totalTime, dt);
   c.restore();
+  // perseguição à noite (ou no túnel): o giroflex da viatura ilumina a cabine em vermelho e azul,
+  // mais forte quanto mais perto ela está (o para-brisa fica de fora: a luz vem de trás)
+  const dark = Math.max(r.nightK, r.inTunnel > 0.5 ? 0.7 : 0);
+  if (dark > 0.25) {
+    let near = 0;
+    for (const p of r.police) {
+      if (p.state !== 'chase' && p.state !== 'pull') continue;
+      near = Math.max(near, 1 - Math.abs(r.playerZ - p.z) / (SEG_LEN * 25));
+    }
+    if (near > 0.01) {
+      const { w, h } = view;
+      // painel, portas e colunas; a borda de cima entra em degradê (sem linha reta no para-brisa)
+      const y0 = ART_TOP + 10;
+      for (let k = 0; k < 8; k++) sirenWash(c, 0, y0 - 16 + k * 2, w, 2, near, dark * 0.9 * ((k + 1) / 9));
+      sirenWash(c, 0, y0, w, h - y0, near, dark * 0.9);
+      sirenWash(c, 0, 0, w, ROOF_H, near, dark * 0.7);
+    }
+  }
 }
 
 // capô amassado subindo à frente do para-brisa e fumaça/vapor saindo do motor

@@ -5,7 +5,7 @@ import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from '
 import { CARS, drawCar } from './cars';
 import { lowFx, fxMode } from './perf';
 import { adsReady } from './billboards';
-import { beginLights, finishNight, pushCarBeam, pushOccluder, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, type Pass, type RoadPt } from './nightlight';
+import { beginLights, finishNight, pushCarBeam, pushOccluder, sirenGlow, sirenWash, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, type Pass, type RoadPt } from './nightlight';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
 import { SPRITES } from './sprites';
 import { FOG_COLOR, type BgLayer } from './themes';
@@ -569,6 +569,7 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
   if (r.rival) behind.push({ z: r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint, signal: r.rival.signal, lamps: r.rivalLamps() } });
   for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') behind.push({ z: p.z, x: p.x, w: p.sv ? CAR_W * 1.08 : POLICE_W, look: { color: '#fff', police: true, sv: p.sv, siren: true, front: true, night } });
   behind.sort((a, b) => a.z - b.z);
+  let sirenNear = 0;
   for (const b of behind) {
     const dz = r.position - b.z;
     if (dz < 300 || dz > 200 * SEG_LEN) continue;
@@ -585,8 +586,14 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
       const near = Math.max(0, 1 - dz / (SEG_LEN * 14));
       nearest = Math.max(nearest, near);
       mirrorGlare(c, cx + (b.x - r.x) * sb * k, yy, bw, near, glareK);
+      if (b.look.siren) {
+        const sn = Math.max(0, 1 - dz / (SEG_LEN * 25));
+        sirenNear = Math.max(sirenNear, sn);
+        sirenGlow(c, cx + (b.x - r.x) * sb * k, yy, bw, sn, glareK * 1.3, y + 4);
+      }
     }
   }
   mirrorWash(c, x, y, w, h, nearest, glareK);
+  sirenWash(c, x, y, w, h, sirenNear, glareK, 1.8);
   c.restore();
 }

@@ -21,6 +21,7 @@ export interface Viewport {
   w: number;
   h: number;
   horizon: number; // y do horizonte
+  h0?: number; // horizonte sem a inclinação da câmera (a lua fica presa ao céu a partir dele)
   K: number; // escala da projeção em pixels
 }
 
@@ -200,7 +201,11 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
       c.fillRect(vp.x, y0, vp.w, 1);
     }
   }
-  if (night) {
+  // estrelas e lua aparecem aos poucos com a noite (pôr do sol) e somem no amanhecer
+  const nk = r.nightK;
+  if (nk > 0.02) {
+    const ga0 = c.globalAlpha;
+    c.globalAlpha = ga0 * nk;
     c.fillStyle = '#fff';
     for (let i = 0; i < 40; i++) {
       const sx = ((hash(i) * 900 - r.bgOffset * 0.1 - yawPx) % vp.w + vp.w) % vp.w;
@@ -208,26 +213,41 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
     }
     // lua cheia brilhando: halo largo, disco claro com manchas; a escuridão da noite não a apaga
     // (setSkyLight abre um furo de luz na camada escura)
-    const mxp = vp.x + vp.w * 0.78 - yawPx * 0.2, myp = vp.y + 14;
-    glow(c, mxp, myp, 30, '255,244,210', 0.32);
-    glow(c, mxp, myp, 13, '255,248,225', 0.5);
-    c.fillStyle = '#fffbea';
-    c.beginPath();
-    c.arc(mxp, myp, 6, 0, Math.PI * 2);
-    c.fill();
-    c.fillStyle = '#e6dcc0';
-    c.fillRect(Math.round(mxp - 3), Math.round(myp - 2), 2, 2);
-    c.fillRect(Math.round(mxp + 1), Math.round(myp + 1), 2, 1);
-    c.fillRect(Math.round(mxp - 1), Math.round(myp + 3), 1, 1);
-    setSkyLight(mxp, myp, 26);
+    // presa ao céu (acompanha o horizonte nas subidas e descidas) e recortada acima dele: o
+    // brilho nunca cai sobre o chão
+    const mxp = vp.x + vp.w * 0.78 - yawPx * 0.2, myp = vp.y + 14 + (vp.horizon - (vp.h0 ?? vp.horizon));
+    if (myp < vp.horizon - 10) {
+      c.save();
+      c.beginPath();
+      c.rect(vp.x, vp.y, vp.w, Math.max(0, vp.horizon - 2 - vp.y));
+      c.clip();
+      glow(c, mxp, myp, 30, '255,244,210', 0.32);
+      glow(c, mxp, myp, 13, '255,248,225', 0.5);
+      c.fillStyle = '#fffbea';
+      c.beginPath();
+      c.arc(mxp, myp, 6, 0, Math.PI * 2);
+      c.fill();
+      c.fillStyle = '#e6dcc0';
+      c.fillRect(Math.round(mxp - 3), Math.round(myp - 2), 2, 2);
+      c.fillRect(Math.round(mxp + 1), Math.round(myp + 1), 2, 1);
+      c.fillRect(Math.round(mxp - 1), Math.round(myp + 3), 1, 1);
+      c.restore();
+      if (nk > 0.5) setSkyLight(mxp, myp, 26, vp.horizon - 2);
+    }
+    c.globalAlpha = ga0;
   }
   // pôr do sol: o disco descendo atrás dos morros
   if (r.def.dusk && r.sun > 0) {
     const sy = vp.horizon - 4 - r.sun * 46, sx = vp.x + vp.w * 0.32 - yawPx * 0.5;
+    const ga1 = c.globalAlpha;
+    c.globalAlpha = ga1 * Math.min(1, r.sun * 4); // some de leve ao encostar no horizonte
     sunDisc(c, vp, sx, sy, 8, r.sun > 0.5 ? '#fff4c0' : '#ffc060', 1 - r.sun);
+    c.globalAlpha = ga1;
   }
   // entardecer / amanhecer: o sol pela metade no horizonte (os morros cobrem a parte de baixo)
-  if (r.def.tod && !night && !r.def.dusk) {
+  if (r.def.tod && !r.def.dusk && nk < 0.98) {
+    const ga2 = c.globalAlpha;
+    c.globalAlpha = ga2 * (1 - nk);
     // longe do quadro de desafios (no alto à esquerda); o centro do disco fica na linha dos morros
     // naquele ponto (a mais alta das duas camadas), então metade aparece acima dela
     const span = ((r.def.tod === 'sunset' ? 0.62 : 0.66) * vp.w - yawPx * 0.5) % (vp.w * 1.6);
@@ -243,26 +263,36 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
     });
     const sy = Math.min(vp.horizon - 4, vp.horizon - PANO_H + 1 + ridge + 2);
     sunDisc(c, vp, sx, sy, 15, r.def.tod === 'sunset' ? '#ffd860' : '#fff2a8', 1);
+    c.globalAlpha = ga2;
   }
   const seed = r.course.id.length * 31 + r.stageIdx;
   const [far, near] = th.bg;
   const layer = (kind: BgLayer, isNear: boolean, speed: number) => {
-    const img = panorama(kind, isNear, night, seed);
     const off = ((Math.floor(r.bgOffset * speed + yawPx) % PANO_W) + PANO_W) % PANO_W;
     const y = vp.horizon - PANO_H + 1;
-    c.drawImage(img, vp.x - off, y);
-    if (PANO_W - off < vp.w) c.drawImage(img, vp.x - off + PANO_W, y);
+    // morros e prédios de dia e de noite misturados pela hora (luzes das janelas acendendo aos poucos)
+    const put = (nightArt: boolean, a: number) => {
+      if (a <= 0.01) return;
+      const img = panorama(kind, isNear, nightArt, seed);
+      const ga = c.globalAlpha;
+      c.globalAlpha = ga * a;
+      c.drawImage(img, vp.x - off, y);
+      if (PANO_W - off < vp.w) c.drawImage(img, vp.x - off + PANO_W, y);
+      c.globalAlpha = ga;
+    };
+    if (nk < 0.99) put(false, 1);
+    put(true, nk >= 0.99 ? 1 : nk);
   };
   layer(far, false, 0.3);
   layer(near, true, 0.6);
   // hora dourada: luz quente (entardecer) ou rosada (amanhecer) por cima dos morros
-  if (r.def.tod && !night && !r.def.dusk) {
-    c.fillStyle = r.def.tod === 'sunset' ? 'rgba(255,140,40,0.2)' : 'rgba(255,170,150,0.14)';
+  if (r.def.tod && !r.def.dusk && nk < 0.98) {
+    c.fillStyle = r.def.tod === 'sunset' ? `rgba(255,140,40,${(0.2 * (1 - nk)).toFixed(3)})` : `rgba(255,170,150,${(0.14 * (1 - nk)).toFixed(3)})`;
     c.fillRect(vp.x, vp.y, vp.w, vp.horizon + 2 - vp.y);
   }
   // luz alaranjada do fim de tarde por cima dos morros; neblina apaga o fundo quase todo
-  if (r.def.dusk && !night) {
-    const k = Math.max(0, 1 - Math.abs(r.progress - 0.5) / 0.45);
+  if (r.def.dusk && nk < 0.98) {
+    const k = Math.max(0, 1 - Math.abs(r.progress - 0.5) / 0.45) * (1 - nk);
     c.fillStyle = `rgba(255,110,40,${(k * 0.22).toFixed(3)})`;
     c.fillRect(vp.x, vp.y, vp.w, vp.horizon + 2 - vp.y);
   }
@@ -316,7 +346,7 @@ const FAR_KINDS = ['building', 'station', 'bridge', 'billboard', 'barn', 'factor
 
 export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport) {
   // câmera inclinada junto com o carro: na subida o horizonte desce, na descida sobe
-  const vp = { ...view0, horizon: view0.horizon + Math.round(Math.max(-80, Math.min(60, r.pitch * CAM_DEPTH * view0.K))) };
+  const vp = { ...view0, h0: view0.horizon, horizon: view0.horizon + Math.round(Math.max(-80, Math.min(60, r.pitch * CAM_DEPTH * view0.K))) };
   const segs = r.track.segments;
   const roadW = r.track.roadW;
   const night = !!r.def.night;
@@ -331,7 +361,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   drawBackground(c, r, vp);
   beginLights();
   // escuro: noite ou dentro do túnel (faróis acesos, ofuscam no retrovisor)
-  const lit = night || r.inTunnel > 0.5;
+  const lit = night || r.nightK > 0.15 || r.inTunnel > 0.5; // postes e faróis acendem já no lusco-fusco
 
   const base = r.findSegment(r.position);
   const basePct = (r.position % SEG_LEN) / SEG_LEN;
@@ -477,7 +507,8 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
     for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') passers.push({ x: p.x - r.x, dz: r.playerZ - p.z });
   }
   setLightClip(Infinity);
-  finishNight(c, vp, night ? 1 : lit ? 0.45 * r.inTunnel : 0, passers, SEG_LEN, road);
+  // escuridão pela intensidade da noite (entra e sai aos poucos no pôr do sol e no amanhecer)
+  finishNight(c, vp, Math.max(r.nightK, r.inTunnel > 0.5 ? 0.45 * r.inTunnel : 0), passers, SEG_LEN, road);
   c.restore();
 }
 

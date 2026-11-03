@@ -58,6 +58,7 @@ const RADAR_RANGE = 360 * SEG_LEN;
 // a um segundo, mais se a pista despencar logo depois)
 const VY_UP = 3.5 * 144;
 const RELIEF = 0.4;
+const RADAR_ALERT_T = 6; // s de alerta do detector de radar depois que a polícia aparece
 export const TRAFFIC_COLORS = ['#2a6fdb', '#e8e8e8', '#3d9b47', '#c9a227', '#7a3db8', '#d9542b', '#555566', '#80c0e0', '#8a2a2a'];
 
 export interface TrafficCar {
@@ -146,6 +147,11 @@ export class Race {
   private dayTheme: Theme;
   private duskStep = -1;
   sun = 0; // pôr do sol: 1 = sol alto no começo, 0 = já se pôs
+  // quanto é noite (0..1): sobe aos poucos no pôr do sol e desce no amanhecer depois de um trecho
+  // noturno (escuridão, estrelas, lua e o cenário noturno entram e saem suavemente)
+  nightK = 0;
+  private dawnRise = false;
+  private goldTheme: Theme | null = null;
   inTunnel = 0; // 0..1, sobe ao entrar no túnel (eco do ronco, luz)
   track: Track;
   state: RaceState = 'countdown';
@@ -261,6 +267,15 @@ export class Race {
     }
     const seed = (course.seed ?? course.id.length * 1000) + stageIdx * 97 + 11;
     this.track = buildTrack(this.def, this.theme, seed);
+    this.nightK = this.def.night ? 1 : 0;
+    // amanhecer logo depois de um trecho de noite: começa escuro e clareia no começo do trecho
+    if (this.def.tod === 'dawn' && !this.def.night && !this.def.dusk && course.stages[stageIdx - 1]?.night) {
+      this.dawnRise = true;
+      this.goldTheme = this.theme;
+      this.nightK = 1;
+      this.def.night = true;
+      this.theme = nightTheme(base);
+    }
     prewarmAds(this.track.segments.flatMap((sg) => sg.sprites.filter((sp) => sp.kind === 'billboard').map((sp) => sp.seed % 100)));
     this.region = themeRegion(this.def.theme);
     this.rand = rng(seed + 5);
@@ -342,13 +357,15 @@ export class Race {
     if (this.def.dusk) {
       const p = this.progress;
       // dia -> pôr do sol (até 55%) -> noite (a partir de 85%); em degraus, para não recriar texturas a cada quadro
-      const step = Math.round(p * 24);
+      // degraus bem pequenos (96 no trecho): a cor do céu e a escuridão mudam sem saltos
+      const step = Math.round(p * 96);
       if (step !== this.duskStep) {
         this.duskStep = step;
-        const q = step / 24;
+        const q = step / 96;
         const sunset = sunsetTheme(this.dayTheme), night = nightTheme(this.dayTheme);
-        this.theme = q < 0.55 ? blendTheme(this.dayTheme, sunset, q / 0.55) : blendTheme(sunset, night, Math.min(1, (q - 0.55) / 0.3));
-        this.def.night = q > 0.72;
+        this.nightK = clamp((q - 0.5) / 0.4, 0, 1);
+        this.theme = q < 0.5 ? blendTheme(this.dayTheme, sunset, q / 0.5) : blendTheme(sunset, night, this.nightK);
+        this.def.night = this.nightK > 0.5;
       }
       this.sun = clamp(1 - p / 0.75, 0, 1);
     }
@@ -358,6 +375,16 @@ export class Race {
         this.stats.airT += dt;
         this.stats.bestAir = Math.max(this.stats.bestAir, this.stats.airT);
       } else this.stats.airT = 0;
+    }
+    if (this.dawnRise) {
+      // a noite vai embora no primeiro terço do trecho
+      const step = Math.round(clamp(1 - this.progress / 0.35, 0, 1) * 48);
+      if (step !== this.duskStep) {
+        this.duskStep = step;
+        this.nightK = step / 48;
+        this.theme = blendTheme(this.goldTheme!, nightTheme(this.dayTheme), this.nightK);
+        this.def.night = this.nightK > 0.5;
+      }
     }
     if (seg.tunnel && !this.wasTunnel) this.stats.tunnels++;
     this.wasTunnel = !!seg.tunnel;
@@ -1209,8 +1236,9 @@ export class Race {
         }
       } else if (p.state === 'chase') {
         siren = true;
-        this.radar = 1;
         p.chaseT += dt;
+        // o detector de radar avisa só nos primeiros 6 s do encontro (depois a polícia já é sabida)
+        if (p.chaseT < RADAR_ALERT_T) this.radar = 1;
         // viatura preparada (V8 de interceptador): ~245 km/h de máxima e aceleração de sedã,
         // que cai com a velocidade; um esportivo de pé no fundo consegue fugir
         // a SV: ~300 km/h e o dobro do fôlego (o sedã continua como está)
@@ -1232,7 +1260,8 @@ export class Race {
         }
       } else if (p.state === 'pull') {
         siren = true;
-        this.radar = 1;
+        p.chaseT += dt;
+        if (p.chaseT < RADAR_ALERT_T) this.radar = 1;
         // ultrapassa e se mantém 8 segmentos à frente (visível no para-brisa), reduzindo junto
         const err = pz + SEG_LEN * 8 - p.z;
         p.speed = Math.max(0, this.speed + clamp(err * 1.5, -3000, 3500));
@@ -1247,7 +1276,7 @@ export class Race {
           this.officer = { z: p.z - 300, x: p.x - 700, phase: 'walk', t: 0 };
         }
       } else if (p.state === 'stopped') {
-        this.radar = 1;
+        if (p.chaseT < RADAR_ALERT_T) this.radar = 1;
       } else if (p.state === 'leaving') {
         p.speed = Math.min(9000, p.speed + 2500 * dt);
         p.z += p.speed * dt;

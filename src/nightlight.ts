@@ -427,9 +427,10 @@ export interface Pass { x: number; dz: number } // quem vem atrás com farol ace
 
 // fim da pista: escuridão, luzes dos carros somadas e a claridade de quem emparelha
 // lua (ou outra luz do céu) que não deve ser apagada pela escuridão da noite
-let sky: { x: number; y: number; r: number } | null = null;
-export function setSkyLight(x: number, y: number, r: number) {
-  sky = { x, y, r };
+let sky: { x: number; y: number; r: number; floor: number } | null = null;
+// floor: linha da tela abaixo da qual o furo de luz não passa (os morros e o chão ficam escuros)
+export function setSkyLight(x: number, y: number, r: number, floor = Infinity) {
+  sky = { x, y, r, floor };
 }
 export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: number; w: number; h: number; horizon: number; dash?: number }, strength: number, passers: Pass[], segLen: number, road: RoadPt[] = []) {
   collecting = false;
@@ -479,7 +480,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     sg.addColorStop(0.4, 'rgba(0,0,0,0.8)');
     sg.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = sg;
-    g.fillRect(sx - sky.r, sy - sky.r, sky.r * 2, sky.r * 2);
+    g.fillRect(sx - sky.r, sy - sky.r, sky.r * 2, Math.min(sky.r * 2, sky.floor - top - (sy - sky.r)));
     sky = null;
   }
   g.globalCompositeOperation = 'source-over';
@@ -511,7 +512,9 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   carBeams.length = 0;
   c.save();
   c.globalCompositeOperation = 'lighter';
+  c.globalAlpha = Math.min(1, strength); // no lusco-fusco a luz do farol ainda quase não aparece
   c.drawImage(warmCv, vp.x, top);
+  c.globalAlpha = 1;
   c.imageSmoothingEnabled = prev;
   // a lâmpada de cada poste; um carro mais perto que o poste, passando na frente dele, tapa o
   // brilho (a lâmpada é desenhada numa camada à parte e a silhueta do carro é apagada dela)

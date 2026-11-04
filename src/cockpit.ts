@@ -1,3 +1,4 @@
+import { brandOf, drawLogo } from './brands';
 import { prefs } from './prefs';
 import { binds, keyName, touch } from './input';
 import { ghostTimeAt } from './records';
@@ -83,7 +84,7 @@ interface Dial { x: number; y: number; r: number; max: number; labels: number[];
 // ponteiros no mesmo eixo, em V), 'twin' (dois eixos lado a lado) e 'clock' (relógio)
 // oil = pressão do óleo, boost = pressão do turbo, volt = voltímetro
 type Gauge = 'oil' | 'water' | 'oiltemp' | 'fuel' | 'boost' | 'volt';
-interface Aux { x: number; y: number; r: number; kind: 'single' | 'dual' | 'twin' | 'clock' | 'combo'; show?: Gauge[]; icon?: keyof typeof ICONS; labels?: string[] }
+interface Aux { x: number; y: number; r: number; kind: 'single' | 'dual' | 'twin' | 'clock' | 'combo'; show?: Gauge[]; icon?: keyof typeof ICONS; labels?: string[]; bg?: string; labelIn?: number }
 
 // a arte cobre da linha 100 da tela até o fim (124 linhas); o topo transparente mostra a estrada
 let ART_TOP = 100; // linha da tela onde começa a arte do painel (cada cabine pode descer: art.dy)
@@ -751,16 +752,23 @@ const LP5_INK = '#bfe8cc';
 COCKPIT_ART.countach = {
   dash: cp('countach-dash'), top: cp('countach-top'), wheel: cp('countach-wheel'),
   pivot: [128, 104], wheelTop: 8, speedMax: 320, needle: '#ff7a1a', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [196, 4],
-  speed: { x: 107.8, y: 46.6, r: 27, max: 320, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320], tick: 10, red: 999, labelScale: 0.7, ink: LP5_INK, bg: '#0a0b0b' },
-  tach: { x: 161.6, y: 45.1, r: 21.5, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], labelMul: 10, tick: 0.5, yellow: 7, red: 7.5, labelScale: 0.7, redLabels: false, ink: LP5_INK, bg: '#0a0b0b' },
+  speed: { x: 84.5, y: 46.6, r: 25.4, max: 320, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320], tick: 10, red: 999, labelScale: 0.7, ink: LP5_INK, bg: '#0a0b0b' },
+  tach: { x: 173.4, y: 46.6, r: 24.8, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], labelMul: 10, tick: 0.5, yellow: 7, red: 7.5, labelScale: 0.7, redLabels: false, ink: LP5_INK, bg: '#0a0b0b' },
+  // como no carro (tools/ref/lp5_cluster.py): à esquerda temperatura do óleo e bateria (fundo
+  // verde), no meio a pressão do óleo, à direita combustível e temperatura da água
   aux: [
-    { x: 19.9, y: 46.6, r: 15, kind: 'single', show: ['oiltemp'], icon: 'temp', labels: ['50', '100', '150'] },
-    { x: 57.2, y: 45.1, r: 13.5, kind: 'single', show: ['volt'], icon: 'volt', labels: ['10', '13', '16'] },
-    { x: 213.6, y: 46.6, r: 21, kind: 'dual', show: ['fuel', 'water'] },
+    { x: 14.2, y: 42, r: 13.2, kind: 'single', show: ['oiltemp'], icon: 'temp', labels: ['50', '100', '150'], labelIn: 4 },
+    { x: 43.1, y: 42, r: 13.2, kind: 'single', show: ['volt'], icon: 'volt', labels: ['10', '13', '16'], labelIn: 4, bg: '#2c4a26' },
+    { x: 128.9, y: 42, r: 13.2, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '5', '10'], labelIn: 4 },
+    { x: 213.9, y: 42, r: 13.2, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1/2', '1'], labelIn: 4 },
+    { x: 242.4, y: 42, r: 13.2, kind: 'single', show: ['water'], icon: 'temp', labels: ['40', '80', '120'], labelIn: 4 },
   ],
   extra: (c, ox, r) => {
-    odometer(c, ox, r, { x: 101.8, y: 39.2, w: 12, h: 3.5 }, 24600, 6, 0.5);
-    odometer(c, ox, r, { x: 103.8, y: 52.2, w: 8, h: 3.5 }, 12.8, 4, 0.5, true);
+    odometer(c, ox, r, { x: 78.5, y: 39.6, w: 12, h: 3.5 }, 24600, 6, 0.5);
+    odometer(c, ox, r, { x: 80.5, y: 51.9, w: 8, h: 3.5 }, 12.8, 4, 0.5, true);
+    // escudo da marca embaixo, no velocímetro e no conta-giros
+    drawLogo(c, brandOf('toro-lp5'), ox + 82.5, ART_TOP + 61, 0.5);
+    drawLogo(c, brandOf('toro-lp5'), ox + 171.4, ART_TOP + 61, 0.5);
   },
 };
 
@@ -1135,9 +1143,9 @@ function drawIcon(c: CanvasRenderingContext2D, name: keyof typeof ICONS, cx: num
 }
 
 // fundo preto do mostrador, por linhas (centro no meio do pixel cx, cy)
-function face(c: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+function face(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, bg = '#050506') {
   const ry = r * PIX_Y;
-  c.fillStyle = '#050506';
+  c.fillStyle = bg;
   for (let dy = -Math.floor(ry); dy <= Math.floor(ry); dy++) {
     const hw = Math.round(r * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
     c.fillRect(cx - hw, cy + dy - 0.5, hw * 2 + 1, 2); // sem emendas (ver artDial)
@@ -1187,7 +1195,7 @@ function updateGauges(r: Race, dt: number) {
 function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitArt) {
   const cx = ox + g.x, cy = ART_TOP + g.y, R = g.r;
   const mx = cx + 0.5, my = cy + 0.5; // centro real
-  face(c, cx, cy, R);
+  face(c, cx, cy, R, g.bg);
   const at = (x: number, y: number, a: number, rr: number): [number, number] => [x + Math.cos(a) * rr, y + Math.sin(a) * rr * PIX_Y];
   const ticks = (x: number, y: number, rr: number, a0: number, a1: number, n: number) => {
     c.fillStyle = '#e8e8e8';
@@ -1231,7 +1239,7 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
     // números nas pontas e no meio (água 60/90/120, turbo 0/0,8/1,5 da F40)
     g.labels?.forEach((l, i) => {
       const a = a0 + ((a1 - a0) * i) / (g.labels!.length - 1);
-      pix(c, l, ...at(mx, my, a, R - 2.6 - Math.abs(Math.cos(a)) * pixWidth(l, 0.5) * 0.45), '#f2f2f2', 0.5);
+      pix(c, l, ...at(mx, my, a, R - (g.labelIn ?? 2.6) - Math.abs(Math.cos(a)) * pixWidth(l, 0.5) * 0.45), '#f2f2f2', 0.5);
     });
     hand(c, mx, my, a0 + (a1 - a0) * val(k1), small ? R - 1.25 : R - 1.5, art.needle);
   } else if (g.kind === 'dual') {

@@ -782,18 +782,20 @@ COCKPIT_ART.countach = {
 const NX_INK = '#f2f2f2';
 COCKPIT_ART.nsx = {
   dash: cp('nsx-dash'), top: cp('nsx-top'), wheel: cp('nsx-wheel'),
-  pivot: [128, 140], wheelTop: 0, speedMax: 280, needle: '#ff3a1a', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [196, 4],
-  tach: { x: 98, y: 64, r: 24, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.5, red: 8, labelScale: 0.7, redLabels: false, ink: NX_INK, bg: '#0b0b0d' },
-  speed: { x: 160, y: 64, r: 24, max: 280, labels: [0, 40, 80, 120, 160, 200, 240, 280], tick: 10, red: 999, labelScale: 0.7, ink: NX_INK, bg: '#0b0b0d' },
+  pivot: [128, 104], wheelTop: 14, speedMax: 280, needle: '#ff3a1a', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [30, 4],
+  // retrovisor externo à direita (mão inglesa): o espelho da arte é transparente e mostra a vista de trás
+  glass: { at: [436, 71], thr: 256 },
+  tach: { x: 103, y: 44, r: 22, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.5, red: 8, labelScale: 0.7, redLabels: false, ink: NX_INK, bg: '#0b0b0d' },
+  speed: { x: 155, y: 44, r: 22, max: 280, labels: [0, 40, 80, 120, 160, 200, 240, 280], tick: 10, red: 999, labelScale: 0.7, ink: NX_INK, bg: '#0b0b0d' },
   aux: [
-    { x: 66, y: 60, r: 8, kind: 'single', show: ['water'], icon: 'temp', labels: ['C', 'H'] },
-    { x: 69, y: 84, r: 8, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '8'] },
-    { x: 190, y: 60, r: 8, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1'] },
-    { x: 187, y: 84, r: 8, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '16'] },
+    { x: 70, y: 40, r: 7, kind: 'single', show: ['water'], icon: 'temp', labels: ['C', 'H'] },
+    { x: 64, y: 60, r: 7, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '8'] },
+    { x: 186, y: 40, r: 7, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1'] },
+    { x: 192, y: 60, r: 7, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '16'] },
   ],
   extra: (c, ox, r) => {
-    odometer(c, ox, r, { x: 92, y: 75, w: 12, h: 3.5 }, 63373, 6, 0.5);
-    odometer(c, ox, r, { x: 156, y: 75, w: 8, h: 3.5 }, 34.3, 4, 0.5, true);
+    odometer(c, ox, r, { x: 97, y: 55, w: 12, h: 3.5 }, 27, 6, 0.5);
+    odometer(c, ox, r, { x: 151, y: 55, w: 8, h: 3.5 }, 0, 4, 0.5, true);
   },
 };
 
@@ -961,7 +963,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
       if (mg) drawSideMirror(c, r, mg, mx, my, color ?? r.car.color);
     }
   } else {
-    const glass = findGlass(art.dash, svgSprite(art.top, DASH_W, TOP_EXT), svgSprite(art.dash, DASH_W, 124) ?? dash0, DASH_PAD + 90, art.glass);
+    const glass = findGlass(art.dash, svgSprite(art.top, DASH_W, TOP_EXT), svgSprite(art.dash, DASH_W, 124) ?? dash0, art.glass ? DASH_W : DASH_PAD + 90, art.glass);
     if (glass) drawSideMirror(c, r, glass, dx, ART_TOP, color ?? r.car.color);
   }
   if (art.lcd) lcdPanel(c, ox, r, art);

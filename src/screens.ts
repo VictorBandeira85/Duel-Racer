@@ -1231,12 +1231,13 @@ function drawChallenges(c: CanvasRenderingContext2D, s: AppState) {
 }
 
 // aviso no alto da tela (conquista ou desafio cumprido), em qualquer tela
-export function drawToast(c: CanvasRenderingContext2D, dt: number) {
+// down: desce o aviso (na largada, para não cobrir o quadro de desafios no alto)
+export function drawToast(c: CanvasRenderingContext2D, dt: number, down = 0) {
   const t = takeToast(dt);
   if (!t) return;
   const { w } = view;
   const k = Math.min(1, (3.2 - t.t) / 0.25, t.t / 0.3); // entra e sai deslizando
-  const y = Math.round(-30 + 34 * k);
+  const y = Math.round(-30 + (34 + down) * k);
   const bw = Math.min(w - 16, 260);
   const x0 = (w - bw) / 2;
   // etiqueta da revista: tinta preta, faixa na cor do aviso e sombra

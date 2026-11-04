@@ -663,7 +663,9 @@ function frameInner(now: number) {
     acc = 0;
     drawScreen(ctx, state);
   }
-  drawToast(ctx, dt);
+  // na largada o quadro de desafios ocupa o alto do para-brisa: o aviso aparece logo abaixo dele
+  const chBox = state.screen === 'race' && race && race.challenges.length && (race.state === 'countdown' || (race.state === 'drive' && race.time < 5));
+  drawToast(ctx, dt, chBox ? 38 + race!.challenges.length * 6 : 0);
 }
 // abertura: página de carregamento enquanto as artes dos carros chegam, depois a capa
 beginLoading(state, () => actions.go('title'), 1.4);

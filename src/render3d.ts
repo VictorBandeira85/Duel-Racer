@@ -99,7 +99,14 @@ function drawSegment(c: CanvasRenderingContext2D, s: Segment, r: Race, vp: Viewp
 // ---- neblina e túnel ----
 const FOG_D = 34; // segmentos: a ~40 m quase tudo já some
 export const fogAt = (dist: number) => 1 - Math.exp(-dist / FOG_D);
-const fogRgb = [1, 3, 5].map((i) => parseInt(FOG_COLOR.slice(i, i + 2), 16)).join(',');
+// cor da neblina: cinza-claro de dia; à noite um cinza-azulado escuro (a neblina não brilha no
+// escuro — só onde o farol bate). Misturada pela intensidade da noite a cada quadro.
+const FOG_DAY = [1, 3, 5].map((i) => parseInt(FOG_COLOR.slice(i, i + 2), 16));
+const FOG_NIGHT = [34, 38, 48];
+let fogRgb = FOG_DAY.join(',');
+function setFogNight(k: number) {
+  fogRgb = FOG_DAY.map((v, i) => Math.round(v + (FOG_NIGHT[i] - v) * k)).join(',');
+}
 const fogFill = (k: number) => `rgba(${fogRgb},${Math.min(0.96, k).toFixed(3)})`;
 const TUN_W = 1300; // além da meia largura da pista, até a parede
 const TUN_H = 2300; // altura do teto (a profundidade do jogo é comprimida: medido no olho)
@@ -203,7 +210,8 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   }
   // estrelas e lua aparecem aos poucos com a noite (pôr do sol) e somem no amanhecer
   const nk = r.nightK;
-  if (nk > 0.02) {
+  // com neblina ou chuva o céu fica encoberto: sem estrelas e sem lua
+  if (nk > 0.02 && r.def.weather !== 'fog' && r.def.weather !== 'rain') {
     const ga0 = c.globalAlpha;
     c.globalAlpha = ga0 * nk;
     c.fillStyle = '#fff';
@@ -358,6 +366,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   if (r.shake) c.translate(Math.round((Math.random() - 0.5) * 2 * r.shake), Math.round((Math.random() - 0.5) * 2 * r.shake));
   // sensação de velocidade: perto da máxima a imagem trepida de leve (1 px, de vez em quando)
   else if (r.speed > r.car.maxSpeed * 0.8 && Math.random() < (r.speed / r.car.maxSpeed - 0.8) * 2.5) c.translate(0, Math.random() < 0.5 ? 1 : -1);
+  setFogNight(r.def.weather === 'fog' ? r.nightK : 0);
   drawBackground(c, r, vp);
   beginLights();
   // escuro: noite ou dentro do túnel (faróis acesos, ofuscam no retrovisor)

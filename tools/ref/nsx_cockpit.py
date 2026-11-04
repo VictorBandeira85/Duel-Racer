@@ -1,7 +1,6 @@
 """Cabine do Kaze NX (Honda NSX) a partir das duas artes do Victor (com e sem volante).
-A arte veio com volante à direita e quase nada desenhado à direita dele: é espelhada (volante à
-esquerda, como nas outras cabines) e os textos voltam a ficar legíveis (rádio, botões e SRS do
-volante, desvirados no lugar). O para-brisa (paisagem acima da borda do painel) vira vidro.
+Mão inglesa, como o NSX japonês da arte: volante à direita (no centro da tela, na frente do
+piloto), console e rádio à esquerda; o nome da marca no rádio sai. O para-brisa (paisagem acima da borda do painel) vira vidro.
 O quadro de instrumentos é repintado como o do carro (painel cinza escovado); os seis mostradores
 são desenhados pelo jogo (cockpit.ts): água e pressão do óleo à esquerda, conta-giros, velocímetro,
 combustível e bateria à direita. Escala 0,307 (pixel 8:7).
@@ -18,15 +17,15 @@ from PIL import Image
 S = 0.307
 PXW, PXH = 1 / S, (1 / S) / (8 / 7)
 W0 = 1459
-PIV = (W0 - 1 - 1031.0, 600.0)  # centro do aro (já espelhado)
+PIV = (1031.0, 600.0)  # centro do aro
 PIV_N = (128.0, 140.0)
 ROWS, EXT, PAD = 124, 76, 102
 WROWS = 170
 RIM_OUT, RIM_IN = (345, 376), (311, 340)
 
 
-def mx(x):  # coordenada x da arte original -> espelhada
-    return W0 - 1 - x
+def mx(x):  # coordenada x da arte (sem espelhar)
+    return x
 
 
 def grid(y0, rows, x0n=-PAD, cols=256 + 2 * PAD):
@@ -49,34 +48,33 @@ def unflip(img, x0, y0, x1, y1):
 
 def main():
     d, out = sys.argv[1], sys.argv[2]
-    nw = np.array(Image.open(os.path.join(d, 'cab-nowheel.png')).convert('RGB'))[:, :W0][:, ::-1].copy()
-    ww = np.array(Image.open(os.path.join(d, 'cab-wheel.png')).convert('RGB'))[:, :W0][:, ::-1].copy()
+    nw = np.array(Image.open(os.path.join(d, 'cab-nowheel.png')).convert('RGB'))[:, :W0].copy()
+    ww = np.array(Image.open(os.path.join(d, 'cab-wheel.png')).convert('RGB'))[:, :W0].copy()
     H, W = nw.shape[:2]
-    # textos que ficaram ao contrário: rádio (o nome da marca some) e, no volante, SRS e botões
-    for img in (nw, ww):
-        unflip(img, 360, 495, 640, 700)
-    ww_unflip = [(985, 670, 1062, 705), (1125, 610, 1250, 715)]
-    for r in ww_unflip:
-        unflip(ww, *r)
     # "HONDA" do rádio: faixa escura lisa
     for img in (nw, ww):
-        x0, x1 = mx(560), mx(470)
+        x0, x1 = 470, 560
         img[530:556, x0:x1] = np.median(img[530:556, x0 - 6:x0 - 2].reshape(-1, 3), axis=0).astype(np.uint8)
     # borda de cima do painel: contorno escuro perto da linha medida na arte (quase reta à
     # esquerda, descendo no canto da porta), procurado coluna a coluna numa faixa estreita
     lum = nw.astype(int).mean(axis=2)
-    ox_ = [0, 700, 1050, 1250, W0 - 1]
-    oy_ = [197, 199, 203, 225, 262]
+    ox_ = [0, 700, 1050, 1100, 1250, W0 - 1]
+    oy_ = [197, 197, 205, 214, 235, 268]
     guess = np.interp(mx(np.arange(W)), ox_, oy_)
     top = np.zeros(W, int)
     for x in range(W):
         g = int(guess[x])
-        col = lum[g - 12:g + 12, x]
-        k = np.nonzero(col < 50)[0]
-        top[x] = g - 12 + k[0] if len(k) else g
+        # de baixo para cima: atravessa o painel até o contorno preto e sobe por ele; a primeira
+        # linha acima do contorno já é paisagem
+        y = g + 14
+        while y > g - 16 and lum[y, x] >= 28:
+            y -= 1
+        while y > g - 20 and lum[y - 1, x] < 45:
+            y -= 1
+        top[x] = y if y > g - 16 else g
     top = np.array([int(np.median(top[max(0, x - 4):x + 5])) for x in range(W)])
     yy, xx = np.mgrid[0:H, 0:W]
-    sky = yy < top[None, :] + 2
+    sky = yy < top[None, :]
     # perto da borda, o que for paisagem (verde, azul claro, branco da mureta) também é vidro
     rgbi = nw.astype(int)
     scen = ((rgbi[..., 1] > rgbi[..., 0] + 25) | (rgbi[..., 2] > 150) | (rgbi.min(axis=2) > 170)) & (yy < top[None, :] + 14)
@@ -108,7 +106,7 @@ def main():
     rgb[rim] = (14, 14, 17)
     al[face | rim] = True
     # janelinhas do hodômetro da arte (sob o quadro, com dígitos espelhados): viram painel
-    for x0, x1 in ((64, 86), (198, 222)):
+    for x0, x1 in ((52, 86), (168, 200)):
         for y in range(101, 113):
             rgb[y, PAD + x0:PAD + x1] = rgb[y, PAD + x0 - 3]
     Image.fromarray(np.dstack([rgb, al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'nsx-dash.png'))

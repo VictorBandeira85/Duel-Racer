@@ -401,7 +401,8 @@ function silhouette(l: Light, W: number, H: number, ox: number, oy: number): Sil
   const hit = sils.get(l);
   if (hit !== undefined) return hit;
   const x0 = Math.max(0, Math.floor(l.x - l.w * 0.75 - ox)), x1 = Math.min(W, Math.ceil(l.x + l.w * 0.75 - ox));
-  const y0 = Math.max(0, Math.floor(l.y - l.w * 1.2 - oy)), y1 = Math.min(H, Math.ceil(l.y + l.w * 0.2 + 2 - oy), Math.ceil(Math.max(l.clip + 1, l.clip >= l.y - 1 ? l.y + l.w * 0.2 + 2 : 0) - oy));
+  // 1,8 larguras de altura: o baú do caminhão é bem mais alto que um carro
+  const y0 = Math.max(0, Math.floor(l.y - l.w * 1.8 - oy)), y1 = Math.min(H, Math.ceil(l.y + l.w * 0.2 + 2 - oy), Math.ceil(Math.max(l.clip + 1, l.clip >= l.y - 1 ? l.y + l.w * 0.2 + 2 : 0) - oy));
   if (!l.shape || x1 <= x0 || y1 <= y0) {
     sils.set(l, null);
     return null;
@@ -592,8 +593,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   if (sec) g.drawImage(sec, 0, 0);
   // cada carro com uma luz só no corpo inteiro (o facho ou a luz do poste não cortam a
   // carroceria ao meio): conforme a distância no nosso farol e a proximidade de um poste
-  const litOf = carLighting(rd, cx, seen - top, top, vp.x);
-  shadeCars(g, W, H, vp.x, top, (l) => `rgba(0,0,10,${(0.8 * strength * (1 - 0.68 * litOf(l))).toFixed(3)})`, true);
+  // clarão da lua no céu: antes dos carros (um carro na frente da lua tapa o clarão)
   if (sky) {
     const sx = sky.x - vp.x, sy = sky.y - top;
     const sg = g.createRadialGradient(sx, sy, 0, sx, sy, sky.r);
@@ -628,6 +628,8 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     g.restore();
     sky = null;
   }
+  const litOf = carLighting(rd, cx, seen - top, top, vp.x);
+  shadeCars(g, W, H, vp.x, top, (l) => `rgba(0,0,10,${(0.8 * strength * (1 - 0.68 * litOf(l))).toFixed(3)})`, true);
   g.globalCompositeOperation = 'source-over';
   const prev = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = false;
@@ -652,7 +654,10 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     for (const st of streets) maskedPool(s, W, H, vp.x, top, rd, st, 0.2 * strength);
   }, (t, b) => drawCarBeamsWarm(t, vp.x, top, 0.935 * strength, [b]));
   if (secW) wg.drawImage(secW, 0, 0);
-  shadeCars(wg, W, H, vp.x, top, (l) => `rgba(255,226,160,${(0.1 * litOf(l)).toFixed(3)})`, false);
+  // apaga o facho e a luz do poste pintados no chão por baixo de cada carro (no baú alto do
+  // caminhão eles apareciam em degraus) e dá ao carro inteiro uma luz só
+  shadeCars(wg, W, H, vp.x, top, (l) => `rgba(255,226,160,${(0.1 * litOf(l)).toFixed(3)})`, true);
+  wg.globalCompositeOperation = 'source-over';
   carBeams.length = 0;
   c.save();
   c.globalCompositeOperation = 'lighter';

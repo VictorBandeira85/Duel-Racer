@@ -526,22 +526,23 @@ export class Race {
     // acompanhando a pista (antes mirava o céu até o carro chegar na rampa)
     // a câmera mira o chão uns 25 segmentos à frente (a inclinação média até lá, com mais peso
     // no trecho mais perto): ao chegar numa crista ela já aponta para a descida, e não para o céu
-    // pesos maiores mais adiante: numa crista a câmera já mira a descida que vem depois dela
+    // olha só um pouco adiante (uns 12 segmentos, mais peso perto): a câmera começa a baixar
+    // quando a crista já está chegando, e não muito antes dela
     let ahead = 0, wsum = 0, far = 0;
-    for (let k = 2; k <= 25; k++) {
+    for (let k = 1; k <= 12; k++) {
       const sg = this.findSegment(this.position + k * SEG_LEN);
       const sk = (sg.p2.world.y - sg.p1.world.y) / SEG_LEN;
-      const wk = 0.5 + k / 25;
+      const wk = 1.3 - k / 12;
       ahead += sk * wk;
       wsum += wk;
-      if (k >= 8 && k <= 22) far += sk / 15;
+      if (k >= 4 && k <= 9) far += sk / 6;
     }
     ahead = clamp(ahead / wsum, -0.8, 0.6);
     // no ar também olha para onde vai pousar (antes seguia o próprio voo e mirava o céu)
     const fly = clamp(this.vy / Math.max(this.speed, 1), -0.6, 0.6);
-    let ground = slope * 0.05 + slopeCam * 0.1 + ahead * 0.85;
-    // descida forte adiante: aponta um pouco além dela, para a pista não sumir embaixo do capô
-    if (far < ground) ground = lerp(ground, clamp(far * 1.15, -0.8, 0), 0.7);
+    let ground = slope * 0.1 + slopeCam * 0.25 + ahead * 0.65;
+    // descida forte logo adiante: aponta um pouco além dela (a pista não some embaixo do capô)
+    if (far < ground) ground = lerp(ground, clamp(far * 1.1, -0.8, 0), 0.5);
     const pitchTo = this.airborne ? fly * 0.3 + ground * 0.7 : ground;
     this.pitch = lerp(this.pitch, pitchTo, Math.min(1, dt * (this.airborne ? 5 : 7)));
     // ---- salto: o carro é um corpo com velocidade vertical própria. Segue o chão enquanto a
@@ -1031,6 +1032,38 @@ export class Race {
   }
 
   // tempo até alcançar o próximo obstáculo numa faixa
+  // mão dupla: dá para ultrapassar quem vai devagar na frente? Compara o tempo para passar o
+  // carro lento (mais os que vão colados a ele) e voltar para a mão com o tempo até cruzar o
+  // primeiro carro que vem de frente na contramão (olhando bem longe, ~800 m). need: há alguém
+  // lento na frente; ok: a manobra cabe com a folga do estilo do piloto
+  private twoWayPass(want: number): { need: boolean; ok: boolean; meet: number } {
+    const r = this.rival!;
+    const home = laneCenter(this.track, 1), left = laneCenter(this.track, 0);
+    const v = Math.max(r.speed, Math.min(want, this.rivalCar!.maxSpeed));
+    type Obj = { z: number; x: number; speed: number; len: number };
+    const objs: Obj[] = this.traffic.filter((c) => !c.hit).map((c) => ({ z: c.z, x: c.x, speed: c.speed, len: (c.truck ? 3 : 1.6) * SEG_LEN }));
+    if (this.state === 'drive') objs.push({ z: this.playerZ, x: this.x, speed: this.speed, len: 1.6 * SEG_LEN });
+    // lentos na faixa dele, à frente: o primeiro e os que vêm colados (passa todos de uma vez)
+    const slow = objs.filter((o) => o.z > r.z && o.z - r.z < 40 * SEG_LEN && Math.abs(o.x - home) < CAR_W * 1.1 && o.speed < want - 250).sort((a, b) => a.z - b.z);
+    if (!slow.length) return { need: false, ok: false, meet: Infinity };
+    let end = slow[0];
+    for (const o of objs) {
+      if (Math.abs(o.x - home) < CAR_W * 1.1 && o.z > end.z && o.z - end.z < 5 * SEG_LEN) end = o;
+    }
+    const vr = v - Math.max(0, end.speed);
+    if (vr < 300) return { need: true, ok: false, meet: 0 };
+    const tPass = (end.z - r.z + end.len + 2.5 * SEG_LEN) / vr;
+    // quem vem de frente (ou vai mais devagar) na contramão
+    let meet = Infinity;
+    for (const o of objs) {
+      if (Math.abs(o.x - left) > CAR_W * 1.2 || o.z <= r.z || o.z - r.z > 600 * SEG_LEN) continue;
+      const closing = o.speed < 0 ? v - o.speed : v - o.speed;
+      if (closing > 0) meet = Math.min(meet, (o.z - r.z) / closing);
+    }
+    const k = r.style === 'agressivo' ? 1.1 : r.style === 'cauteloso' ? 1.5 : 1.25;
+    return { need: true, ok: meet > tPass * k + 0.6, meet };
+  }
+
   private laneTTC(laneX: number, v = this.rival!.speed) {
     const r = this.rival!;
     let best = Infinity;
@@ -1071,6 +1104,7 @@ export class Race {
     const sharp = Math.abs(rSeg.curve) >= 3;
     const gap = (r.z - this.playerZ) / SEG_LEN; // > 0: rival na frente
     let target = 0;
+    let cornerCap = Infinity;
     if (r.finishTime >= 0 || this.state === 'arrived') target = max * 0.25;
     else {
       // elástico: na frente, o rival alivia (os mais fracos aliviam mais, dando chance de
@@ -1111,10 +1145,14 @@ export class Race {
         if (cv < 0.5) continue;
         const vc = this.cornerSpeed(cv, this.rivalCar, nerve) * (0.9 + 0.1 * skill);
         const dist = Math.max(0, k - into) * SEG_LEN;
-        target = Math.min(target, Math.sqrt(vc * vc + 2 * brakeA * dist));
+        cornerCap = Math.min(cornerCap, Math.sqrt(vc * vc + 2 * brakeA * dist));
       }
+      target = Math.min(target, cornerCap);
     }
     const want = target; // o que ele quer andar (antes de ficar preso atrás de alguém)
+    // ritmo de ultrapassagem: o normal do piloto, sem o elástico. Mesmo aliviando para esperar
+    // o jogador, ele não fica atrás de um caminhão lento: ultrapassa como faria de qualquer jeito
+    const wantPass = r.finishTime < 0 && this.state !== 'arrived' ? Math.min(cornerCap, Math.max(want, max * this.course.rivalSkill * 0.92)) : want;
     r.mistake = Math.max(0, r.mistake - dt);
     r.boost = Math.max(0, r.boost - dt);
     r.wasAhead = gap > 0;
@@ -1125,13 +1163,14 @@ export class Race {
       const lanes = this.track.lanes;
       // o cauteloso troca de faixa mais cedo (precisa de mais folga à frente)
       const margin = r.style === 'cauteloso' ? 0.6 : r.style === 'agressivo' ? 0.2 : 0.4;
+      const pass2 = lanes === 2 ? this.twoWayPass(wantPass) : { need: false, ok: false, meet: Infinity };
       // nota de cada faixa: tempo livre à frente, com ajustes de estratégia
       const laneScore = (lx: number, i: number) => {
         // com a velocidade que ele quer (atrás de alguém mais lento, a faixa dele "fecha")
-        let score = this.laneTTC(lx, Math.max(r.speed, want)) * (i < lanes / 2 ? 0.85 : 1);
-        // mão dupla: só sai para a contramão com pista livre de verdade (tempo para ultrapassar
-        // e voltar antes de quem vem de frente)
-        if (lanes === 2 && lx < 0 && Math.abs(r.x - lx) > LANE_W / 2 && score < 4.5) score = -1;
+        let score = this.laneTTC(lx, Math.max(r.speed, wantPass)) * (i < lanes / 2 ? 0.85 : 1);
+        // mão dupla: só sai para a contramão se a ultrapassagem cabe antes de quem vem de frente
+        // (e aí sai sem esperar ninguém abrir caminho)
+        if (lanes === 2 && lx < 0 && Math.abs(r.x - lx) > LANE_W / 2) score = pass2.need && pass2.ok ? 10 : -1;
         const playerLane = Math.abs(this.x - lx) < LANE_W / 2;
         // o agressivo fecha a faixa do jogador quando ele vem colado atrás
         if (r.style === 'agressivo' && gap > 0.5 && gap < 7 && playerLane) score += 1.5;
@@ -1158,24 +1197,30 @@ export class Race {
         r.sigT = SIGNAL_LEAD;
         r.signal = Math.sign(bestX - r.x);
       } else if (r.pendX === undefined) r.targetX = bestX;
-      if (bestScore < 1) target = Math.min(target, max * 0.35);
+      // faixa toda fechada: alivia (na mão dupla quem cuida disso é o seguir o carro da frente,
+      // a uma distância de onde dá para sair e ultrapassar assim que abrir)
+      if (bestScore < 1 && lanes !== 2) target = Math.min(target, max * 0.35);
     }
     // na contramão com alguém vindo de frente perto: volta já para a própria faixa (sem esperar
     // o pisca) e alivia; se a faixa dele estiver ocupada ao lado, freia forte para se encaixar
     if (this.track.lanes === 2 && r.x < 0 && r.finishTime < 0) {
       const home = laneCenter(this.track, 1);
-      if (this.laneTTC(r.x) < 2.6) {
+      const onc = this.twoWayPass(wantPass);
+      // aborta só se quem vem de frente chega antes de ele terminar (olhando longe, com folga)
+      if (this.laneTTC(r.x) < 1.2 || (onc.need && !onc.ok && onc.meet < 2.2)) {
         r.pendX = undefined;
         r.targetX = home;
         r.signal = 1;
         if (this.laneTTC(home) < 0.8) target = Math.min(target, r.speed * 0.6);
-      } else if (r.pendX === undefined && r.targetX < 0 && this.laneTTC(home, Math.max(r.speed, want)) > 4) {
+      } else if (r.pendX === undefined && r.targetX < 0 && this.laneTTC(home, Math.max(r.speed, wantPass)) > 4) {
         // ultrapassagem feita (ou nada à frente na faixa dele): volta para a mão, com o pisca
         r.pendX = home;
         r.sigT = SIGNAL_LEAD;
         r.signal = 1;
       }
     }
+    // ultrapassando na contramão: mantém o ritmo de ultrapassagem até voltar (sem o elástico)
+    if (this.track.lanes === 2 && r.x < 0 && r.targetX < 0) target = Math.max(target, wantPass);
     if (r.pendX !== undefined) {
       r.sigT -= dt;
       if (r.sigT <= 0 || r.mistake > 0) {

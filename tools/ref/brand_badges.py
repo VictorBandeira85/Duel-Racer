@@ -23,7 +23,7 @@ ART_BRAND = {
   'f40': 'furia', 'testarossa': 'furia', 'diablo': 'toro', 'countach': 'toro', 'patrolsv': 'toro',
   '959': 'silber', 'zr1': 'vanguarda', 'patrol': 'vanguarda', 'nsx': 'kaze', 'viper': 'serpe',
   'br-vectra': 'vanguarda', 'br-kadett': 'vanguarda', 'br-corsa': 'vanguarda', 'br-uno': 'fiore',
-  'br-golgti': 'pampa', 'br-passat': 'pampa', 'br-pumagtb': 'onca', 'br-pumagte': 'onca',
+  'br-golgti': 'ipe', 'br-passat': 'ipe', 'br-pumagtb': 'onca', 'br-pumagte': 'onca',
 }
 
 SPOTS = {

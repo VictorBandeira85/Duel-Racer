@@ -115,8 +115,8 @@
     ".BBBBBBB."
    ]
   },
-  "pampa": {
-   "name": "Pampa",
+  "ipe": {
+   "name": "Ipê",
    "real": "Volkswagen",
    "logo": [
     "..KKKKK..",
@@ -183,10 +183,10 @@
   "br-tipo16v": "fiore",
   "br-uno": "fiore",
   "br-147": "fiore",
-  "br-gol16v": "pampa",
-  "br-golgti": "pampa",
-  "br-passat": "pampa",
-  "br-sp2": "pampa",
+  "br-gol16v": "ipe",
+  "br-golgti": "ipe",
+  "br-passat": "ipe",
+  "br-sp2": "ipe",
   "br-charger": "serpe",
   "br-maverick": "fenix",
   "br-xr3": "fenix",

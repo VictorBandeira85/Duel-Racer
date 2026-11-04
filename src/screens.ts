@@ -22,6 +22,7 @@ import { hasCockpitArt, interiorPhoto } from './cockpit';
 import { BLUE, GREY, INK, RED, YELLOW, arrow, barcode, box, burst, halftone, headline, ink, kicker, logo, masthead, paper, photo, rule, specRows, stars, tag } from './mag';
 import { formatTime, shade } from './util';
 import { drawEngine, drawParts, drawStation } from './loadart';
+import { LP5_PHOTOS, drawPhoto } from './photos';
 import { setEngine, setTires, shiftSound } from './audio';
 
 export type ScreenId = 'loading' | 'title' | 'options' | 'controls' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores' | 'achievements'
@@ -110,7 +111,7 @@ const titleSigns = () => {
 // carros da capa: os que têm arte (e as vistas de frente e de trás)
 const coverCars = () => CARS.filter((c) => c.imgSide && c.rear.img && c.rear.frontImg && !c.arcadeOnly);
 const SLIDE_T = 7; // s por edição da capa
-const SLIDES = ['test', 'compare', 'angles', 'interior', 'brasil', 'news', 'road'] as const;
+const SLIDES = ['test', 'lp5', 'compare', 'angles', 'interior', 'brasil', 'news', 'road'] as const;
 // carros nacionais com arte: entram no especial e nas fotos do interior (as novidades da revista)
 const brCars = () => coverCars().filter((c) => c.id.startsWith('br-'));
 
@@ -177,7 +178,32 @@ function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot
     fn();
     c.restore();
   };
-  if (kind === 'test') {
+  if (kind === 'lp5' && LP5_PHOTOS.length) {
+    // capa especial do Toro LP5 (horizontal, como as revistas importadas): foto sangrada,
+    // título enorme, "nesta edição" ao lado, faixa vermelha embaixo e código de barras
+    const pick = LP5_PHOTOS[Math.floor(slot / SLIDES.length) % LP5_PHOTOS.length];
+    const shown = { v: false };
+    photo(c, ph, () => {
+      c.fillStyle = '#f4f2ee';
+      c.fillRect(ph.x, ph.y, ph.w, ph.h);
+      shown.v = drawPhoto(c, ph, pick, u);
+    }, ['#f4f2ee', '#f4f2ee']);
+    if (!shown.v) return drawCoverSlide(c, s, ph, 0, u);
+    captionShade(c, ph, 34);
+    kicker(c, pick.kicker, ph.x + 6, ph.y + 5, pick.kc, '#fff');
+    logo(c, pick.title, ph.x + 6, ph.y + 15, 12, '#fff', INK);
+    // nesta edição
+    const bx = ph.x + ph.w - 116, by = ph.y + 36;
+    c.fillStyle = 'rgba(16,14,12,0.72)';
+    c.fillRect(bx, by, 112, 42);
+    ink(c, 'NESTA EDIÇÃO', bx + 4, by + 3, 4, YELLOW);
+    pick.inside.forEach((l, i) => ink(c, l, bx + 4, by + 12 + i * 9, 4, '#fff'));
+    // faixa de chamadas e código de barras
+    c.fillStyle = RED;
+    c.fillRect(ph.x, ph.y + ph.h - 10, ph.w, 10);
+    ink(c, `${pick.sub.toUpperCase()}  •  TESTE NA SERRA  •  PREÇOS DOS USADOS`, ph.x + 4, ph.y + ph.h - 8, 4, '#fff');
+    barcode(c, ph.x + 6, ph.y + ph.h - 34);
+  } else if (kind === 'test') {
     photo(c, ph, () => {
       studioLight(c, ph);
       drawCarSide(c, ph.x + 40 + (1 - ease) * 260, ph.y + 100, 232, car, p);
@@ -335,7 +361,7 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
   drawCoverSlide(c, s, ph, slot, (t % SLIDE_T) / SLIDE_T);
   // código de barras no canto (menos onde há quadros pequenos ali)
   const kind = SLIDES[Math.max(0, slot) % SLIDES.length];
-  if (kind !== 'angles' && kind !== 'news' && kind !== 'brasil') barcode(c, ph.x + ph.w - 40, ph.y + ph.h - 22);
+  if (kind !== 'angles' && kind !== 'news' && kind !== 'brasil' && kind !== 'lp5') barcode(c, ph.x + ph.w - 40, ph.y + ph.h - 22);
   // chamadas = menu (o subtítulo muda a cada edição da foto)
   const alt = [
     ['Câmbio, som e controles', 'Ligue o fantasma', 'Botões do seu tamanho'],
@@ -1409,7 +1435,7 @@ const TIPS = [
   'Tela cheia no computador: F11. Pausa: Esc. Teclas trocam em AJUSTES > CONTROLES.',
   'Máquina mais fraca? Em AJUSTES, escolha QUADROS 30 FPS e GRÁFICOS ECONÔMICO.',
 ];
-const LOAD_PICS = ['cover', 'engine', 'parts', 'station', 'cover', 'interior', 'road', 'brasil'] as const;
+const LOAD_PICS = ['cover', 'lp5', 'engine', 'parts', 'station', 'lp5', 'cover', 'interior', 'road', 'brasil'] as const;
 let load = { t0: 0, min: 1.6, next: null as null | (() => void), pic: 0, tip: 0, slot: 0 };
 let loadSeq = Math.floor(Math.random() * 1000);
 export function beginLoading(s: AppState, next: () => void, min = 1.6) {
@@ -1446,8 +1472,8 @@ function drawLoading(c: CanvasRenderingContext2D, s: AppState) {
     }
   } else {
     // as mesmas "edições" da capa (teste, interior, flagra na estrada, especial nacional)
-    const idx = { cover: load.slot % 3 === 0 ? 0 : 1, interior: 3, road: 6, brasil: 4 }[kind];
-    drawCoverSlide(c, s, ph, idx + 7 * (load.slot % 5), Math.min(1, t / 7));
+    const idx = SLIDES.indexOf(({ cover: load.slot % 3 === 0 ? 'test' : 'compare', interior: 'interior', road: 'road', brasil: 'brasil', lp5: 'lp5' } as const)[kind]);
+    drawCoverSlide(c, s, ph, idx + SLIDES.length * (load.slot % 5), Math.min(1, t / 7));
   }
   // dica
   const tb: Rect = { x: x + 8, y: 166, w: SAFE_W - 16, h: 42 };

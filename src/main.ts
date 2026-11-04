@@ -24,6 +24,8 @@ import { FX_LABEL, fxMode, lowFx, perfSample, setFxMode, lowRes } from './perf';
 import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
 
 preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.sideMask, c.rear.img, c.rear.imgMask, c.rear.frontImg, c.rear.frontMask]).filter((s): s is string => !!s), ...TRAFFIC_IMAGES);
+import { preloadPhotos } from './photos';
+preloadPhotos();
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 // opaco: a página não precisa misturar o jogo com o fundo (mais leve para a placa de vídeo)

@@ -23,6 +23,7 @@ import { BLUE, GREY, INK, RED, YELLOW, arrow, barcode, box, burst, halftone, hea
 import { formatTime, shade } from './util';
 import { drawEngine, drawParts, drawStation } from './loadart';
 import { LP5_PHOTOS, drawPhoto } from './photos';
+import { brandOf, drawLogo } from './brands';
 import { setEngine, setTires, shiftSound } from './audio';
 
 export type ScreenId = 'loading' | 'title' | 'options' | 'controls' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores' | 'achievements'
@@ -598,8 +599,12 @@ function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
   // manchete: o nome do carro, a classe e a nota
   const k = perfClass(car);
   const kw = kicker(c, `CLASSE ${k}`, x + 4, 38, CLASS_COLOR[k], '#fff');
-  kicker(c, `PI ${perfIndex(car)}`, x + 6 + kw, 38);
-  headline(c, car.name.toUpperCase(), x + 4, 50, 16, INK);
+  const kp = kicker(c, `PI ${perfIndex(car)}`, x + 6 + kw, 38);
+  // marca: logotipo ao lado do nome e o nome do fabricante
+  const br = brandOf(car.id);
+  if (br) kicker(c, br.name.toUpperCase(), x + 8 + kw + kp, 38, '#efe6d2', INK);
+  drawLogo(c, br, x + 4, 51, 2);
+  headline(c, car.name.toUpperCase(), x + (br ? 26 : 4), 50, 16, INK);
   ink(c, 'NOTA', x + 214, 40, 5, GREY);
   stars(c, x + 236, 39, carStars(car), 6);
   const ids = filtered(CARS, s.carFilter);

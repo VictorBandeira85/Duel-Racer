@@ -1,0 +1,196 @@
+{
+ "palette": {
+  "Y": "#f2c21a",
+  "K": "#141416",
+  "R": "#c81818",
+  "W": "#e8e8ec",
+  "G": "#2a9a3a",
+  "B": "#1e48b0",
+  "V": "#3ac04a",
+  "S": "#9a9ca4"
+ },
+ "brands": {
+  "furia": {
+   "name": "Fúria",
+   "real": "Ferrari",
+   "logo": [
+    ".YYYYYYY.",
+    "YYYYKYYYY",
+    "YYYKKYYYY",
+    "YYYKKKYYY",
+    "YYKKYKKYY",
+    "YYKKKKKYY",
+    ".YYKKKYY.",
+    "..YYYYY..",
+    "...YYY..."
+   ]
+  },
+  "toro": {
+   "name": "Toro",
+   "real": "Lamborghini",
+   "logo": [
+    "..KKKKK..",
+    ".KRRRRRK.",
+    "KWRRRRRWK",
+    "KWWRRRWWK",
+    "KRWWWWWRK",
+    "KRRWWWRRK",
+    "KRRRWRRRK",
+    ".KRRRRRK.",
+    "..KKKKK.."
+   ]
+  },
+  "silber": {
+   "name": "Silber",
+   "real": "Porsche",
+   "logo": [
+    "....K....",
+    "...KWK...",
+    "..KWWWK..",
+    ".KWWRWWK.",
+    "KWWRRRWWK",
+    ".KWWRWWK.",
+    "..KWWWK..",
+    "...KWK...",
+    "....K...."
+   ]
+  },
+  "vanguarda": {
+   "name": "Vanguarda",
+   "real": "Chevrolet",
+   "logo": [
+    ".........",
+    "....K....",
+    "...KYK...",
+    "..KYYYK..",
+    ".KYYYYYK.",
+    "KYYYKYYYK",
+    "KYYK.KYYK",
+    "KKK...KKK",
+    "........."
+   ]
+  },
+  "kaze": {
+   "name": "Kaze",
+   "real": "Honda",
+   "logo": [
+    ".RRRRRRR.",
+    "RRWRRRWRR",
+    "RRWRRWRRR",
+    "RRWRWRRRR",
+    "RRWWRRRRR",
+    "RRWRWRRRR",
+    "RRWRRWRRR",
+    "RRWRRRWRR",
+    ".RRRRRRR."
+   ]
+  },
+  "serpe": {
+   "name": "Serpe",
+   "real": "Dodge",
+   "logo": [
+    "..KKKKK..",
+    ".KVVVVVK.",
+    "KVVKKKKKK",
+    "KVVKKKKKK",
+    "KKVVVVVKK",
+    "KKKKKKVVK",
+    "KKKKKKVVK",
+    ".KVVVVVK.",
+    "..KKKKK.."
+   ]
+  },
+  "fiore": {
+   "name": "Fiore",
+   "real": "Fiat",
+   "logo": [
+    ".BBBBBBB.",
+    "BBBBWBBBB",
+    "BBBWWWBBB",
+    "BWWBWBWWB",
+    "BWWWYWWWB",
+    "BWWBWBWWB",
+    "BBBWWWBBB",
+    "BBBBWBBBB",
+    ".BBBBBBB."
+   ]
+  },
+  "pampa": {
+   "name": "Pampa",
+   "real": "Volkswagen",
+   "logo": [
+    "..KKKKK..",
+    ".KBBBBBK.",
+    "KBBYYYBBK",
+    "KBYYYYYBK",
+    "KGGGGGGGK",
+    "KGGGGGGGK",
+    "KGWWWWWGK",
+    ".KGGGGGK.",
+    "..KKKKK.."
+   ]
+  },
+  "onca": {
+   "name": "Onça",
+   "real": "Puma",
+   "logo": [
+    "..KKKKK..",
+    ".KYYKYYK.",
+    "KYKYYYKYK",
+    "KYYYKYYYK",
+    "KKYYYYYKK",
+    "KYYKYYKYK",
+    "KYKYYYYYK",
+    ".KYYKYYK.",
+    "..KKKKK.."
+   ]
+  },
+  "fenix": {
+   "name": "Fênix",
+   "real": "Ford",
+   "logo": [
+    ".BBBBBBB.",
+    "BWBBBBBWB",
+    "BWWBBBWWB",
+    "BBWWBWWBB",
+    "BBBWWWBBB",
+    "BBBBWBBBB",
+    ".BBBWBBB.",
+    "..BBBBB..",
+    "...BBB..."
+   ]
+  }
+ },
+ "cars": {
+  "furia-f4": "furia",
+  "furia-tr": "furia",
+  "toro-v12": "toro",
+  "toro-lp5": "toro",
+  "patrol-sv": "toro",
+  "silber-95": "silber",
+  "vortex-zr": "vanguarda",
+  "patrol": "vanguarda",
+  "kaze-nx": "kaze",
+  "serpe-v10": "serpe",
+  "br-vectra": "vanguarda",
+  "br-omega": "vanguarda",
+  "br-kadett": "vanguarda",
+  "br-corsa": "vanguarda",
+  "br-monza": "vanguarda",
+  "br-opala": "vanguarda",
+  "br-chevette": "vanguarda",
+  "br-tempra": "fiore",
+  "br-tipo16v": "fiore",
+  "br-uno": "fiore",
+  "br-147": "fiore",
+  "br-gol16v": "pampa",
+  "br-golgti": "pampa",
+  "br-passat": "pampa",
+  "br-sp2": "pampa",
+  "br-charger": "serpe",
+  "br-maverick": "fenix",
+  "br-xr3": "fenix",
+  "br-pumagtb": "onca",
+  "br-pumagte": "onca"
+ }
+}

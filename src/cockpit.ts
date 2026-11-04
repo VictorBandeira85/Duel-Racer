@@ -59,6 +59,7 @@ interface CockpitArt {
   needleTail?: number; // contrapeso do ponteiro, além do eixo (px)
   hub: string;
   aux: Aux[];
+  glow?: string; // cor (r,g,b) da iluminação noturna do quadro
   under?: (c: CanvasRenderingContext2D, ox: number, r: Race) => void; // fundo do quadro, antes dos mostradores
   extra?: (c: CanvasRenderingContext2D, ox: number, r: Race) => void; // detalhes próprios (hodômetros, luzes-espia, submostradores)
 }
@@ -90,6 +91,7 @@ interface Aux { x: number; y: number; r: number; kind: 'single' | 'dual' | 'twin
   arc?: [number, number]; // ângulos do arco (padrão: metade de cima); o NX tem arcos de lado, virados para o centro
   iconAt?: [number, number]; // posição do ícone em relação ao centro (px)
   ring?: string; // aro em volta do mostrador
+  ink?: string; // cor dos números e marcações (padrão branco)
 }
 
 // a arte cobre da linha 100 da tela até o fim (124 linhas); o topo transparente mostra a estrada
@@ -758,6 +760,7 @@ for (const [k, v] of Object.entries(INTERIORS)) {
 // conta-giros 0-90 (× 100) com faixa amarela e vermelha, combustível e água; números verdes
 const LP5_INK = '#bfe8cc';
 COCKPIT_ART.countach = {
+  glow: '120,230,150',
   dash: cp('countach-dash'), top: cp('countach-top'), wheel: cp('countach-wheel'),
   pivot: [128, 104], wheelTop: 8, speedMax: 320, needle: '#ff7a1a', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [196, 4],
   speed: { x: 84.5, y: 46.6, r: 25.4, max: 320, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320], tick: 10, red: 999, labelScale: 0.7, ink: LP5_INK, bg: '#0a0b0b' },
@@ -765,11 +768,11 @@ COCKPIT_ART.countach = {
   // como no carro (tools/ref/lp5_cluster.py): à esquerda temperatura do óleo e bateria,
   // no meio a pressão do óleo, à direita combustível e temperatura da água
   aux: [
-    { x: 14.2, y: 42, r: 13.2, kind: 'single', show: ['oiltemp'], icon: 'temp', labels: ['50', '100', '150'], labelIn: 4 },
-    { x: 43.1, y: 42, r: 13.2, kind: 'single', show: ['volt'], icon: 'volt', labels: ['10', '13', '16'], labelIn: 4 },
-    { x: 128.9, y: 42, r: 13.2, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '5', '10'], labelIn: 4 },
-    { x: 213.9, y: 42, r: 13.2, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1/2', '1'], labelIn: 4 },
-    { x: 242.4, y: 42, r: 13.2, kind: 'single', show: ['water'], icon: 'temp', labels: ['40', '80', '120'], labelIn: 4 },
+    { x: 14.2, y: 42, r: 13.2, kind: 'single', show: ['oiltemp'], icon: 'temp', labels: ['50', '100', '150'], labelIn: 4, ink: LP5_INK },
+    { x: 43.1, y: 42, r: 13.2, kind: 'single', show: ['volt'], icon: 'volt', labels: ['10', '13', '16'], labelIn: 4, ink: LP5_INK },
+    { x: 128.9, y: 42, r: 13.2, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '5', '10'], labelIn: 4, ink: LP5_INK },
+    { x: 213.9, y: 42, r: 13.2, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1/2', '1'], labelIn: 4, ink: LP5_INK },
+    { x: 242.4, y: 42, r: 13.2, kind: 'single', show: ['water'], icon: 'temp', labels: ['40', '80', '120'], labelIn: 4, ink: LP5_INK },
   ],
   extra: (c, ox, r) => {
     odometer(c, ox, r, { x: 78.5, y: 39.6, w: 12, h: 3.5 }, 24600, 6, 0.5);
@@ -923,9 +926,10 @@ function instrumentGlow(c: CanvasRenderingContext2D, ox: number, art: CockpitArt
   c.globalCompositeOperation = 'lighter';
   const glow = (x: number, y: number, r: number) => {
     const g = c.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, `rgba(255,190,120,${(0.16 * k).toFixed(3)})`);
-    g.addColorStop(0.7, `rgba(255,170,100,${(0.08 * k).toFixed(3)})`);
-    g.addColorStop(1, 'rgba(255,160,90,0)');
+    const rgb = art.glow ?? '255,180,110'; // cor da luz do quadro (âmbar; a LP5 acende em verde)
+    g.addColorStop(0, `rgba(${rgb},${(0.16 * k).toFixed(3)})`);
+    g.addColorStop(0.7, `rgba(${rgb},${(0.08 * k).toFixed(3)})`);
+    g.addColorStop(1, `rgba(${rgb},0)`);
     c.fillStyle = g;
     c.fillRect(x - r, y - r, r * 2, r * 2);
   };
@@ -1250,7 +1254,7 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
   face(c, cx, cy, R, g.bg);
   const at = (x: number, y: number, a: number, rr: number): [number, number] => [x + Math.cos(a) * rr, y + Math.sin(a) * rr * PIX_Y];
   const ticks = (x: number, y: number, rr: number, a0: number, a1: number, n: number) => {
-    c.fillStyle = '#e8e8e8';
+    c.fillStyle = g.ink ?? '#e8e8e8';
     c.beginPath();
     for (let i = 0; i <= n; i++) {
       const a = a0 + ((a1 - a0) * i) / n;
@@ -1298,7 +1302,7 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
     // números nas pontas e no meio (água 60/90/120, turbo 0/0,8/1,5 da F40)
     g.labels?.forEach((l, i) => {
       const a = a0 + ((a1 - a0) * i) / (g.labels!.length - 1);
-      pix(c, l, ...at(mx, my, a, R - (g.labelIn ?? 2.6) - Math.abs(Math.cos(a)) * pixWidth(l, 0.5) * 0.45), '#f2f2f2', 0.5);
+      pix(c, l, ...at(mx, my, a, R - (g.labelIn ?? 2.6) - Math.abs(Math.cos(a)) * pixWidth(l, 0.5) * 0.45), g.ink ?? '#f2f2f2', 0.5);
     });
     hand(c, mx, my, a0 + (a1 - a0) * val(k1), small ? R - 1.25 : R - 1.5, art.needle);
   } else if (g.kind === 'dual') {
@@ -1348,7 +1352,7 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
   }
   // ícone na metade de baixo (o ponteiro só varre a de cima), em pixel inteiro
   const iy = g.kind === 'twin' ? my + R * PIX_Y * 0.42 : my + Math.max(1.5, Math.min(R * PIX_Y * 0.3, R * PIX_Y - 5.5));
-  drawIcon(c, g.icon ?? 'oil', mx + (g.iconAt?.[0] ?? 0), g.iconAt ? my + g.iconAt[1] : iy);
+  drawIcon(c, g.icon ?? 'oil', mx + (g.iconAt?.[0] ?? 0), g.iconAt ? my + g.iconAt[1] : iy, g.ink);
 }
 
 // ---------- painel digital (LCD) do Corvette C4 ----------

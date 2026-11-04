@@ -34,7 +34,7 @@ SPOTS = {
   'countach':   {'rear': (112, 70, 9, 0),  'front': (92, 69, 9, 5)},
   '959':        {'rear': (100, 70, 9, 0),  'front': (100, 64, 9, 0)},
   'zr1':        {'rear': (100, 46, 9, 0),  'front': (100, 52, 9, 0)},
-  'nsx':        {'rear': (100, 64, 9, 0),  'front': (100, 70, 9, 0)},
+  'nsx':        {'rear': (88, 43, 6, 0),   'front': (93, 54, 7, 0)},
   'viper':      {'rear': (100, 54, 9, 0),  'front': (100, 50, 9, 0)},
   'patrol':     {'rear': (100, 76, 9, 0),  'front': (100, 87, 9, 0)},
   'br-vectra':  {'rear': (56, 26, 6, 3),   'front': (80, 62, 7, 0)},
@@ -53,7 +53,7 @@ WHEELS = {
   'diablo': (128, 104, 13, 0), 'br-vectra': (129, 108, 13, 0), 'br-golgti': (128, 148, 13, 0),
   'br-kadett': (128, 104, 11, 0), 'br-uno': (128, 106, 11, 7), 'br-corsa': (127, 112, 13, 8),
   'br-passat': (129, 112, 13, 8), 'br-pumagtb': (128.5, 127, 13, 9), 'br-pumagte': (128.5, 116, 13, 10),
-  'zr1': (128, 90, 13, 0), 'testarossa': (128.5, 86, 11, 3), 'nsx': (128.5, 86, 11, 3),
+  'zr1': (128, 90, 13, 0), 'testarossa': (128.5, 86, 11, 3), 'nsx': (129.5, 121.8, 17, 0),
   'viper': (128.5, 86, 11, 3), 'countach': (127.5, 117, 13, 11),
 }
 ZR1_CLEAR = (128, 90, 15, 13)  # elipse do emblema largo do C4
@@ -145,6 +145,14 @@ def zoom(a, cx, cy, k=6, R=18):
 
 def main():
   prev = None
+  only = sys.argv[sys.argv.index('--only') + 1].split(',') if '--only' in sys.argv else None
+  if only:
+    for k in list(SPOTS):
+      if k not in only:
+        del SPOTS[k]
+    for k in list(WHEELS):
+      if k not in only:
+        del WHEELS[k]
   if '--preview' in sys.argv:
     prev = sys.argv[sys.argv.index('--preview') + 1]
     os.makedirs(prev, exist_ok=True)

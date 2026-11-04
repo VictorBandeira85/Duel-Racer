@@ -776,6 +776,27 @@ COCKPIT_ART.countach = {
   },
 };
 
+// Kaze NX (NSX): interior do Victor espelhado para volante à esquerda (tools/ref/nsx_cockpit.py);
+// quadro como o do carro: painel cinza escovado, conta-giros 0-9 (faixa vermelha a partir de 8) e
+// velocímetro 0-280 grandes, água e pressão do óleo à esquerda, combustível e bateria à direita
+const NX_INK = '#f2f2f2';
+COCKPIT_ART.nsx = {
+  dash: cp('nsx-dash'), top: cp('nsx-top'), wheel: cp('nsx-wheel'),
+  pivot: [128, 140], wheelTop: 0, speedMax: 280, needle: '#ff3a1a', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [196, 4],
+  tach: { x: 98, y: 64, r: 24, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.5, red: 8, labelScale: 0.7, redLabels: false, ink: NX_INK, bg: '#0b0b0d' },
+  speed: { x: 160, y: 64, r: 24, max: 280, labels: [0, 40, 80, 120, 160, 200, 240, 280], tick: 10, red: 999, labelScale: 0.7, ink: NX_INK, bg: '#0b0b0d' },
+  aux: [
+    { x: 64, y: 48, r: 8, kind: 'single', show: ['water'], icon: 'temp', labels: ['C', 'H'] },
+    { x: 66, y: 76, r: 8, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '8'] },
+    { x: 194, y: 48, r: 8, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1'] },
+    { x: 192, y: 76, r: 8, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '16'] },
+  ],
+  extra: (c, ox, r) => {
+    odometer(c, ox, r, { x: 92, y: 75, w: 12, h: 3.5 }, 63373, 6, 0.5);
+    odometer(c, ox, r, { x: 156, y: 75, w: 8, h: 3.5 }, 34.3, 4, 0.5, true);
+  },
+};
+
 // Imagens das cabines: decodificadas só quando o carro é escolhido (não todas na abertura)
 const artImages = (a: CockpitArt) => [a.dash, a.top, a.wheel, a.dashMask, a.topMask, a.mirror?.img].filter((s): s is string => !!s);
 export const hasCockpitArt = (dash: string) => !!COCKPIT_ART[dash];

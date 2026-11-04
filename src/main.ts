@@ -675,7 +675,7 @@ beginLoading(state, () => actions.go('title'), 1.4);
 requestAnimationFrame(frame);
 
 // para testes automatizados
-Object.assign(window, { app: { state, actions, beginLoading, courses: COURSES, get race() { return race; } }, input, audio: { audioCtx, synthReady, sfxLevel } });
+Object.assign(window, { app: { state, actions, beginLoading, courses: COURSES, cars: CARS, get race() { return race; } }, input, audio: { audioCtx, synthReady, sfxLevel } });
 
 // app instalável: funciona sem internet (não no arquivo único usado para testes)
 if ('serviceWorker' in navigator && import.meta.env.MODE !== 'single' && (location.protocol === 'https:' || location.hostname === 'localhost')) {

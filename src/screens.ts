@@ -9,7 +9,9 @@ import { FX_LABEL, fxMode, lowFx, setFxMode } from './perf';
 import { ACHIEVEMENTS, MEDAL_COLOR, loadStats, medalName, medals, takeToast, unlockedAchievements } from './challenges';
 import { RIVAL_STYLE } from './race';
 import type { CareerSave, EventResult } from './career';
-import { drawCareerScreen, keyCareerScreen, openCareer, tapCareerScreen } from './careerScreens';
+import { newCareer, saveCareer } from './career';
+import { drawCareerScreen, keyCareerScreen, tapCareerScreen } from './careerScreens';
+import { openShowroom } from './showroom';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
 import { MUSIC_CREDIT_LINES } from './tracks';
@@ -27,7 +29,8 @@ import { brandOf, drawLogo } from './brands';
 import { setEngine, setTires, shiftSound } from './audio';
 
 export type ScreenId = 'loading' | 'title' | 'options' | 'controls' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores' | 'achievements'
-  | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd' | 'collection';
+  | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd' | 'collection' | 'careerMenu' | 'showroom';
+const CAREER_SCREENS: ScreenId[] = ['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection', 'careerMenu', 'showroom'];
 export type MenuKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back';
 
 export interface StageResult {
@@ -98,20 +101,24 @@ export function saveScore(course: Course, e: ScoreEntry) {
 }
 
 // ---------- tela título: capa da revista ----------
-// chamadas da capa (o índice segue a ordem antiga: 0 opções, 1 arcade, 2 carreira, 3 recordes)
+// chamadas da capa = menu, na ordem de leitura: arcade, carreira, showroom (em cima),
+// recordes e opções (embaixo)
 const titleSigns = () => {
   const x = ox();
   return [
-    { x: x + 166, y: 204, w: 150, h: 30 }, // opções
-    { x: x + 4, y: 172, w: 158, h: 30 }, // arcade
-    { x: x + 4, y: 204, w: 158, h: 30 }, // carreira
-    { x: x + 166, y: 172, w: 150, h: 30 }, // recordes
+    { x: x + 4, y: 172, w: 102, h: 30 }, // arcade
+    { x: x + 109, y: 172, w: 102, h: 30 }, // carreira
+    { x: x + 214, y: 172, w: 102, h: 30 }, // showroom
+    { x: x + 4, y: 204, w: 154, h: 30 }, // recordes
+    { x: x + 162, y: 204, w: 154, h: 30 }, // opções
   ] as Rect[];
 };
+const coverRect = (): Rect => ({ x: ox() + 4, y: 56, w: SAFE_W - 8, h: 108 });
+let coverCarId = ''; // carro da capa que está passando (toque leva ao anúncio dele)
 
 // carros da capa: os que têm arte (e as vistas de frente e de trás)
 const coverCars = () => CARS.filter((c) => c.imgSide && c.rear.img && c.rear.frontImg && !c.arcadeOnly);
-const SLIDE_T = 7; // s por edição da capa
+const SLIDE_T = 15; // s por edição da capa
 const SLIDES = ['test', 'lp5', 'compare', 'angles', 'interior', 'brasil', 'news', 'road'] as const;
 // carros nacionais com arte: entram no especial e nas fotos do interior (as novidades da revista)
 const brCars = () => coverCars().filter((c) => c.id.startsWith('br-'));
@@ -171,6 +178,7 @@ function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot
   const enter = Math.min(1, u * SLIDE_T / 0.5); // entra deslizando no começo de cada edição
   const ease = 1 - (1 - enter) ** 3;
   const p = paintHex(car.id);
+  coverCarId = car.id;
   const kmh = (cc: CarSpec) => Math.round(cc.maxSpeed * KMH);
   const mirror = (fn: () => void, cx: number) => {
     c.save();
@@ -183,6 +191,7 @@ function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot
     // capa especial do Toro LP5 (horizontal, como as revistas importadas): foto sangrada,
     // título enorme, "nesta edição" ao lado, faixa vermelha embaixo e código de barras
     const pick = LP5_PHOTOS[Math.floor(slot / SLIDES.length) % LP5_PHOTOS.length];
+    coverCarId = 'toro-lp5';
     const shown = { v: false };
     photo(c, ph, () => {
       c.fillStyle = '#f4f2ee';
@@ -246,6 +255,7 @@ function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot
     const withArt = list.filter((cc) => hasCockpitArt(cc.dash)).sort((x, y) => Number(y.id.startsWith('br-')) - Number(x.id.startsWith('br-')));
     const ic = withArt.length ? withArt[Math.floor(slot / SLIDES.length) % withArt.length] : car;
     const img = interiorPhoto(ic.id, ic.dash);
+    coverCarId = ic.id;
     photo(c, ph, () => {
       if (img) {
         // enquadra o painel inteiro e aproxima devagar (como câmera em movimento)
@@ -261,6 +271,7 @@ function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot
     // especial nacionais: três carros nacionais em fila, de frente, de lado e de trás
     const br = brCars();
     const pick = (k: number) => br[(Math.floor(slot / SLIDES.length) * 3 + k) % Math.max(1, br.length)] ?? car;
+    coverCarId = pick(1).id;
     photo(c, ph, () => {
       // fundo verde e amarelo da bandeira, discreto, como capa de edição especial
       c.fillStyle = '#1f7a3a';
@@ -356,21 +367,34 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
   ink(c, 'A REVISTA DO DUELO NA ESTRADA', w / 2, 44, 5, '#fff', 'center');
   // foto da capa: uma "edição" diferente a cada 7 s (teste, comparativo, ângulos, interior,
   // notícias, flagra na estrada), com o carro trocando a cada volta
-  const ph: Rect = { x: x + 4, y: 56, w: SAFE_W - 8, h: 108 };
+  const ph = coverRect();
   const t = Math.max(0, s.t || 0);
   const slot = Math.floor(t / SLIDE_T);
   drawCoverSlide(c, s, ph, slot, (t % SLIDE_T) / SLIDE_T);
   // código de barras no canto (menos onde há quadros pequenos ali)
   const kind = SLIDES[Math.max(0, slot) % SLIDES.length];
-  if (kind !== 'angles' && kind !== 'news' && kind !== 'brasil' && kind !== 'lp5') barcode(c, ph.x + ph.w - 40, ph.y + ph.h - 22);
+  if (kind !== 'angles' && kind !== 'news' && kind !== 'brasil' && kind !== 'lp5') barcode(c, ph.x + ph.w - 40, ph.y + ph.h - 36);
   // chamadas = menu (o subtítulo muda a cada edição da foto)
+  // o carro da capa: toque na foto abre o anúncio dele no showroom
+  const cc = CARS.find((k) => k.id === coverCarId);
+  if (cc) {
+    c.font = '5px "Press Start 2P", monospace';
+    const lab = `VER ${cc.name.toUpperCase()} NO SHOWROOM ▶`;
+    const tw = Math.ceil(c.measureText(lab).width) + 6;
+    const blink = Math.floor(s.t * 1.5) % 2 === 0;
+    const ty = ph.y + ph.h - (kind === 'lp5' ? 21 : 11); // na capa da LP5, acima da faixa vermelha
+    c.fillStyle = blink ? RED : INK;
+    c.fillRect(ph.x + ph.w - tw - 2, ty, tw, 9);
+    ink(c, lab, ph.x + ph.w - 5, ty + 2, 5, blink ? YELLOW : '#fff', 'right');
+  }
   const alt = [
-    ['Câmbio, som e controles', 'Ligue o fantasma', 'Botões do seu tamanho'],
-    ['20 roteiros para acelerar', 'Túneis, neblina e pôr do sol', 'Libere mapa por mapa'],
-    ['Do bairro ao chefão final', 'Os rivais falam tudo', 'Oficina e classificados'],
+    ['20 roteiros', 'Túneis e neblina', 'Mapa por mapa'],
+    ['Do bairro ao chefão', 'Os rivais falam', 'Correr ou garagem'],
+    ['Classificados', 'Filtre por marca', 'Compre e acelere'],
     ['Os mais rápidos do país', '18 conquistas para caçar', 'Medalhas de ouro em jogo'],
+    ['Câmbio, som e controles', 'Ligue o fantasma', 'Botões do seu tamanho'],
   ];
-  const calls: [string, string][] = ['OPÇÕES', 'ARCADE', 'CARREIRA', 'RECORDES'].map((k, i) => [k, alt[i][slot % alt[i].length]]);
+  const calls: [string, string][] = ['ARCADE', 'CARREIRA', 'SHOWROOM', 'RECORDES', 'OPÇÕES'].map((k, i) => [k, alt[i][slot % alt[i].length]]);
   titleSigns().forEach((r, i) => {
     const hot = s.sel === i;
     if (hot) {
@@ -386,14 +410,22 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
 }
 
 function tapTitle(s: AppState, a: Actions, x: number, y: number) {
+  if (inside(x, y, coverRect()) && coverCarId) return openShowroom(s, a, coverCarId, 'title');
   titleSigns().forEach((r, i) => {
     if (inside(x, y, r)) activateTitle(s, i, a);
   });
 }
 function activateTitle(s: AppState, i: number, a: Actions) {
-  if (i === 2) return openCareer(s, a);
-  if (i === 1) s.mode = 'arcade';
-  a.go((['options', 'car', 'career', 'scores'] as ScreenId[])[i]);
+  if (i === 0) s.mode = 'arcade';
+  if (i === 1) {
+    if (!s.career) {
+      s.career = newCareer();
+      saveCareer(s.career);
+    }
+    return a.go('careerMenu');
+  }
+  if (i === 2) return openShowroom(s, a, '', 'title');
+  a.go((['car', 'careerMenu', 'showroom', 'scores', 'options'] as ScreenId[])[i]);
 }
 
 // ---------- opções ----------
@@ -1524,7 +1556,7 @@ export function drawScreen(c: CanvasRenderingContext2D, s: AppState) {
 }
 
 export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
-  if (['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection'].includes(s.screen)) return tapCareerScreen(s, a, x, y);
+  if (CAREER_SCREENS.includes(s.screen)) return tapCareerScreen(s, a, x, y);
   switch (s.screen) {
     case 'title': return tapTitle(s, a, x, y);
     case 'options':
@@ -1629,8 +1661,8 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 }
 
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
-  if (['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection'].includes(s.screen)) return keyCareerScreen(s, a, k);
-  const counts: Partial<Record<ScreenId, number>> = { title: 4, options: 11, opponent: oppList(s).length, course: COURSES.length };
+  if (CAREER_SCREENS.includes(s.screen)) return keyCareerScreen(s, a, k);
+  const counts: Partial<Record<ScreenId, number>> = { title: 5, options: 11, opponent: oppList(s).length, course: COURSES.length };
   // percursos: cima/baixo escolhem, esquerda/direita trocam a hora (dia, entardecer, amanhecer, noite)
   if (s.screen === 'course' && (k === 'left' || k === 'right')) {
     const order: ArcadeTime[] = ['day', 'sunset', 'dawn', 'night'];

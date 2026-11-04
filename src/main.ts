@@ -37,7 +37,7 @@ setMusicOn(prefs.music);
 $('version').textContent = __APP_VERSION__;
 
 const state: AppState = {
-  screen: 'title', t: 0, sel: 1, auto: prefs.auto, sound: prefs.sound, music: prefs.music,
+  screen: 'title', t: 0, sel: 0, auto: prefs.auto, sound: prefs.sound, music: prefs.music,
   carIdx: 0, oppIdx: 0, courseIdx: 0, scoreCourse: 0,
   lives: 5, results: [], gameOver: false,
   mode: 'arcade', career: loadCareer(), careerResult: null, gasPage: 0, arcadeTime: 'day', courseTop: 0, newMap: null, lockedT: 0, carFilter: null, oppFilter: null,
@@ -79,7 +79,7 @@ const actions: Actions = {
   go(s: ScreenId) {
     state.screen = s;
     resize();
-    state.sel = s === 'title' ? 1 : s === 'course' ? unlockedCourses() - 1 : 0; // percursos: já no mapa liberado mais novo
+    state.sel = s === 'title' ? 0 : s === 'course' ? unlockedCourses() - 1 : 0; // percursos: já no mapa liberado mais novo
     state.lockedT = 0;
     showControls(false);
     $('settings').classList.add('hidden'); // ajustes da pausa não ficam abertos sobre o menu

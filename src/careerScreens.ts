@@ -1,4 +1,5 @@
 import { touch } from './input';
+import { drawShowroom, keyShowroom, openShowroom, tapShowroom } from './showroom';
 // Telas do modo Carreira: central (regiões e eventos), evento, garagem, concessionária e resultado.
 import { SAFE_W, view, KMH } from './config';
 import { CARS, DEALER_CARS, RIMS, drawCarSide, gearbox, layout, type CarSpec } from './cars';
@@ -26,12 +27,12 @@ export const money = (v: number) => `$${Math.round(v).toLocaleString('pt-BR')}`;
 
 // estado da interface da carreira (não vai para o save)
 export const ui = { region: 0, event: 0, dealer: 0, garage: 0, gFocus: 6, msg: '', msgT: 0, filter: null as ClassFilter };
-function flash(s: AppState, msg: string) {
+export function flash(s: AppState, msg: string) {
   ui.msg = msg;
   ui.msgT = s.t + 2.2;
 }
 
-function topBar(c: CanvasRenderingContext2D, s: AppState, title: string, cs: CareerSave) {
+export function topBar(c: CanvasRenderingContext2D, s: AppState, title: string, cs: CareerSave) {
   masthead(c, title);
   void s;
   // saldo do leitor no canto, como etiqueta de preço
@@ -44,7 +45,7 @@ function topBar(c: CanvasRenderingContext2D, s: AppState, title: string, cs: Car
 }
 
 // aviso curto por cima de tudo (compra, falta de dinheiro etc.)
-function toast(c: CanvasRenderingContext2D, s: AppState) {
+export function toast(c: CanvasRenderingContext2D, s: AppState) {
   if (!ui.msg || s.t >= ui.msgT) return;
   const x = ox();
   c.fillStyle = INK;
@@ -128,7 +129,7 @@ export function drawCareer(c: CanvasRenderingContext2D, s: AppState) {
   tag(c, b.collection, 'GARAGEM');
   tag(c, b.garage, 'OFICINA');
   tag(c, b.dealer, 'CLASSIFICADOS');
-  tag(c, b.back, '◀ CAPA');
+  tag(c, b.back, '◀ VOLTAR');
   toast(c, s);
 }
 
@@ -145,8 +146,8 @@ function tapCareer(s: AppState, a: Actions, x: number, y: number) {
   else if (inside(x, y, b.next)) ui.region = (ui.region + 1) % REGIONS.length;
   else if (inside(x, y, b.collection)) a.go('collection');
   else if (inside(x, y, b.garage)) a.go('garage');
-  else if (inside(x, y, b.dealer)) a.go('dealer');
-  else if (inside(x, y, b.back)) a.go('title');
+  else if (inside(x, y, b.dealer)) openShowroom(s, a, '', 'career');
+  else if (inside(x, y, b.back)) a.go('careerMenu');
   else hubRows().forEach((r, i) => inside(x, y, r) && pickEvent(s, a, i));
 }
 
@@ -316,7 +317,7 @@ function tapGarage(s: AppState, a: Actions, x: number, y: number) {
   if (inside(x, y, b.prev) && cars.length > 1) ui.garage = (ui.garage + cars.length - 1) % cars.length;
   else if (inside(x, y, b.next) && cars.length > 1) ui.garage = (ui.garage + 1) % cars.length;
   else if (inside(x, y, b.back)) a.go('career');
-  else if (inside(x, y, b.dealer)) a.go('dealer');
+  else if (inside(x, y, b.dealer)) openShowroom(s, a, '', 'garage');
   else if (inside(x, y, b.use)) {
     cs.car = car.id;
     saveCareer(cs);
@@ -398,7 +399,7 @@ function drawCollection(c: CanvasRenderingContext2D, s: AppState) {
     arrow(c, b.next, 'right', true);
     ink(c, `${colPage + 1}/${pages}`, x + 160, 216, 5, INK, 'center');
   }
-  tag(c, b.back, '◀ CAMPEONATO');
+  tag(c, b.back, '◀ CARREIRA');
   tag(c, b.garage, 'OFICINA ▶');
   ink(c, 'Toque num carro para abrir na oficina', x + 160, 202, 5, GREY, 'center');
   toast(c, s);
@@ -407,7 +408,7 @@ function tapCollection(s: AppState, a: Actions, x: number, y: number) {
   const cars = ownedCars(s.career!);
   const pages = Math.max(1, Math.ceil(cars.length / COL_PER_PAGE));
   const b = collectionButtons();
-  if (inside(x, y, b.back)) return a.go('career');
+  if (inside(x, y, b.back)) return a.go('careerMenu');
   if (inside(x, y, b.garage)) return a.go('garage');
   if (pages > 1 && inside(x, y, b.prev)) colPage = (colPage + pages - 1) % pages;
   else if (pages > 1 && inside(x, y, b.next)) colPage = (colPage + 1) % pages;
@@ -483,7 +484,7 @@ function tapDealer(s: AppState, a: Actions, x: number, y: number) {
     if (f === null || filtered(DEALER_CARS, f).length) setDealerFilter(f);
   } else if (inside(x, y, b.prev)) ui.dealer = stepCar(DEALER_CARS, ui.filter, ui.dealer, -1);
   else if (inside(x, y, b.next)) ui.dealer = stepCar(DEALER_CARS, ui.filter, ui.dealer, 1);
-  else if (inside(x, y, b.back)) a.go(cs.owned.length ? 'career' : 'title');
+  else if (inside(x, y, b.back)) a.go(cs.owned.length ? 'career' : 'careerMenu');
   else if (inside(x, y, b.buy)) {
     if (cs.owned.includes(car.id)) {
       if (cs.owned.length > 1 && cs.car !== car.id) {
@@ -555,6 +556,75 @@ export function drawCareerEnd(c: CanvasRenderingContext2D, s: AppState) {
   toast(c, s);
 }
 
+// ---------- carreira: escolha entre correr e ver a garagem ----------
+const careerTiles = () => {
+  const x = ox();
+  return [{ x: x + 4, y: 34, w: 154, h: 168 }, { x: x + 162, y: 34, w: 154, h: 168 }] as Rect[];
+};
+const careerMenuBack = () => ({ x: ox() + 4, y: 211, w: 100, h: 15 }) as Rect;
+
+function drawCareerMenu(c: CanvasRenderingContext2D, s: AppState) {
+  const cs = s.career!;
+  const x = ox();
+  paper(c);
+  topBar(c, s, 'CARREIRA', cs);
+  kicker(c, 'MODO CARREIRA', x + 4, 20, RED, '#fff');
+  const owned = ownedCars(cs);
+  const cur = owned.find((cc) => cc.id === cs.car) ?? owned[0];
+  const [run, gar] = careerTiles();
+  const frame = (r: Rect, hot: boolean) => {
+    c.fillStyle = hot ? RED : INK;
+    c.fillRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
+    c.fillStyle = '#f8f2e2';
+    c.fillRect(r.x, r.y, r.w, r.h);
+  };
+  const hot = (i: number) => !touch.ui && s.sel % 2 === i;
+  // correr: o carro em uso na estrada e a região mais avançada
+  frame(run, hot(0));
+  const ph: Rect = { x: run.x + 4, y: run.y + 4, w: run.w - 8, h: 92 };
+  photo(c, ph, () => {
+    if (cur) drawCarSide(c, ph.x + 6, ph.y + 84, ph.w - 12, tunedFor(cur, levels(cs, cur.id), setupOf(cs, cur.id)), paintHex(cur.id));
+  }, ['#3a5a8a', '#c8b89a']);
+  if (!cur) {
+    ink(c, 'SEU CARRO AQUI', ph.x + ph.w / 2, ph.y + 36, 5, '#fff', 'center');
+    ink(c, 'compre no showroom', ph.x + ph.w / 2, ph.y + 46, 5, '#fff', 'center');
+  }
+  headline(c, 'CORRER', run.x + 6, run.y + 102, 16, INK);
+  const reg = REGIONS.reduce((best, _, i) => (regionUnlocked(cs, i) ? i : best), 0);
+  ink(c, cur ? `Com o ${cur.name}` : 'Primeiro, escolha um carro', run.x + 6, run.y + 124, 5, GREY);
+  ink(c, `Região: ${REGIONS[reg].name}`, run.x + 6, run.y + 134, 5, GREY);
+  tag(c, { x: run.x + 6, y: run.y + run.h - 20, w: run.w - 12, h: 15 }, cur ? 'IR PARA O CAMPEONATO ▶' : 'ESCOLHER CARRO ▶', hot(0));
+  // garagem: os carros comprados, pequenos, como pôster
+  frame(gar, hot(1));
+  const gp: Rect = { x: gar.x + 4, y: gar.y + 4, w: gar.w - 8, h: 92 };
+  photo(c, gp, () => {
+    const show = owned.slice(0, 3);
+    const ys = [[84], [50, 84], [36, 60, 84]][Math.max(0, show.length - 1)];
+    show.forEach((cc, i) => drawCarSide(c, gp.x + 6 + (i % 2) * 8, gp.y + ys[i], show.length > 1 ? gp.w - 30 : gp.w - 12, cc, paintHex(cc.id)));
+  }, ['#4a4238', '#a89a86']);
+  if (!owned.length) ink(c, 'GARAGEM VAZIA', gp.x + gp.w / 2, gp.y + 42, 5, '#fff', 'center');
+  headline(c, 'GARAGEM', gar.x + 6, gar.y + 102, 16, INK);
+  const total = owned.reduce((t, car) => t + sellValue(car), 0);
+  ink(c, `${owned.length} carro${owned.length === 1 ? '' : 's'} • vale ${money(total)}`, gar.x + 6, gar.y + 124, 5, GREY);
+  ink(c, 'Oficina, cores e ajustes', gar.x + 6, gar.y + 134, 5, GREY);
+  tag(c, { x: gar.x + 6, y: gar.y + gar.h - 20, w: gar.w - 12, h: 15 }, 'VER GARAGEM ▶', hot(1));
+  tag(c, careerMenuBack(), '◀ CAPA');
+  toast(c, s);
+}
+
+function careerMenuPick(s: AppState, a: Actions, i: number) {
+  if (i === 0) return openCareer(s, a);
+  if (!s.career!.owned.length) {
+    flash(s, 'Garagem vazia: compre seu carro no showroom');
+    return openShowroom(s, a, '', 'careerMenu');
+  }
+  a.go('collection');
+}
+function tapCareerMenu(s: AppState, a: Actions, x: number, y: number) {
+  if (inside(x, y, careerMenuBack())) return a.go('title');
+  careerTiles().forEach((r, i) => inside(x, y, r) && careerMenuPick(s, a, i));
+}
+
 // ---------- roteamento ----------
 export function openCareer(s: AppState, a: Actions) {
   if (!s.career) {
@@ -562,8 +632,9 @@ export function openCareer(s: AppState, a: Actions) {
     saveCareer(s.career);
   }
   if (!s.career.owned.length) {
-    ui.dealer = DEALER_CARS.findIndex((c) => priceOf(c) <= s.career!.money);
-    a.go('dealer');
+    // primeiro carro: escolhido nos classificados do showroom
+    openShowroom(s, a, '', 'careerMenu');
+    flash(s, 'Escolha seu primeiro carro');
   } else {
     // abre na região mais avançada liberada
     ui.region = REGIONS.reduce((best, _, i) => (regionUnlocked(s.career!, i) ? i : best), 0);
@@ -584,6 +655,8 @@ export function drawCareerScreen(c: CanvasRenderingContext2D, s: AppState) {
     case 'dealer': return drawDealer(c, s);
     case 'careerEnd': return drawCareerEnd(c, s);
     case 'collection': return drawCollection(c, s);
+    case 'careerMenu': return drawCareerMenu(c, s);
+    case 'showroom': return drawShowroom(c, s);
   }
 }
 
@@ -595,6 +668,8 @@ export function tapCareerScreen(s: AppState, a: Actions, x: number, y: number) {
     case 'dealer': return tapDealer(s, a, x, y);
     case 'careerEnd': return a.go('career');
     case 'collection': return tapCollection(s, a, x, y);
+    case 'careerMenu': return tapCareerMenu(s, a, x, y);
+    case 'showroom': return tapShowroom(s, a, x, y);
   }
 }
 
@@ -602,13 +677,19 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
   const cs = s.career!;
   const b = (r: Rect) => tapCareerScreen(s, a, r.x + r.w / 2, r.y + r.h / 2);
   switch (s.screen) {
+    case 'showroom': return keyShowroom(s, a, k);
+    case 'careerMenu':
+      if (k === 'left' || k === 'right' || k === 'up' || k === 'down') s.sel = 1 - (s.sel % 2);
+      if (k === 'ok') careerMenuPick(s, a, s.sel % 2);
+      if (k === 'back') a.go('title');
+      return;
     case 'career':
       if (k === 'left') ui.region = (ui.region + REGIONS.length - 1) % REGIONS.length;
       if (k === 'right') ui.region = (ui.region + 1) % REGIONS.length;
       if (k === 'up') s.sel = (s.sel + 4) % 5;
       if (k === 'down') s.sel = (s.sel + 1) % 5;
       if (k === 'ok') pickEvent(s, a, s.sel);
-      if (k === 'back') a.go('title');
+      if (k === 'back') a.go('careerMenu');
       return;
     case 'event':
       if (k === 'ok') a.startEvent(ui.region, ui.event);
@@ -629,7 +710,7 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
       if (k === 'right') b(dealerButtons().next);
       if (k === 'up' || k === 'down') setDealerFilter(nextFilter(ui.filter, k === 'down' ? 1 : -1, (c2) => filtered(DEALER_CARS, c2).length > 0));
       if (k === 'ok') b(dealerButtons().buy);
-      if (k === 'back') a.go(cs.owned.length ? 'career' : 'title');
+      if (k === 'back') a.go(cs.owned.length ? 'career' : 'careerMenu');
       return;
     case 'careerEnd':
       if (k === 'ok' || k === 'back') a.go('career');
@@ -638,6 +719,6 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
       if (k === 'left') b(collectionButtons().prev);
       if (k === 'right') b(collectionButtons().next);
       if (k === 'ok') a.go('garage');
-      if (k === 'back') a.go('career');
+      if (k === 'back') a.go('careerMenu');
   }
 }

@@ -785,17 +785,17 @@ COCKPIT_ART.nsx = {
   pivot: [128, 104], wheelTop: 14, speedMax: 280, needle: '#ff3a1a', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [30, 4],
   // retrovisor externo à direita (mão inglesa): o espelho da arte é transparente e mostra a vista de trás
   glass: { at: [436, 71], thr: 256 },
-  tach: { x: 103, y: 44, r: 22, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.5, red: 8, labelScale: 0.7, redLabels: false, ink: NX_INK, bg: '#0b0b0d' },
-  speed: { x: 155, y: 44, r: 22, max: 280, labels: [0, 40, 80, 120, 160, 200, 240, 280], tick: 10, red: 999, labelScale: 0.7, ink: NX_INK, bg: '#0b0b0d' },
+  // como na arte do Victor: conta-giros e velocímetro grandes, temperatura à esquerda e
+  // combustível à direita, hodômetro e parcial embaixo
+  tach: { x: 98, y: 50, r: 22, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.5, red: 8, labelScale: 0.7, redLabels: false, ink: NX_INK, bg: '#0b0b0d' },
+  speed: { x: 159, y: 50, r: 22, max: 280, labels: [0, 40, 80, 120, 160, 200, 240, 280], tick: 10, red: 999, labelScale: 0.7, ink: NX_INK, bg: '#0b0b0d' },
   aux: [
-    { x: 70, y: 40, r: 7, kind: 'single', show: ['water'], icon: 'temp', labels: ['C', 'H'] },
-    { x: 64, y: 60, r: 7, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '8'] },
-    { x: 186, y: 40, r: 7, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1'] },
-    { x: 192, y: 60, r: 7, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '16'] },
+    { x: 63, y: 54, r: 8, kind: 'single', show: ['water'], icon: 'temp', labels: ['C', 'H'] },
+    { x: 193, y: 54, r: 8, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['E', 'F'] },
   ],
   extra: (c, ox, r) => {
-    odometer(c, ox, r, { x: 97, y: 55, w: 12, h: 3.5 }, 27, 6, 0.5);
-    odometer(c, ox, r, { x: 151, y: 55, w: 8, h: 3.5 }, 0, 4, 0.5, true);
+    odometer(c, ox, r, { x: 64, y: 76, w: 12, h: 3.5 }, 27, 6, 0.5);
+    odometer(c, ox, r, { x: 186, y: 76, w: 8, h: 3.5 }, 0, 4, 0.5, true);
   },
 };
 

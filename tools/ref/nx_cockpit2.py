@@ -8,7 +8,8 @@
 - o nome da marca no rádio sai
 Escala 0,37 (pixel 8:7), pivô do volante no centro da tela.
 
-Uso: python3 tools/ref/nx_cockpit2.py <cab2.png> <src/assets/cockpit>
+Uso: python3 tools/ref/nx_cockpit2.py <cab2.png> <src/assets/cockpit> [cab2-nowheel.png]
+(com a arte sem volante, o painel e o teto saem dela; sem ela, o painel é reconstruído)
 """
 import os
 import sys
@@ -44,7 +45,9 @@ def sample(img, xs, ys):
 
 def main():
     src, out = sys.argv[1], sys.argv[2]
-    art = np.array(Image.open(src).convert('RGB'))
+    nowheel = sys.argv[3] if len(sys.argv) > 3 else None
+    wart0 = np.array(Image.open(src).convert('RGB'))
+    art = np.array(Image.open(nowheel).convert('RGB')) if nowheel else wart0
     H, W = art.shape[:2]
     rgb = art.astype(int)
     r_, g_, b_ = rgb[..., 0], rgb[..., 1], rgb[..., 2]
@@ -57,7 +60,7 @@ def main():
     # para-brisa: acima da faixa vermelha do capô (procurada coluna a coluna; atrás do aro do
     # volante, onde ela some, a linha é interpolada)
     top = np.full(W, -1)
-    for x in list(range(0, 762)) + list(range(1316, 1330)):  # fora do aro (dentro dele há ponteiros vermelhos)
+    for x in (range(0, 1330) if nowheel else list(range(0, 762)) + list(range(1316, 1330))):  # fora do aro (dentro dele há ponteiros vermelhos)
         k = np.nonzero(red[180:300, x])[0]
         if len(k):
             top[x] = 180 + k[0]
@@ -70,8 +73,18 @@ def main():
     # coluna, painel e porta são cinza-arroxeados (vermelho ~ verde, azul por cima, até o brilho
     # lilás); paisagem é verde, azul-céu (verde > vermelho) ou branca. À direita do para-brisa,
     # acima da linha da porta, o que não é peça vira vidro (sem pontinhos soltos)
-    solid = ((lum < 200) & (sat < 95) & (b_ >= g_ - 4) & (r_ >= g_ - 10)) | red | (lum < 30)
-    win = (~solid & (xx >= 1280) & (yy < 330)).astype(np.uint8)
+    solid = ((lum < 200) & (sat < 95) & (b_ >= g_ - 4) & (r_ >= g_ - 10)) | red | ((lum < 30) & (b_ >= g_))
+    # folhagem (verde) e mureta (branco-azulado) nunca são peça do carro
+    # (a coluna lilás tem verde abaixo do vermelho; folhas e céu/mureta têm verde acima)
+    scen = (g_ > r_ + 10) | ((b_ > r_ + 12) & (g_ >= r_) & (lum > 120))
+    solid &= ~scen
+    win = (~solid & (xx >= 1180) & (yy < 330) & (yy < top[None, :] + 40 + (xx - 1180) * 0)).astype(np.uint8)
+    # folhas escuras soltas no meio da paisagem: ilhas pequenas de "peça" viram paisagem
+    isl = ((1 - win) * ((xx >= 1180) & (yy < 330))).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(isl, connectivity=8)
+    for i in range(1, n):
+        if st[i, cv2.CC_STAT_AREA] < 400:
+            win[lab == i] = 1
     win = cv2.morphologyEx(win, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
     n, lab, st, _ = cv2.connectedComponentsWithStats(win, connectivity=4)
     for i in range(1, n):
@@ -97,16 +110,16 @@ def main():
     hub = np.zeros((H, W), np.uint8)
     cv2.fillPoly(hub, [np.array(HUB, np.int32)], 1)
     wheel = (e_out & ~e_in) | (hub.astype(bool) & e_out)
-    wart = art.copy()
+    wart = wart0.copy()
     # o H do miolo: placa lisa da cor do miolo em volta
     hx, hy = 1043, 490
     hmask = ((xx - hx) / 44) ** 2 + ((yy - hy) / 40) ** 2 <= 1
     ring = (((xx - hx) / 60) ** 2 + ((yy - hy) / 54) ** 2 <= 1) & ~hmask
-    wart[hmask] = np.percentile(art[ring], 40, axis=0).astype(np.uint8)
+    wart[hmask] = np.percentile(wart0[ring], 40, axis=0).astype(np.uint8)
 
     # --- painel sem o volante: preenchido a partir das bordas ---
     dash = art.copy()
-    m = cv2.dilate(wheel.astype(np.uint8), np.ones((5, 5), np.uint8))
+    m = cv2.dilate(wheel.astype(np.uint8), np.ones((5, 5), np.uint8)) * (0 if nowheel else 1)
     small = cv2.resize(dash, (W // 2, H // 2), interpolation=cv2.INTER_AREA)
     ms = cv2.resize(m, (W // 2, H // 2), interpolation=cv2.INTER_NEAREST)
     fill = cv2.inpaint(small, ms, 6, cv2.INPAINT_TELEA)
@@ -115,7 +128,7 @@ def main():
     # atrás do aro: a faixa vermelha do capô e a borda do painel continuam (copiadas de uma
     # coluna ao lado do aro, na mesma altura relativa à linha do capô)
     ref = 752
-    for x in range(762, 1316):
+    for x in (range(762, 1316) if not nowheel else []):
         for k in range(0, 14):
             dash[top[x] + k, x] = dash[top[ref] + k, ref]
     # nome da marca no rádio
@@ -134,7 +147,7 @@ def main():
         qx = np.clip(nx, a + rr, b - rr)
         qy = np.clip(ny, c + rr, d - rr)
         return np.hypot(nx - qx, (ny - qy) * 0.875) <= rr
-    cx0, cx1, cy0, cy1 = 52, 204, 14, 78
+    cx0, cx1, cy0, cy1 = (46, 210, 18, 84) if nowheel else (52, 204, 14, 78)
     face = inside(cx0, cx1, cy0, cy1, 9)
     rim = inside(cx0 - 2, cx1 + 2, cy0 - 2, cy1 + 2, 11) & ~face
     streak = (np.sin(ny * 2.1) * 3 + ((gx * 7 + gy * 13) % 5) - 2).astype(int)

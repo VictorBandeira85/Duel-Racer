@@ -289,7 +289,9 @@ export class Race {
     if (rivalCar) {
       // largada: o rival sai à frente (1º trecho, ou ganhou o trecho anterior) ou atrás (perdeu)
       const gap = opts.rivalAhead === false ? -8 * SEG_LEN : 14 * SEG_LEN;
-      this.rival = { z: Math.max(SEG_LEN * 2, this.playerZ + gap), x: laneCenter(t, myLane - 1), targetX: laneCenter(t, myLane - 1), speed: 0, recover: 0, think: 0, finishTime: -1,
+      // mão dupla: na nossa faixa (a outra é a contramão); com quatro faixas, na do lado
+      const rl = t.lanes === 2 ? myLane : myLane - 1;
+      this.rival = { z: Math.max(SEG_LEN * 2, this.playerZ + gap), x: laneCenter(t, rl), targetX: laneCenter(t, rl), speed: 0, recover: 0, think: 0, finishTime: -1,
         style: this.rivalStyleOverride ?? RIVAL_STYLE[this.rivalCar!.id] ?? 'cauteloso', mistake: 0, boost: 0, pt: new Powertrain(rivalCar),
         signal: 0, sigT: 0, flash: 0, flashCd: 4 };
       this.rival.pt.boost = LAUNCH_BOOST;
@@ -487,6 +489,7 @@ export class Race {
       setEngine(this.rpm, input.gas, true, this.pt.boost < 1 ? this.pt.boost : 0);
       // o trânsito não espera a largada: segue circulando (quem vem atrás na faixa do jogador freia)
       this.updateTraffic(dt);
+      this.rivalTraffic();
       return;
     }
 
@@ -754,6 +757,7 @@ export class Race {
     if (driving) this.stones(dt);
     updateTrafficAudio(this, dt);
     this.updateRival(dt);
+    this.rivalTraffic();
     this.updatePolice(dt);
     if (driving) this.checkCollisions();
 
@@ -1469,6 +1473,25 @@ export class Race {
     }
   }
 
+  // rival x trânsito: vale sempre (na contagem da largada, com o jogador batido ou parado pela
+  // polícia o trânsito também não pode atravessar o rival)
+  private rivalTraffic() {
+    const r = this.rival;
+    if (!r) return;
+    const myHalf = (CAR_W / 2) * HITBOX;
+    for (const c of this.traffic) {
+      if (c.hit) continue;
+      const half = this.carHalf(c);
+      const rz = c.z - r.z;
+      const rnear = c.speed < 0 ? Math.abs(rz) < SEG_LEN : rz > -SEG_LEN * 0.3 && rz < SEG_LEN && r.speed > c.speed;
+      if (r.recover <= 0 && rnear && overlap(r.x, myHalf, c.x, half)) {
+        c.hit = true;
+        r.speed *= 0.3;
+        r.recover = 1.2;
+      }
+    }
+  }
+
   private checkCollisions() {
     const pz = this.playerZ;
     const r = this.rival;
@@ -1520,15 +1543,6 @@ export class Race {
         if (dv > 25 && this.rand() < 0.35 + dv / 120) this.crackGlass(Math.min(1, dv / 90), false);
         if (dv > 30) c.smoke = Math.max(c.smoke, 0.4);
         bumpSound(Math.min(1, 0.3 + dv / 100));
-      }
-      if (r && !c.hit) {
-        const rz = c.z - r.z;
-        const rnear = c.speed < 0 ? Math.abs(rz) < SEG_LEN : rz > -SEG_LEN * 0.3 && rz < SEG_LEN && r.speed > c.speed;
-        if (r.recover <= 0 && rnear && overlap(r.x, myHalf, c.x, half)) {
-          c.hit = true;
-          r.speed *= 0.3;
-          r.recover = 1.2;
-        }
       }
     }
 

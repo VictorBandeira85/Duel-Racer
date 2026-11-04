@@ -786,10 +786,10 @@ COCKPIT_ART.nsx = {
   tach: { x: 98, y: 64, r: 24, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.5, red: 8, labelScale: 0.7, redLabels: false, ink: NX_INK, bg: '#0b0b0d' },
   speed: { x: 160, y: 64, r: 24, max: 280, labels: [0, 40, 80, 120, 160, 200, 240, 280], tick: 10, red: 999, labelScale: 0.7, ink: NX_INK, bg: '#0b0b0d' },
   aux: [
-    { x: 64, y: 48, r: 8, kind: 'single', show: ['water'], icon: 'temp', labels: ['C', 'H'] },
-    { x: 66, y: 76, r: 8, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '8'] },
-    { x: 194, y: 48, r: 8, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1'] },
-    { x: 192, y: 76, r: 8, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '16'] },
+    { x: 66, y: 60, r: 8, kind: 'single', show: ['water'], icon: 'temp', labels: ['C', 'H'] },
+    { x: 69, y: 84, r: 8, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '8'] },
+    { x: 190, y: 60, r: 8, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1'] },
+    { x: 187, y: 84, r: 8, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '16'] },
   ],
   extra: (c, ox, r) => {
     odometer(c, ox, r, { x: 92, y: 75, w: 12, h: 3.5 }, 63373, 6, 0.5);

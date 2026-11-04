@@ -532,23 +532,23 @@ export class Race {
     // acompanhando a pista (antes mirava o céu até o carro chegar na rampa)
     // a câmera mira o chão uns 25 segmentos à frente (a inclinação média até lá, com mais peso
     // no trecho mais perto): ao chegar numa crista ela já aponta para a descida, e não para o céu
-    // olha só um pouco adiante (uns 12 segmentos, mais peso perto): a câmera começa a baixar
-    // quando a crista já está chegando, e não muito antes dela
+    // olha bem pouco adiante (uns 6 segmentos, ~40 m, mais peso perto): a câmera só começa a
+    // baixar quando a crista está logo ali, e acompanha a descida quando chega nela
     let ahead = 0, wsum = 0, far = 0;
-    for (let k = 1; k <= 12; k++) {
+    for (let k = 1; k <= 6; k++) {
       const sg = this.findSegment(this.position + k * SEG_LEN);
       const sk = (sg.p2.world.y - sg.p1.world.y) / SEG_LEN;
-      const wk = 1.3 - k / 12;
+      const wk = 1.25 - k / 6;
       ahead += sk * wk;
       wsum += wk;
-      if (k >= 4 && k <= 9) far += sk / 6;
+      if (k >= 2 && k <= 5) far += sk / 4;
     }
     ahead = clamp(ahead / wsum, -0.8, 0.6);
     // no ar também olha para onde vai pousar (antes seguia o próprio voo e mirava o céu)
     const fly = clamp(this.vy / Math.max(this.speed, 1), -0.6, 0.6);
-    let ground = slope * 0.1 + slopeCam * 0.25 + ahead * 0.65;
-    // descida forte logo adiante: aponta um pouco além dela (a pista não some embaixo do capô)
-    if (far < ground) ground = lerp(ground, clamp(far * 1.1, -0.8, 0), 0.5);
+    let ground = slope * 0.2 + slopeCam * 0.35 + ahead * 0.45;
+    // descida forte logo ali: aponta um pouco além dela (a pista não some embaixo do capô)
+    if (far < ground) ground = lerp(ground, clamp(far, -0.8, 0), 0.35);
     const pitchTo = this.airborne ? fly * 0.3 + ground * 0.7 : ground;
     this.pitch = lerp(this.pitch, pitchTo, Math.min(1, dt * (this.airborne ? 5 : 7)));
     // ---- salto: o carro é um corpo com velocidade vertical própria. Segue o chão enquanto a

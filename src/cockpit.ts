@@ -762,11 +762,11 @@ COCKPIT_ART.countach = {
   pivot: [128, 104], wheelTop: 8, speedMax: 320, needle: '#ff7a1a', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [196, 4],
   speed: { x: 84.5, y: 46.6, r: 25.4, max: 320, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320], tick: 10, red: 999, labelScale: 0.7, ink: LP5_INK, bg: '#0a0b0b' },
   tach: { x: 173.4, y: 46.6, r: 24.8, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], labelMul: 10, tick: 0.5, yellow: 7, red: 7.5, labelScale: 0.7, redLabels: false, ink: LP5_INK, bg: '#0a0b0b' },
-  // como no carro (tools/ref/lp5_cluster.py): à esquerda temperatura do óleo e bateria (fundo
-  // verde), no meio a pressão do óleo, à direita combustível e temperatura da água
+  // como no carro (tools/ref/lp5_cluster.py): à esquerda temperatura do óleo e bateria,
+  // no meio a pressão do óleo, à direita combustível e temperatura da água
   aux: [
     { x: 14.2, y: 42, r: 13.2, kind: 'single', show: ['oiltemp'], icon: 'temp', labels: ['50', '100', '150'], labelIn: 4 },
-    { x: 43.1, y: 42, r: 13.2, kind: 'single', show: ['volt'], icon: 'volt', labels: ['10', '13', '16'], labelIn: 4, bg: '#2c4a26' },
+    { x: 43.1, y: 42, r: 13.2, kind: 'single', show: ['volt'], icon: 'volt', labels: ['10', '13', '16'], labelIn: 4 },
     { x: 128.9, y: 42, r: 13.2, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '5', '10'], labelIn: 4 },
     { x: 213.9, y: 42, r: 13.2, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1/2', '1'], labelIn: 4 },
     { x: 242.4, y: 42, r: 13.2, kind: 'single', show: ['water'], icon: 'temp', labels: ['40', '80', '120'], labelIn: 4 },

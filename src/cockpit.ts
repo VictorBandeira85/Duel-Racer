@@ -785,17 +785,20 @@ COCKPIT_ART.nsx = {
   pivot: [128, 104], wheelTop: 14, speedMax: 280, needle: '#ff3a1a', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [30, 4],
   // retrovisor externo à direita (mão inglesa): o espelho da arte é transparente e mostra a vista de trás
   glass: { at: [436, 71], thr: 256 },
-  // como na arte do Victor: conta-giros e velocímetro grandes, temperatura à esquerda e
-  // combustível à direita, hodômetro e parcial embaixo
-  tach: { x: 98, y: 50, r: 22, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.5, red: 8, labelScale: 0.7, redLabels: false, ink: NX_INK, bg: '#0b0b0d' },
-  speed: { x: 159, y: 50, r: 22, max: 280, labels: [0, 40, 80, 120, 160, 200, 240, 280], tick: 10, red: 999, labelScale: 0.7, ink: NX_INK, bg: '#0b0b0d' },
+  // quadro do carro real: conta-giros (faixa vermelha a partir de 8) e velocímetro 0-280 no meio;
+  // à esquerda temperatura da água (em cima, mais para dentro) e pressão do óleo (embaixo, mais
+  // para fora); à direita combustível e bateria do mesmo jeito; hodômetro e parcial embaixo
+  tach: { x: 100, y: 50, r: 21, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.5, red: 8, labelScale: 0.7, redLabels: false, ink: NX_INK, bg: '#0b0b0d' },
+  speed: { x: 157, y: 50, r: 21, max: 280, labels: [0, 40, 80, 120, 160, 200, 240, 280], tick: 10, red: 999, labelScale: 0.7, ink: NX_INK, bg: '#0b0b0d' },
   aux: [
-    { x: 63, y: 54, r: 8, kind: 'single', show: ['water'], icon: 'temp', labels: ['C', 'H'] },
-    { x: 193, y: 54, r: 8, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['E', 'F'] },
+    { x: 71, y: 41, r: 7, kind: 'single', show: ['water'], icon: 'temp', labels: ['C', 'H'] },
+    { x: 62, y: 65, r: 7, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '8'] },
+    { x: 186, y: 41, r: 7, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1'] },
+    { x: 195, y: 65, r: 7, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '16'] },
   ],
   extra: (c, ox, r) => {
-    odometer(c, ox, r, { x: 64, y: 76, w: 12, h: 3.5 }, 27, 6, 0.5);
-    odometer(c, ox, r, { x: 186, y: 76, w: 8, h: 3.5 }, 0, 4, 0.5, true);
+    odometer(c, ox, r, { x: 74, y: 77, w: 12, h: 3.5 }, 63373, 6, 0.5);
+    odometer(c, ox, r, { x: 176, y: 77, w: 8, h: 3.5 }, 34.3, 4, 0.5, true);
   },
 };
 

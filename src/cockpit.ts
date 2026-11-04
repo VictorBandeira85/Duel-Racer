@@ -86,7 +86,11 @@ interface Dial { x: number; y: number; r: number; max: number; labels: number[];
 // ponteiros no mesmo eixo, em V), 'twin' (dois eixos lado a lado) e 'clock' (relógio)
 // oil = pressão do óleo, boost = pressão do turbo, volt = voltímetro
 type Gauge = 'oil' | 'water' | 'oiltemp' | 'fuel' | 'boost' | 'volt';
-interface Aux { x: number; y: number; r: number; kind: 'single' | 'dual' | 'twin' | 'clock' | 'combo'; show?: Gauge[]; icon?: keyof typeof ICONS; labels?: string[]; bg?: string; labelIn?: number }
+interface Aux { x: number; y: number; r: number; kind: 'single' | 'dual' | 'twin' | 'clock' | 'combo'; show?: Gauge[]; icon?: keyof typeof ICONS; labels?: string[]; bg?: string; labelIn?: number;
+  arc?: [number, number]; // ângulos do arco (padrão: metade de cima); o NX tem arcos de lado, virados para o centro
+  iconAt?: [number, number]; // posição do ícone em relação ao centro (px)
+  ring?: string; // aro em volta do mostrador
+}
 
 // a arte cobre da linha 100 da tela até o fim (124 linhas); o topo transparente mostra a estrada
 let ART_TOP = 100; // linha da tela onde começa a arte do painel (cada cabine pode descer: art.dy)
@@ -785,20 +789,36 @@ COCKPIT_ART.nsx = {
   pivot: [128, 104], wheelTop: 14, speedMax: 280, needle: '#ff3a1a', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [30, 4],
   // retrovisor externo à direita (mão inglesa): o espelho da arte é transparente e mostra a vista de trás
   glass: { at: [436, 71], thr: 256 },
-  // quadro do carro real: conta-giros (faixa vermelha a partir de 8) e velocímetro 0-280 no meio;
-  // à esquerda temperatura da água (em cima, mais para dentro) e pressão do óleo (embaixo, mais
-  // para fora); à direita combustível e bateria do mesmo jeito; hodômetro e parcial embaixo
-  tach: { x: 100, y: 50, r: 21, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.5, red: 8, labelScale: 0.7, redLabels: false, ink: NX_INK, bg: '#0b0b0d' },
-  speed: { x: 157, y: 50, r: 21, max: 280, labels: [0, 40, 80, 120, 160, 200, 240, 280], tick: 10, red: 999, labelScale: 0.7, ink: NX_INK, bg: '#0b0b0d' },
+  // quadro do carro real (foto do Victor): fundo de alumínio escovado, mostradores pretos com aro
+  // prateado; conta-giros 0-9 com faixa vermelha larga de 8 a 9 e velocímetro 0-280 numerado de
+  // 20 em 20; os quatro pequenos com o arco virado para o centro: água (com a faixa vermelha) e
+  // pressão do óleo 0-4-8 à esquerda, combustível 0-1 e bateria 8-12-16 à direita; luz-espia
+  // vermelha no alto entre os dois grandes e o desenho do carro (porta aberta) embaixo
+  tach: { x: 100, y: 50, r: 22, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.25, red: 8, redW: 2.5, redLabels: false, labelScale: 0.7, ink: NX_INK, bg: '#0c0c0e' },
+  speed: { x: 157, y: 50, r: 22, max: 280, labels: [0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280], tick: 10, red: 999, labelScale: 0.5, ink: NX_INK, bg: '#0c0c0e' },
   aux: [
-    { x: 71, y: 41, r: 7, kind: 'single', show: ['water'], icon: 'temp', labels: ['C', 'H'] },
-    { x: 62, y: 65, r: 7, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '8'] },
-    { x: 186, y: 41, r: 7, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1'] },
-    { x: 195, y: 65, r: 7, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '16'] },
+    { x: 71, y: 40, r: 7, kind: 'single', show: ['water'], icon: 'temp', arc: [Math.PI * 0.72, -Math.PI * 0.42], iconAt: [-2.5, 2.5], ring: '#8c8e94', bg: '#0c0c0e' },
+    { x: 62, y: 64, r: 8, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '4', '8'], arc: [Math.PI * 0.42, -Math.PI * 0.42], iconAt: [-3, 3], ring: '#8c8e94', bg: '#0c0c0e' },
+    { x: 186, y: 40, r: 7, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1'], arc: [Math.PI * 0.58, Math.PI * 1.42], iconAt: [2.5, 2.5], ring: '#8c8e94', bg: '#0c0c0e' },
+    { x: 195, y: 64, r: 8, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '12', '16'], arc: [Math.PI * 0.58, Math.PI * 1.42], iconAt: [3, 3], ring: '#8c8e94', bg: '#0c0c0e' },
   ],
+  under: (c, ox) => {
+    // aros prateados dos dois grandes
+    for (const d of [{ x: 100, y: 50 }, { x: 157, y: 50 }]) face(c, ox + d.x, ART_TOP + d.y, 23.5, '#9a9ca2');
+    for (const d of [{ x: 100, y: 50 }, { x: 157, y: 50 }]) face(c, ox + d.x, ART_TOP + d.y, 22.5, '#2a2a2e');
+  },
   extra: (c, ox, r) => {
     odometer(c, ox, r, { x: 74, y: 77, w: 12, h: 3.5 }, 63373, 6, 0.5);
     odometer(c, ox, r, { x: 176, y: 77, w: 8, h: 3.5 }, 34.3, 4, 0.5, true);
+    // luz-espia vermelha entre os mostradores (acende na pressão do óleo baixa) e o desenho do carro
+    const T = ART_TOP;
+    c.fillStyle = gauges.oil < 0.36 ? '#ff3020' : '#7a1410';
+    c.fillRect(ox + 124, T + 31, 9, 3);
+    c.fillStyle = '#16171a';
+    c.fillRect(ox + 125, T + 66, 7, 9);
+    c.fillStyle = '#6a6c72';
+    c.fillRect(ox + 127, T + 67.5, 3, 6);
+    c.fillRect(ox + 126.5, T + 69, 4, 3);
   },
 };
 
@@ -1226,6 +1246,7 @@ function updateGauges(r: Race, dt: number) {
 function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitArt) {
   const cx = ox + g.x, cy = ART_TOP + g.y, R = g.r;
   const mx = cx + 0.5, my = cy + 0.5; // centro real
+  if (g.ring) face(c, cx, cy, R + 1, g.ring); // aro prateado em volta
   face(c, cx, cy, R, g.bg);
   const at = (x: number, y: number, a: number, rr: number): [number, number] => [x + Math.cos(a) * rr, y + Math.sin(a) * rr * PIX_Y];
   const ticks = (x: number, y: number, rr: number, a0: number, a1: number, n: number) => {
@@ -1258,7 +1279,7 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
     // arco de cima, da esquerda (frio/baixo) para a direita; nos pequenos (até 6 px) o arco é
     // mais fechado, para o ponteiro nunca deitar por cima do ícone da metade de baixo
     const small = R <= 6;
-    const a0 = small ? PI * 1.12 : PI * 0.95, a1 = small ? PI * 1.88 : PI * 2.05;
+    const a0 = g.arc ? g.arc[0] : small ? PI * 1.12 : PI * 0.95, a1 = g.arc ? g.arc[1] : small ? PI * 1.88 : PI * 2.05;
     // combustível: reserva em vermelho no começo da escala
     if (k1 === 'fuel' && small) {
       c.fillStyle = '#d81818';
@@ -1266,7 +1287,14 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
       for (let a = a0; a <= a0 + (a1 - a0) * 0.18; a += 0.05) half(c, ...at(mx, my, a, R - 0.75));
       c.fill();
     }
-    ticks(mx, my, R - 0.75, a0, a1, 4);
+    ticks(mx, my, R - 0.75, a0, a1, g.arc ? 8 : 4);
+    // água quente (fim do arco) em vermelho, como no quadro do NX
+    if (g.arc && k1 === 'water') {
+      c.fillStyle = '#e02818';
+      c.beginPath();
+      for (let a = a0 + (a1 - a0) * 0.85; Math.abs(a - a0) <= Math.abs(a1 - a0) + 1e-3; a += (a1 - a0) / 24) { half(c, ...at(mx, my, a, R - 0.75)); half(c, ...at(mx, my, a, R - 1.25)); }
+      c.fill();
+    }
     // números nas pontas e no meio (água 60/90/120, turbo 0/0,8/1,5 da F40)
     g.labels?.forEach((l, i) => {
       const a = a0 + ((a1 - a0) * i) / (g.labels!.length - 1);
@@ -1320,7 +1348,7 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
   }
   // ícone na metade de baixo (o ponteiro só varre a de cima), em pixel inteiro
   const iy = g.kind === 'twin' ? my + R * PIX_Y * 0.42 : my + Math.max(1.5, Math.min(R * PIX_Y * 0.3, R * PIX_Y - 5.5));
-  drawIcon(c, g.icon ?? 'oil', mx, iy);
+  drawIcon(c, g.icon ?? 'oil', mx + (g.iconAt?.[0] ?? 0), g.iconAt ? my + g.iconAt[1] : iy);
 }
 
 // ---------- painel digital (LCD) do Corvette C4 ----------

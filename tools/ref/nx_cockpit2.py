@@ -150,9 +150,12 @@ def main():
     cx0, cx1, cy0, cy1 = (46, 210, 18, 84) if nowheel else (52, 204, 14, 78)
     face = inside(cx0, cx1, cy0, cy1, 9)
     rim = inside(cx0 - 2, cx1 + 2, cy0 - 2, cy1 + 2, 11) & ~face
-    streak = (np.sin(ny * 2.1) * 3 + ((gx * 7 + gy * 13) % 5) - 2).astype(int)
-    base = np.stack([88 + streak, 90 + streak, 96 + streak], axis=-1)
-    shade = np.clip((ny - cy0) / (cy1 - cy0), 0, 1)[..., None] * -22
+    # alumínio escovado (riscos horizontais finos), mais escuro no alto, na sombra da cobertura
+    rng_ = np.random.default_rng(7)
+    rowv = rng_.integers(-6, 7, size=ROWS)[:, None]
+    streak = (rowv + ((gx * 5 + gy * 11) % 7) // 3 - 1).astype(int)
+    base = np.stack([136 + streak, 138 + streak, 144 + streak], axis=-1)
+    shade = (-46 * np.clip(1 - (ny - cy0) / 16, 0, 1) - 14 * np.clip((ny - (cy1 - 10)) / 10, 0, 1))[..., None]
     d_rgb[face] = np.clip(base + shade, 0, 255).astype(np.uint8)[face]
     d_rgb[rim] = (14, 14, 17)
     d_al[face | rim] = True

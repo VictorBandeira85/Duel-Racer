@@ -452,7 +452,8 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       const bw = sw * (sp.kind === 'lamp' ? 3.4 : 1.1);
       const drawn = drawCrisp(c, `${sp.kind}${seed}${sp.kind === 'billboard' && !adsReady(seed) ? 'w' : ''}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed));
       // tapa o farol dos carros que estão atrás deste objeto
-      if (lit && drawn) pushOccluder({ ...drawn, idx: i, clip: s.clip });
+      // (mureta, postes e balizas são baixos e finos: não escondem o clarão do farol)
+      if (lit && drawn && sp.kind !== 'rail' && sp.kind !== 'post') pushOccluder({ ...drawn, idx: i, clip: s.clip });
       // poste aceso à noite: a lâmpada fica na ponta do braço, sobre o acostamento
       if (lit && (sp.kind === 'station' || sp.kind === 'gasSign')) pushFacade(sp.kind, sx, s.p1.screen.y, sw, sh);
       if (lit && REFLECT.has(sp.kind)) pushReflector(sp.kind, sx, s.p1.screen.y, sw, sh, dist);
@@ -492,7 +493,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       }
       // longe: o facho acende aos poucos conforme o carro se aproxima (sem surgir de repente)
       const dist = (ez - r.position) / SEG_LEN, lim = DRAW_DIST * far0;
-      const fade = Math.max(0, Math.min(1, (lim - dist) / (lim * 0.5)));
+      const fade = Math.max(0, Math.min(1, (lim - dist) / (lim * 0.8)));
       pushCarBeam([xa - ha, a.y, xa + ha, a.y, xf + hf, yf, xf - hf, yf], s.clip, Math.floor(zEnd / SEG_LEN), fade * fade);
     };
     for (const e of s.cars) {

@@ -304,18 +304,21 @@ function drawCarBeams(g: CanvasRenderingContext2D, ox: number, oy: number, a: nu
     g.lineTo(x3 - ox, y2 - oy);
     g.closePath();
     g.fill();
-    // clarão no asfalto logo à frente do para-choque
-    const mx = (x0 + x1) / 2 - ox, hw = (x1 - x0) * 0.6, my = y0 - oy - Math.max(2, (y0 - y2) * 0.3);
+    g.restore();
+    // clarão logo à frente do carro: o brilho do farol no ar e no chão junto ao para-choque.
+    // Não é recortado pela crista: mesmo com a estrada adiante escondida (curva, lombada) a
+    // claridade aparece, fraca de longe e crescendo com a aproximação
+    const mx = (x0 + x1) / 2 - ox, hw = Math.max(9, (x1 - x0) * 1.1), my = y0 - oy - Math.max(1.5, (y0 - y2) * 0.12);
     const rg = g.createRadialGradient(mx, my, 0, mx, my, hw);
     rg.addColorStop(0, SPILL);
     rg.addColorStop(1, SPILL.replace(/[\d.]+\)$/, '0)'));
-    g.fillStyle = rg;
     g.save();
+    g.globalAlpha = b.k;
+    g.fillStyle = rg;
     g.translate(mx, my);
-    g.scale(1, 0.35);
+    g.scale(1, 0.45);
     g.translate(-mx, -my);
     g.fillRect(mx - hw, my - hw, hw * 2, hw * 2);
-    g.restore();
     g.restore();
   }
 }
@@ -341,18 +344,21 @@ function drawCarBeamsWarm(g: CanvasRenderingContext2D, ox: number, oy: number, a
     g.lineTo(x3 - ox, y2 - oy);
     g.closePath();
     g.fill();
-    // clarão no asfalto logo à frente do para-choque
-    const mx = (x0 + x1) / 2 - ox, hw = (x1 - x0) * 0.6, my = y0 - oy - Math.max(2, (y0 - y2) * 0.3);
+    g.restore();
+    // clarão logo à frente do carro: o brilho do farol no ar e no chão junto ao para-choque.
+    // Não é recortado pela crista: mesmo com a estrada adiante escondida (curva, lombada) a
+    // claridade aparece, fraca de longe e crescendo com a aproximação
+    const mx = (x0 + x1) / 2 - ox, hw = Math.max(9, (x1 - x0) * 1.1), my = y0 - oy - Math.max(1.5, (y0 - y2) * 0.12);
     const rg = g.createRadialGradient(mx, my, 0, mx, my, hw);
     rg.addColorStop(0, SPILL);
     rg.addColorStop(1, SPILL.replace(/[\d.]+\)$/, '0)'));
-    g.fillStyle = rg;
     g.save();
+    g.globalAlpha = b.k;
+    g.fillStyle = rg;
     g.translate(mx, my);
-    g.scale(1, 0.35);
+    g.scale(1, 0.45);
     g.translate(-mx, -my);
     g.fillRect(mx - hw, my - hw, hw * 2, hw * 2);
-    g.restore();
     g.restore();
   }
 }

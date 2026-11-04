@@ -43,6 +43,22 @@ def sample(img, xs, ys):
     return img[yi][:, xi]
 
 
+def grade(rgb):
+    """tira o tom roxo-azulado da arte: cinzas e pretos do painel, volante e porta viram grafite
+    neutro (um nadinha quente, como couro e plástico preto de verdade); vermelhos, o bege dos
+    bancos e o visor do rádio ficam como estão"""
+    a = rgb.astype(np.float32)
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    mx_, mn_ = a.max(axis=2), a.min(axis=2)
+    sat = (mx_ - mn_) / np.maximum(mx_, 1)
+    bluish = (b >= r - 6) & (b > g + 4) & (sat < 0.55)
+    lum = 0.3 * r + 0.55 * g + 0.15 * b
+    k = np.where(bluish, 0.12, 1.0)[..., None]
+    out = lum[..., None] + (a - lum[..., None]) * k
+    out += np.where(bluish, 1, 0)[..., None] * np.array([3, 1.5, -2], np.float32)
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
 def main():
     src, out = sys.argv[1], sys.argv[2]
     nowheel = sys.argv[3] if len(sys.argv) > 3 else None
@@ -54,6 +70,8 @@ def main():
     lum = rgb.mean(axis=2)
     sat = rgb.max(axis=2) - rgb.min(axis=2)
     red = (r_ > 150) & (g_ < 90) & (b_ < 100)
+    # vermelho da lataria incluindo a sombra escura (carcaça do retrovisor)
+    redish = (r_ > 70) & (r_ > g_ * 1.8) & (r_ > b_ * 1.5)
     yy, xx = np.mgrid[0:H, 0:W]
 
     # --- vidro ---
@@ -73,7 +91,7 @@ def main():
     # coluna, painel e porta são cinza-arroxeados (vermelho ~ verde, azul por cima, até o brilho
     # lilás); paisagem é verde, azul-céu (verde > vermelho) ou branca. À direita do para-brisa,
     # acima da linha da porta, o que não é peça vira vidro (sem pontinhos soltos)
-    solid = ((lum < 200) & (sat < 95) & (b_ >= g_ - 4) & (r_ >= g_ - 10)) | red | ((lum < 30) & (b_ >= g_))
+    solid = ((lum < 200) & (sat < 95) & (b_ >= g_ - 4) & (r_ >= g_ - 10)) | redish | ((lum < 30) & (b_ >= g_))
     # folhagem (verde) e mureta (branco-azulado) nunca são peça do carro
     # (a coluna lilás tem verde abaixo do vermelho; folhas e céu/mureta têm verde acima)
     scen = (g_ > r_ + 10) | ((b_ > r_ + 12) & (g_ >= r_) & (lum > 120))
@@ -176,6 +194,7 @@ def main():
     d_rgb[face] = np.clip(base + shade, 0, 255).astype(np.uint8)[face]
     d_rgb[rim] = (14, 14, 17)
     d_al[face | rim] = True
+    d_rgb = grade(d_rgb)
     Image.fromarray(np.dstack([d_rgb, d_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'nsx-dash.png'))
     # teto: coluna, retrovisor externo e a borda de cima
     xs, ys = grid(y0 - EXT * PXH, EXT)
@@ -183,11 +202,13 @@ def main():
     t_rgb = sample(dash, xr, ys)
     t_al = ~sample(sky, xr, ys)
     t_al[ys[:, None].repeat(len(xs), 1) < 0] = False
+    t_rgb = grade(t_rgb)
     Image.fromarray(np.dstack([t_rgb, t_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'nsx-top.png'))
     # volante
     xs, ys = grid(y0 - WTOP * PXH, WROWS, 0, 256)
     w_rgb = sample(wart, xs, ys)
     w_al = sample(wheel, xs, ys)
+    w_rgb = grade(w_rgb)
     Image.fromarray(np.dstack([w_rgb, w_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'nsx-wheel.png'))
     hubn = (PIV_N[0] + (hx - PIV[0]) * S, PIV_N[1] + (hy - PIV[1]) / PXH + WTOP)
     mir = np.nonzero(glass)

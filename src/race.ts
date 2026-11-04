@@ -773,8 +773,11 @@ export class Race {
       setSiren(false);
     }
     if (this.state === 'arrived') {
+      // o carro freia sozinho na entrada do posto; a tela do posto só começa abaixo de 20 km/h
+      // (com um limite de segurança, para nunca travar a chegada)
       this.timer -= dt;
-      if (this.timer <= 0 && this.onArrive) {
+      const slow = this.speed * KMH <= 20 || this.timer <= -15;
+      if (this.timer <= 0 && slow && this.onArrive) {
         const cb = this.onArrive;
         this.onArrive = undefined;
         cb();

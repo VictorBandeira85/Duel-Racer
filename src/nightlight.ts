@@ -10,10 +10,11 @@ let collecting = false;
 
 // postes de luz acesos (render3d registra cada um visível: lâmpada na tela, tamanho, trecho da
 // pista onde está e posição lateral em meias larguras da pista a partir do centro)
-interface Street { x: number; head: number; r: number; d: number; u: number; clip: number; ground: number }
+// idx: segmento do poste no laço do desenho (objetos de segmentos mais perto tapam a luz dele)
+interface Street { x: number; head: number; r: number; d: number; u: number; clip: number; ground: number; idx: number }
 const streets: Street[] = [];
-export function pushStreetLight(x: number, head: number, r: number, d: number, u: number, ground = Infinity) {
-  if (collecting && r > 2) streets.push({ x, head, r: Math.min(r, 110), d, u, clip: clipY, ground });
+export function pushStreetLight(x: number, head: number, r: number, d: number, u: number, ground = Infinity, idx = -1) {
+  if (collecting && r > 2) streets.push({ x, head, r: Math.min(r, 110), d, u, clip: clipY, ground, idx });
 }
 // linha da tela abaixo da qual o trecho sendo desenhado fica escondido (crista de morro à frente)
 let clipY = Infinity;
@@ -421,6 +422,33 @@ function shadeCars(g: CanvasRenderingContext2D, W: number, H: number, ox: number
   g.globalCompositeOperation = erase ? 'destination-out' : 'source-over';
 }
 const beamCv = document.createElement('canvas');
+// faixa de luz de um poste num rascunho, recortada pelos objetos do cenário mais perto que ele
+// (outdoor, placa, árvore na frente do trecho iluminado não ficam pintados de luz)
+const poolCv = document.createElement('canvas');
+function maskedPool(s: CanvasRenderingContext2D, W: number, H: number, ox: number, oy: number, rd: RoadPt[], st: Street, a0: number) {
+  const occ = st.idx >= 0 ? occluders.filter((o) => o.idx < st.idx) : [];
+  if (!occ.length) return streetPool(s, rd, st, 'rgba(255,190,90,', a0);
+  if (poolCv.width !== W || poolCv.height !== H) {
+    poolCv.width = W;
+    poolCv.height = H;
+  }
+  const t = poolCv.getContext('2d')!;
+  t.setTransform(1, 0, 0, 1, 0, 0);
+  t.globalCompositeOperation = 'source-over';
+  t.clearRect(0, 0, W, H);
+  streetPool(t, rd, st, 'rgba(255,190,90,', a0);
+  t.globalCompositeOperation = 'destination-out';
+  for (const o of occ) {
+    t.save();
+    t.beginPath();
+    t.rect(0, 0, W, Math.max(0, o.clip - oy + 1));
+    t.clip();
+    t.drawImage(o.cv, o.x - ox, o.y - oy, o.w, o.h);
+    t.restore();
+  }
+  t.globalCompositeOperation = 'source-over';
+  s.drawImage(poolCv, 0, 0);
+}
 function secondary(W: number, H: number, ox: number, oy: number, draw: (s: CanvasRenderingContext2D) => void, beam?: (g: CanvasRenderingContext2D, b: Beam) => void) {
   if (!streets.length && !carBeams.length) return null;
   if (secCv.width !== W || secCv.height !== H) {
@@ -560,9 +588,8 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   reflectors(wg, vp.x, top, 'rgba(255,230,170,', 0.12 * strength); // tom quente do farol
   // luz de sódio dos postes e farol de quem vai à frente, sem pintar os carros
   const secW = secondary(W, H, vp.x, top, (s) => {
-    for (const st of streets) streetPool(s, rd, st, 'rgba(255,190,90,', 0.2 * strength);
+    for (const st of streets) maskedPool(s, W, H, vp.x, top, rd, st, 0.2 * strength);
   }, (t, b) => drawCarBeamsWarm(t, vp.x, top, 0.935 * strength, [b]));
-  occluders.length = 0;
   if (secW) wg.drawImage(secW, 0, 0);
   shadeCars(wg, W, H, vp.x, top, (l) => `rgba(255,226,160,${(0.1 * litOf(l)).toFixed(3)})`, false);
   carBeams.length = 0;
@@ -583,10 +610,14 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     // de uma subida: a luz dele não passa por cima do asfalto que está na frente
     if (st.head > st.clip) continue;
     const rx = Math.max(4, st.r * 0.26), ry = Math.max(3, st.r * 0.14);
-    const near = lights.filter((l) => l.shape && l.y > st.ground && Math.abs(l.x - st.x) < rx + l.w * 0.6 && l.y - l.w * 0.9 < st.head + ry && l.y > st.head - ry);
-    const dc = near.length ? hl : c;
+    // carros e caminhões mais perto (o baú do caminhão é bem mais alto que um carro) e objetos
+    // do cenário mais perto (outdoors, placas, árvores) que passam na frente da lâmpada
+    const near = lights.filter((l) => l.shape && l.y > st.ground && Math.abs(l.x - st.x) < rx + l.w * 0.6 && l.y - l.w * 1.7 < st.head + ry && l.y > st.head - ry);
+    const occ = st.idx >= 0 ? occluders.filter((o) => o.idx < st.idx && o.x < st.x + rx + 2 && o.x + o.w > st.x - rx - 2 && o.y < st.head + ry + 2 && o.y + o.h > st.head - ry - 2) : [];
+    const masked = near.length > 0 || occ.length > 0;
+    const dc = masked ? hl : c;
     let x0 = 0, y0 = 0, x1 = 0, y1 = 0;
-    if (near.length) {
+    if (masked) {
       x0 = Math.max(0, Math.floor(tfL.a * (st.x - rx - 2) + tfL.e)); x1 = Math.min(LW, Math.ceil(tfL.a * (st.x + rx + 2) + tfL.e));
       y0 = Math.max(0, Math.floor(tfL.d * (st.head - ry - 2) + tfL.f)); y1 = Math.min(LH, Math.ceil(tfL.d * (st.head + ry + 2) + tfL.f));
       if (x1 <= x0 || y1 <= y0) continue;
@@ -605,8 +636,17 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     dc.fillStyle = `rgba(255,244,210,${(0.95 * strength).toFixed(3)})`;
     dc.fillRect(Math.round(st.x - lw / 2), Math.round(st.head - lh / 2), lw, lh);
     dc.restore();
-    if (near.length) {
+    if (masked) {
       hl.globalCompositeOperation = 'destination-out';
+      for (const o of occ) {
+        hl.save();
+        hl.setTransform(tfL);
+        hl.beginPath();
+        hl.rect(vp.x, vp.y - 50, vp.w, Math.max(0, o.clip + 1 - (vp.y - 50)));
+        hl.clip();
+        hl.drawImage(o.cv, o.x, o.y, o.w, o.h);
+        hl.restore();
+      }
       for (const l of near) {
         hl.save();
         hl.setTransform(tfL);
@@ -626,6 +666,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   refl.length = 0;
   facades(c, strength);
   streets.length = 0;
+  occluders.length = 0;
   // cada luz é desenhada numa camada à parte e recortada pela silhueta (pixel a pixel) dos carros
   // mais perto, que tapam o brilho dos de trás; vai do mais perto para o mais longe, juntando as
   // silhuetas numa máscara

@@ -494,7 +494,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       // poste aceso à noite: a lâmpada fica na ponta do braço, sobre o acostamento
       if (lit && (sp.kind === 'station' || sp.kind === 'gasSign')) pushFacade(sp.kind, sx, s.p1.screen.y, sw, sh);
       if (lit && REFLECT.has(sp.kind)) pushReflector(sp.kind, sx, s.p1.screen.y, sw, sh, dist);
-      if (lit && sp.kind === 'lamp') pushStreetLight(sx - sw * 1.3, s.p1.screen.y - sh + sw * 0.5, sw * 9, dist, (sx - sw * 1.3 - s.p1.screen.x) / Math.max(1, s.p1.screen.w), s.p1.screen.y);
+      if (lit && sp.kind === 'lamp') pushStreetLight(sx - sw * 1.3, s.p1.screen.y - sh + sw * 0.5, sw * 9, dist, (sx - sw * 1.3 - s.p1.screen.x) / Math.max(1, s.p1.screen.w), s.p1.screen.y, i);
     }
     // farol de quem vai na mesma mão, à nossa frente: luz no asfalto adiante dele. Posições
     // calculadas pelo z contínuo do carro (interpolando dentro do segmento): o facho acompanha o

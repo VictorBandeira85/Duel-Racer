@@ -110,7 +110,7 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
 
   addRoad(40, 60, 40, 0, -lastY() / SEG_LEN);
   const finishIndex = segments.length + 20;
-  addRoad(0, 300, 0, 0, 0);
+  addRoad(0, 600, 0, 0, 0); // reta longa depois do posto: dá para frear de 300 km/h até parar
 
   // balizas brancas dos dois lados
   for (let i = 0; i < segments.length; i += 8) {

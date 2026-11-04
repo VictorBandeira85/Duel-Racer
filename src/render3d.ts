@@ -470,6 +470,11 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   }
 
   let nearTunnel: Segment | null = null;
+  // primeiro trecho de túnel à frente: tudo o que fica depois dele (ou com o jogador dentro do
+  // túnel) está atrás das paredes e da boca; o brilho das placas, fachadas e postes não aparece
+  // por cima delas (dentro dos túneis não há cenário)
+  let tunAhead = Infinity;
+  for (let k = base.index; k < end; k++) if (segs[k].tunnel) { tunAhead = k; break; }
   for (let i = end - 1; i > base.index; i--) {
     const s = segs[i];
     if (s.p1.camera.z <= CAM_DEPTH * 4) continue;
@@ -513,9 +518,10 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       const dr = drawn as ReturnType<typeof drawCrisp>;
       if (lit && dr && sp.kind !== 'rail' && sp.kind !== 'post') pushOccluder({ ...dr, idx: i, clip: s.clip });
       // poste aceso à noite: a lâmpada fica na ponta do braço, sobre o acostamento
-      if (lit && (sp.kind === 'station' || sp.kind === 'gasSign')) pushFacade(sp.kind, sx, s.p1.screen.y, sw, sh);
-      if (lit && REFLECT.has(sp.kind)) pushReflector(sp.kind, sx, s.p1.screen.y, sw, sh, dist);
-      if (lit && sp.kind === 'lamp') pushStreetLight(sx - sw * 1.3, s.p1.screen.y - sh + sw * 0.5, sw * 9, dist, (sx - sw * 1.3 - s.p1.screen.x) / Math.max(1, s.p1.screen.w), s.p1.screen.y, i);
+      const behindTun = i > tunAhead;
+      if (lit && !behindTun && (sp.kind === 'station' || sp.kind === 'gasSign')) pushFacade(sp.kind, sx, s.p1.screen.y, sw, sh);
+      if (lit && !behindTun && REFLECT.has(sp.kind)) pushReflector(sp.kind, sx, s.p1.screen.y, sw, sh, dist);
+      if (lit && !behindTun && sp.kind === 'lamp') pushStreetLight(sx - sw * 1.3, s.p1.screen.y - sh + sw * 0.5, sw * 9, dist, (sx - sw * 1.3 - s.p1.screen.x) / Math.max(1, s.p1.screen.w), s.p1.screen.y, i);
     }
     // farol de quem vai na mesma mão, à nossa frente: luz no asfalto adiante dele. Posições
     // calculadas pelo z contínuo do carro (interpolando dentro do segmento): o facho acompanha o

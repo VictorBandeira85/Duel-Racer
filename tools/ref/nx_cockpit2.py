@@ -143,13 +143,30 @@ def main():
     gy, gx = np.mgrid[0:ROWS, 0:256 + 2 * PAD]
     nx = gx - PAD + 0.5
     ny = gy + 0.5
-    def inside(a, b, c, d, rr):
-        qx = np.clip(nx, a + rr, b - rr)
-        qy = np.clip(ny, c + rr, d - rr)
-        return np.hypot(nx - qx, (ny - qy) * 0.875) <= rr
-    cx0, cx1, cy0, cy1 = (46, 210, 18, 84) if nowheel else (52, 204, 14, 78)
-    face = inside(cx0, cx1, cy0, cy1, 9)
-    rim = inside(cx0 - 2, cx1 + 2, cy0 - 2, cy1 + 2, 11) & ~face
+    # contorno curvo como o do carro: o fundo abraça os mostradores (envoltória convexa dos seis,
+    # com folga), sem cantos retos; as pontas fazem a curva em volta dos pequenos de fora
+    dials = [(100, 50, 22), (157, 50, 22), (71, 40, 7), (62, 64, 8), (186, 40, 7), (195, 64, 8)] if nowheel else []
+    def hull_mask(pad):
+        pts = []
+        for dx_, dy_, rr in dials:
+            for t in np.linspace(0, 2 * np.pi, 48, endpoint=False):
+                pts.append((PAD + dx_ + 0.5 + np.cos(t) * (rr + pad), dy_ + 0.5 + np.sin(t) * (rr + pad) * 8 / 7))
+        m_ = np.zeros((ROWS * 4, (256 + 2 * PAD) * 4), np.float32)
+        hull = cv2.convexHull(np.array(pts, np.float32) * 4).astype(np.int32)
+        cv2.fillPoly(m_, [hull], 1)
+        return cv2.resize(m_, (256 + 2 * PAD, ROWS), interpolation=cv2.INTER_AREA) >= 0.5
+    if dials:
+        face = hull_mask(3.5)
+        rim = hull_mask(5).astype(bool) & ~face
+    else:
+        def inside(a, b, c, d, rr):
+            qx = np.clip(nx, a + rr, b - rr)
+            qy = np.clip(ny, c + rr, d - rr)
+            return np.hypot(nx - qx, (ny - qy) * 0.875) <= rr
+        cx0, cx1, cy0, cy1 = 52, 204, 14, 78
+        face = inside(cx0, cx1, cy0, cy1, 9)
+        rim = inside(cx0 - 2, cx1 + 2, cy0 - 2, cy1 + 2, 11) & ~face
+    cy0, cy1 = 18, 84
     # alumínio escovado (riscos horizontais finos), mais escuro no alto, na sombra da cobertura
     rng_ = np.random.default_rng(7)
     rowv = rng_.integers(-6, 7, size=ROWS)[:, None]

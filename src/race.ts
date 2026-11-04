@@ -113,6 +113,7 @@ export const RIVAL_STYLE: Record<string, RivalStyle> = {
 };
 
 export interface Police {
+  planX?: number; // linha escolhida no trânsito
   side?: number; // lado por onde vai passar o jogador (-1 esquerda, 1 direita)
   sideT?: number;
   spotZ: number;
@@ -1329,12 +1330,12 @@ export class Race {
         const copMax = (p.sv ? COP_SV_KMH : COP_KMH) / KMH;
         const target = Math.min(copMax, this.speed + 2500);
         const acc = (p.sv ? COP_SV_ACC : COP_ACC) * Math.max(0.15, 1 - p.speed / copMax);
-        p.speed += clamp(target - p.speed, -4000 * dt, acc * dt);
+        // linha: atrás do jogador, pelo lado mais livre (esquerda ou direita), desviando do trânsito
+        const cap = this.copPlan(p, this.x + this.copSide(p, dt) * CAR_W * 1.3, dt);
+        p.speed += clamp(Math.min(target, cap) - p.speed, -toGame(G * 1.05) * dt, acc * dt);
         const gapNow = pz - p.z;
         if (gapNow < SEG_LEN * 1.5) p.speed = Math.min(p.speed, this.speed); // não ultrapassa antes da abordagem
         p.z += p.speed * dt;
-        // atrás do jogador, pelo lado mais livre (esquerda ou direita) para ultrapassar
-        p.x += clamp(this.x + this.copSide(p, dt) * CAR_W * 1.3 - p.x, -dt * 2500, dt * 2500);
         this.copTraffic(p, dt);
         const gap = pz - p.z;
         if (this.state === 'drive' && p.chaseT > 4 && gap < SEG_LEN * 2) this.startPullover(p);
@@ -1348,10 +1349,12 @@ export class Race {
         if (p.chaseT < RADAR_ALERT_T) this.radar = 1;
         // ultrapassa e se mantém 8 segmentos à frente (visível no para-brisa), reduzindo junto
         const err = pz + SEG_LEN * 8 - p.z;
-        p.speed = Math.max(0, this.speed + clamp(err * 1.5, -3000, 3500));
-        p.z += p.speed * dt;
         const ahead = p.z > pz + SEG_LEN * 1.2;
-        p.x += clamp((ahead ? this.stopX : this.x + (p.side ?? -1) * CAR_W * 1.3) - p.x, -dt * 2200, dt * 2200);
+        let cap = Infinity;
+        if (ahead) p.x += clamp(this.stopX - p.x, -dt * 2200, dt * 2200);
+        else cap = this.copPlan(p, this.x + (p.side ?? -1) * CAR_W * 1.3, dt);
+        p.speed = Math.max(0, Math.min(cap, this.speed + clamp(err * 1.5, -3000, 3500)));
+        p.z += p.speed * dt;
         this.copTraffic(p, dt);
         if (this.speed <= 0 && p.speed < 80 && Math.abs(err) < SEG_LEN * 0.6) {
           p.state = 'stopped';
@@ -1398,6 +1401,55 @@ export class Race {
   // viatura no meio do trânsito: desvia de quem está à frente na mesma linha (pelo lado com
   // mais espaço; de quem vem na contramão, sempre para a direita), freia se não der e, se
   // encostar, os dois se empurram e ela perde velocidade (não atravessa ninguém)
+  // viatura no trânsito: escolhe a linha (faixas e o lado do jogador) com mais tempo livre à
+  // frente, olhando ~25 trechos, sem ficar ziguezagueando; e limita a velocidade pelo carro que
+  // ficar na linha dela, freando com antecedência (não chega colada para frear de uma vez)
+  private copPlan(p: Police, want: number, dt: number) {
+    const ph = (p.sv ? CAR_W * 1.08 : POLICE_W) / 2;
+    const edge = this.track.roadW - ph;
+    const v = Math.max(p.speed, 1500);
+    const free = (x: number) => {
+      let t = 6;
+      for (const c of this.traffic) {
+        if (c.hit) continue;
+        const dz = c.z - p.z;
+        if (dz < -SEG_LEN * 0.5 || dz > 25 * SEG_LEN) continue;
+        const cx = c.signal && Math.abs(c.tx - c.x) > 60 ? c.tx : c.x;
+        if (Math.abs(cx - x) > ph + this.carHalf(c) + 60 && Math.abs(c.x - x) > ph + this.carHalf(c) + 60) continue;
+        const closing = v - c.speed;
+        t = Math.min(t, dz <= SEG_LEN ? 0 : closing > 0 ? dz / closing : 6);
+      }
+      return t;
+    };
+    const cands = new Set<number>([clamp(want, -edge, edge), clamp(p.x, -edge, edge)]);
+    for (let i = 0; i < this.track.lanes; i++) cands.add(laneCenter(this.track, i));
+    let best = p.x, bestS = -Infinity;
+    for (const x of cands) {
+      // na mão dupla, a contramão só com folga de verdade
+      const oncoming = this.track.lanes === 2 && x < 0;
+      const t = free(x);
+      let sc = Math.min(t, 4) - Math.abs(x - want) / 2500 - Math.abs(x - p.x) / 6000;
+      if (oncoming && t < 3) sc -= 3;
+      if (Math.abs(x - (p.planX ?? p.x)) < 120) sc += 0.4; // mantém o plano
+      if (sc > bestS) { bestS = sc; best = x; }
+    }
+    p.planX = best;
+    p.x += clamp(best - p.x, -dt * 3000, dt * 3000);
+    // freio: o carro que estiver na linha, à frente
+    const aB = 1400 * 0.9;
+    let cap = Infinity;
+    for (const c of this.traffic) {
+      if (c.hit) continue;
+      const dz = c.z - p.z;
+      if (dz <= 0 || dz > 30 * SEG_LEN) continue;
+      if (!overlap(p.x, ph, c.x, this.carHalf(c) + 40)) continue;
+      const safe = SEG_LEN * 1.6;
+      const cv = Math.max(0, c.speed);
+      cap = Math.min(cap, dz > safe ? cv + Math.sqrt(2 * aB * (dz - safe)) : cv * 0.9);
+    }
+    return cap;
+  }
+
   // por qual lado a viatura passa o jogador: o que tem mais espaço até a borda da pista e
   // menos trânsito logo à frente; troca de lado só de vez em quando (sem ficar ziguezagueando)
   private copSide(p: Police, dt: number) {

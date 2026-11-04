@@ -40,6 +40,8 @@ interface CockpitArt {
   mirror?: { img: string; x: number; y: number };
   lit?: [number, number, number, number][]; // visores com luz própria na arte do painel (x0, y0, x1, y1 inclusivos, pixels do painel): continuam acesos à noite
   glass?: { at: [number, number]; thr?: number };
+  // luz da seta antiga: um só círculo verde que pisca para os dois lados (+ as outras luzes da fileira, apagadas)
+  turnDot?: { x: number; y: number; others?: [number, number][] };
   tells?: [number, number] | null; // luzes da seta no quadro (null: a cabine já desenha as dela) // ponto dentro do vidro do retrovisor (teto + painel), ver findGlass
   dy?: number; // desce a cabine inteira (painel alto demais tapando a pista)
   wheelDx?: number; // desloca o volante para a direita (alinha com o quadro de instrumentos)
@@ -96,7 +98,9 @@ function cp(n: string) {
   return CPNG[`./assets/cockpit/${n}.png`];
 }
 const COCKPIT_ART: Record<string, CockpitArt> = {
-  f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, dashMask: cp('f40-dash-mask'), topMask: cp('f40-top-mask'), pivot: [127.4, 80], tells: [129, 47], 
+  f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, dashMask: cp('f40-dash-mask'), topMask: cp('f40-top-mask'), pivot: [127.4, 80], tells: null,
+    // Veglia: a seta é um círculo verde no pé do velocímetro (com farol de neblina e farol alto ao lado)
+    turnDot: { x: 104, y: 60.5, others: [[109.5, 62], [115, 60.5]] }, 
     // Veglia Borletti: velocímetro à esquerda e conta-giros à direita; conta-giros 0-100 (× 100 rpm), velocímetro 0-360 com os intermediários
     // pequenos, hodômetro e parcial dentro dele; água 60/90/120 e turbo 0/0,8/1,5 bar embaixo
     tach: { x: 149, y: 46, r: 17, max: 10, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], labelMul: 10, tick: 0.25, red: 7.75, redLabels: false },
@@ -959,7 +963,8 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   rect(c, ox + rx, ART_TOP + ry, 30, 6, '#0c0c0e');
   radarLeds(c, ox + rx + 2, ART_TOP + ry + 1, 26, r.radar);
   // luz verde da seta no quadro (as cabines com luz-espia própria desenham a delas)
-  if (art.tells !== null) {
+  if (art.turnDot) turnDot(c, ox, art.turnDot, r.signal);
+  else if (art.tells !== null) {
     const t = art.tells ?? defaultTells(art);
     if (t) turnTells(c, ox + t[0], ART_TOP + t[1], r.signal);
   }
@@ -1515,6 +1520,16 @@ function boostSubdial(c: CanvasRenderingContext2D, x: number, y: number, R: numb
 
 // luzes-espia da seta no quadro: duas setinhas verdes (esquerda e direita), centradas em (x, y);
 // a do lado ligado pisca junto com o relé
+function turnDot(c: CanvasRenderingContext2D, ox: number, d: NonNullable<CockpitArt['turnDot']>, signal: number) {
+  const dot = (x: number, y: number, col: string) => {
+    c.fillStyle = col;
+    c.fillRect(ox + x - 1, ART_TOP + y - 0.5, 2, 2);
+    c.fillRect(ox + x - 0.5, ART_TOP + y - 1, 1, 3);
+  };
+  (d.others ?? []).forEach(([x, y]) => dot(x, y, '#3a3a3c'));
+  const on = signal !== 0 && blinkOn();
+  dot(d.x, d.y, on ? '#3cf048' : '#1c3a20');
+}
 function turnTells(c: CanvasRenderingContext2D, x: number, y: number, signal: number) {
   const lit = signal !== 0 && blinkOn();
   for (const side of [-1, 1]) {

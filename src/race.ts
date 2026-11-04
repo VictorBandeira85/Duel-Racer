@@ -113,6 +113,8 @@ export const RIVAL_STYLE: Record<string, RivalStyle> = {
 };
 
 export interface Police {
+  side?: number; // lado por onde vai passar o jogador (-1 esquerda, 1 direita)
+  sideT?: number;
   spotZ: number;
   z: number;
   x: number;
@@ -1265,7 +1267,12 @@ export class Race {
         const allow = dz > safe ? v + Math.sqrt(2 * aB * (dz - safe)) : v * clamp((dz - SEG_LEN * 0.8) / (safe - SEG_LEN * 0.8), 0.5, 1);
         target = Math.min(target, Math.max(0, allow));
       };
-      for (const c of this.traffic) follow(c.z, c.x, this.carHalf(c), c.hit ? 0 : c.speed);
+      for (const c of this.traffic) {
+        follow(c.z, c.x, this.carHalf(c), c.hit ? 0 : c.speed);
+        // carro do trânsito entrando na frente (seta ligada ou já cruzando): o rival já trata
+        // como se estivesse na faixa para onde ele vai e alivia antes
+        if (!c.hit && Math.abs(c.tx - c.x) > 60 && (c.signal || c.moving)) follow(c.z, c.tx, this.carHalf(c), c.speed);
+      }
       // o jogador também (colado atrás dele o rival pisca o farol, não bate)
       if (this.state === 'drive') follow(this.playerZ, this.x, CAR_W / 2, this.speed);
     }
@@ -1326,8 +1333,8 @@ export class Race {
         const gapNow = pz - p.z;
         if (gapNow < SEG_LEN * 1.5) p.speed = Math.min(p.speed, this.speed); // não ultrapassa antes da abordagem
         p.z += p.speed * dt;
-        // atrás do jogador, pela faixa da esquerda (para ultrapassar)
-        p.x += clamp(this.x - CAR_W * 1.3 - p.x, -dt * 2500, dt * 2500);
+        // atrás do jogador, pelo lado mais livre (esquerda ou direita) para ultrapassar
+        p.x += clamp(this.x + this.copSide(p, dt) * CAR_W * 1.3 - p.x, -dt * 2500, dt * 2500);
         this.copTraffic(p, dt);
         const gap = pz - p.z;
         if (this.state === 'drive' && p.chaseT > 4 && gap < SEG_LEN * 2) this.startPullover(p);
@@ -1344,7 +1351,7 @@ export class Race {
         p.speed = Math.max(0, this.speed + clamp(err * 1.5, -3000, 3500));
         p.z += p.speed * dt;
         const ahead = p.z > pz + SEG_LEN * 1.2;
-        p.x += clamp((ahead ? this.stopX : this.x - CAR_W * 1.3) - p.x, -dt * 2200, dt * 2200);
+        p.x += clamp((ahead ? this.stopX : this.x + (p.side ?? -1) * CAR_W * 1.3) - p.x, -dt * 2200, dt * 2200);
         this.copTraffic(p, dt);
         if (this.speed <= 0 && p.speed < 80 && Math.abs(err) < SEG_LEN * 0.6) {
           p.state = 'stopped';
@@ -1391,6 +1398,27 @@ export class Race {
   // viatura no meio do trânsito: desvia de quem está à frente na mesma linha (pelo lado com
   // mais espaço; de quem vem na contramão, sempre para a direita), freia se não der e, se
   // encostar, os dois se empurram e ela perde velocidade (não atravessa ninguém)
+  // por qual lado a viatura passa o jogador: o que tem mais espaço até a borda da pista e
+  // menos trânsito logo à frente; troca de lado só de vez em quando (sem ficar ziguezagueando)
+  private copSide(p: Police, dt: number) {
+    p.sideT = (p.sideT ?? 0) - dt;
+    if (p.side !== undefined && p.sideT > 0) return p.side;
+    const off = CAR_W * 1.3, edge = this.track.roadW - POLICE_W / 2;
+    const score = (sd: number) => {
+      const lx = this.x + sd * off;
+      if (Math.abs(lx) > edge + 200) return -99;
+      let s = (edge - Math.abs(lx)) / 400;
+      for (const c of this.traffic) {
+        const dz = c.z - p.z;
+        if (dz > -SEG_LEN && dz < SEG_LEN * 12 && Math.abs(c.x - lx) < CAR_W * 1.2) s -= c.speed < 0 ? 4 : 2;
+      }
+      return s + (sd === p.side ? 0.8 : 0) + (sd < 0 ? 0.3 : 0); // de preferência pela esquerda
+    };
+    p.side = score(1) > score(-1) ? 1 : -1;
+    p.sideT = 1.2;
+    return p.side;
+  }
+
   private copTraffic(p: Police, dt: number) {
     const ph = (p.sv ? CAR_W * 1.08 : POLICE_W) / 2;
     const edge = this.track.roadW - ph;
@@ -1399,11 +1427,13 @@ export class Race {
       const dz = c.z - p.z;
       const closing = p.speed - c.speed;
       if (dz < -SEG_LEN * 0.4 || dz > SEG_LEN * 6 || closing <= 0) continue;
-      if (!overlap(p.x, ph + 60, c.x, half)) continue;
+      // quem está trocando de faixa conta também onde vai chegar (com a seta ligada)
+      const cx = c.signal && Math.abs(c.tx - c.x) > 60 && overlap(p.x, ph + 60, c.tx, half) ? c.tx : c.x;
+      if (!overlap(p.x, ph + 60, cx, half)) continue;
       const room = ph + half + 90;
-      let side = c.speed < 0 ? 1 : p.x < c.x ? -1 : 1;
-      if (c.speed > 0 && Math.abs(c.x + side * room) > edge) side = -side;
-      const tx = clamp(c.x + side * room, -edge, edge);
+      let side = c.speed < 0 ? 1 : p.x < cx ? -1 : 1;
+      if (c.speed > 0 && Math.abs(cx + side * room) > edge) side = -side;
+      const tx = clamp(cx + side * room, -edge, edge);
       p.x += clamp(tx - p.x, -dt * 3200, dt * 3200);
       const still = overlap(p.x, ph, c.x, half);
       // não deu para sair da frente a tempo: segura atrás dele

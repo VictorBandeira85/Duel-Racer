@@ -22,7 +22,55 @@ export interface EngineSpec {
   vol: number; // nivelamento de volume entre motores
   idle: number; // giro de marcha lenta (rpm)
   redline: number; // giro máximo (rpm)
+  vtec?: number; // fração do giro em que o comando variável vira para o came bravo (som abre e endurece)
+  cam?: number; // came bravo: marcha lenta irregular que vai sumindo com o giro (0..1)
+  intake?: number; // ronco de admissão (carburadores, borboletas individuais) sob carga
+  whine?: number; // zunido de engrenagens/comando (agudo fraco que acompanha o giro)
 }
+
+// assinatura de cada carro (o motor de verdade de cada um), por cima do tipo de motor
+const CAR_SOUND: Record<string, Partial<EngineSpec>> = {
+  // F40: V8 2.9 biturbo de virabrequim plano, rouco e seco, escapamento quase direto
+  'furia-f4': { redline: 7750, idle: 1000, drive: 2.4, rasp: 0.16, low: 950, fb: 0.38, pops: 0.7, vol: 0.85 },
+  // Testarossa: boxer 12 de 4.9, liso e aveludado, ronco grave que abre só em cima
+  'furia-tr': { redline: 6800, idle: 850, drive: 1.6, rasp: 0.06, low: 780, res: [[100, 1.1, 1.2], [460, 1.9, 0.7], [1550, 2.8, 0.28]], jitter: 0.03 },
+  // Diablo SV: V12 5.7 de 48v, uivo agressivo e metálico em giro alto
+  'toro-v12': { redline: 7100, drive: 2.1, rasp: 0.1, low: 900, res: [[110, 1.1, 1.1], [480, 1.8, 0.75], [1650, 2.6, 0.4]], intake: 0.15 },
+  'patrol-sv': { redline: 7100, drive: 2.1, rasp: 0.1, low: 900, res: [[110, 1.1, 1.1], [480, 1.8, 0.75], [1650, 2.6, 0.4]], intake: 0.15 },
+  // Countach: V12 com seis carburadores duplos: ronco de admissão forte, marcha lenta um pouco solta
+  'toro-lp5': { redline: 7500, idle: 950, drive: 2.0, rasp: 0.12, intake: 0.4, cam: 0.25, pops: 0.6, jitter: 0.06 },
+  // 959: boxer 6 biturbo sequencial, rosnado grave e o chiado dos turbos
+  'silber-95': { redline: 7600, intake: 0.08 },
+  // ZR-1 (LT5 32v): V8 de quatro comandos, menos batuque e gira mais que um V8 americano comum
+  'vortex-zr': { redline: 7000, idle: 750, pulse: 2.4, jitter: 0.06, low: 820, whine: 0.25, res: [[100, 1, 1.1], [420, 1.8, 0.62], [1450, 3, 0.3]] },
+  // viatura: V8 de sedã grande, preguiçoso e grave
+  patrol: { redline: 5200, idle: 650, pulse: 3.2, low: 600, drive: 1.8, jitter: 0.08, pops: 0.25 },
+  // NSX: V6 3.0 VTEC: liso embaixo, vira de came lá pelas 5.800 rpm e grita até 8.000
+  'kaze-nx': { redline: 8000, idle: 800, vtec: 0.72, rasp: 0.12, low: 1000, drive: 1.8, intake: 0.2, res: [[135, 1.2, 0.95], [720, 2.2, 0.62], [2200, 3, 0.36]] },
+  // Viper: V10 8.0 de origem de caminhão, intervalos desiguais, grave e rouco, gira pouco
+  'serpe-v10': { redline: 6000, idle: 700, events: [0, 90, 144, 234, 288, 378, 432, 522, 576, 666], pulse: 2.6, drive: 2.5, low: 750, jitter: 0.1, res: [[90, 1, 1.25], [400, 1.8, 0.7], [1500, 3, 0.32]] },
+  // nacionais com o mesmo tipo de motor, cada um com o seu jeito
+  'br-maverick': { cam: 0.8, idle: 650, redline: 5600, pops: 0.8, jitter: 0.12 }, // 302 V8 de came bravo: "cocota"
+  'br-charger': { cam: 0.5, idle: 650, redline: 5200, pulse: 3.2, low: 620 }, // 318 V8: grave e cheio
+  'br-omega': { redline: 6000, rasp: 0.05, jitter: 0.02, low: 950, whine: 0.1 }, // 6 em linha 3.0 alemão, refinado
+  'br-opala': { cam: 0.3, redline: 4600 }, // 4.1 de 12v: pastoso
+  'br-pumagtb': { cam: 0.35, redline: 4800, intake: 0.15 },
+  'br-vectra': { redline: 7200, intake: 0.15, whine: 0.15 }, // 2.0 16v (C20XE): agudo e afiado
+  'br-corsa': { redline: 7000, whine: 0.12 },
+  'br-gol16v': { redline: 7200, intake: 0.12 },
+  'br-tipo16v': { redline: 7000, whine: 0.1 },
+  'br-golgti': { redline: 6400, intake: 0.1 }, // AP 2.0: rouco e cheio
+  'br-passat': { redline: 6300, jitter: 0.08 },
+  'br-xr3': { redline: 6200, rasp: 0.12 },
+  'br-kadett': { redline: 6300 },
+  'br-monza': { redline: 6000, low: 760 },
+  'br-chevette': { redline: 5800, rasp: 0.13, jitter: 0.09 },
+  'br-147': { redline: 6000, rasp: 0.14, jitter: 0.1 },
+  'br-uno': { redline: 6200, rasp: 0.13 }, // 1.4 turbo: assobio com pouco motor
+  'br-tempra': { redline: 6200 },
+  'br-sp2': { cam: 0.2, redline: 5200 },
+  'br-pumagte': { redline: 5600 },
+};
 
 // ângulos igualmente espaçados num ciclo de 720°
 const even = (n: number) => Array.from({ length: n }, (_, i) => (720 / n) * i);
@@ -93,7 +141,9 @@ export function engineSpec(desc: string, carId = ''): EngineSpec {
   }
   // turbo: o rotor abafa o escapamento (menos agudo, menos estalo de tubo)
   if (b !== BASE[k]) k += d.includes('16v') ? '-16v' : d.includes('8v') ? '-8v' : d.includes('a ar') ? '-ar' : '-12v';
-  return turbo ? { ...b, name: k + 'turbo', turbo: true, low: b.low * 0.8, fb: b.fb * 0.85, pops: b.pops * 1.3 } : { ...b, name: k, turbo: false };
+  const out: EngineSpec = turbo ? { ...b, name: k + 'turbo', turbo: true, low: b.low * 0.8, fb: b.fb * 0.85, pops: b.pops * 1.3 } : { ...b, name: k, turbo: false };
+  const own = CAR_SOUND[carId];
+  return own ? { ...out, ...own, name: out.name + ':' + carId } : out;
 }
 
 // processador (roda na thread de áudio): carregado de um Blob, sem arquivo separado
@@ -151,10 +201,13 @@ class Engine extends AudioWorkletProcessor {
     const rpm = s.idle + Math.max(0, this.rpmS) * (s.redline - s.idle);
     const limiter = this.rpmS > 1.0;
     const load = this.loadS;
+    // comando variável: acima do ponto, o came bravo abre o som (suave, sem degrau)
+    const vt = s.vtec ? Math.min(1, Math.max(0, (this.rpmS - s.vtec) / 0.04)) * (0.4 + 0.6 * load) : 0;
+    this.vtS = (this.vtS || 0) + (vt - (this.vtS || 0)) * k;
     // filtros conforme carga e giro
     if (--this.retune <= 0) {
       this.retune = 4;
-      const lpf = s.low * (1 + load * 3) * (0.8 + this.rpmS * 0.6) * (s.turbo ? 1 - 0.25 * this.boost : 1);
+      const lpf = s.low * (1 + load * 3) * (0.8 + this.rpmS * 0.6) * (s.turbo ? 1 - 0.25 * this.boost : 1) * (1 + 0.7 * this.vtS);
       for (let b = 0; b < 2; b++) {
         s.res.forEach((r, j) => this.res[b][j].band(r[0] * (1 + 0.15 * this.rpmS) * (b ? 1.04 : 1), r[1], sr));
         this.lp[b].low(lpf, 0.8, sr);
@@ -164,10 +217,12 @@ class Engine extends AudioWorkletProcessor {
     const interval = 720 / E / degPerSample; // amostras entre explosões
     const pulseLen = Math.max(8, Math.min(s.pulse * sr / 1000, interval * 0.7));
     const amp = (0.5 + 0.5 * load) * this.onS;
-    const drive = 1 + s.drive * load;
+    const drive = 1 + s.drive * load * (1 + 0.35 * this.vtS);
+    const camJ = (s.cam || 0) * Math.pow(Math.max(0, 1 - this.rpmS * 1.6), 2); // marcha lenta irregular
+    const intake = (s.intake || 0) * load * (0.3 + this.rpmS);
     const fb = s.fb;
     const pd = [s.pipeMs[0] * sr / 1000, s.pipeMs[1] * sr / 1000];
-    const resG = s.res.map((r) => r[2]);
+    const resG = s.res.map((r, j) => r[2] * (j === s.res.length - 1 ? 1 + 0.8 * this.vtS : 1));
     for (let i = 0; i < n; i++) {
       // explosão quando o virabrequim passa pelo ângulo do próximo cilindro
       const prev = this.theta;
@@ -176,11 +231,13 @@ class Engine extends AudioWorkletProcessor {
       const crossed = (ev[this.next] - prev + 720) % 720 < degPerSample;
       if (crossed && amp > 0.001) {
         let a = amp * this.cylGain[this.next] * (1 + (this.rand() * 2 - 1) * s.jitter * 0.5);
+        // came bravo: explosões fracas e fortes alternando na marcha lenta ("cocota")
+        if (camJ > 0) a *= 1 + (this.rand() * 2 - 1) * camJ * 0.9 - (this.rand() < camJ * 0.25 ? 0.7 : 0);
         // corte de giro: falha metade das explosões; aliviando em giro alto, estalos ocasionais
         if (limiter && this.rand() < 0.55) a = 0;
         let pop = 0;
         if (load < 0.15 && this.rpmS > 0.45 && this.rand() < s.pops * 0.05) pop = 2.2 + this.rand() * 1.5;
-        if (a > 0 || pop) this.pulses.push({ t: 0, len: pulseLen * (pop ? 1.8 : 1), a: pop ? amp * pop + 0.25 * this.onS : a, b: s.banks[this.next], noise: pop ? 1 : s.rasp * (0.4 + load) });
+        if (a > 0 || pop) this.pulses.push({ t: 0, len: pulseLen * (pop ? 1.8 : 1), a: pop ? amp * pop + 0.25 * this.onS : a, b: s.banks[this.next], noise: pop ? 1 : s.rasp * (0.4 + load) + intake });
         this.next = (this.next + 1) % E;
       } else if (crossed) this.next = (this.next + 1) % E;
       // soma dos pulsos ativos, por bancada
@@ -210,6 +267,8 @@ class Engine extends AudioWorkletProcessor {
         for (let j = 0; j < R.length; j++) z += R[j].run(w) * resG[j];
         y += this.lp[b].run(z);
       }
+      // zunido do comando/engrenagens: senoide fraca a 3x o giro
+      if (s.whine) { this.wph = ((this.wph || 0) + rpm / 60 * 3 / sr * this.pitch) % 1; y += Math.sin(this.wph * 2 * Math.PI) * s.whine * 0.04 * (0.3 + this.rpmS) * this.onS; }
       // saturação (sob carga o som "rasga")
       y = Math.tanh(y * drive * 1.2) / Math.tanh(drive * 1.2);
       out[i] = y * s.vol;

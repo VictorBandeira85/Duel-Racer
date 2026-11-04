@@ -77,10 +77,35 @@ export function crisp(key: string, w: number, h: number, draw: Draw): Crisp {
   return out;
 }
 
+// versão tingida (neblina) de um sprite pronto: a cor da névoa por cima dos pixels cheios, numa
+// força arredondada (24 degraus); cada combinação fica em cache junto do sprite
+const tints = new WeakMap<HTMLCanvasElement, Map<string, HTMLCanvasElement>>();
+function tinted(cv: HTMLCanvasElement, rgb: string, a: number) {
+  const q = Math.round(Math.min(0.96, a) * 24) / 24;
+  if (q <= 0) return cv;
+  let m = tints.get(cv);
+  if (!m) tints.set(cv, (m = new Map()));
+  const k = `${rgb}:${q}`;
+  let t = m.get(k);
+  if (!t) {
+    if (m.size > 48) m.clear();
+    t = document.createElement('canvas');
+    t.width = cv.width;
+    t.height = cv.height;
+    const g = t.getContext('2d')!;
+    g.drawImage(cv, 0, 0);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = `rgba(${rgb},${q})`;
+    g.fillRect(0, 0, t.width, t.height);
+    m.set(k, t);
+  }
+  return t;
+}
+
 // Desenha um sprite nítido com a base centrada em (x, y), no tamanho w x h da tela.
 // Acima de `ref` px de altura, usa o desenho de `ref` px ampliado (pixels grandes, como no SNES).
 export function drawCrisp(
-  c: CanvasRenderingContext2D, key: string, x: number, y: number, w: number, h: number, draw: Draw, ref = 96,
+  c: CanvasRenderingContext2D, key: string, x: number, y: number, w: number, h: number, draw: Draw, ref = 96, tint?: [string, number],
 ) {
   if (w < 1 || h < 1) return null;
   // rasterizado no dobro da resolução nativa: objetos da beira da pista mais definidos
@@ -89,6 +114,6 @@ export function drawCrisp(
   const s = crisp(key, w * k * Q, h * k * Q, draw);
   const sx = w / s.w, sy = h / s.h;
   const L = Math.round(x - w / 2 - sx), T = Math.round(y - h - sy), W = Math.round(s.cv.width * sx), H = Math.round(s.cv.height * sy);
-  c.drawImage(s.cv, L, T, W, H);
+  c.drawImage(tint ? tinted(s.cv, tint[0], tint[1]) : s.cv, L, T, W, H);
   return { cv: s.cv, x: L, y: T, w: W, h: H };
 }

@@ -223,9 +223,27 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
     // (setSkyLight abre um furo de luz na camada escura)
     // presa ao céu (acompanha o horizonte nas subidas e descidas) e recortada acima dele: o
     // brilho nunca cai sobre o chão
-    const mxp = vp.x + vp.w * 0.78 - yawPx * 0.2, myp = vp.y + 14 + (vp.horizon - (vp.h0 ?? vp.horizon));
-    if (myp < vp.horizon - 10) {
+    const mxp = vp.x + vp.w * 0.78 - yawPx * 0.2;
+    // linha dos morros (as duas camadas do fundo) em volta da lua: ela fica sempre acima dela,
+    // no céu; nunca na frente de uma montanha
+    const seedM = r.course.id.length * 31 + r.stageIdx;
+    const x0 = Math.floor(mxp - 26), ys: number[] = [];
+    const tops = th.bg.map((kind, k) => ({
+      top: skyline(panorama(kind, k === 1, true, seedM)),
+      off: ((Math.floor(r.bgOffset * (k ? 0.6 : 0.3) + yawPx) % PANO_W) + PANO_W) % PANO_W,
+    }));
+    for (let x = x0; x <= x0 + 52; x++) {
+      let y = vp.horizon - 2;
+      for (const t of tops) if (t.top) y = Math.min(y, vp.horizon - PANO_H + 1 + t.top[(((x - vp.x + t.off) % PANO_W) + PANO_W) % PANO_W]);
+      ys.push(y);
+    }
+    const ridgeAt = Math.min(...ys.slice(14, 39)); // morro mais alto embaixo do disco e do halo perto
+    const myp = Math.max(vp.y + 8, Math.min(vp.y + 14 + (vp.horizon - (vp.h0 ?? vp.horizon)), ridgeAt - 15));
+    // aparece e some de leve quando um morro passa na frente (sem estalo)
+    const moonA = Math.max(0, Math.min(1, (ridgeAt - 6 - myp) / 8));
+    if (myp < vp.horizon - 10 && moonA > 0) {
       c.save();
+      c.globalAlpha *= moonA;
       c.beginPath();
       c.rect(vp.x, vp.y, vp.w, Math.max(0, vp.horizon - 2 - vp.y));
       c.clip();
@@ -240,7 +258,10 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
       c.fillRect(Math.round(mxp + 1), Math.round(myp + 1), 2, 1);
       c.fillRect(Math.round(mxp - 1), Math.round(myp + 3), 1, 1);
       c.restore();
-      if (nk > 0.5) setSkyLight(mxp, myp, 26, vp.horizon - 2);
+      if (nk > 0.5 && moonA > 0.5) {
+        // o clarão da lua só vale no céu: para em cada coluna na linha dos morros e da pista
+        setSkyLight(mxp, myp, 26, vp.horizon - 2, { x0, ys });
+      }
     }
     c.globalAlpha = ga0;
   }
@@ -484,9 +505,9 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       const seed = sp.kind === 'building' ? sp.seed % 45 : sp.kind === 'billboard' ? sp.seed % 100 : sp.kind === 'gasKm' ? sp.seed : sp.kind === 'house' ? sp.seed % 6 : sp.kind === 'autumn' || sp.kind === 'umbrella' ? sp.seed % 3 : 0;
       const bw = sw * (sp.kind === 'lamp' ? 3.4 : 1.1);
       let drawn = null as ReturnType<typeof drawCrisp>;
-      fogged(c, fk, sx - bw / 2 - 3, s.p1.screen.y - sh - 3, bw + 6, sh + 6, (g) => {
-        drawn = drawCrisp(g, `${sp.kind}${seed}${sp.kind === 'billboard' && !adsReady(seed) ? 'w' : ''}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed));
-      });
+      // na neblina: o sprite já tingido sai do cache (antes cada objeto passava por uma camada
+      // extra a cada quadro, o que derrubava os quadros por segundo)
+      drawn = drawCrisp(c, `${sp.kind}${seed}${sp.kind === 'billboard' && !adsReady(seed) ? 'w' : ''}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed), 96, fk >= 0.02 ? [fogRgb, fk] : undefined);
       // tapa o farol dos carros que estão atrás deste objeto
       // (mureta, postes e balizas são baixos e finos: não escondem o clarão do farol)
       const dr = drawn as ReturnType<typeof drawCrisp>;

@@ -124,6 +124,7 @@ export function beginLights() {
   fronts.length = 0;
   clipY = Infinity;
   lights.length = 0;
+  resetSils();
   streets.length = 0;
   collecting = true;
 }
@@ -386,6 +387,47 @@ function carLighting(rd: RoadPt[], cx: number, seen: number, top: number, ox: nu
     return Math.min(1, lit);
   };
 }
+// silhueta de cada carro, recortada uma vez por quadro (as duas camadas, escura e quente, usam a
+// mesma: antes cada camada redesenhava o carro inteiro só para pegar o contorno)
+interface Sil { cv: HTMLCanvasElement; x0: number; y0: number; w: number; h: number }
+const silPool: HTMLCanvasElement[] = [];
+let silUsed = 0;
+const sils = new Map<Light, Sil | null>();
+function resetSils() {
+  silUsed = 0;
+  sils.clear();
+}
+function silhouette(l: Light, W: number, H: number, ox: number, oy: number): Sil | null {
+  const hit = sils.get(l);
+  if (hit !== undefined) return hit;
+  const x0 = Math.max(0, Math.floor(l.x - l.w * 0.75 - ox)), x1 = Math.min(W, Math.ceil(l.x + l.w * 0.75 - ox));
+  const y0 = Math.max(0, Math.floor(l.y - l.w * 1.2 - oy)), y1 = Math.min(H, Math.ceil(l.y + l.w * 0.2 + 2 - oy), Math.ceil(Math.max(l.clip + 1, l.clip >= l.y - 1 ? l.y + l.w * 0.2 + 2 : 0) - oy));
+  if (!l.shape || x1 <= x0 || y1 <= y0) {
+    sils.set(l, null);
+    return null;
+  }
+  const w = x1 - x0, h = y1 - y0;
+  const cv = silPool[silUsed] ?? (silPool[silUsed] = document.createElement('canvas'));
+  silUsed++;
+  if (cv.width < w || cv.height < h) {
+    cv.width = Math.max(cv.width, w);
+    cv.height = Math.max(cv.height, h);
+  }
+  const t = cv.getContext('2d')!;
+  t.setTransform(1, 0, 0, 1, 0, 0);
+  t.globalCompositeOperation = 'source-over';
+  t.clearRect(0, 0, w, h);
+  t.save();
+  t.beginPath();
+  t.rect(0, 0, w, h);
+  t.clip();
+  t.translate(-ox - x0, -oy - y0);
+  l.shape(t, true);
+  t.restore();
+  const sl = { cv, x0, y0, w, h };
+  sils.set(l, sl);
+  return sl;
+}
 // apaga a silhueta de cada carro da camada e pinta de novo com uma cor por inteiro (fill)
 function shadeCars(g: CanvasRenderingContext2D, W: number, H: number, ox: number, oy: number, fill: (l: Light) => string, erase: boolean) {
   if (carCv.width !== W || carCv.height !== H) {
@@ -395,30 +437,24 @@ function shadeCars(g: CanvasRenderingContext2D, W: number, H: number, ox: number
   const t = carCv.getContext('2d')!;
   // do mais longe (mais alto na tela) para o mais perto: o da frente cobre o de trás
   for (const l of lights.filter((n) => n.shape).sort((a, b) => a.y - b.y)) {
-    if (!l.shape) continue;
-    const x0 = Math.max(0, Math.floor(l.x - l.w * 0.75 - ox)), x1 = Math.min(W, Math.ceil(l.x + l.w * 0.75 - ox));
-    const y0 = Math.max(0, Math.floor(l.y - l.w * 1.2 - oy)), y1 = Math.min(H, Math.ceil(l.y + l.w * 0.2 + 2 - oy), Math.ceil(Math.max(l.clip + 1, l.clip >= l.y - 1 ? l.y + l.w * 0.2 + 2 : 0) - oy));
-    if (x1 <= x0 || y1 <= y0) continue;
-    t.setTransform(1, 0, 0, 1, 0, 0);
-    t.globalCompositeOperation = 'source-over';
-    t.clearRect(x0, y0, x1 - x0, y1 - y0);
-    t.save();
-    t.beginPath();
-    t.rect(x0, y0, x1 - x0, y1 - y0);
-    t.clip();
-    t.translate(-ox, -oy);
-    l.shape(t, true);
-    t.restore();
+    const sl = silhouette(l, W, H, ox, oy);
+    if (!sl) continue;
+    const { cv, x0, y0, w, h } = sl;
     if (erase) {
       g.globalCompositeOperation = 'destination-out';
-      g.drawImage(carCv, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+      g.drawImage(cv, 0, 0, w, h, x0, y0, w, h);
     }
+    t.setTransform(1, 0, 0, 1, 0, 0);
+    t.globalCompositeOperation = 'source-over';
+    t.clearRect(x0, y0, w, h);
+    t.drawImage(cv, 0, 0, w, h, x0, y0, w, h);
     t.globalCompositeOperation = 'source-in';
     t.fillStyle = fill(l);
-    t.fillRect(x0, y0, x1 - x0, y1 - y0);
+    t.fillRect(x0, y0, w, h);
     g.globalCompositeOperation = 'source-over';
-    g.drawImage(carCv, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+    g.drawImage(carCv, x0, y0, w, h, x0, y0, w, h);
   }
+  // quem chamou continua no modo em que estava (a camada escura segue recortando)
   g.globalCompositeOperation = erase ? 'destination-out' : 'source-over';
 }
 const beamCv = document.createElement('canvas');
@@ -511,10 +547,11 @@ export interface Pass { x: number; dz: number } // quem vem atrás com farol ace
 
 // fim da pista: escuridão, luzes dos carros somadas e a claridade de quem emparelha
 // lua (ou outra luz do céu) que não deve ser apagada pela escuridão da noite
-let sky: { x: number; y: number; r: number; floor: number } | null = null;
-// floor: linha da tela abaixo da qual o furo de luz não passa (os morros e o chão ficam escuros)
-export function setSkyLight(x: number, y: number, r: number, floor = Infinity) {
-  sky = { x, y, r, floor };
+let sky: { x: number; y: number; r: number; floor: number; ridge?: { x0: number; ys: number[] } } | null = null;
+// floor: linha da tela abaixo da qual o furo de luz não passa (os morros e o chão ficam escuros);
+// ridge: a linha dos morros coluna a coluna (o furo fica só no céu acima dela)
+export function setSkyLight(x: number, y: number, r: number, floor = Infinity, ridge?: { x0: number; ys: number[] }) {
+  sky = { x, y, r, floor, ridge };
 }
 export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: number; w: number; h: number; horizon: number; dash?: number }, strength: number, passers: Pass[], segLen: number, road: RoadPt[] = []) {
   collecting = false;
@@ -564,7 +601,31 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     sg.addColorStop(0.4, 'rgba(0,0,0,0.8)');
     sg.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = sg;
+    g.save();
+    if (sky.ridge) {
+      // só acima dos morros e da pista (a pista numa subida passa por cima do horizonte)
+      const { x0, ys } = sky.ridge;
+      // só os pedaços da pista que se veem (atrás de uma crista a pista projeta mais alto, mas
+      // está escondida pelo morro): de perto para longe, cada ponto só conta se sobe na tela
+      const vis: RoadPt[] = [];
+      let lowest = Infinity;
+      for (const p of [...rd].sort((a, b) => a.d - b.d)) if (p.y < lowest) { lowest = p.y; vis.push(p); }
+      g.beginPath();
+      g.moveTo(x0 - vp.x, -1);
+      ys.forEach((y, i) => {
+        const cx0 = x0 + i - vp.x;
+        let fy = Math.min(y, sky!.floor) - top;
+        for (const p of vis) if (Math.abs(cx0 - p.x) <= p.w * 1.3 + 2) fy = Math.min(fy, p.y - 2);
+        g.lineTo(cx0, fy);
+        g.lineTo(cx0 + 1, fy);
+      });
+      g.lineTo(x0 + ys.length - vp.x, -1);
+      g.closePath();
+
+      g.clip();
+    }
     g.fillRect(sx - sky.r, sy - sky.r, sky.r * 2, Math.min(sky.r * 2, sky.floor - top - (sy - sky.r)));
+    g.restore();
     sky = null;
   }
   g.globalCompositeOperation = 'source-over';
@@ -596,7 +657,13 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   c.save();
   c.globalCompositeOperation = 'lighter';
   c.globalAlpha = Math.min(1, strength); // no lusco-fusco a luz do farol ainda quase não aparece
-  c.drawImage(warmCv, vp.x, top);
+  // a luz quente só existe do topo da pista visível para baixo (chão, carros e placas): o resto
+  // da camada é vazio e não precisa ser somado à tela
+  let wy = rd.length ? Math.min(...rd.map((p) => p.y)) - 70 : 0;
+  for (const f of refl) wy = Math.min(wy, f.y - f.h - top - 4);
+  for (const l of lights) wy = Math.min(wy, l.y - l.w * 1.4 - top - 4);
+  wy = Math.max(0, Math.floor(wy));
+  if (wy < H) c.drawImage(warmCv, 0, wy, W, H - wy, vp.x, top + wy, W, H - wy);
   c.globalAlpha = 1;
   c.imageSmoothingEnabled = prev;
   // a lâmpada de cada poste; um carro mais perto que o poste, passando na frente dele, tapa o
@@ -709,7 +776,8 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
           // faróis de quem vem de frente: foco forte em cada farol, halo e o clarão na pista à frente
           const k = l.high ? 1.5 : 1;
           for (const [px, py] of pts) {
-            blob(dc, px, py, Math.max(l.w * 0.55 * k, 5), Math.max(l.w * 0.4 * k, 3.5), '255,244,200', 0.75 * strength);
+            // de longe o halo encolhe junto com o carro (não cobre a pista e os morros em volta)
+            blob(dc, px, py, Math.max(l.w * 0.55 * k, Math.min(5, l.w * 0.7)), Math.max(l.w * 0.4 * k, Math.min(3.5, l.w * 0.45)), '255,244,200', 0.75 * strength);
             blob(dc, px, py, Math.max(l.w * 0.16, 1.6), Math.max(l.w * 0.13, 1.3), '255,255,245', 1 * strength);
             // raios curtos (estrela) dos faróis vistos de frente
             dc.fillStyle = `rgba(255,250,225,${(0.5 * strength).toFixed(3)})`;
@@ -725,7 +793,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
           // de longe a lâmpada continua um ponto vermelho bem visível (tamanho mínimo e mais forte),
           // como lanterna acesa na estrada escura
           const far = Math.max(0, Math.min(1, (24 - l.w) / 18)); // 1 = bem longe
-          const m = (v: number, min: number) => Math.max(v, min * far);
+          const m = (v: number, min: number) => Math.max(v, Math.min(min * far, l.w * 0.35 + 1));
           for (const [px, py] of pts) {
             if (l.brake) {
               blob(dc, px, py, m(l.w * 0.42, 5), m(l.w * 0.3, 3.5), '255,30,16', 0.32 * strength);

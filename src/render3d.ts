@@ -340,6 +340,40 @@ function sunDisc(c: CanvasRenderingContext2D, vp: Viewport, x: number, y: number
   c.fill();
 }
 
+// neblina num objeto: ele continua sólido e ganha a cor da neblina conforme a distância (antes
+// ficava semitransparente e a estrada aparecia através de pontes e carros). Desenhado numa
+// camada do tamanho da tela, tingido só na silhueta e copiado de volta.
+const fogCv = document.createElement('canvas');
+function fogged(c: CanvasRenderingContext2D, fk: number, x: number, y: number, w: number, h: number, draw: (g: CanvasRenderingContext2D) => void) {
+  if (fk < 0.02) return draw(c);
+  const W = c.canvas.width, H = c.canvas.height;
+  if (fogCv.width !== W || fogCv.height !== H) {
+    fogCv.width = W;
+    fogCv.height = H;
+  }
+  const g = fogCv.getContext('2d')!;
+  const tf = c.getTransform();
+  const X0 = Math.max(0, Math.floor(tf.a * x + tf.e)), Y0 = Math.max(0, Math.floor(tf.d * y + tf.f));
+  const X1 = Math.min(W, Math.ceil(tf.a * (x + w) + tf.e)), Y1 = Math.min(H, Math.ceil(tf.d * (y + h) + tf.f));
+  if (X1 <= X0 || Y1 <= Y0) return;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalCompositeOperation = 'source-over';
+  g.clearRect(X0, Y0, X1 - X0, Y1 - Y0);
+  g.imageSmoothingEnabled = c.imageSmoothingEnabled;
+  g.setTransform(tf);
+  draw(g);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalCompositeOperation = 'source-atop';
+  g.fillStyle = fogFill(fk);
+  g.fillRect(X0, Y0, X1 - X0, Y1 - Y0);
+  g.globalCompositeOperation = 'source-over';
+  c.save();
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.globalAlpha = 1;
+  c.drawImage(fogCv, X0, Y0, X1 - X0, Y1 - Y0, X0, Y0, X1 - X0, Y1 - Y0);
+  c.restore();
+}
+
 // mistura de duas cores #rrggbb
 function mix(a: string, b: string, t: number) {
   const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
@@ -354,7 +388,7 @@ const FAR_KINDS = ['building', 'station', 'bridge', 'billboard', 'barn', 'factor
 
 export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport) {
   // câmera inclinada junto com o carro: na subida o horizonte desce, na descida sobe
-  const vp = { ...view0, h0: view0.horizon, horizon: view0.horizon + Math.round(Math.max(-80, Math.min(60, r.pitch * CAM_DEPTH * view0.K))) };
+  const vp = { ...view0, h0: view0.horizon, horizon: view0.horizon + Math.round(Math.max(-110, Math.min(60, r.pitch * CAM_DEPTH * view0.K))) };
   const segs = r.track.segments;
   const roadW = r.track.roadW;
   const night = !!r.def.night;
@@ -436,7 +470,6 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       c.restore();
       continue;
     }
-    c.globalAlpha = 1 - fk;
     for (const sp of s.sprites) {
       // objetos pequenos e distantes só poluem o horizonte
       if (dist > (sp.kind === 'post' || sp.kind === 'rail' ? 90 : FAR_KINDS.includes(sp.kind) ? 400 : 170) * Math.max(1, far * 0.85)) continue;
@@ -450,10 +483,14 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       // mais larga que o objeto para caber o que passa da largura (braço do poste etc.)
       const seed = sp.kind === 'building' ? sp.seed % 45 : sp.kind === 'billboard' ? sp.seed % 100 : sp.kind === 'gasKm' ? sp.seed : sp.kind === 'house' ? sp.seed % 6 : sp.kind === 'autumn' || sp.kind === 'umbrella' ? sp.seed % 3 : 0;
       const bw = sw * (sp.kind === 'lamp' ? 3.4 : 1.1);
-      const drawn = drawCrisp(c, `${sp.kind}${seed}${sp.kind === 'billboard' && !adsReady(seed) ? 'w' : ''}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed));
+      let drawn = null as ReturnType<typeof drawCrisp>;
+      fogged(c, fk, sx - bw / 2 - 3, s.p1.screen.y - sh - 3, bw + 6, sh + 6, (g) => {
+        drawn = drawCrisp(g, `${sp.kind}${seed}${sp.kind === 'billboard' && !adsReady(seed) ? 'w' : ''}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed));
+      });
       // tapa o farol dos carros que estão atrás deste objeto
       // (mureta, postes e balizas são baixos e finos: não escondem o clarão do farol)
-      if (lit && drawn && sp.kind !== 'rail' && sp.kind !== 'post') pushOccluder({ ...drawn, idx: i, clip: s.clip });
+      const dr = drawn as ReturnType<typeof drawCrisp>;
+      if (lit && dr && sp.kind !== 'rail' && sp.kind !== 'post') pushOccluder({ ...dr, idx: i, clip: s.clip });
       // poste aceso à noite: a lâmpada fica na ponta do braço, sobre o acostamento
       if (lit && (sp.kind === 'station' || sp.kind === 'gasSign')) pushFacade(sp.kind, sx, s.p1.screen.y, sw, sh);
       if (lit && REFLECT.has(sp.kind)) pushReflector(sp.kind, sx, s.p1.screen.y, sw, sh, dist);
@@ -514,19 +551,21 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
           c.restore();
         }
       } else if (e === r.rival) {
-        drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: r.rival.recover > 0 || r.rival.mistake > 0, night: lit, paint: r.rivalPaint, signal: r.rival.signal, plate: r.rivalPlate });
+        const rw = CAR_W * sc * vp.K, rv = r.rival;
+        fogged(c, fk, cx - rw, cy - rw * 1.3, rw * 2, rw * 1.3 + 4, (g) => drawCar(g, cx, cy, rw, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: rv.recover > 0 || rv.mistake > 0, night: lit, paint: r.rivalPaint, signal: rv.signal, plate: r.rivalPlate }));
         beamAhead(e.z, ex, CAR_W * sc * vp.K);
       } else if ('phase' in e) {
         drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, (e as Officer).phase === 'show');
       } else if ('spotZ' in e) {
         const p = e as Race['police'][number];
         const siren = p.state === 'chase' || p.state === 'pull' || p.state === 'stopped';
-        drawCar(c, cx, cy, (p.sv ? CAR_W * 1.08 : POLICE_W) * sc * vp.K, { color: '#fff', police: true, sv: p.sv, siren, night: lit });
+        const pw = (p.sv ? CAR_W * 1.08 : POLICE_W) * sc * vp.K;
+        fogged(c, fk, cx - pw, cy - pw * 1.3, pw * 2, pw * 1.3 + 4, (g) => drawCar(g, cx, cy, pw, { color: '#fff', police: true, sv: p.sv, siren, night: lit }));
         beamAhead(e.z, ex, POLICE_W * sc * vp.K, 5);
       } else {
         const t = e as TrafficCar;
         const tw = (t.truck ? TRUCK_W : CAR_W) * sc * vp.K;
-        drawCar(c, cx, cy, tw, trafficLook(t, t.base < 0, night || fog || !!s.tunnel, t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0));
+        fogged(c, fk, cx - tw, cy - tw * 1.6, tw * 2, tw * 1.6 + 4, (g) => drawCar(g, cx, cy, tw, trafficLook(t, t.base < 0, night || fog || !!s.tunnel, t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0)));
         if (t.base > 0) beamAhead(e.z, ex, tw, t.truck ? 12 : 4);
         // batido: fumaça saindo do motor (frente: em cima do capô; de trás: por cima do carro)
         if (t.smoke > 0) drawSmoke(c, cx, cy - tw * (t.base < 0 ? 0.35 : 0.55), tw, t.smoke, Math.round(t.base));

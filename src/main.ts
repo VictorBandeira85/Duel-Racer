@@ -665,7 +665,8 @@ function frameInner(now: number) {
   }
   // na largada o quadro de desafios ocupa o alto do para-brisa: o aviso aparece logo abaixo dele
   const chBox = state.screen === 'race' && race && race.challenges.length && (race.state === 'countdown' || (race.state === 'drive' && race.time < 5));
-  drawToast(ctx, dt, chBox ? 38 + race!.challenges.length * 6 : 0);
+  // na tela do posto o aviso fica abaixo da placa POSTO DUELO
+  drawToast(ctx, dt, chBox ? 38 + race!.challenges.length * 6 : state.screen === 'gas' && !state.gasPage ? 44 : 0);
 }
 // abertura: página de carregamento enquanto as artes dos carros chegam, depois a capa
 beginLoading(state, () => actions.go('title'), 1.4);

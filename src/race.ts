@@ -185,6 +185,8 @@ export class Race {
   ghostPos: { z: number; x: number; ghost: true } | null = null; // motor batido esquentando: perde força e o ponteiro da água sobe
   private stoneT = 0;
   // contagens do trecho para os desafios e as conquistas
+  private airPending = 0;
+  private airPendT = 0;
   stats = { passes: 0, near: 0, brakeT: 0, airT: 0, bestAir: 0, scrapes: 0, tunnels: 0 };
   challenges: import('./challenges').Challenge[] = [];
   private wasTunnel = false;
@@ -369,12 +371,23 @@ export class Race {
       }
       this.sun = clamp(1 - p / 0.75, 0, 1);
     }
+    // salto: o tempo no ar só vale depois de pousar sem bater (0,6 s inteiro depois da queda)
+    if (this.state === 'crash') this.airPending = 0;
     if (this.state === 'drive') {
       if (this.braking && this.speed > 0) this.stats.brakeT += dt;
       if (this.airborne) {
         this.stats.airT += dt;
-        this.stats.bestAir = Math.max(this.stats.bestAir, this.stats.airT);
-      } else this.stats.airT = 0;
+      } else {
+        if (this.stats.airT > 0) {
+          this.airPending = Math.max(this.airPending, this.stats.airT);
+          this.airPendT = 0.6;
+        }
+        this.stats.airT = 0;
+      }
+      if (this.airPending > 0 && (this.airPendT -= dt) <= 0) {
+        this.stats.bestAir = Math.max(this.stats.bestAir, this.airPending);
+        this.airPending = 0;
+      }
     }
     if (this.dawnRise) {
       // a noite vai embora no primeiro terço do trecho
@@ -511,14 +524,20 @@ export class Race {
     // no ar, o carro aponta para onde está indo (sobe de nariz e vai embicando na queda)
     // câmera olha um pouco adiante: no começo de uma descida íngreme já aponta para baixo,
     // acompanhando a pista (antes mirava o céu até o carro chegar na rampa)
-    let ahead = 0;
-    for (let k = 2; k <= 9; k++) {
+    // a câmera mira o chão uns 25 segmentos à frente (a inclinação média até lá, com mais peso
+    // no trecho mais perto): ao chegar numa crista ela já aponta para a descida, e não para o céu
+    let ahead = 0, wsum = 0;
+    for (let k = 2; k <= 25; k++) {
       const sg = this.findSegment(this.position + k * SEG_LEN);
-      ahead += (sg.p2.world.y - sg.p1.world.y) / SEG_LEN;
+      const wk = 1.4 - k / 25;
+      ahead += ((sg.p2.world.y - sg.p1.world.y) / SEG_LEN) * wk;
+      wsum += wk;
     }
-    ahead = clamp(ahead / 8, -0.6, 0.6);
-    const pitchTo = this.airborne ? clamp(this.vy / Math.max(this.speed, 1), -0.6, 0.6) : slope * 0.3 + slopeCam * 0.2 + ahead * 0.5;
-    this.pitch = lerp(this.pitch, pitchTo, Math.min(1, dt * (this.airborne ? 3 : 6)));
+    ahead = clamp(ahead / wsum, -0.7, 0.6);
+    // no ar também olha para onde vai pousar (antes seguia o próprio voo e mirava o céu)
+    const fly = clamp(this.vy / Math.max(this.speed, 1), -0.6, 0.6);
+    const pitchTo = this.airborne ? fly * 0.35 + ahead * 0.65 : slope * 0.15 + slopeCam * 0.15 + ahead * 0.7;
+    this.pitch = lerp(this.pitch, pitchTo, Math.min(1, dt * (this.airborne ? 5 : 7)));
     // ---- salto: o carro é um corpo com velocidade vertical própria. Segue o chão enquanto a
     // gravidade dá conta; num topo de lombada que cai mais rápido do que ela puxa, decola,
     // voa em parábola e cai com uma pancada proporcional à velocidade de queda ----

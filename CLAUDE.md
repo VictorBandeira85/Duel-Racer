@@ -27,3 +27,9 @@
   imagem na resolução da arte (`faces` em COCKPIT_ART), com números refeitos em fonte grotesca
   negrita no lugar dos errados, e ponteiros `needleFine` (afinados, suavizados, miolo redondo).
   Conferir também em densidade de iPhone (deviceScaleFactor 3).
+- Cada carro tem o seu quadro: nunca reaproveitar o estilo de outro. Copiar da arte/foto daquele
+  carro: formato e cor dos ponteiros (fino, largo, afinado, com ou sem rabicho, cor), miolo
+  (tamanho, cor, capa), fonte dos números (negrita, fina, condensada, itálica, tamanho, cor,
+  posição e de quanto em quanto), marcações (grossura, comprimento, intervalos), faixas de cor,
+  textos (MPH, km/h, x1000, marca), fundo (cor, textura, aro) e a iluminação noturna (cor da luz
+  dos números/ponteiros e do fundo). Na dúvida, perguntar ou pedir foto do quadro real.

@@ -2,7 +2,7 @@ import { brandOf, drawLogo } from './brands';
 import { prefs } from './prefs';
 import { binds, keyName, touch } from './input';
 import { ghostTimeAt } from './records';
-import { DASH_Y, KMH, ROOF_H, SEG_LEN, view } from './config';
+import { DASH_Y, KMH, RES, ROOF_H, SEG_LEN, view } from './config';
 import { sirenWash } from './nightlight';
 import type { Race } from './race';
 import { renderMirror, renderRoad, type Viewport } from './render3d';
@@ -61,7 +61,7 @@ interface CockpitArt {
   aux: Aux[];
   hubR?: number; // raio do miolo redondo dos ponteiros grandes
   needleFine?: boolean; // ponteiro afinando até a ponta, com suavização (como o desenho da arte)
-  faces?: { src: string; x: number; y: number; w: number; h: number }[]; // fundos dos mostradores em alta resolução
+  faces?: { src: string; src2?: string; x: number; y: number; w: number; h: number }[]; // fundos dos mostradores em alta resolução (src2: versão feita para RES 2)
   glow?: string; // cor (r,g,b) da iluminação noturna do quadro
   under?: (c: CanvasRenderingContext2D, ox: number, r: Race) => void; // fundo do quadro, antes dos mostradores
   extra?: (c: CanvasRenderingContext2D, ox: number, r: Race) => void; // detalhes próprios (hodômetros, luzes-espia, submostradores)
@@ -798,7 +798,7 @@ COCKPIT_ART.nsx = {
   // o quadro inteiro é uma imagem em alta resolução desenhada a partir da foto (tools/ref/nx_gauges.py):
   // alumínio escovado, aros prateados, marcações brancas finas, números em grotesca negrita, bloco
   // vermelho de 8 a 9 e os ícones; o jogo desenha só os ponteiros (vermelho-alaranjados, afinados)
-  faces: [{ src: cp('nsx-cluster'), x: 38.5, y: 14.5, w: 182, h: 80 }],
+  faces: [{ src: cp('nsx-cluster'), src2: cp('nsx-cluster-2x'), x: 38.5, y: 14.5, w: 182, h: 80 }],
   needleFine: true, hubR: 3, tells: [129, 24], glow: '235,240,255', // setas na janelinha do alto; à noite números brancos
   tach: { x: 100, y: 50, r: 22.5, max: 9, labels: [], tick: 1, red: 999, face: false, a0: 125 * (Math.PI / 180), sweep: 265 * (Math.PI / 180) },
   speed: { x: 157, y: 50, r: 22.5, max: 280, labels: [], tick: 20, red: 999, face: false, a0: 112 * (Math.PI / 180), sweep: 268 * (Math.PI / 180) },
@@ -1041,7 +1041,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     const sm = c.imageSmoothingEnabled;
     c.imageSmoothingEnabled = true;
     for (const f of art.faces) {
-      const im = faceImg(f.src);
+      const im = faceImg(RES <= 2 && f.src2 ? f.src2 : f.src);
       if (im) c.drawImage(nightImg(im, dk), ox + f.x, ART_TOP + f.y, f.w, f.h);
     }
     c.imageSmoothingEnabled = sm;

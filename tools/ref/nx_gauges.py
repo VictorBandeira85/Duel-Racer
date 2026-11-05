@@ -18,7 +18,8 @@ import sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-K = 12                      # desenha em dobro (6 px por pixel do jogo no fim) e reduz: traços suavizados
+K = 12                      # desenha o fundo em 12 px por pixel do jogo e reduz para KO: traços suavizados
+KO = 4                      # resolução final = a do jogo (RES 4; e outra versão em 2 para RES 2): sem reamostrar no jogo
 PY = 8 / 7                  # o pixel do jogo é mais largo: na vertical tudo é 8/7 maior
 X0, Y0, X1, Y1 = 38, 14, 220, 94  # região do quadro (coordenadas do jogo)
 FONT = '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'
@@ -53,6 +54,47 @@ def tick(d, g, ang, r0, r1, w, col='white'):
     d.line([at(g['x'], g['y'], ang, r0), at(g['x'], g['y'], ang, r1)], fill=col, width=w)
 
 
+LABELS = []  # números e textos: desenhados depois, direto na resolução final (letras nítidas)
+
+
+def label(s, cx, cy, size, track=0.0):
+    LABELS.append((s, cx * KO / K, cy * KO / K, size * KO / K, track))
+
+
+# fonte de pixels 3x5 para a versão de baixa resolução (2 px por pixel do jogo): números
+# pequenos ficam nítidos em vez de borrões ("1" com 1 coluna)
+PIXFONT = {
+    '0': ['111', '101', '101', '101', '111'], '1': ['1', '1', '1', '1', '1'], '2': ['111', '001', '111', '100', '111'],
+    '3': ['111', '001', '111', '001', '111'], '4': ['101', '101', '111', '001', '001'], '5': ['111', '100', '111', '001', '111'],
+    '6': ['111', '100', '111', '101', '111'], '7': ['111', '001', '001', '001', '001'], '8': ['111', '101', '111', '101', '111'],
+    '9': ['111', '101', '111', '001', '111'], '½': ['100', '000', '111', '011', '110'],
+}
+
+
+def draw_labels(im):
+    d = ImageDraw.Draw(im)
+    for s, cx, cy, size, track in LABELS:
+        if KO == 2 and size < 9:
+            if not all(ch in PIXFONT for ch in s):
+                continue  # textos pequenos (km/h, x1000r/min) não cabem em 2 px por pixel
+            tw = sum(len(PIXFONT[ch][0]) for ch in s) + len(s) - 1
+            x, y = int(round(cx - tw / 2)), int(round(cy - 2.5))
+            for ch in s:
+                for j, row in enumerate(PIXFONT[ch]):
+                    for i, v in enumerate(row):
+                        if v == '1':
+                            im.putpixel((x + i, y + j), (246, 246, 246, 255))
+                x += len(PIXFONT[ch][0]) + 1
+            continue
+        f = ImageFont.truetype(FONT, int(round(size)))
+        ws = [d.textlength(ch, font=f) for ch in s]
+        tw = sum(ws) + track * (len(s) - 1)
+        x = round(cx - tw / 2)
+        for ch, w in zip(s, ws):
+            d.text((x, round(cy)), ch, font=f, fill=(246, 246, 246, 255), anchor='lm')
+            x += w + track
+
+
 def text(im, s, cx, cy, size, col=(244, 244, 244), squeeze=0.9):
     f = ImageFont.truetype(FONT, size)
     d0 = ImageDraw.Draw(Image.new('L', (4, 4)))
@@ -64,7 +106,14 @@ def text(im, s, cx, cy, size, col=(244, 244, 244), squeeze=0.9):
 
 
 def main():
+    global KO
     out = sys.argv[1]
+    for KO in (4, 2):
+        LABELS.clear()
+        build(out)
+
+
+def build(out):
     rng = np.random.default_rng(5)
     # alumínio escovado
     base = np.zeros((H, W, 3), np.float32)
@@ -110,10 +159,10 @@ def main():
                 tick(d, g, fr(v), g['r'] - 1.6, g['r'] - 0.8, int(K * 0.3))
             v += minor
         for L in labels:
-            x, y = at(g['x'], g['y'], fr(L), g['r'] - (6.6 if g is TACH else 6.8))
-            text(im, str(L), x, y, int(K * (5.6 if g is TACH else 3.2)), squeeze=0.95 if g is TACH else 0.86)
+            x, y = at(g['x'], g['y'], fr(L), g['r'] - (6.6 if g is TACH else 6.3))
+            label(str(L), x, y, K * (5.6 if g is TACH else 3.4), track=-0.5 if g is TACH else -1.3)
         x, y = P(g['x'], g['y'] + g['r'] * 0.62 * PY)
-        text(im, 'x1000r/min' if g is TACH else 'km/h', x + (K * 3 if g is TACH else 0), y, int(K * 1.6), squeeze=1)
+        label('x1000r/min' if g is TACH else 'km/h', x + (K * 3 if g is TACH else 0), y, K * 1.9, track=0)
     # pequenos
     for g in AUX:
         ell(d, g['x'], g['y'], g['r'] + 0.7, fill=(165, 167, 173))
@@ -128,7 +177,7 @@ def main():
         for i, L in enumerate(g.get('labels', [])):
             a = a0 + (a1 - a0) * i / (len(g['labels']) - 1)
             x, y = at(g['x'], g['y'], a, g['r'] - 3.6)
-            text(im, L, x, y, int(K * 2.3), squeeze=0.9)
+            label(L, x, y, K * 2.5, track=-0.5)
         # ícone do lado de fora do arco
         side = -1 if g['x'] < 128 else 1
         ix, iy = P(g['x'] + side * g['r'] * 0.42, g['y'] + g['r'] * 0.45)
@@ -150,7 +199,9 @@ def main():
     arr = np.array(im)
     edge = (al > 0) & (np.array(hull) == 0)
     arr[edge] = (16, 16, 19)
-    Image.fromarray(np.dstack([arr, al]), 'RGBA').resize((W // 2, H // 2), Image.LANCZOS).save(os.path.join(out, 'nsx-cluster.png'), optimize=True)
+    fin = Image.fromarray(np.dstack([arr, al]), 'RGBA').resize((W * KO // K, H * KO // K), Image.LANCZOS)
+    draw_labels(fin)
+    fin.save(os.path.join(out, 'nsx-cluster.png' if KO == 4 else 'nsx-cluster-2x.png'), optimize=True)
     print('quadro', (X0, Y0), 'tamanho', (X1 - X0, Y1 - Y0), W, H)
 
 

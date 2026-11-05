@@ -1,5 +1,5 @@
 // Fotos da revista (pixel art do Victor, sem marcas reais): Toro LP5 (ensaio, motor, raio-x e
-// galeria), Kaze NX (tools/ref/nx_photos.py) e Serpe V10 (tools/ref/viper_photos.py). Usadas nas capas do menu principal e nas páginas de carregamento.
+// galeria), Kaze NX (tools/ref/nx_photos.py) Serpe V10 (tools/ref/viper_photos.py) e Furia TR (tools/ref/testarossa_photos.py). Usadas nas capas do menu principal e nas páginas de carregamento.
 import type { Rect } from './ui';
 
 const PH = import.meta.glob('./assets/photos/*.png', { eager: true, import: 'default' }) as Record<string, string>;
@@ -39,7 +39,15 @@ export const VP_PHOTOS: Photo[] = [
   { src: ph('vp-cabine'), kicker: 'POR DENTRO', kc: '#1a6a2a', title: 'O PAINEL DO V10', sub: 'Couro, relógios brancos e só', inside: ['Mostradores no meio do painel', 'Sem vidro nas portas', 'Bancos baixos'], focus: 0.5 },
   { src: ph('vp-mostradores'), kicker: 'TÉCNICA', kc: '#1e4fb8', title: 'QUATRO RELÓGIOS', sub: 'Água, óleo, gasolina e bateria', inside: ['Leia o painel do V10', 'Temperatura ideal', 'Pressão do óleo no giro alto'], focus: 0.4 },
 ].filter((p) => !!p.src);
-export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS].forEach((p) => img(p.src));
+export const TR_PHOTOS: Photo[] = [
+  { src: ph('tr-ensaio'), kicker: 'ENSAIO', kc: '#d01f26', title: 'FURIA TR', sub: 'As lâminas que viraram lenda', inside: ['Boxer de 12 cilindros', 'Couro e câmbio de grade', 'Cabeçotes vermelhos'], focus: 0.5 },
+  { src: ph('tr-miami'), kicker: 'VIAGEM', kc: '#1e4fb8', title: 'TR NA BEIRA-MAR', sub: 'Pôr do sol, palmeiras e 390 cv', inside: ['A ponte ao entardecer', 'Escape quádruplo', 'Lanternas com grade'], focus: 0.6 },
+  { src: ph('tr-campo'), kicker: 'TESTE', kc: '#d01f26', title: 'FURIA TR NA SERRA', sub: 'Largo, baixo e na mão inglesa', inside: ['Curvas de vicinal', 'Faróis escamoteáveis', 'Consumo na estrada'], focus: 0.45 },
+  { src: ph('tr-trio'), kicker: 'GALERIA', kc: '#1a1614', title: 'TRÊS GERAÇÕES', sub: 'A família das laterais com lâminas', inside: ['TR, 512 e a última', 'O que mudou em cada', 'Rodas de cinco raios'], focus: 0.5 },
+  { src: ph('tr-motor'), kicker: 'TÉCNICA', kc: '#1e4fb8', title: 'BOXER 4.9 DE 48V', sub: 'Doze cilindros deitados', inside: ['Cabeçotes vermelhos', 'Radiadores laterais', 'Revisão das correias'], focus: 0.5 },
+  { src: ph('tr-cabine'), kicker: 'POR DENTRO', kc: '#1a6a2a', title: 'O PAINEL DA TR', sub: 'Relógios laranja e couro azul', inside: ['Quatro relógios', 'Câmbio de grade', 'Bancos baixos'], focus: 0.5 },
+].filter((p) => !!p.src);
+export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS].forEach((p) => img(p.src));
 
 // a foto cobre o quadro inteiro (corta em cima e embaixo), com uma aproximação lenta (u: 0..1)
 export function drawPhoto(c: CanvasRenderingContext2D, r: Rect, p: Photo, u: number) {

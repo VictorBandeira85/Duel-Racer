@@ -23,7 +23,6 @@ import top959Png from './assets/cockpit/959-top.png';
 import topF40Png from './assets/cockpit/f40-top.png';
 import wheel959Png from './assets/cockpit/959-wheel.png';
 // cabines desenhadas por código (tools/art/interiors.py)
-import INTERIORS from './assets/cockpit/interiors.json';
 import { paintHex } from './paint';
 import { lowFx } from './perf';
 
@@ -747,17 +746,34 @@ function c4Cluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   c.fillRect(ox + 178.5, T + 49, 2, 3);
 }
 
-for (const [k, v] of Object.entries(INTERIORS)) {
-  const dials = v.dials as Dial[];
-  COCKPIT_ART[k] = {
-    dash: cp(`${k}-dash`), top: cp(`${k}-top`), wheel: cp(`${k}-wheel`),
-    dashMask: cp(`${k}-dash-mask`), topMask: cp(`${k}-top-mask`),
-    pivot: v.pivot as [number, number],
-    tach: dials.find((d) => d.max <= 10)!, speed: dials.find((d) => d.max > 10)!,
-    speedMax: v.speedMax, needle: '#ff3a1a', hub: '#26262a', aux: v.aux as Aux[],
-    tells: k === 'testarossa' ? [128, 43] : undefined, // entre os dois auxiliares do meio
-  };
-}
+// Furia TR (Testarossa): interior azul do Victor (tools/ref/testarossa_cockpit.py) e o quadro Veglia
+// de verdade (foto do Victor, tools/ref/testarossa_gauges.py): três painéis quadrados, velocímetro
+// 0-320 e conta-giros 0-100 (x 100) com faixa vermelha, óleo e água no meio; tudo aceso em laranja
+COCKPIT_ART.testarossa = {
+  dash: cp('testarossa-dash'), top: cp('testarossa-top'), wheel: cp('testarossa-wheel'),
+  pivot: [128, 105], wheelTop: 12, speedMax: 320, needle: '#ff8a1c', needleW: 1.5, needleTail: 3, needleFine: true, hub: '#141415', hubR: 2.2,
+  glass: { at: [8.7, 95.9], thr: 256 }, glow: '255,140,40', tells: null,
+  faces: [{ src: cp('tr-cluster'), src2: cp('tr-cluster-2x'), x: 63.5, y: 29.5, w: 137, h: 54 }],
+  speed: { x: 95.4, y: 53.7, r: 21, max: 320, labels: [], tick: 20, red: 999, face: false, a0: 135 * (Math.PI / 180), sweep: 270 * (Math.PI / 180) },
+  tach: { x: 166.1, y: 53.7, r: 21, max: 10, labels: [], tick: 1, red: 999, face: false, a0: 135 * (Math.PI / 180), sweep: 270 * (Math.PI / 180) },
+  aux: [
+    { x: 130.7, y: 40.4, r: 7.6, kind: 'single', show: ['oil'], arc: [205 * (Math.PI / 180), 335 * (Math.PI / 180)], needleOnly: true },
+    { x: 130.7, y: 66.6, r: 7.6, kind: 'single', show: ['water'], arc: [205 * (Math.PI / 180), 335 * (Math.PI / 180)], needleOnly: true },
+  ],
+  // setas do pisca: as luzes-espia da lente embaixo do velocímetro acendem em verde
+  extra: (c, ox, r) => {
+    if (!r.signal || !blinkOn()) return;
+    const s = Math.sign(r.signal), x = ox + (s < 0 ? 89.2 : 102.6), y = ART_TOP + 75.8;
+    c.fillStyle = '#3cf048';
+    c.beginPath();
+    c.moveTo(x + s * 1.3, y);
+    c.lineTo(x - s * 0.8, y - 1.1);
+    c.lineTo(x - s * 0.8, y + 1.1);
+    c.closePath();
+    c.fill();
+  },
+};
+
 
 // Toro LP5 (Countach): interior do Victor (com e sem volante, tools/ref/lp5_cockpit.py), couro
 // vermelho e o quadro Jaeger de verdade: óleo, bateria, velocímetro 0-320 com hodômetro,

@@ -28,7 +28,7 @@ ART_BRAND = {
 
 SPOTS = {
   'f40':        {'rear': (100, 52, 9, 0),  'front': (100, 46, 9, 0)},
-  'testarossa': {'rear': (100, 60, 9, 0),  'front': (100, 50, 9, 0)},
+  'testarossa': {'rear': (136, 78, 11, 8), 'front': (91, 59, 7, 4), 'side': [(81.5, 68.5, 5, 6.6), (283.5, 68.5, 5, 6.6)]},
   'diablo':     {'rear': (100, 46, 9, 0),  'front': (100, 76, 9, 0)},
   'patrolsv':   {'rear': (100, 46, 9, 0),  'front': (100, 76, 9, 0)},
   'countach':   {'rear': (112, 70, 9, 0),  'front': (92, 69, 9, 5)},
@@ -53,10 +53,11 @@ WHEELS = {
   'diablo': (128, 104, 13, 0), 'br-vectra': (129, 108, 13, 0), 'br-golgti': (128, 148, 13, 0),
   'br-kadett': (128, 104, 11, 0), 'br-uno': (128, 106, 11, 7), 'br-corsa': (127, 112, 13, 8),
   'br-passat': (129, 112, 13, 8), 'br-pumagtb': (128.5, 127, 13, 9), 'br-pumagte': (128.5, 116, 13, 10),
-  'zr1': (128, 90, 13, 0), 'testarossa': (128.5, 86, 11, 3), 'nsx': (129.1, 115.9, 21, 0),
+  'zr1': (128, 90, 13, 0), 'testarossa': (128, 117, 15, 0), 'nsx': (129.1, 115.9, 21, 0),
   'viper': (131, 125, 17, 0), 'countach': (127.5, 117, 13, 11),
 }
 ZR1_CLEAR = (128, 90, 15, 13)  # elipse do emblema largo do C4
+ELL = {'zr1': ZR1_CLEAR, 'testarossa': (128, 117, 13.6, 15.8)}  # emblemas apagados por uma elipse
 
 
 def hexrgb(h):
@@ -167,7 +168,8 @@ def main():
       before = a.copy()
       mp = os.path.join(CARS, f'{art}-{view}-mask.png')
       m, mode = load_mask(mp)
-      stamp(a, m, bid, spot)
+      for sp in (spot if isinstance(spot, list) else [spot]):
+        stamp(a, m, bid, sp)
       if prev:
         k = 2 if a.shape[1] > 150 else 4
         c = Image.fromarray(a, 'RGBA')
@@ -180,7 +182,7 @@ def main():
   for art, spot in WHEELS.items():
     p = os.path.join(COCK, f'{art}-wheel.png')
     a = np.array(Image.open(p).convert('RGBA'))
-    stamp(a, None, ART_BRAND[art], spot, ZR1_CLEAR if art == 'zr1' else None)
+    stamp(a, None, ART_BRAND[art], spot, ELL.get(art))
     if prev:
       cx, cy = int(spot[0]), int(spot[1])
       c = Image.fromarray(a[cy - 24:cy + 24, cx - 32:cx + 32], 'RGBA')

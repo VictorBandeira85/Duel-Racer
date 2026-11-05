@@ -3,7 +3,7 @@ import { clearArcade, loadArcade, saveArcade } from './arcadesave';
 import { capsHtml } from './ui';
 import { stageResult } from './score';
 import '@fontsource/press-start-2p/400.css';
-import { RES, setRes, view } from './config';
+import { CRES, RES, setCanvasRes, setRes, view } from './config';
 import { CARS, TRAFFIC_IMAGES } from './cars';
 import { COURSES, completeCourse, unlockedCourses, withTimeOfDay, type ArcadeTime, type Course } from './courses';
 import { ui as careerUi } from './careerScreens';
@@ -281,10 +281,13 @@ function resize() {
   const dev = scale * (window.devicePixelRatio || 1);
   // (no MÁXIMO usa 4 também em monitores comuns de computador: carros e cenário bem definidos;
   // no automático só em telas densas, e se o aparelho não der conta volta para 2 sozinho)
-  setRes(!lowFx() && !lowRes() && dev >= (fxMode() === 'alto' ? 1.4 : 3.5) ? 4 : 2);
-  canvas.width = view.w * RES;
-  canvas.height = view.h * RES;
-  ctx.setTransform(RES, 0, 0, RES, 0, 0);
+  const dense = dev >= (fxMode() === 'alto' ? 1.4 : 3.5);
+  setRes(!lowFx() && !lowRes() && dense ? 4 : 2);
+  // a tela continua em 4 (mostradores e menus nítidos); no gráfico baixo só a estrada cai para 2
+  setCanvasRes(dense ? 4 : 2);
+  canvas.width = view.w * CRES;
+  canvas.height = view.h * CRES;
+  ctx.setTransform(CRES, 0, 0, CRES, 0, 0);
   ctx.imageSmoothingEnabled = false;
   canvas.style.width = `${view.w * view.aspect * scale}px`;
   canvas.style.height = `${view.h * scale}px`;
@@ -409,7 +412,7 @@ function reportText() {
     `Carro: ${run.car.name} · Rival: ${run.rival?.name ?? '-'}`,
     `Pista: ${st?.theme ?? '-'}${st?.night ? ' · noite' : ''}${st?.dusk ? ' · pôr do sol' : ''}${st?.tod ? ` · ${st.tod === 'dawn' ? 'amanhecer' : 'entardecer'}` : ''}${st?.weather ? ` · ${st.weather}` : ''} · ${race ? Math.round((race.playerZ / race.track.finishZ) * 100) : 0}% do trecho`,
     `Gráficos: ${FX_LABEL[fxMode()]}${lowFx() ? ' (econômico ativo)' : ''} · FPS médio ${fpsAvg} (mín ${fpsMin})`,
-    `Tela: ${window.innerWidth}x${window.innerHeight} · densidade ${window.devicePixelRatio} · resolução interna ${RES}x`,
+    `Tela: ${window.innerWidth}x${window.innerHeight} · densidade ${window.devicePixelRatio} · resolução interna ${RES}x (tela ${CRES}x)`,
     `Áudio: ${audioState()} · motor ${synthReady() ? 'sintetizado' : 'simples'} · nível ${sfxLevel().toFixed(3)} · efeitos ${state.sound ? 'ligados' : 'desligados'} ${VOLS[prefs.sfxVol] * 100}%`,
     'O que aconteceu: ',
   ].join('\n');

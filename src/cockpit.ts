@@ -2,7 +2,7 @@ import { brandOf, drawLogo } from './brands';
 import { prefs } from './prefs';
 import { binds, keyName, touch } from './input';
 import { ghostTimeAt } from './records';
-import { DASH_Y, KMH, RES, ROOF_H, SEG_LEN, view } from './config';
+import { CRES, DASH_Y, KMH, RES, ROOF_H, SEG_LEN, view } from './config';
 import { sirenWash } from './nightlight';
 import type { Race } from './race';
 import { renderMirror, renderRoad, type Viewport } from './render3d';
@@ -1117,7 +1117,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     const sm = c.imageSmoothingEnabled;
     c.imageSmoothingEnabled = true;
     for (const f of art.faces) {
-      const im = faceImg(RES <= 2 && f.src2 ? f.src2 : f.src);
+      const im = faceImg(f.src); // sempre a versão alta: os números são os mesmos em qualquer gráfico
       if (im) c.drawImage(art.facesLit ? litImg(im, dk, art.facesLit) : nightImg(im, dk), ox + f.x, ART_TOP + f.y, f.w, f.h);
     }
     c.imageSmoothingEnabled = sm;
@@ -2036,6 +2036,7 @@ function drawDebris(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   }
 }
 
+const roadCv = document.createElement('canvas');
 function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number, stageLabel: string, totalTime: number, dt: number) {
   const { w } = view;
   const vp = windshield();
@@ -2045,7 +2046,23 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   // a cabeça do motorista: só a vista pelo para-brisa gira (a cabine não se mexe nem é cortada)
   const yaw0 = r.yaw;
   r.yaw += r.head;
-  renderRoad(c, r, art ? { ...vp, h: view.h - vp.y, dash: ART_TOP } : vp);
+  const rvp = art ? { ...vp, h: view.h - vp.y, dash: ART_TOP } : vp;
+  if (CRES > RES) {
+    // gráfico baixo em tela densa: a estrada sai em RES 2 num canvas à parte e é ampliada; a
+    // cabine (painel, mostradores, volante) continua na resolução da tela
+    if (roadCv.width !== view.w * RES || roadCv.height !== view.h * RES) {
+      roadCv.width = view.w * RES;
+      roadCv.height = view.h * RES;
+    }
+    const rc = roadCv.getContext('2d')!;
+    rc.setTransform(RES, 0, 0, RES, 0, 0);
+    rc.imageSmoothingEnabled = false;
+    renderRoad(rc, r, rvp);
+    const sm = c.imageSmoothingEnabled;
+    c.imageSmoothingEnabled = false;
+    c.drawImage(roadCv, 0, 0, view.w, view.h);
+    c.imageSmoothingEnabled = sm;
+  } else renderRoad(c, r, rvp);
   r.yaw = yaw0;
   weather(c, r, vp, dt);
   drawWipers(c, r, vp, dt, dashTopFn(art), coreX());

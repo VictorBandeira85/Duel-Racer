@@ -25,3 +25,9 @@ export let RES = 2;
 export function setRes(n: number) {
   RES = n;
 }
+// pixels do canvas da tela por pixel nativo. Com o gráfico baixo em tela densa, só a estrada (o que
+// pesa) é desenhada em RES 2 e ampliada; painel, mostradores, volante e menus seguem em 4
+export let CRES = 2;
+export function setCanvasRes(n: number) {
+  CRES = n;
+}

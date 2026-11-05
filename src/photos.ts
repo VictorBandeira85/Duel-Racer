@@ -1,5 +1,5 @@
 // Fotos da revista (pixel art do Victor, sem marcas reais): Toro LP5 (ensaio, motor, raio-x e
-// galeria) e Kaze NX (tools/ref/nx_photos.py). Usadas nas capas do menu principal e nas páginas de carregamento.
+// galeria), Kaze NX (tools/ref/nx_photos.py) e Serpe V10 (tools/ref/viper_photos.py). Usadas nas capas do menu principal e nas páginas de carregamento.
 import type { Rect } from './ui';
 
 const PH = import.meta.glob('./assets/photos/*.png', { eager: true, import: 'default' }) as Record<string, string>;
@@ -31,7 +31,15 @@ function img(src: string) {
   }
   return im.complete && im.naturalWidth ? im : null;
 }
-export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS].forEach((p) => img(p.src));
+export const VP_PHOTOS: Photo[] = [
+  { src: ph('vp-estrada'), kicker: 'TESTE', kc: '#d01f26', title: 'SERPE V10', sub: 'Oito litros e nenhum teto', inside: ['V10 de 400 cv na estrada', 'Sem ABS e sem controle', 'Escapamento na soleira'], focus: 0.6 },
+  { src: ph('vp-dupla'), kicker: 'COMPARATIVO', kc: '#1e4fb8', title: 'V10 AMARELO X AZUL', sub: 'Roadster contra a versão de listras', inside: ['Qual acelera mais', 'Listras de corrida', 'Capota: vale a pena?'], focus: 0.4 },
+  { src: ph('vp-raiox'), kicker: 'RAIO-X', kc: '#1a1614', title: 'POR DENTRO DO V10', sub: 'Um motor de caminhão num esportivo', inside: ['8.0 de alumínio, 20 válvulas', 'Câmbio de seis marchas', 'Peso: 1.490 kg'], focus: 0.5 },
+  { src: ph('vp-arcoiris'), kicker: 'GALERIA', kc: '#d01f26', title: 'SERPE EM VERMELHO', sub: 'O roadster mais bravo dos EUA', inside: ['As cores da fábrica', 'Rodas de três raios', 'Leitores mostram o seu'], focus: 0.55 },
+  { src: ph('vp-cabine'), kicker: 'POR DENTRO', kc: '#1a6a2a', title: 'O PAINEL DO V10', sub: 'Couro, relógios brancos e só', inside: ['Mostradores no meio do painel', 'Sem vidro nas portas', 'Bancos baixos'], focus: 0.5 },
+  { src: ph('vp-mostradores'), kicker: 'TÉCNICA', kc: '#1e4fb8', title: 'QUATRO RELÓGIOS', sub: 'Água, óleo, gasolina e bateria', inside: ['Leia o painel do V10', 'Temperatura ideal', 'Pressão do óleo no giro alto'], focus: 0.4 },
+].filter((p) => !!p.src);
+export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS].forEach((p) => img(p.src));
 
 // a foto cobre o quadro inteiro (corta em cima e embaixo), com uma aproximação lenta (u: 0..1)
 export function drawPhoto(c: CanvasRenderingContext2D, r: Rect, p: Photo, u: number) {

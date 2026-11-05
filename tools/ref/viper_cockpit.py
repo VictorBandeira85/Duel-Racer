@@ -1,0 +1,119 @@
+"""Cabine do Serpe V10 (Dodge Viper RT/10) a partir das duas artes do Victor (com e sem volante).
+- painel e teto da arte sem volante; volante recortado da arte com volante (aro, raios e miolo)
+- vidro: o fundo claro ligado ao alto (para-brisa), o retrovisor interno (o jogo desenha o dele)
+  e o espelho do retrovisor externo esquerdo (o jogo mostra nele a vista de trás)
+- letreiro "DODGE VIPER RT/10 1994" do painel sai; a cobra do miolo vira o emblema da Serpe
+  (brand_badges.py); os mostradores são desenhados pelo jogo por cima dos da arte (cockpit.ts)
+Escala 0,30 (pixel 8:7), pivô do volante no centro da tela.
+
+Uso: python3 tools/ref/viper_cockpit.py <pasta com cab-wheel.png e cab-nowheel.png> <src/assets/cockpit>
+"""
+import os
+import sys
+
+import cv2
+import numpy as np
+from PIL import Image
+
+S = 0.30
+PXW, PXH = 1 / S, (1 / S) / (8 / 7)
+PIV = (640.0, 495.0)
+PIV_N = (128.0, 105.0)
+ROWS, EXT, PAD = 124, 76, 102
+WTOP, WROWS = 14, 240
+RIM_OUT, RIM_IN = (336, 342), (268, 274)
+# raios laterais, miolo e raio de baixo (coordenadas da arte)
+HUB = [(352, 450), (470, 432), (640, 425), (810, 432), (930, 450), (930, 560), (820, 560),
+       (705, 600), (700, 760), (580, 760), (575, 600), (460, 560), (352, 560)]
+MIRROR = (0, 160, 70, 320)
+TEXT = (1440, 370, 1660, 470)  # letreiro da marca no painel
+
+
+def grid(y0, rows, x0n=-PAD, cols=256 + 2 * PAD):
+    xs = PIV[0] + (np.arange(cols) + x0n + 0.5 - PIV_N[0]) * PXW
+    ys = y0 + (np.arange(rows) + 0.5) * PXH
+    return xs, ys
+
+
+def sample(img, xs, ys):
+    xi = np.clip(xs.astype(int), 0, img.shape[1] - 1)
+    yi = np.clip(ys.astype(int), 0, img.shape[0] - 1)
+    return img[yi][:, xi]
+
+
+def main():
+    d, out = sys.argv[1], sys.argv[2]
+    ww = np.array(Image.open(os.path.join(d, 'cab-wheel.png')).convert('RGB'))
+    nw = np.array(Image.open(os.path.join(d, 'cab-nowheel.png')).convert('RGB'))
+    H, W = nw.shape[:2]
+    yy, xx = np.mgrid[0:H, 0:W]
+    rgb = nw.astype(int)
+    lum = rgb.mean(axis=2)
+    sat = rgb.max(axis=2) - rgb.min(axis=2)
+    # vidro: claro e sem cor, ligado ao alto da arte
+    light = ((lum > 200) & (sat < 30)).astype(np.uint8)
+    n, lab = cv2.connectedComponents(light, connectivity=4)
+    seeds = set(np.unique(lab[0])) - {0}
+    sky = np.isin(lab, list(seeds))
+    sky = cv2.morphologyEx(sky.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8)).astype(bool) & (yy < 300)
+    sky[:115, 920:1200] = True  # retrovisor interno e haste
+    # espelho do retrovisor externo esquerdo: azul dentro da carcaça vermelha
+    x0, y0, x1, y1 = MIRROR
+    blue = (rgb[..., 2] > rgb[..., 0] + 40) & (lum > 80)
+    glass = np.zeros_like(sky)
+    glass[y0:y1, x0:x1] = blue[y0:y1, x0:x1]
+    glass = cv2.morphologyEx(glass.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8)).astype(bool)
+    sky |= glass
+    # letreiro da marca: vira o painel em volta (cor de cada linha tirada à esquerda)
+    tx0, ty0, tx1, ty1 = TEXT
+    dash = nw.copy()
+    for y in range(ty0, ty1):
+        dash[y, tx0:tx1] = np.median(dash[y, tx0 - 30:tx0 - 6], axis=0).astype(np.uint8)
+
+    y0d = PIV[1] - PIV_N[1] * PXH
+    xs, ys = grid(y0d, ROWS)
+    # à esquerda da arte (telas largas): roadster sem porta alta, então o alto fica aberto e a
+    # porta continua repetindo uma coluna dela (longe do retrovisor)
+    xr = np.where(xs < 0, -xs, np.clip(xs, 0, W - 1))  # reflete a porta para a esquerda
+    d_rgb = sample(dash, xr, ys)
+    d_al = ~sample(sky, xr, ys)
+    d_al[:, xs < 0] &= (ys[:, None] > 330).repeat((xs < 0).sum(), 1)
+    Image.fromarray(np.dstack([d_rgb, d_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'viper-dash.png'))
+    xs, ys = grid(y0d - EXT * PXH, EXT)
+    xr = np.where(xs < 0, -xs, np.clip(xs, 0, W - 1))
+    t_rgb = sample(dash, xr, ys)
+    t_al = ~sample(sky, xr, ys)
+    t_al[:, xs < 0] = False
+    Image.fromarray(np.dstack([t_rgb, t_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'viper-top.png'))
+
+    # volante
+    e_out = ((xx - PIV[0]) / RIM_OUT[0]) ** 2 + ((yy - PIV[1]) / RIM_OUT[1]) ** 2 <= 1
+    e_in = ((xx - PIV[0]) / RIM_IN[0]) ** 2 + ((yy - PIV[1]) / RIM_IN[1]) ** 2 <= 1
+    hub = np.zeros((H, W), np.uint8)
+    cv2.fillPoly(hub, [np.array(HUB, np.int32)], 1)
+    # dentro do polígono, só o que é do volante (escuro/cinza, sem o laranja dos bancos atrás)
+    wr = ww.astype(int)
+    orange = (wr[..., 0] > wr[..., 2] + 60) & (wr[..., 0] > 120)
+    wheel = (e_out & ~e_in & ~orange) | (hub.astype(bool) & e_out & ~orange)
+    wheel = cv2.morphologyEx(wheel.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)).astype(bool)
+    wart = ww.copy()
+    # cobra do miolo: disco escuro liso (o emblema da Serpe entra por brand_badges.py)
+    hx, hy = 640, 497
+    disc = ((xx - hx) / 48) ** 2 + ((yy - hy) / 48) ** 2 <= 1
+    ring = (((xx - hx) / 58) ** 2 + ((yy - hy) / 58) ** 2 <= 1) & ~disc
+    wart[disc] = np.percentile(ww[ring], 35, axis=0).astype(np.uint8)
+    xs, ys = grid(y0d - WTOP * PXH, WROWS, 0, 256)
+    w_rgb = sample(wart, xs, ys)
+    w_al = sample(wheel, xs, ys)
+    Image.fromarray(np.dstack([w_rgb, w_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'viper-wheel.png'))
+    hubn = (PIV_N[0] + (hx - PIV[0]) * S, (hy - (y0d - WTOP * PXH)) / PXH)
+    mg = np.nonzero(glass)
+    mn = (PAD + PIV_N[0] + (np.median(mg[1]) - PIV[0]) * S, EXT + (np.median(mg[0]) - y0d) / PXH)
+    gauges = {'speed': (460, 397), 'tach': (748, 393), 'aux': [(1035, 293), (1145, 293), (1255, 293), (1365, 293)]}
+    nat = lambda p: (round(PIV_N[0] + (p[0] - PIV[0]) * S, 1), round((p[1] - y0d) / PXH, 1))
+    print('miolo', [round(v, 1) for v in hubn], 'espelho', [round(float(v), 1) for v in mn],
+          'velocímetro', nat(gauges['speed']), 'conta-giros', nat(gauges['tach']), 'aux', [nat(p) for p in gauges['aux']])
+
+
+if __name__ == '__main__':
+    main()

@@ -825,6 +825,24 @@ COCKPIT_ART.nsx = {
   },
 };
 
+// Serpe V10 (Viper RT/10): interior do Victor (tools/ref/viper_cockpit.py), mostradores brancos com
+// números pretos e ponteiros vermelhos: velocímetro e conta-giros (faixa amarela e vermelha) atrás
+// do volante e os quatro pequenos no meio do painel: água, pressão do óleo, combustível e bateria
+const VP_INK = '#16161a', VP_BG = '#ecebe2';
+COCKPIT_ART.viper = {
+  dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
+  pivot: [128, 105], wheelTop: 14, speedMax: 300, needle: '#e01818', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [102, 22],
+  glass: { at: [42, 95], thr: 256 },
+  speed: { x: 74, y: 71.4, r: 29, max: 300, labels: [0, 40, 80, 120, 160, 200, 240, 280], tick: 10, red: 999, labelScale: 0.7, ink: VP_INK, bg: VP_BG },
+  tach: { x: 160.4, y: 70, r: 29, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.25, yellow: 5.5, red: 6, redW: 2.5, redLabels: false, labelScale: 0.7, ink: VP_INK, bg: VP_BG },
+  aux: [
+    { x: 246.5, y: 35.7, r: 14, kind: 'single', show: ['water'], icon: 'temp', labels: ['100', '250'], labelIn: 4, ink: VP_INK, bg: VP_BG },
+    { x: 279.5, y: 35.7, r: 14, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '40', '80'], labelIn: 4, ink: VP_INK, bg: VP_BG },
+    { x: 312.5, y: 35.7, r: 14, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1/2', '1'], labelIn: 4, ink: VP_INK, bg: VP_BG },
+    { x: 345.5, y: 35.7, r: 14, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '12', '16'], labelIn: 4, ink: VP_INK, bg: VP_BG },
+  ],
+};
+
 // Imagens das cabines: decodificadas só quando o carro é escolhido (não todas na abertura)
 const artImages = (a: CockpitArt) => [a.dash, a.top, a.wheel, a.dashMask, a.topMask, a.mirror?.img].filter((s): s is string => !!s);
 export const hasCockpitArt = (dash: string) => !!COCKPIT_ART[dash];

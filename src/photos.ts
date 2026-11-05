@@ -1,5 +1,5 @@
 // Fotos da revista (pixel art do Victor, sem marcas reais): Toro LP5 (ensaio, motor, raio-x e
-// galeria), Kaze NX (tools/ref/nx_photos.py) Serpe V10 (tools/ref/viper_photos.py) e Furia TR (tools/ref/testarossa_photos.py). Usadas nas capas do menu principal e nas páginas de carregamento.
+// galeria), Kaze NX (tools/ref/nx_photos.py) Serpe V10 (tools/ref/viper_photos.py) Furia TR (tools/ref/testarossa_photos.py) e Furia F4 (tools/ref/f40_photos.py). Usadas nas capas do menu principal e nas páginas de carregamento.
 import type { Rect } from './ui';
 
 const PH = import.meta.glob('./assets/photos/*.png', { eager: true, import: 'default' }) as Record<string, string>;
@@ -47,7 +47,11 @@ export const TR_PHOTOS: Photo[] = [
   { src: ph('tr-motor'), kicker: 'TÉCNICA', kc: '#1e4fb8', title: 'BOXER 4.9 DE 48V', sub: 'Doze cilindros deitados', inside: ['Cabeçotes vermelhos', 'Radiadores laterais', 'Revisão das correias'], focus: 0.5 },
   { src: ph('tr-cabine'), kicker: 'POR DENTRO', kc: '#1a6a2a', title: 'O PAINEL DA TR', sub: 'Relógios laranja e couro azul', inside: ['Quatro relógios', 'Câmbio de grade', 'Bancos baixos'], focus: 0.5 },
 ].filter((p) => !!p.src);
-export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS].forEach((p) => img(p.src));
+export const F4_PHOTOS: Photo[] = [
+  { src: ph('f4-pista'), kicker: 'ENSAIO', kc: '#d01f26', title: 'FURIA F4', sub: 'Dois turbos e nenhum luxo', inside: ['V8 biturbo de 478 cv', 'Carroceria de kevlar', '324 km/h na pista'], focus: 0.25 },
+  { src: ph('f4-raiox'), kicker: 'RAIO-X', kc: '#1a1614', title: 'POR DENTRO DA F4', sub: 'Tubos, kevlar e dois turbos', inside: ['Gaiola e chassi tubular', 'Motor atrás dos bancos', 'Peso: 1.100 kg'], focus: 0.5 },
+].filter((p) => !!p.src);
+export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS].forEach((p) => img(p.src));
 
 // a foto cobre o quadro inteiro (corta em cima e embaixo), com uma aproximação lenta (u: 0..1)
 export function drawPhoto(c: CanvasRenderingContext2D, r: Rect, p: Photo, u: number) {

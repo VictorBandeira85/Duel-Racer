@@ -34,6 +34,7 @@ interface CockpitArt {
   topMask?: string;
   glowK?: number; // força do brilho noturno do quadro (1 = padrão)
   facesLit?: string; // à noite os fundos (faces) acendem nesta cor (luz por trás) e os ponteiros ficam apagados
+  litNeedles?: boolean; // com facesLit: os ponteiros também ficam acesos (pintados de branco, iluminados)
   radar?: [number, number]; // canto do detector de radar no painel (padrão 206, 22)
   // retrovisor desenhado à parte (quando a arte o corta na borda): sprite e posição do canto,
   // x nas coordenadas do painel (pode ser negativo: fica na área esticada de tela larga), y a
@@ -109,26 +110,41 @@ function cp(n: string) {
   return CPNG[`./assets/cockpit/${n}.png`];
 }
 const COCKPIT_ART: Record<string, CockpitArt> = {
-  f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, dashMask: cp('f40-dash-mask'), topMask: cp('f40-top-mask'), pivot: [127.4, 80], tells: null,
-    // Veglia: a seta é um círculo verde no pé do velocímetro (com farol de neblina e farol alto ao lado)
-    turnDot: { x: 104, y: 60.5, others: [[109.5, 62], [115, 60.5]] }, 
-    // Veglia Borletti: velocímetro à esquerda e conta-giros à direita; conta-giros 0-100 (× 100 rpm), velocímetro 0-360 com os intermediários
-    // pequenos, hodômetro e parcial dentro dele; água 60/90/120 e turbo 0/0,8/1,5 bar embaixo
-    tach: { x: 149, y: 46, r: 17, max: 10, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], labelMul: 10, tick: 0.25, red: 7.75, redLabels: false },
-    speed: { x: 109, y: 46, r: 17, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], tick: 10, red: 999 },
-    speedMax: 360, needle: '#f4f4f0', hub: '#1a1a1a',
+  // Furia F4 (F40): interior novo do Victor (tools/ref/f40_cockpit2.py) e o quadro Veglia Borletti
+  // de verdade (foto do Victor, tools/ref/f40_gauges.py): velocímetro 0-360 com hodômetros,
+  // conta-giros 0-100 x100 com marcas vermelhas, água e turbo embaixo, luzes vermelhas; ponteiros brancos
+  f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, pivot: [128, 105], wheelTop: 12, tells: null,
+    glass: { at: [60, 160], thr: 256 }, radar: [222, 6], glow: '235,240,230', glowK: 0.5,
+    // à noite números e marcações brancas acendem (o fundo preto continua preto), ponteiros também
+    facesLit: '236,240,228', litNeedles: true,
+    faces: [{ src: cp('f40-cluster'), src2: cp('f40-cluster-2x'), x: 52.5, y: 13.5, w: 157, h: 75 }],
+    // Veglia: a seta é a primeira lente embaixo do velocímetro (farol de neblina e alto ao lado)
+    turnDot: { x: 98.3, y: 68.6, others: [[103.7, 68.6], [109.1, 68.6]] },
+    speed: { x: 104.2, y: 45.9, r: 24.5, max: 360, labels: [], tick: 20, red: 999, face: false, a0: 128 * (Math.PI / 180), sweep: 284 * (Math.PI / 180) },
+    tach: { x: 155.2, y: 45.9, r: 24.5, max: 10, labels: [], tick: 1, red: 999, face: false, a0: 128 * (Math.PI / 180), sweep: 284 * (Math.PI / 180) },
+    speedMax: 360, needle: '#f4f4f0', needleW: 1.6, needleTail: 3.5, needleFine: true, hub: '#0e0e0f', hubR: 2.6,
     aux: [
-      { x: 79, y: 45, r: 6.5, kind: 'single', show: ['oil'], icon: 'oil' },
-      { x: 79, y: 65, r: 8, kind: 'single', show: ['water'], icon: 'temp', labels: ['60', '90', '120'] },
-      { x: 176, y: 45, r: 6.5, kind: 'single', show: ['fuel'], icon: 'fuel' },
-      { x: 176, y: 65, r: 8, kind: 'single', show: ['boost'], icon: 'turbo', labels: ['0', '0,8', '1,5'] },
+      { x: 68.5, y: 66.1, r: 11, kind: 'single', show: ['water'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
+      { x: 189.2, y: 67.3, r: 11, kind: 'single', show: ['boost'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
     ],
     extra: (c, ox, r) => {
-      odometer(c, ox, r, { x: 103, y: 40.5, w: 12, h: 3.5 }, 18373, 6, 0.5);
-      odometer(c, ox, r, { x: 105, y: 51.5, w: 8, h: 3.5 }, 425.7, 4, 0.5, true);
-      // luzes-espia entre os mostradores: "slow down" (pisca no corte de giro) e óleo
-      warnLamp(c, ox + 129, ART_TOP + 38, r.rpm > 0.97 && Math.floor(performance.now() / 160) % 2 === 0);
-      warnLamp(c, ox + 129, ART_TOP + 56, gauges.oil < 0.36);
+      odometer(c, ox, r, { x: 98.2, y: 37.5, w: 12, h: 3.5 }, 18373, 6, 0.5);
+      odometer(c, ox, r, { x: 100.2, y: 52, w: 8, h: 3.5 }, 425.7, 4, 0.5, true);
+      // luzes vermelhas da placa: "slow down" piscam no corte de giro, óleo e água acendem nos problemas
+      const lit = (x: number, y: number, on: boolean) => {
+        if (!on) return;
+        c.fillStyle = '#ff3a26';
+        c.beginPath();
+        c.ellipse(ox + x, ART_TOP + y, 2.4, 2.4 * PIX_Y, 0, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = '#ffb4a0';
+        c.fillRect(ox + x - 1, ART_TOP + y - 1.5, 1, 1);
+      };
+      const slow = r.rpm > 0.97 && Math.floor(performance.now() / 160) % 2 === 0;
+      lit(61.5, 40, slow);
+      lit(198.5, 40, slow);
+      lit(129.7, 20.5, gauges.oil < 0.36);
+      lit(129.7, 70.5, gauges.water > 0.85);
     } },
   // 959: interior completo do Victor; os cinco mostradores redesenhados com números maiores
   '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.2, 84.3], tells: [129, 37],
@@ -1096,7 +1112,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     c.imageSmoothingEnabled = sm;
   }
   // fundo aceso por trás: os ponteiros (sem luz própria) ficam escuros contra ele
-  const artN = art.facesLit && dk > 0.02 ? { ...art, needle: shade(art.needle, -0.55 * Math.min(1, dk / 0.6)) } : art;
+  const artN = art.facesLit && !art.litNeedles && dk > 0.02 ? { ...art, needle: shade(art.needle, -0.55 * Math.min(1, dk / 0.6)) } : art;
   if (art.tach) artDial(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, artN);
   if (art.speed) artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, artN);
   updateGauges(r, dt);

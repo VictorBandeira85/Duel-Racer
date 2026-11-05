@@ -138,22 +138,47 @@ def aux(art, out):
     for cx, cy in centers:
         dd = np.hypot(xx - cx, yy - cy)
         face = np.median(art[(dd < 36) & (rgb.min(axis=2) > 185)], axis=0)
-        r0 = cv2.dilate((red & (dd < 40)).astype(np.uint8), np.ones((7, 7), np.uint8)) > 0
-        near = r0 & (np.abs(rgb - face).sum(axis=2) > 25) & (dd < 37)
-        hubm = (np.hypot(xx - cx, yy - (cy + 17)) < 11) & (rgb.max(axis=2) < 140)
-        fix = (near | hubm | (red & (dd < 37)))
-        fix = cv2.dilate(fix.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool) & (dd < 38)
-        # fundo local (convolução normalizada só com o creme que sobrou): o sombreado continua
-        w = ((~fix) & (rgb.min(axis=2) > 170) & (dd < 39)).astype(np.float32)
-        num = cv2.GaussianBlur(art.astype(np.float32) * w[..., None], (0, 0), 5)
-        den = cv2.GaussianBlur(w, (0, 0), 5)[..., None]
-        val = np.clip(num / np.maximum(den, 1e-3), 0, 255).astype(np.uint8)
-        clean[fix] = val[fix]
+        redc = red & (dd < 40)
+        # corpo do ponteiro (perto do miolo): sai também o contorno escuro em volta dele
+        body = redc & (dd < 27)
+        r0 = cv2.dilate(body.astype(np.uint8), np.ones((7, 7), np.uint8)) > 0
+        near = r0 & (np.abs(rgb - face).sum(axis=2) > 25) & (dd < 30) & (xx < cx + 8)  # à direita do miolo só há textos (PSI, °F)
+        # ponta (perto do aro): só o vermelho dela, sem encostar nos números (o "0" do 80)
+        redl = (rgb[..., 0] > 100) & (rgb[..., 0] > rgb[..., 1] * 1.35) & (rgb[..., 0] > rgb[..., 2] * 1.35)
+        tip = cv2.dilate((redl & (dd >= 27) & (dd < 38)).astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
+        tip &= (np.abs(rgb - face).sum(axis=2) > 20) | redl
+        # miolo pintado: a mancha escura perto do centro de baixo (cada mostrador tem o seu lugar),
+        # mais a sombra dele (só da metade de baixo, para não pegar o "PSI" e o "°F")
+        dark = ((rgb.max(axis=2) < 110) & (dd < 30)).astype(np.uint8)
+        n, lab = cv2.connectedComponents(dark, connectivity=8)
+        sub = lab[cy + 8:cy + 22, cx - 6:cx + 6]
+        ids, cnt = np.unique(sub[sub > 0], return_counts=True)
+        blob = lab == ids[np.argmax(cnt)] if len(ids) else np.zeros_like(dd, bool)
+        by = np.nonzero(blob)[0].mean() if blob.any() else cy + 15
+        ring = cv2.dilate(blob.astype(np.uint8), np.ones((11, 11), np.uint8)).astype(bool)
+        hubm = cv2.dilate(blob.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+        hubm |= ring & (np.abs(rgb - face).sum(axis=2) > 18) & (yy >= by - 1) & ~((xx > cx + 7) & (yy < by + 3))
+        fix = near | hubm | (redc & (dd < 30))
+        fix = (cv2.dilate(fix.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool) | tip) & (dd < 38)
+        # fundo: creme em volta (inclusive o sombreado mais escuro, não só o mais claro), bem
+        # espalhado; a emenda é suavizada para não virar mancha clara de borda dura
+        sat = rgb.max(axis=2) - rgb.min(axis=2)
+        w = ((~cv2.dilate(fix.astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool)) & (rgb.min(axis=2) > 130) & (sat < 40) & (dd < 37)).astype(np.float32)
+        num = cv2.GaussianBlur(art.astype(np.float32) * w[..., None], (0, 0), 7)
+        den = cv2.GaussianBlur(w, (0, 0), 7)[..., None]
+        val = num / np.maximum(den, 1e-3)
+        alpha = cv2.GaussianBlur(fix.astype(np.float32), (0, 0), 1.2)
+        alpha = np.maximum(alpha, fix.astype(np.float32) * 0.0)
+        alpha = np.where(fix, np.maximum(alpha, 0.85), alpha)[..., None]
+        sel = dd < 38
+        mix = clean.astype(np.float32) * (1 - alpha) + val * alpha
+        clean[sel] = np.clip(mix[sel], 0, 255).astype(np.uint8)
     for i, (cx, cy) in enumerate(centers):
-        R = 40
+        # recorte até o aro de dentro (44 px): cobre o fundo da arte do painel por inteiro
+        R = 44
         crop = clean[cy - R:cy + R + 1, cx - R:cx + R + 1]
         gy, gx = np.mgrid[0:crop.shape[0], 0:crop.shape[1]]
-        al = (np.hypot(gx - R, gy - R) <= 39).astype(np.uint8) * 255
+        al = (np.hypot(gx - R, gy - R) <= 43).astype(np.uint8) * 255
         Image.fromarray(np.dstack([crop, al]), 'RGBA').save(os.path.join(out, f'viper-aux{i}.png'), optimize=True)
         print('aux', i, 'canto', (cx - R, cy - R), 'lado', 2 * R + 1)
 

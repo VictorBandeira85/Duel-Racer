@@ -116,7 +116,7 @@ def big(d, g, majors, minors, step, red_from=None, unit='', icons=()):
         v += step
     for L in majors:
         x, y = at(g, fr(L), g['r'] - 6.3)
-        label(str(L), x, y, 4.4 if L >= 100 else 4.6, squeeze=0.8 if L >= 100 else 0.92, small_ok=(g is TACH) or L % 80 == 0 or L < 100)
+        label(str(L), x, y, 4.4 if L >= 100 else 4.6, squeeze=0.8 if L >= 100 else 0.92, small_ok=True)
     for L in minors:
         x, y = at(g, fr(L), g['r'] - 5.6)
         label(str(L), x, y, 2.2, font=FR, squeeze=0.9, small_ok=False)

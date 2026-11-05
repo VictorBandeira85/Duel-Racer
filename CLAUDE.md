@@ -23,3 +23,7 @@
   textos e as cores da arte, apagar só números com erro e ponteiros pintados, e desenhar por cima
   números, marcações e ponteiros no mesmo estilo (cor, grossura, miolo). Comparar lado a lado
   (arte x print do jogo) antes de publicar.
+- Melhor caminho (feito no Viper, `tools/ref/viper_gauges.py`): o fundo de cada mostrador vira uma
+  imagem na resolução da arte (`faces` em COCKPIT_ART), com números refeitos em fonte grotesca
+  negrita no lugar dos errados, e ponteiros `needleFine` (afinados, suavizados, miolo redondo).
+  Conferir também em densidade de iPhone (deviceScaleFactor 3).

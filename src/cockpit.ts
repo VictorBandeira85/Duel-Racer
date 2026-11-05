@@ -60,6 +60,8 @@ interface CockpitArt {
   hub: string;
   aux: Aux[];
   hubR?: number; // raio do miolo redondo dos ponteiros grandes
+  needleFine?: boolean; // ponteiro afinando até a ponta, com suavização (como o desenho da arte)
+  faces?: { src: string; x: number; y: number; w: number; h: number }[]; // fundos dos mostradores em alta resolução
   glow?: string; // cor (r,g,b) da iluminação noturna do quadro
   under?: (c: CanvasRenderingContext2D, ox: number, r: Race) => void; // fundo do quadro, antes dos mostradores
   extra?: (c: CanvasRenderingContext2D, ox: number, r: Race) => void; // detalhes próprios (hodômetros, luzes-espia, submostradores)
@@ -833,18 +835,26 @@ COCKPIT_ART.nsx = {
 const VP_INK = '#16161a', VP_BG = '#ecebe2';
 COCKPIT_ART.viper = {
   dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
-  pivot: [128, 105], wheelTop: 14, speedMax: 290, needle: '#e01818', needleW: 2, needleTail: 4, hub: '#141416', hubR: 3, radar: [102, 22],
+  pivot: [128, 105], wheelTop: 14, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 4, needleFine: true, hub: '#151517', hubR: 3.4, radar: [102, 22],
   glass: { at: [42, 95], thr: 256 },
-  // como na arte: fundo creme, velocímetro em milhas (0-180 mph, de 20 em 20) e conta-giros 0-8 que
-  // vai até as 3 horas, com faixa amarela e vermelha; marcações e números pretos e grossos
-  speed: { x: 75, y: 69, r: 26.5, max: 180, labels: [20, 40, 60, 80, 100, 120, 140, 160, 180], tick: 10, red: 999, labelScale: 0.7, boldTicks: true, ink: VP_INK, bg: 'none' },
-  tach: { x: 160, y: 69, r: 25.5, max: 8, a0: Math.PI * 0.75, sweep: Math.PI * 1.25, labels: [1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, yellow: 5, red: 6, redW: 2.5, redInk: '#e8201a', redLabels: false, labelScale: 1, boldTicks: true, ink: VP_INK, bg: 'none' },
+  // fundos dos mostradores grandes: a própria arte, em alta resolução, com os números refeitos
+  // (tools/ref/viper_gauges.py): velocímetro 20-200 mph e conta-giros 0-8 com a faixa amarela e vermelha
+  faces: [
+    { src: cp('viper-speedface'), x: 48.5, y: 40.9, w: 52.5, h: 60 },
+    { src: cp('viper-tachface'), x: 134.6, y: 41.6, w: 51.3, h: 58.6 },
+    { src: cp('viper-aux0'), x: 234.8, y: 22, w: 24.3, h: 27.8 },
+    { src: cp('viper-aux1'), x: 267.2, y: 22, w: 24.3, h: 27.8 },
+    { src: cp('viper-aux2'), x: 299.9, y: 22, w: 24.3, h: 27.8 },
+    { src: cp('viper-aux3'), x: 332.6, y: 22, w: 24.3, h: 27.8 },
+  ],
+  speed: { x: 74.1, y: 70.2, r: 24.5, max: 200, labels: [], tick: 20, red: 999, face: false, a0: (120 * Math.PI) / 180, sweep: (290 * Math.PI) / 180 },
+  tach: { x: 159.6, y: 70.2, r: 24, max: 8, labels: [], tick: 1, red: 999, face: false, a0: (132 * Math.PI) / 180, sweep: (226 * Math.PI) / 180 },
   // os quatro pequenos são os da arte (água °F, óleo PSI, combustível e bateria): só os ponteiros
   aux: [
-    { x: 248, y: 40, r: 11, kind: 'single', show: ['water'], arc: [Math.PI * 1.15, Math.PI * 1.85], needleOnly: true },
-    { x: 280.5, y: 40, r: 11, kind: 'single', show: ['oil'], arc: [Math.PI * 1.15, Math.PI * 1.85], needleOnly: true },
-    { x: 311.8, y: 40, r: 11, kind: 'single', show: ['fuel'], arc: [Math.PI * 1.15, Math.PI * 1.85], needleOnly: true },
-    { x: 344.3, y: 40, r: 11, kind: 'single', show: ['volt'], arc: [Math.PI * 1.15, Math.PI * 1.85], needleOnly: true },
+    { x: 246.7, y: 41.2, r: 10, kind: 'single', show: ['water'], arc: [Math.PI * 1.15, Math.PI * 1.85], needleOnly: true },
+    { x: 279.1, y: 41.2, r: 10, kind: 'single', show: ['oil'], arc: [Math.PI * 1.15, Math.PI * 1.85], needleOnly: true },
+    { x: 311.8, y: 41.2, r: 10, kind: 'single', show: ['fuel'], arc: [Math.PI * 1.15, Math.PI * 1.85], needleOnly: true },
+    { x: 344.5, y: 41.2, r: 10, kind: 'single', show: ['volt'], arc: [Math.PI * 1.15, Math.PI * 1.85], needleOnly: true },
   ],
 };
 
@@ -943,6 +953,17 @@ function nightImg<T extends CanvasImageSource & { width: number; height: number 
 }
 const cabinDark = (r: Race) => (r.def.night ? 0.6 : r.inTunnel > 0.5 ? 0.3 * r.inTunnel : 0);
 // brilho dos instrumentos acesos à noite (somado sobre cada mostrador)
+const faceImgs = new Map<string, HTMLImageElement>();
+function faceImg(src: string) {
+  let im = faceImgs.get(src);
+  if (!im) {
+    im = new Image();
+    im.src = src;
+    faceImgs.set(src, im);
+  }
+  return im.complete && im.naturalWidth ? im : null;
+}
+
 function instrumentGlow(c: CanvasRenderingContext2D, ox: number, art: CockpitArt, k: number) {
   if (k <= 0.02) return;
   c.save();
@@ -1020,6 +1041,16 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   if (art.odo) odometer(c, ox, r, art.odo);
   if (art.prnd) leverIndicator(c, ox, r, art.prnd);
   art.under?.(c, ox, r);
+  // fundos dos mostradores em alta resolução (a arte de verdade, com os números refeitos)
+  if (art.faces) {
+    const sm = c.imageSmoothingEnabled;
+    c.imageSmoothingEnabled = true;
+    for (const f of art.faces) {
+      const im = faceImg(f.src);
+      if (im) c.drawImage(nightImg(im, dk), ox + f.x, ART_TOP + f.y, f.w, f.h);
+    }
+    c.imageSmoothingEnabled = sm;
+  }
   if (art.tach) artDial(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, art);
   if (art.speed) artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
   updateGauges(r, dt);
@@ -1178,7 +1209,42 @@ function dialNeedle(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: numb
 }
 
 // ponteiro: do centro exato, traçado em meio pixel (1 px de espessura)
+// ponteiro fino e afinado (arte com mostradores em alta resolução): polígono suavizado, com a
+// sombra leve no fundo, rabicho e miolo redondo com brilho
+function fineNeedle(c: CanvasRenderingContext2D, x: number, y: number, len: number, a: number, w: number, color: string, hub: string, hubR: number, tail: number) {
+  const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y, px = -Math.sin(a), py = Math.cos(a) * PIX_Y;
+  const poly = (ox: number, oy: number, col: string) => {
+    c.fillStyle = col;
+    c.beginPath();
+    c.moveTo(x + ox - ca * tail + px * w * 0.5, y + oy - sa * tail + py * w * 0.5);
+    c.lineTo(x + ox + ca * len + px * w * 0.12, y + oy + sa * len + py * w * 0.12);
+    c.lineTo(x + ox + ca * len - px * w * 0.12, y + oy + sa * len - py * w * 0.12);
+    c.lineTo(x + ox - ca * tail - px * w * 0.5, y + oy - sa * tail - py * w * 0.5);
+    c.closePath();
+    c.fill();
+  };
+  poly(0.6, 0.8, 'rgba(0,0,0,0.22)');
+  poly(0, 0, color);
+  c.fillStyle = 'rgba(255,255,255,0.28)';
+  c.beginPath();
+  c.moveTo(x - ca * tail + px * w * 0.45, y - sa * tail + py * w * 0.45);
+  c.lineTo(x + ca * len + px * w * 0.1, y + sa * len + py * w * 0.1);
+  c.lineTo(x + ca * len, y + sa * len);
+  c.lineTo(x - ca * tail + px * w * 0.15, y - sa * tail + py * w * 0.15);
+  c.closePath();
+  c.fill();
+  if (hubR > 0) {
+    c.fillStyle = 'rgba(0,0,0,0.25)';
+    c.beginPath(); c.ellipse(x + 0.5, y + 0.7, hubR, hubR * PIX_Y, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = hub;
+    c.beginPath(); c.ellipse(x, y, hubR, hubR * PIX_Y, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.22)';
+    c.beginPath(); c.ellipse(x - hubR * 0.3, y - hubR * 0.4, hubR * 0.45, hubR * 0.3 * PIX_Y, 0, 0, Math.PI * 2); c.fill();
+  }
+}
+
 function needle(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, a: number, art: CockpitArt) {
+  if (art.needleFine) return fineNeedle(c, cx + 0.5, cy + 0.5, r - 2, a, art.needleW ?? 2, art.needle, art.hub, art.hubR ?? 2.5, art.needleTail ?? 3);
   const len = r - 2.5;
   const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y;
   const w = art.needleW ?? 1;
@@ -1284,7 +1350,9 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
   const mx = cx + 0.5, my = cy + 0.5; // centro real
   if (g.needleOnly) {
     const a0 = g.arc?.[0] ?? Math.PI * 1.1, a1 = g.arc?.[1] ?? Math.PI * 1.9;
-    hand(c, mx, my, a0 + (a1 - a0) * gauges[(g.show ?? ['oil'])[0]], R, art.needle, 1);
+    const a = a0 + (a1 - a0) * gauges[(g.show ?? ['oil'])[0]];
+    if (art.needleFine) return fineNeedle(c, mx, my, R, a, 1.4, art.needle, art.hub, 2.6, 1.5);
+    hand(c, mx, my, a, R, art.needle, 1);
     c.fillStyle = art.hub;
     c.fillRect(cx - 1.5, cy - 1.5, 4, 4);
     return;

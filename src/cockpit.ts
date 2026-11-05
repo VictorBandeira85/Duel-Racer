@@ -33,6 +33,7 @@ interface CockpitArt {
   dashMask?: string; // partes na cor do carro (capô, porta, colunas), para a repintura
   topMask?: string;
   glowK?: number; // força do brilho noturno do quadro (1 = padrão)
+  facesLit?: string; // à noite os fundos (faces) acendem nesta cor (luz por trás) e os ponteiros ficam apagados
   radar?: [number, number]; // canto do detector de radar no painel (padrão 206, 22)
   // retrovisor desenhado à parte (quando a arte o corta na borda): sprite e posição do canto,
   // x nas coordenadas do painel (pode ser negativo: fica na área esticada de tela larga), y a
@@ -849,8 +850,9 @@ COCKPIT_ART.viper = {
   dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
   pivot: [128, 105], wheelTop: 14, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 4, needleFine: true, hub: '#151517', hubR: 3.4, radar: [102, 22],
   glass: { at: [60, 160], thr: 256 }, tells: null, // sem retrovisor externo à vista (a arte o corta): ponto no painel, não acha vidro
-  // à noite: lâmpadas âmbar fracas por trás dos fundos brancos (sem lavar o branco de bege)
-  glow: '255,150,60', glowK: 0.45,
+  // à noite os fundos brancos acendem em âmbar (luz por trás, como no carro); os ponteiros
+  // vermelhos não têm luz e ficam escuros contra o fundo aceso
+  facesLit: '255,176,92', glow: '255,160,70', glowK: 0.35,
   // fundos dos mostradores grandes: a própria arte, em alta resolução, com os números refeitos
   // (tools/ref/viper_gauges.py): velocímetro 20-200 mph e conta-giros 0-8 com a faixa amarela e vermelha
   faces: [
@@ -968,6 +970,33 @@ function nightImg<T extends CanvasImageSource & { width: number; height: number 
 const cabinDark = (r: Race) => (r.def.night ? 0.6 : r.inTunnel > 0.5 ? 0.3 * r.inTunnel : 0);
 // brilho dos instrumentos acesos à noite (somado sobre cada mostrador)
 const faceImgs = new Map<string, HTMLImageElement>();
+// fundo de mostrador iluminado por trás à noite: o branco vira a cor da luz (multiplicação), o
+// preto dos números e marcações continua preto; em degraus para não refazer a cada quadro
+const litCache = new Map<HTMLImageElement, { k: number; cv: HTMLCanvasElement }>();
+function litImg(img: HTMLImageElement, dk: number, rgb: string): HTMLImageElement | HTMLCanvasElement {
+  const k = Math.round(Math.min(1, dk / 0.6) * 10) / 10;
+  if (k <= 0) return img;
+  const hit = litCache.get(img);
+  if (hit && hit.k === k) return hit.cv;
+  const cv = hit?.cv ?? document.createElement('canvas');
+  cv.width = img.naturalWidth;
+  cv.height = img.naturalHeight;
+  const g = cv.getContext('2d')!;
+  g.globalCompositeOperation = 'source-over';
+  g.clearRect(0, 0, cv.width, cv.height);
+  g.drawImage(img, 0, 0);
+  // mistura do branco (dia) com a cor da luz (noite), multiplicada sobre a arte
+  const [lr, lg, lb] = rgb.split(',').map(Number);
+  const mix = (a: number) => Math.round(255 + (a - 255) * k);
+  g.globalCompositeOperation = 'multiply';
+  g.fillStyle = `rgb(${mix(lr)},${mix(lg)},${mix(lb)})`;
+  g.fillRect(0, 0, cv.width, cv.height);
+  g.globalCompositeOperation = 'destination-in';
+  g.drawImage(img, 0, 0);
+  g.globalCompositeOperation = 'source-over';
+  litCache.set(img, { k, cv });
+  return cv;
+}
 function faceImg(src: string) {
   let im = faceImgs.get(src);
   if (!im) {
@@ -1062,19 +1091,21 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     c.imageSmoothingEnabled = true;
     for (const f of art.faces) {
       const im = faceImg(RES <= 2 && f.src2 ? f.src2 : f.src);
-      if (im) c.drawImage(nightImg(im, dk), ox + f.x, ART_TOP + f.y, f.w, f.h);
+      if (im) c.drawImage(art.facesLit ? litImg(im, dk, art.facesLit) : nightImg(im, dk), ox + f.x, ART_TOP + f.y, f.w, f.h);
     }
     c.imageSmoothingEnabled = sm;
   }
-  if (art.tach) artDial(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, art);
-  if (art.speed) artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
+  // fundo aceso por trás: os ponteiros (sem luz própria) ficam escuros contra ele
+  const artN = art.facesLit && dk > 0.02 ? { ...art, needle: shade(art.needle, -0.55 * Math.min(1, dk / 0.6)) } : art;
+  if (art.tach) artDial(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, artN);
+  if (art.speed) artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, artN);
   updateGauges(r, dt);
-  for (const g of art.aux) auxDial(c, g, ox, art);
+  for (const g of art.aux) auxDial(c, g, ox, artN);
   if (art.extra) {
     art.extra(c, ox, r);
     // hodômetros e submostradores ficam no fundo do mostrador: o ponteiro passa por cima
-    if (art.tach) dialNeedle(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, art);
-    if (art.speed) dialNeedle(c, art.speed, ox, (r.speed * KMH) / art.speedMax, art);
+    if (art.tach) dialNeedle(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, artN);
+    if (art.speed) dialNeedle(c, art.speed, ox, (r.speed * KMH) / art.speedMax, artN);
   }
   instrumentGlow(c, ox, art, dk / 0.6);
   // detector de radar (com as luzes do pisca dos lados); cada cabine pode pô-lo num lugar livre

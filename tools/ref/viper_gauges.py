@@ -18,8 +18,8 @@ FONT = '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf'
 # centro (miolo), raio do fundo, raio dos números, ângulo do primeiro número, passo, valores,
 # meia caixa apagada em volta de cada número, corpo da fonte
 DIALS = {
-    'speed': dict(c=(462, 395), r=86, rl=58, ro=62, a0=149, step=29, vals=list(range(20, 201, 20)), box=(25, 12), size=21),
-    'tach': dict(c=(747, 395), r=84, rl=60, ro=63, a0=132, step=28.25, vals=list(range(0, 9)), box=(13, 12), size=22),
+    'speed': dict(c=(462, 395), r=86, rl=55, ro=62, a0=149, step=29, vals=list(range(20, 201, 20)), box=(28, 14), size=21),
+    'tach': dict(c=(747, 395), r=84, rl=56, ro=63, a0=132, step=28.25, vals=list(range(0, 9)), box=(16, 14), size=22),
 }
 
 
@@ -78,11 +78,11 @@ def main():
             im.paste((22, 22, 26), (px, py), lay)
         a = np.array(im)
         # recorte: só o fundo redondo (o aro fica no painel)
-        R = r + 1
+        R = r + 4
         x0, y0 = cx - R, cy - R
         crop = a[y0:y0 + 2 * R + 1, x0:x0 + 2 * R + 1]
         gy, gx = np.mgrid[0:crop.shape[0], 0:crop.shape[1]]
-        al = (np.hypot(gx - R, gy - R) <= r).astype(np.uint8) * 255
+        al = (np.hypot(gx - R, gy - R) <= r + 3).astype(np.uint8) * 255
         Image.fromarray(np.dstack([crop, al]), 'RGBA').save(os.path.join(out, f'viper-{name}face.png'), optimize=True)
         print(name, 'canto', (x0, y0), 'lado', 2 * R + 1)
 

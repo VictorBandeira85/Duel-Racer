@@ -836,12 +836,12 @@ const VP_INK = '#16161a', VP_BG = '#ecebe2';
 COCKPIT_ART.viper = {
   dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
   pivot: [128, 105], wheelTop: 14, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 4, needleFine: true, hub: '#151517', hubR: 3.4, radar: [102, 22],
-  glass: { at: [42, 95], thr: 256 },
+  glass: { at: [42, 95], thr: 256 }, tells: null,
   // fundos dos mostradores grandes: a própria arte, em alta resolução, com os números refeitos
   // (tools/ref/viper_gauges.py): velocímetro 20-200 mph e conta-giros 0-8 com a faixa amarela e vermelha
   faces: [
-    { src: cp('viper-speedface'), x: 48.5, y: 40.9, w: 52.5, h: 60 },
-    { src: cp('viper-tachface'), x: 134.6, y: 41.6, w: 51.3, h: 58.6 },
+    { src: cp('viper-speedface'), x: 47.6, y: 39.9, w: 54.3, h: 62.05 },
+    { src: cp('viper-tachface'), x: 133.7, y: 40.6, w: 53.1, h: 60.7 },
     { src: cp('viper-aux0'), x: 234.8, y: 22, w: 24.3, h: 27.8 },
     { src: cp('viper-aux1'), x: 267.2, y: 22, w: 24.3, h: 27.8 },
     { src: cp('viper-aux2'), x: 299.9, y: 22, w: 24.3, h: 27.8 },

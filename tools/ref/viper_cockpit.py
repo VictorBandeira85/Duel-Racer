@@ -23,12 +23,12 @@ ROWS, EXT, PAD = 124, 76, 102
 WTOP, WROWS = 14, 240
 RIM_OUT, RIM_IN = (336, 342), (268, 274)
 # raios laterais, miolo e raio de baixo (coordenadas da arte)
-HUB = [(352, 450), (470, 432), (640, 425), (810, 432), (930, 450), (930, 560), (820, 560),
+HUB = [(352, 446), (470, 444), (560, 436), (720, 436), (810, 444), (930, 446), (930, 560), (820, 560),
        (705, 600), (700, 760), (580, 760), (575, 600), (460, 560), (352, 560)]
 MIRROR = (0, 160, 70, 320)
 TEXT = (1440, 370, 1660, 470)  # letreiro da marca no painel
 # mostradores grandes: centro, raio do fundo e o retângulo do texto que fica (MPH, RPM x1000)
-BIG = [(462, 395, 86, (436, 436, 488, 456)), (747, 395, 84, (728, 428, 800, 462))]
+BIG = [(462, 395, 89, (436, 436, 488, 456)), (747, 395, 88, (728, 428, 800, 462))]
 
 
 def grid(y0, rows, x0n=-PAD, cols=256 + 2 * PAD):
@@ -117,13 +117,30 @@ def main():
     # dentro do polígono, só o que é do volante (escuro/cinza, sem o laranja dos bancos atrás)
     wr = ww.astype(int)
     orange = (wr[..., 0] > wr[..., 2] + 60) & (wr[..., 0] > 120)
+    orange &= np.hypot(xx - 640, yy - 497) > 60  # a cobra vermelha do miolo é volante (vira o emblema)
     wheel = (e_out & ~e_in & ~orange) | (hub.astype(bool) & e_out & ~orange)
+    # o fundo creme dos mostradores que aparece acima dos raios não é volante
+    wl = wr.mean(axis=2)
+    creamy = (wl > 165) & ((wr.max(axis=2) - wr.min(axis=2)) < 45) & (yy < 485) & hub.astype(bool)
+    creamy = cv2.dilate(creamy.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+    wheel &= ~(creamy & ~(e_out & ~e_in))
     wheel = cv2.morphologyEx(wheel.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)).astype(bool)
+    # pontas soltas acima dos raios (alavanca do pisca e o painel atrás): abre com um bloco maior
+    # só na faixa do alto dos raios e fica com a peça maior
+    band = (yy > 420) & (yy < 470) & ~(e_out & ~e_in) & ((xx < 550) | (xx > 730))
+    opened = cv2.morphologyEx(wheel.astype(np.uint8), cv2.MORPH_OPEN, np.ones((9, 9), np.uint8)).astype(bool)
+    wheel = np.where(band, opened, wheel)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(wheel.astype(np.uint8), 8)
+    if n > 1:
+        wheel = lab == 1 + np.argmax(st[1:, cv2.CC_STAT_AREA])
     wart = ww.copy()
     # cobra do miolo: disco escuro liso (o emblema da Serpe entra por brand_badges.py)
     hx, hy = 640, 497
-    disc = ((xx - hx) / 48) ** 2 + ((yy - hy) / 48) ** 2 <= 1
-    ring = (((xx - hx) / 58) ** 2 + ((yy - hy) / 58) ** 2 <= 1) & ~disc
+    disc = ((xx - hx) / 46) ** 2 + ((yy - hy) / 46) ** 2 <= 1
+    ring = (((xx - hx) / 54) ** 2 + ((yy - hy) / 54) ** 2 <= 1) & ~disc
+    # vermelho da cobra que passa da capa do miolo também sai
+    redx = (wr[..., 0] > 110) & (wr[..., 0] > wr[..., 1] * 1.6) & (np.hypot(xx - hx, yy - hy) < 75)
+    disc = disc | (cv2.dilate(redx.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0)
     wart[disc] = np.percentile(ww[ring], 35, axis=0).astype(np.uint8)
     xs, ys = grid(y0d - WTOP * PXH, WROWS, 0, 256)
     w_rgb = sample(wart, xs, ys)

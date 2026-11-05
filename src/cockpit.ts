@@ -790,37 +790,32 @@ COCKPIT_ART.countach = {
 // Kaze NX (NSX): interior do Victor espelhado para volante à esquerda (tools/ref/nsx_cockpit.py);
 // quadro como o do carro: painel cinza escovado, conta-giros 0-9 (faixa vermelha a partir de 8) e
 // velocímetro 0-280 grandes, água e pressão do óleo à esquerda, combustível e bateria à direita
-const NX_INK = '#f2f2f2';
 COCKPIT_ART.nsx = {
   dash: cp('nsx-dash'), top: cp('nsx-top'), wheel: cp('nsx-wheel'),
   pivot: [128, 104], wheelTop: 14, speedMax: 280, needle: '#ff3a1a', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [30, 4],
   // retrovisor externo à direita (mão inglesa): o espelho da arte é transparente e mostra a vista de trás
   glass: { at: [436, 71], thr: 256 },
-  // quadro do carro real (foto do Victor): fundo de alumínio escovado, mostradores pretos com aro
-  // prateado; conta-giros 0-9 com faixa vermelha larga de 8 a 9 e velocímetro 0-280 numerado de
-  // 20 em 20; os quatro pequenos com o arco virado para o centro: água (com a faixa vermelha) e
-  // pressão do óleo 0-4-8 à esquerda, combustível 0-1 e bateria 8-12-16 à direita; luz-espia
-  // vermelha no alto entre os dois grandes e o desenho do carro (porta aberta) embaixo
-  tach: { x: 100, y: 50, r: 22, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], tick: 0.25, red: 8, redW: 2.5, redLabels: false, labelScale: 0.7, ink: NX_INK, bg: '#0c0c0e' },
-  speed: { x: 157, y: 50, r: 22, max: 280, labels: [0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280], tick: 10, red: 999, labelScale: 0.5, ink: NX_INK, bg: '#0c0c0e' },
+  // o quadro inteiro é uma imagem em alta resolução desenhada a partir da foto (tools/ref/nx_gauges.py):
+  // alumínio escovado, aros prateados, marcações brancas finas, números em grotesca negrita, bloco
+  // vermelho de 8 a 9 e os ícones; o jogo desenha só os ponteiros (vermelho-alaranjados, afinados)
+  faces: [{ src: cp('nsx-cluster'), x: 38.5, y: 14.5, w: 182, h: 80 }],
+  needleFine: true, hubR: 3, tells: [129, 24], glow: '235,240,255', // setas na janelinha do alto; à noite números brancos
+  tach: { x: 100, y: 50, r: 22.5, max: 9, labels: [], tick: 1, red: 999, face: false, a0: 125 * (Math.PI / 180), sweep: 265 * (Math.PI / 180) },
+  speed: { x: 157, y: 50, r: 22.5, max: 280, labels: [], tick: 20, red: 999, face: false, a0: 112 * (Math.PI / 180), sweep: 268 * (Math.PI / 180) },
   aux: [
-    { x: 71, y: 40, r: 7, kind: 'single', show: ['water'], icon: 'temp', arc: [Math.PI * 0.72, -Math.PI * 0.42], iconAt: [-2.5, 2.5], ring: '#8c8e94', bg: '#0c0c0e' },
-    { x: 62, y: 64, r: 8, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '4', '8'], arc: [Math.PI * 0.42, -Math.PI * 0.42], iconAt: [-3, 3], ring: '#8c8e94', bg: '#0c0c0e' },
-    { x: 186, y: 40, r: 7, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1'], arc: [Math.PI * 0.58, Math.PI * 1.42], iconAt: [2.5, 2.5], ring: '#8c8e94', bg: '#0c0c0e' },
-    { x: 195, y: 64, r: 8, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '12', '16'], arc: [Math.PI * 0.58, Math.PI * 1.42], iconAt: [3, 3], ring: '#8c8e94', bg: '#0c0c0e' },
+    { x: 71, y: 40, r: 7, kind: 'single', show: ['water'], arc: [130 * (Math.PI / 180), -76 * (Math.PI / 180)], needleOnly: true },
+    { x: 62, y: 64, r: 8, kind: 'single', show: ['oil'], arc: [76 * (Math.PI / 180), -76 * (Math.PI / 180)], needleOnly: true },
+    { x: 186, y: 40, r: 7, kind: 'single', show: ['fuel'], arc: [104 * (Math.PI / 180), 256 * (Math.PI / 180)], needleOnly: true },
+    { x: 195, y: 64, r: 8, kind: 'single', show: ['volt'], arc: [104 * (Math.PI / 180), 256 * (Math.PI / 180)], needleOnly: true },
   ],
-  under: (c, ox) => {
-    // aros prateados dos dois grandes
-    for (const d of [{ x: 100, y: 50 }, { x: 157, y: 50 }]) face(c, ox + d.x, ART_TOP + d.y, 23.5, '#9a9ca2');
-    for (const d of [{ x: 100, y: 50 }, { x: 157, y: 50 }]) face(c, ox + d.x, ART_TOP + d.y, 22.5, '#2a2a2e');
-  },
   extra: (c, ox, r) => {
-    odometer(c, ox, r, { x: 74, y: 77, w: 12, h: 3.5 }, 63373, 6, 0.5);
-    odometer(c, ox, r, { x: 176, y: 77, w: 8, h: 3.5 }, 34.3, 4, 0.5, true);
+    // hodômetro total no velocímetro e o parcial no conta-giros, embaixo do miolo
+    odometer(c, ox, r, { x: 151.5, y: 58.5, w: 12, h: 3.5 }, 63373, 6, 0.5);
+    odometer(c, ox, r, { x: 96.5, y: 58.5, w: 8, h: 3.5 }, 34.3, 4, 0.5, true);
     // luz-espia vermelha entre os mostradores (acende na pressão do óleo baixa) e o desenho do carro
     const T = ART_TOP;
     c.fillStyle = gauges.oil < 0.36 ? '#ff3020' : '#7a1410';
-    c.fillRect(ox + 124, T + 31, 9, 3);
+    c.fillRect(ox + 124.7, T + 27.7, 8.6, 2.1); // na janelinha de baixo do alto
     c.fillStyle = '#16171a';
     c.fillRect(ox + 125, T + 66, 7, 9);
     c.fillStyle = '#6a6c72';

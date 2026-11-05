@@ -64,6 +64,7 @@ def tick(d, g, ang, r0, r1, w, col=OR):
 
 
 def label(s, cx, cy, size, squeeze=0.78, font=FONT, small_ok=True):
+    # small_ok=False: some na versão de 2 px por pixel (não cabe sem encostar nos vizinhos)
     LABELS.append((s, cx / K, cy / K, size, squeeze, font, small_ok))
 
 
@@ -71,8 +72,8 @@ def draw_labels(im):
     for s, cx, cy, size, squeeze, font, small_ok in LABELS:
         px = size * KO  # corpo em pixels finais
         x, y = cx * KO, cy * KO
-        if KO == 2 and px < 9:
-            if not all(ch in PIXFONT for ch in s):
+        if KO == 2 and px < 10:
+            if not small_ok or not all(ch in PIXFONT for ch in s):
                 continue
             tw = sum(len(PIXFONT[ch][0]) for ch in s) + len(s) - 1
             x0, y0 = int(round(x - tw / 2)), int(round(y - 2.5))
@@ -120,13 +121,13 @@ def big_dial(im, d, g, labels, minor, major, red_from=None, texts=()):
     v = 0.0
     while v <= g['max'] + 1e-6:
         if abs(v / major - round(v / major)) < 1e-6:
-            tick(d, g, fr(v), g['r'] - 3.6, g['r'] - 0.9, 0.62)
+            tick(d, g, fr(v), g['r'] - 2.6, g['r'] - 0.9, 0.5)
         else:
-            tick(d, g, fr(v), g['r'] - 2.4, g['r'] - 0.9, 0.42)
+            tick(d, g, fr(v), g['r'] - 1.8, g['r'] - 0.9, 0.34)
         v += minor
     for L in labels:
-        x, y = at(g, fr(L), g['r'] - 7.0)
-        label(str(L), x, y, 3.1 if L >= 100 else 3.3, squeeze=0.66 if L >= 100 else 0.78)
+        x, y = at(g, fr(L), g['r'] - (6.0 if L >= 100 else 5.6))
+        label(str(L), x, y, 4.0 if L >= 100 else 4.5, squeeze=0.6 if L >= 100 else 0.76, small_ok=L < 100 or L % 40 == 0 or g is TACH)
     # lente das luzes-espia embaixo (crescente escuro)
     x, y = P(g['x'], g['y'])
     rr = g['r'] * K
@@ -158,11 +159,11 @@ def small_dial(d, g, labels, icon):
     for i in range(5):
         a = a0 + (a1 - a0) * i / 4
         big = i % 2 == 0
-        tick(d, g, a, g['r'] - (2.3 if big else 1.6), g['r'] - 0.6, 0.5 if big else 0.4)
+        tick(d, g, a, g['r'] - (1.8 if big else 1.3), g['r'] - 0.6, 0.42 if big else 0.32)
     for i, L in enumerate(labels):
         a = a0 + (a1 - a0) * i / (len(labels) - 1)
-        lx, ly = at(g, a, g['r'] - 4.4)
-        label(L, lx, ly + K * 1.2, 2.5, squeeze=0.82)
+        lx, ly = at(g, a, g['r'] - 4.0)
+        label(L, lx, ly + K * 1.3, 3.3, squeeze=0.74, small_ok=not (len(labels) == 3 and i == 1 and len(labels[2]) > 2))
     ix, iy = x, y + rr * PY * 0.5
     s = K * 0.9
     if icon == 'oil':
@@ -195,8 +196,8 @@ def build(out):
         label(s2, x, y, 1.8, squeeze=1, font=FONT_S)
     small_dial(d, OIL, ['0', '6', '12'], 'oil')
     small_dial(d, WATER, ['60', '90', '120'], 'temp')
-    x, y = P(WATER['x'] - WATER['r'] * 0.5, WATER['y'] - WATER['r'] * 0.42 * PY)
-    label('°C', x, y, 1.6, squeeze=1, font=FONT_S)
+    x, y = P(WATER['x'] - WATER['r'] * 0.48, WATER['y'] + WATER['r'] * 0.5 * PY)
+    label('°C', x, y, 1.8, squeeze=1, font=FONT_S)  # na lente de baixo, ao lado do ícone
     # escudo da Fúria (no lugar do cavalinho) abaixo do km/h e do x 100
     for g in (SPEED, TACH):
         lg = logo(int(K * 2.6))

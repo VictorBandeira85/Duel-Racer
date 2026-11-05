@@ -79,7 +79,11 @@ def main():
             e = int(205 + y * (84 / 245)) + 3
         sky[y, :e] = False
     # janela da porta: paisagem à esquerda da coluna, acima da porta e do retrovisor
-    side = (xx < 126 - yy * 0.105) & (yy < 216) & ~((r_ > 120) & (r_ > g_ * 1.8) & (yy > 190))  # sem a carcaça vermelha
+    # janela da porta: o triângulo de paisagem abaixo da moldura diagonal da porta (a coluna e a
+    # moldura em cima ficam), até o retrovisor (a carcaça vermelha fica)
+    tri = np.zeros((H, W), np.uint8)
+    cv2.fillPoly(tri, [np.array([(0, 54), (102, 192), (106, 216), (0, 216)], np.int32)], 1)
+    side = tri.astype(bool) & ~((r_ > 120) & (r_ > g_ * 1.8) & (yy > 190))
     sky |= side
     sky &= yy < 300
     # espelho do retrovisor externo (azul dentro da carcaça vermelha)

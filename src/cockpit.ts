@@ -778,7 +778,7 @@ function c4Cluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
 COCKPIT_ART.testarossa = {
   dash: cp('testarossa-dash'), top: cp('testarossa-top'), wheel: cp('testarossa-wheel'),
   pivot: [128, 105], wheelTop: 12, speedMax: 320, needle: '#ff8a1c', needleW: 1.5, needleTail: 3, needleFine: true, hub: '#141415', hubR: 2.2,
-  glass: { at: [8.7, 95.9], thr: 256 }, glow: '255,140,40', tells: null,
+  glass: { at: [12, 96], thr: 256, x0: 3 }, glow: '255,140,40', tells: null,
   faces: [{ src: cp('tr-cluster'), src2: cp('tr-cluster-2x'), x: 63.5, y: 29.5, w: 137, h: 54 }],
   speed: { x: 95.4, y: 53.7, r: 21, max: 320, labels: [], tick: 20, red: 999, face: false, a0: 135 * (Math.PI / 180), sweep: 270 * (Math.PI / 180) },
   tach: { x: 166.1, y: 53.7, r: 21, max: 10, labels: [], tick: 1, red: 999, face: false, a0: 135 * (Math.PI / 180), sweep: 270 * (Math.PI / 180) },
@@ -874,7 +874,7 @@ COCKPIT_ART.nsx = {
 const VP_INK = '#16161a', VP_BG = '#ecebe2';
 COCKPIT_ART.viper = {
   dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
-  pivot: [131, 105], wheelTop: 14, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 4, needleFine: true, hub: '#151517', hubR: 3.4, radar: [102, 22],
+  pivot: [131, 105], wheelDx: -14.4, wheelTop: 14, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 4, needleFine: true, hub: '#151517', hubR: 3.4, radar: [102, 22],
   glass: { at: [42, 95], thr: 256, x0: 39 }, tells: null, // vidro do retrovisor esquerdo (como na arte, cortado na borda)
   // à noite os fundos brancos acendem em bege claro (luz por trás, como no carro); os ponteiros
   // vermelhos não têm luz e ficam escuros contra o fundo aceso

@@ -134,6 +134,9 @@ def main():
     d_rgb = sample(dash, xr, ys)
     d_al = ~sample(sky, xr, ys)
     d_al[:, xs < 0] = (ys[:, None] > 340).repeat((xs < 0).sum(), 1)
+    # fresta de 1 linha que sobrava no meio da coluna (recorte do capô): fecha
+    d_al = ~cv2.morphologyEx((~d_al).astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 1), np.uint8)).astype(bool) | d_al
+    d_al = cv2.morphologyEx(d_al.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 1), np.uint8)).astype(bool)
     Image.fromarray(np.dstack([d_rgb, d_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'testarossa-dash.png'))
     xs, ys = grid(y0d - EXT * PXH, EXT)
     xr = np.clip(xs, 0, W - 1)

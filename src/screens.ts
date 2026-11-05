@@ -118,7 +118,7 @@ let coverCarId = ''; // carro da capa que está passando (toque leva ao anúncio
 
 // carros da capa: os que têm arte (e as vistas de frente e de trás)
 const coverCars = () => CARS.filter((c) => c.imgSide && c.rear.img && c.rear.frontImg && !c.arcadeOnly);
-const SLIDE_T = 15; // s por edição da capa
+const SLIDE_T = 8; // s por edição da capa
 const SLIDES = ['test', 'lp5', 'compare', 'tr', 'angles', 'f4', 'nx', 'interior', 'vp', 'brasil', 'news', 'road'] as const;
 // capas de fotos (ensaio do Victor): o conjunto de fotos e o carro de cada uma
 const PHOTO_COVERS = { lp5: { set: LP5_PHOTOS, car: 'toro-lp5' }, nx: { set: NX_PHOTOS, car: 'kaze-nx' }, vp: { set: VP_PHOTOS, car: 'serpe-v10' }, tr: { set: TR_PHOTOS, car: 'furia-tr' }, f4: { set: F4_PHOTOS, car: 'furia-f4' } } as const;

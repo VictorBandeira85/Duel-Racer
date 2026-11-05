@@ -46,6 +46,8 @@ export interface RearDef {
   glow?: { dots?: number[][]; bar?: number[] }; // onde acendem as luzes de freio (frações u, f)
   imgMask?: string; // máscaras da carroceria (onde a cor pode ser trocada)
   frontMask?: string;
+  frontUpImg?: string; // frente com os faróis escamoteáveis levantados (arte própria)
+  frontUpMask?: string;
   // pinturas com arte própria (decalques na cor certa): cor da paleta -> sprites
   variants?: Record<string, { img?: string; frontImg?: string }>;
   lamps?: LampDef;
@@ -63,6 +65,7 @@ export interface LampDef {
   sigFront: number[];
   sigRed?: boolean; // pisca vermelho atrás (carros americanos)
   podColor?: string; // cor da tampa do farol (senão a da carroceria)
+  popLit?: [number, number]; // com frontUpImg: centro do farol aceso (u, f); o jogo só acende o brilho
 }
 
 export interface CarSpec {
@@ -319,7 +322,7 @@ const LAMPS: Record<string, LampDef> = {
   patrolsv: { pop: [0.145, 0.473, 0.29, 0.58], podColor: '#1c1c1e', sigRear: [0.145, 0.384, 0.036], sigFront: [0.125, 0.66, 0.165, 0.715] },
   f40: { pop: [0.09, 0.41, 0.24, 0.47], sigRear: [0.155, 0.43, 0.04], sigFront: [0.1, 0.615, 0.17, 0.65] },
   zr1: { pop: [0.105, 0.385, 0.29, 0.505], sigRear: [0.135, 0.39, 0.045], sigRed: true, sigFront: [0.03, 0.66, 0.07, 0.73] },
-  testarossa: { pop: [0.067, 0.424, 0.256, 0.534], sigRear: [0.08, 0.42, 0.182, 0.556], sigFront: [0.061, 0.636, 0.228, 0.686] },
+  testarossa: { pop: [0.067, 0.424, 0.256, 0.534], popLit: [0.126, 0.472], sigRear: [0.08, 0.42, 0.182, 0.556], sigFront: [0.061, 0.636, 0.228, 0.686] },
   nsx: { pop: [0.09, 0.34, 0.254, 0.47], sigRear: [0.09, 0.36, 0.18, 0.44], sigFront: [0.06, 0.57, 0.11, 0.62] },
   countach: { head: [0.213, 0.604, 0.05], sigRear: [0.05, 0.42, 0.11, 0.5], sigFront: [0.082, 0.574, 0.164, 0.635] },
   viper: { head: [0.147, 0.52, 0.06], sigRear: [0.07, 0.55, 0.24, 0.6], sigFront: [0.035, 0.635, 0.075, 0.68] },
@@ -383,6 +386,8 @@ for (const car of CARS) {
   car.rear.imgMask = png(`${k}-rear-mask`);
   car.rear.frontImg = png(`${k}-front`) ?? car.rear.frontImg;
   car.rear.frontMask = png(`${k}-front-mask`);
+  car.rear.frontUpImg = png(`${k}-front-up`);
+  car.rear.frontUpMask = png(`${k}-front-up-mask`);
   car.rear.lamps = LAMPS[k];
   if (PLATE_BOX[k]) car.rear.plate = frac(PLATE_BOX[k]);
   car.wheels = WHEELS[k];
@@ -767,8 +772,12 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
   const tint = (mask?: string) => (look.paint && mask && !variant ? { mask, color: look.paint } : undefined);
   const frontImg = variant?.frontImg ?? look.rear?.frontImg;
   if (look.front && look.rear && frontImg) {
-    const h = w * (spriteAspect(frontImg) ?? look.rear.h);
-    const spr = svgSprite(frontImg, w * hiRes(w), h * hiRes(w), tint(look.rear.frontMask));
+    // faróis escamoteáveis com arte própria levantados: a frente troca de sprite
+    const lst = look.lamps ?? { up: look.night ? 1 : 0, on: !!look.night };
+    const upArt = !variant && look.rear.frontUpImg && lst.up >= 0.5;
+    const fimg = upArt ? look.rear.frontUpImg! : frontImg;
+    const h = w * (spriteAspect(fimg) ?? look.rear.h);
+    const spr = svgSprite(fimg, w * hiRes(w), h * hiRes(w), tint(upArt ? look.rear.frontUpMask : look.rear.frontMask));
     if (spr) {
       groundShadow(c, x, y, w);
       c.drawImage(spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
@@ -817,7 +826,10 @@ function drawLamps(c: CanvasRenderingContext2D, L: number, T: number, w: number,
     c.fillStyle = g;
     c.fillRect(hx - r, hy - r, r * 2, r * 2);
   };
-  if (front && d.pop && st.up > 0) {
+  if (front && d.popLit && look.rear?.frontUpImg && !(look.paint && look.rear.variants?.[look.paint])) {
+    // a arte já mostra os faróis em pé: só o brilho dos acesos
+    if (st.on && st.up >= 1) for (const lu of [d.popLit[0], 1 - d.popLit[0]]) halo(L + lu * w, T + d.popLit[1] * h, w * (st.high ? 0.2 : 0.13), st.high ? 0.6 : 0.38);
+  } else if (front && d.pop && st.up > 0) {
     // o farol ocupa a tampa (mesma largura e lugar) e sobe a partir da borda da frente dela
     const [u0, f0, u1, f1] = d.pop;
     const bw = Math.max(1, Math.round((u1 - u0) * w));

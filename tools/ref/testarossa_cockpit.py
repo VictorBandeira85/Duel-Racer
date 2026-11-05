@@ -2,8 +2,8 @@
 - para-brisa e janela da porta (a paisagem da arte) viram vidro transparente; as palhetas do
   limpador e o retrovisor interno saem (o jogo desenha o dele); o espelho do retrovisor externo
   esquerdo fica transparente (o jogo mostra nele a vista de trás)
-- o volante é recortado pela geometria (aro, raios e miolo) e o painel atrás dele é refeito
-  (inpainting) para quando ele gira; o cavalinho do miolo vira o emblema da Fúria (brand_badges.py)
+- o volante é recortado pela geometria (aro, raios e miolo); o painel atrás dele vem da arte sem
+  volante (cab-nowheel.png, na mesma pasta), ou é refeito por inpainting se ela não existir; o cavalinho do miolo vira o emblema da Fúria (brand_badges.py)
 - o quadro de instrumentos (Veglia laranja) é desenhado por cima pelo jogo (tools/ref/testarossa_gauges.py)
 Escala 0,34 (pixel 8:7), pivô do volante no centro da tela.
 
@@ -115,6 +115,14 @@ def main():
     fill = cv2.resize(fill, (W, H), interpolation=cv2.INTER_CUBIC)
     dash = art.copy()
     dash[hole > 0] = fill[hole > 0]
+    # arte sem volante (cab-nowheel.png, do Victor): o painel de verdade atrás do volante; vem
+    # deslocada ~1 px para cima e para a esquerda em relação à arte com volante
+    nw_path = os.path.join(os.path.dirname(src), 'cab-nowheel.png')
+    if os.path.exists(nw_path):
+        nw = np.array(Image.open(nw_path).convert('RGB'))
+        M = np.float32([[1, 0, 1.0], [0, 1, 1.5]])
+        nw = cv2.warpAffine(nw, M, (W, H), flags=cv2.INTER_NEAREST, borderMode=cv2.BORDER_REPLICATE)
+        dash = nw
 
     y0d = PIV[1] - PIV_N[1] * PXH
     xs, ys = grid(y0d, ROWS)

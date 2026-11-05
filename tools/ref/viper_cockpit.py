@@ -23,8 +23,8 @@ ROWS, EXT, PAD = 124, 76, 102
 WTOP, WROWS = 14, 240
 RIM_OUT, RIM_IN = (336, 342), (268, 274)
 # raios laterais, miolo e raio de baixo (coordenadas da arte)
-HUB = [(352, 446), (470, 444), (560, 436), (720, 436), (810, 444), (930, 446), (930, 560), (820, 560),
-       (705, 600), (700, 760), (580, 760), (575, 600), (460, 560), (352, 560)]
+HUB = [(352, 459), (470, 453), (560, 436), (720, 436), (810, 453), (930, 459), (930, 560), (820, 560),
+       (705, 600), (700, 790), (606, 790), (603, 600), (460, 560), (352, 560)]
 MIRROR = (0, 160, 70, 320)
 TEXT = (1440, 370, 1660, 470)  # letreiro da marca no painel
 # mostradores grandes: centro, raio do fundo e o retângulo do texto que fica (MPH, RPM x1000)
@@ -100,13 +100,23 @@ def main():
     xr = np.where(xs < 0, -xs, np.clip(xs, 0, W - 1))  # reflete a porta para a esquerda
     d_rgb = sample(dash, xr, ys)
     d_al = ~sample(sky, xr, ys)
-    d_al[:, xs < 0] &= (ys[:, None] > 330).repeat((xs < 0).sum(), 1)
+    # à esquerda da arte só a porta (de baixo) e o retrovisor externo, que a arte corta na borda:
+    # o reflexo completa a carcaça e o espelho (o espelho fica vidro, o jogo mostra a vista nele)
+    mir = np.zeros((H, W), bool)
+    mx0, my0, mx1, my1 = MIRROR
+    housing = (rgb[..., 0] > 90) & (rgb[..., 0] > rgb[..., 1] * 1.5) & (rgb[..., 0] > rgb[..., 2] * 1.5)
+    mir[my0:my1, mx0:mx1] = (housing | glass)[my0:my1, mx0:mx1]
+    mir = cv2.morphologyEx(mir.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8)).astype(bool)
+    mir = cv2.dilate(mir.astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool)
+    mir_s = sample(mir, xr, ys)
+    left = xs < 0
+    d_al[:, left] = ((ys[:, None] > 316) | mir_s)[:, left] & ~sample(glass, xr, ys)[:, left]
     Image.fromarray(np.dstack([d_rgb, d_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'viper-dash.png'))
     xs, ys = grid(y0d - EXT * PXH, EXT)
     xr = np.where(xs < 0, -xs, np.clip(xs, 0, W - 1))
     t_rgb = sample(dash, xr, ys)
     t_al = ~sample(sky, xr, ys)
-    t_al[:, xs < 0] = False
+    t_al[:, xs < 0] = (sample(mir, xr, ys) & ~sample(glass, xr, ys))[:, xs < 0]
     Image.fromarray(np.dstack([t_rgb, t_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'viper-top.png'))
 
     # volante
@@ -118,7 +128,54 @@ def main():
     wr = ww.astype(int)
     orange = (wr[..., 0] > wr[..., 2] + 60) & (wr[..., 0] > 120)
     orange &= np.hypot(xx - 650, yy - 512) > 60  # a cobra vermelha do miolo é volante (vira o emblema)
-    wheel = (e_out & ~e_in & ~orange) | (hub.astype(bool) & e_out & ~orange)
+    # aro pela borda de verdade, ângulo a ângulo: em cada raio, o trecho contínuo escuro do couro
+    # (o painel atrás é mais claro e azulado, os bancos laranja, o vidro claro)
+    lumw = cv2.medianBlur(wr.mean(axis=2).astype(np.uint8), 5).astype(float)
+    dark = (lumw < 47)
+    th = np.radians(np.arange(0, 360, 0.25))
+    ss = np.linspace(0.70, 1.08, 380)
+    s_in = np.zeros(len(th)); s_out = np.zeros(len(th))
+    for i, t in enumerate(th):
+        px_ = np.clip((PIV[0] + np.cos(t) * RIM_OUT[0] * ss).astype(int), 0, W - 1)
+        py_ = np.clip((PIV[1] + np.sin(t) * RIM_OUT[1] * ss).astype(int), 0, H - 1)
+        d = dark[py_, px_]
+        k0 = int(np.argmin(np.abs(ss - 0.9)))
+        if not d[k0]:
+            near_ = np.nonzero(d)[0]
+            k0 = near_[np.argmin(np.abs(near_ - k0))] if len(near_) else k0
+        a_ = k0
+        while a_ > 0 and d[a_ - 1]:
+            a_ -= 1
+        b_ = k0
+        while b_ < len(ss) - 1 and d[b_ + 1]:
+            b_ += 1
+        s_in[i], s_out[i] = ss[a_], ss[b_]
+    # limites: o aro tem a grossura conhecida (não deixa o painel escuro grudado esticar o trecho)
+    s_in = np.clip(s_in, 0.79, 0.84)
+    s_out = np.clip(s_out, 0.97, 1.02)
+    def median_wrap(v, k):
+        pad = np.concatenate([v[-k:], v, v[:k]])
+        win = np.lib.stride_tricks.sliding_window_view(pad, 2 * k + 1)
+        return np.median(win, axis=1)
+    s_in = median_wrap(s_in, 15); s_out = median_wrap(s_out, 15)
+    # o aro é uma elipse: ajusta uma elipse (inclinada) a cada borda, sem os desvios locais
+    # (sombras, alavancas e o painel escuro encostados no aro); fica um tiquinho para dentro
+    def fit(sv, k):
+        pts = np.stack([PIV[0] + np.cos(th) * RIM_OUT[0] * sv, PIV[1] + np.sin(th) * RIM_OUT[1] * sv], 1).astype(np.float32)
+        (ex, ey), (ea, eb), eang = cv2.fitEllipse(pts)
+        m = np.zeros((H, W), np.uint8)
+        cv2.ellipse(m, ((ex, ey), (ea * k, eb * k), eang), 1, -1)
+        return m.astype(bool)
+    outer = fit(s_out, 0.992)
+    inner = fit(s_in, 1.012)
+    rim = outer & ~inner
+    sr = np.where(outer, 0.0, 2.0)
+    idx = np.zeros((H, W), int)
+    s_out = np.ones(len(th))
+    orange |= (wr[..., 0] > wr[..., 2] + 25) & (wr[..., 0] > wr[..., 1] + 8) & (np.hypot(xx - 650, yy - 512) > 60)
+    wheel = (rim & ~orange) | (hub.astype(bool) & (sr <= s_out[idx]) & ~orange)
+    e_out = outer
+    e_in = inner
     # o fundo creme dos mostradores que aparece acima dos raios não é volante
     wl = wr.mean(axis=2)
     creamy = (wl > 165) & ((wr.max(axis=2) - wr.min(axis=2)) < 45) & (yy < 450) & hub.astype(bool) & ((xx < 560) | (xx > 730))
@@ -133,6 +190,15 @@ def main():
     n, lab, st, _ = cv2.connectedComponentsWithStats(wheel.astype(np.uint8), 8)
     if n > 1:
         wheel = lab == 1 + np.argmax(st[1:, cv2.CC_STAT_AREA])
+    # tiras finas grudadas por pontes estreitas (fundo escuro do assoalho por fora do aro): corta as
+    # pontes (erosão), fica com a peça grande e reconstrói só dentro dela
+    core = cv2.erode(wheel.astype(np.uint8), np.ones((9, 9), np.uint8))
+    n, lab, st, _ = cv2.connectedComponentsWithStats(core, 4)
+    if n > 1:
+        rec = (lab == 1 + np.argmax(st[1:, cv2.CC_STAT_AREA])).astype(np.uint8)
+        for _ in range(6):
+            rec = cv2.dilate(rec, np.ones((3, 3), np.uint8)) & wheel.astype(np.uint8)
+        wheel = rec.astype(bool)
     wart = ww.copy()
     # cobra do miolo: disco escuro liso (o emblema da Serpe entra por brand_badges.py)
     hx, hy = 650, 512

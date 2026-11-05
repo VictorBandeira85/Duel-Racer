@@ -1,4 +1,4 @@
-import { scratch } from './svgsprites';
+import { scratch, takeBudget } from './svgsprites';
 // Pixel art nítida a partir de desenho vetorial: o desenho é feito em 4x e reduzido
 // pegando um pixel por bloco (sem misturar cores), a transparência vira 0/1 e ganha um
 // contorno escuro de 1 pixel, como na arte dos carros. Cada tamanho fica em cache.
@@ -12,6 +12,7 @@ export interface Crisp {
 }
 
 const cache = new Map<string, Crisp>();
+const sizes = new Map<string, Map<string, [number, number]>>();
 const MAX = 900;
 let work: HTMLCanvasElement | null = null;
 
@@ -28,6 +29,25 @@ export function crisp(key: string, w: number, h: number, draw: Draw): Crisp {
     cache.set(k, hit);
     return hit;
   }
+  // passou do orçamento de sprites novos deste quadro: usa o tamanho pronto mais parecido
+  if (!takeBudget()) {
+    const m = sizes.get(key);
+    if (m) {
+      let best: Crisp | null = null, bd = Infinity;
+      for (const [kk, [w0, h0]] of m) {
+        const c0 = cache.get(kk);
+        const d = Math.abs(w0 - bw) + Math.abs(h0 - bh);
+        if (c0 && d < bd) {
+          bd = d;
+          best = c0;
+        }
+      }
+      if (best) return best;
+    }
+  }
+  let sm = sizes.get(key);
+  if (!sm) sizes.set(key, (sm = new Map()));
+  sm.set(k, [bw, bh]);
   const S = bw * bh > 30000 ? 2 : 4;
   if (!work) work = document.createElement('canvas');
   if (work.width < bw * S || work.height < bh * S) {

@@ -27,6 +27,15 @@ CFG = {
 }
 
 
+def match_v(a, m, ref_v):
+    """o brilho da pintura convertida segue a distribuição da lateral (mesmo vermelho nas 3 vistas)"""
+    hsv = cv2.cvtColor(a[..., :3], cv2.COLOR_RGB2HSV_FULL)
+    v = hsv[..., 2][m].astype(float)
+    ranks = np.argsort(np.argsort(v)) / max(1, len(v) - 1)
+    hsv[..., 2][m] = np.percentile(ref_v, ranks * 100).astype(np.uint8)
+    a[..., :3] = np.where(m[..., None], cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB_FULL), a[..., :3])
+
+
 def green_to_red(a):
     hsv = cv2.cvtColor(a[..., :3], cv2.COLOR_RGB2HSV_FULL).astype(int)
     h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
@@ -36,11 +45,13 @@ def green_to_red(a):
     hsv[..., 2] = np.where(m, np.clip(v * 1.45 + 25, 0, 255), v)
     out = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2RGB_FULL)
     a[..., :3] = np.where(m[..., None], out, a[..., :3])
+    return m
 
 
 def main():
     art, src, out = sys.argv[1], sys.argv[2], sys.argv[3]
     cfg = CFG[art]
+    ref_v = None
     for k, tw in cfg['width'].items():
         rgb = np.array(Image.open(os.path.join(src, f'prep-{k}.png')).convert('RGB'))
         white = (rgb.min(axis=2) > 245)
@@ -66,11 +77,15 @@ def main():
         colr = np.clip(sm[..., :3] / np.maximum(a8[..., None] / 255, 1e-3), 0, 255)
         a = np.dstack([colr, np.where(a8 >= 128, 255, 0)]).astype(np.uint8)
         if k in cfg['green2red']:
-            green_to_red(a)
+            gm = green_to_red(a)
+            if ref_v is not None:
+                match_v(a, gm, ref_v)
         for x0, y0, x1, y1 in cfg['text'].get(k, []):
             for y in range(y0, y1):
                 a[y, x0:x1, :3] = a[y, x0 - 2, :3]
         m = red_mask(a, cut=cfg['cut'].get(k, []))
+        if k == 'side':
+            ref_v = cv2.cvtColor(a[..., :3], cv2.COLOR_RGB2HSV_FULL)[..., 2][m]
         Image.fromarray(a, 'RGBA').save(os.path.join(out, f'{art}-{k}.png'), optimize=True)
         mk = np.zeros_like(a)
         mk[..., :3] = np.where(m[..., None], 255, 0)

@@ -3,6 +3,7 @@ import { pushCarLights } from './nightlight';
 import { drawPlate, type Plate } from './plates';
 import { drawCrisp } from './crisp';
 import { KMH, RES } from './config';
+import { drawGlow } from './glowsprite';
 import { clamp, shade } from './util';
 import { BR_CARS } from './carsbr';
 import { PAINTS } from './paint';
@@ -819,13 +820,7 @@ export const blinkOn = () => Math.floor(performance.now() / 350) % 2 === 0;
 // faróis escamoteáveis subindo/acesos, faróis fixos acesos e piscas, sobre o sprite (L, T, w, h)
 function drawLamps(c: CanvasRenderingContext2D, L: number, T: number, w: number, h: number, look: CarLook, d: LampDef, front: boolean) {
   const st = look.lamps ?? { up: look.night ? 1 : 0, on: !!look.night };
-  const halo = (hx: number, hy: number, r: number, a: number) => {
-    const g = c.createRadialGradient(hx, hy, 0, hx, hy, r);
-    g.addColorStop(0, `rgba(255,248,215,${a})`);
-    g.addColorStop(1, 'rgba(255,248,215,0)');
-    c.fillStyle = g;
-    c.fillRect(hx - r, hy - r, r * 2, r * 2);
-  };
+  const halo = (hx: number, hy: number, r: number, a: number) => drawGlow(c, hx, hy, r, r, '255,248,215', a);
   if (front && d.popLit && look.rear?.frontUpImg && !(look.paint && look.rear.variants?.[look.paint])) {
     // a arte já mostra os faróis em pé: só o brilho dos acesos
     if (st.on && st.up >= 1) for (const lu of [d.popLit[0], 1 - d.popLit[0]]) halo(L + lu * w, T + d.popLit[1] * h, w * (st.high ? 0.2 : 0.13), st.high ? 0.6 : 0.38);

@@ -9,6 +9,8 @@ import { renderMirror, renderRoad, type Viewport } from './render3d';
 import { pix, pix7, pix7Width, pixWidth } from './pixfont';
 import { dither, speckle, text } from './ui';
 import { clamp, formatTime, lerp, rng, shade } from './util';
+import { drawGlow, type Stops } from './glowsprite';
+const GLOW_STOPS: Stops = [[0, 1], [0.7, 0.5], [1, 0]];
 import { F40_WHEEL } from './svg/f40';
 import { preloadSvg, spriteAspect, svgSprite } from './svgsprites';
 import { drawWipers, type DashTop } from './wipers';
@@ -1038,16 +1040,9 @@ function instrumentGlow(c: CanvasRenderingContext2D, ox: number, art: CockpitArt
   if (k <= 0.02) return;
   c.save();
   c.globalCompositeOperation = 'lighter';
-  const glow = (x: number, y: number, r: number) => {
-    const g = c.createRadialGradient(x, y, 0, x, y, r);
-    const rgb = art.glow ?? '255,180,110'; // cor da luz do quadro (âmbar; a LP5 acende em verde)
-    const gk = k * (art.glowK ?? 1);
-    g.addColorStop(0, `rgba(${rgb},${(0.16 * gk).toFixed(3)})`);
-    g.addColorStop(0.7, `rgba(${rgb},${(0.08 * gk).toFixed(3)})`);
-    g.addColorStop(1, `rgba(${rgb},0)`);
-    c.fillStyle = g;
-    c.fillRect(x - r, y - r, r * 2, r * 2);
-  };
+  const rgb = art.glow ?? '255,180,110'; // cor da luz do quadro (âmbar; a LP5 acende em verde)
+  const gk = k * (art.glowK ?? 1);
+  const glow = (x: number, y: number, r: number) => drawGlow(c, x, y, r, r, rgb, 0.16 * gk, GLOW_STOPS);
   for (const d of [art.tach, art.speed]) if (d) glow(ox + d.x + 0.5, ART_TOP + d.y + 0.5, d.r * 1.25);
   for (const a of art.aux) glow(ox + a.x + 0.5, ART_TOP + a.y + 0.5, a.r * 1.3);
   c.restore();
@@ -2197,18 +2192,7 @@ const rect = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
 
 // Sombra suave (projetada pelo volante, sob a capota dos instrumentos etc.)
 function shadow(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, alpha: number) {
-  const g = c.createRadialGradient(x, y, 0, x, y, Math.max(rx, ry));
-  g.addColorStop(0, `rgba(0,0,0,${alpha})`);
-  g.addColorStop(1, 'rgba(0,0,0,0)');
-  c.save();
-  c.translate(x, y);
-  c.scale(1, ry / rx);
-  c.translate(-x, -y);
-  c.fillStyle = g;
-  c.beginPath();
-  c.arc(x, y, rx, 0, Math.PI * 2);
-  c.fill();
-  c.restore();
+  drawGlow(c, x, y, rx, ry, '0,0,0', alpha);
 }
 
 // Escurece a parte de baixo do painel (luz vem do para-brisa)

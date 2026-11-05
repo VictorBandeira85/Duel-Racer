@@ -5,6 +5,37 @@
 const images = new Map<string, HTMLImageElement>();
 const rasters = new Map<string, HTMLCanvasElement>();
 const MAX_RASTERS = 400;
+// limite de memória dos sprites prontos (pixels somados): no iPhone o Safari derruba a página se os
+// canvas passam de algumas centenas de MB; os menos usados saem primeiro
+const MAX_PIXELS = 20e6;
+let pixels = 0;
+// orçamento de sprites novos por quadro: um carro ou objeto se aproximando pede um tamanho novo a
+// cada poucos quadros; com vários ao mesmo tempo, os que passam do limite usam por um quadro o
+// tamanho já pronto mais parecido (ampliado/reduzido um pouco) e ficam para o quadro seguinte
+let budget = 3;
+export function newFrame() {
+  budget = 3;
+}
+export function takeBudget() {
+  if (budget <= 0) return false;
+  budget--;
+  return true;
+}
+// tamanhos prontos de cada arte (para achar o mais parecido sem esperar)
+const sizes = new Map<string, Map<string, [number, number]>>();
+function nearest(base: string, bw: number, bh: number) {
+  const m = sizes.get(base);
+  if (!m) return null;
+  let best: string | null = null, bd = Infinity;
+  for (const [k, [w, h]] of m) {
+    const d = Math.abs(w - bw) + Math.abs(h - bh);
+    if (d < bd && rasters.has(k)) {
+      bd = d;
+      best = k;
+    }
+  }
+  return best ? rasters.get(best)! : null;
+}
 
 // aceita o texto de um SVG ou o endereço de uma imagem (PNG gerado de foto)
 function image(src: string): HTMLImageElement | null {
@@ -97,6 +128,7 @@ export const bucketPx = (v: number) => {
   const q = v <= 32 ? 2 : v <= 96 ? 4 : v <= 256 ? 8 : 16;
   return Math.max(2, Math.round(v / q) * q);
 };
+let bigCv: HTMLCanvasElement | null = null;
 // canvas de rascunho de CPU (leitura de pixels barata), reaproveitado
 let scratchCv: HTMLCanvasElement | null = null;
 export function scratch(w: number, h: number) {
@@ -120,13 +152,21 @@ export function svgSprite(svg: string, w: number, h: number, paint?: Paint): HTM
   // tamanhos agrupados (2 px nos pequenos, até 16 px nos grandes): um carro chegando perto não
   // gera um sprite novo a cada quadro; quem desenha amplia/reduz a diferença
   const bw = bucketPx(w), bh = bucketPx(h);
-  const key = `${svg.length}:${svg.slice(-40)}:${bw}x${bh}:${paint?.color ?? ''}`;
+  const base = `${svg.length}:${svg.slice(-40)}:${paint?.color ?? ''}`;
+  const key = `${base}:${bw}x${bh}`;
   let cv = rasters.get(key);
   if (cv) {
     rasters.delete(key); // LRU: volta para o fim
     rasters.set(key, cv);
     return cv;
   }
+  if (!takeBudget()) {
+    const near = nearest(base, bw, bh);
+    if (near) return near;
+  }
+  let sm = sizes.get(base);
+  if (!sm) sizes.set(base, (sm = new Map()));
+  sm.set(key, [bw, bh]);
   // o recorte do alfa precisa ler os pixels: feito num canvas de CPU (willReadFrequently), que não
   // trava a placa de vídeo, e só o resultado vai para o canvas do sprite
   const c = scratch(bw, bh);
@@ -134,11 +174,16 @@ export function svgSprite(svg: string, w: number, h: number, paint?: Paint): HTM
   // misturar cores); SVG é rasterizado em 4x e reduzido do mesmo jeito, para não ter antialias
   c.imageSmoothingEnabled = false;
   if (!paint && svg.trimStart().startsWith('<svg')) {
-    const big = document.createElement('canvas');
-    big.width = bw * 4;
-    big.height = bh * 4;
-    big.getContext('2d')!.drawImage(img, 0, 0, bw * 4, bh * 4);
-    c.drawImage(big, 0, 0, bw, bh);
+    if (!bigCv) bigCv = document.createElement('canvas');
+    const big = bigCv;
+    if (big.width < bw * 4 || big.height < bh * 4) {
+      big.width = Math.max(big.width, bw * 4);
+      big.height = Math.max(big.height, bh * 4);
+    }
+    const bg = big.getContext('2d')!;
+    bg.clearRect(0, 0, bw * 4, bh * 4);
+    bg.drawImage(img, 0, 0, bw * 4, bh * 4);
+    c.drawImage(big, 0, 0, bw * 4, bh * 4, 0, 0, bw, bh);
   } else {
     // muito reduzido (carro longe, retrovisor): vizinho mais próximo pularia linhas inteiras e
     // o vidro, os bancos e as lanternas sumiriam (o carro vira um bloco da cor da lataria);
@@ -157,7 +202,14 @@ export function svgSprite(svg: string, w: number, h: number, paint?: Paint): HTM
   cv.width = bw;
   cv.height = bh;
   cv.getContext('2d')!.putImageData(data, 0, 0);
-  if (rasters.size >= MAX_RASTERS) rasters.delete(rasters.keys().next().value!);
+  pixels += cv.width * cv.height;
+  while (rasters.size && (rasters.size >= MAX_RASTERS || pixels > MAX_PIXELS)) {
+    const old = rasters.keys().next().value!;
+    const oc = rasters.get(old)!;
+    pixels -= oc.width * oc.height;
+    oc.width = oc.height = 0; // devolve a memória já
+    rasters.delete(old);
+  }
   rasters.set(key, cv);
   return cv;
 }

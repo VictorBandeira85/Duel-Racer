@@ -5,6 +5,7 @@ import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from '
 import { CARS, drawCar } from './cars';
 import { lowFx, fxMode } from './perf';
 import { adsReady } from './billboards';
+import { drawGlow, type Stops } from './glowsprite';
 import { beginLights, finishNight, pushCarBeam, pushOccluder, sirenGlow, sirenWash, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, type Pass, type RoadPt } from './nightlight';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
 import { SPRITES } from './sprites';
@@ -332,13 +333,9 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
 }
 
 // brilho redondo (halo) em volta do sol ou da lua
+const HALO: Stops = [[0, 1], [0.45, 0.35], [1, 0]];
 function glow(c: CanvasRenderingContext2D, x: number, y: number, rad: number, rgb: string, a: number) {
-  const g = c.createRadialGradient(x, y, 0, x, y, rad);
-  g.addColorStop(0, `rgba(${rgb},${a})`);
-  g.addColorStop(0.45, `rgba(${rgb},${(a * 0.35).toFixed(3)})`);
-  g.addColorStop(1, `rgba(${rgb},0)`);
-  c.fillStyle = g;
-  c.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  drawGlow(c, x, y, rad, rad, rgb, a, HALO);
 }
 // sol com halo e, perto do horizonte, a faixa de luz espalhada ao longo dele
 function sunDisc(c: CanvasRenderingContext2D, vp: Viewport, x: number, y: number, R: number, color: string, low: number) {
@@ -479,10 +476,15 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
     const s = segs[i];
     if (s.p1.camera.z <= CAM_DEPTH * 4) continue;
     if (!s.tunnel && !s.sprites.length && !s.cars.length) continue; // nada a desenhar: poupa o recorte
+    // recorte pela crista só quando algo deste trecho pode passar dela (o chão do trecho fica
+    // abaixo da linha da crista); no plano e nas descidas não há o que esconder
+    const needClip = !!s.tunnel || Math.max(s.p1.screen.y, s.p2.screen.y) + 1 > s.clip;
     c.save();
-    c.beginPath();
-    c.rect(vp.x, vp.y, vp.w, s.clip - vp.y);
-    c.clip();
+    if (needClip) {
+      c.beginPath();
+      c.rect(vp.x, vp.y, vp.w, s.clip - vp.y);
+      c.clip();
+    }
     setLightClip(s.clip);
     const dist = i - base.index;
     if (s.tunnel) {

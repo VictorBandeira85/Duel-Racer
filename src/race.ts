@@ -534,11 +534,13 @@ export class Race {
     // no trecho mais perto): ao chegar numa crista ela já aponta para a descida, e não para o céu
     // olha bem pouco adiante (uns 6 segmentos, ~40 m, mais peso perto): a câmera só começa a
     // baixar quando a crista está logo ali, e acompanha a descida quando chega nela
+    // a janela cresce com a velocidade (~0,2 s à frente): rápido, a câmera chega na lombada a tempo
+    const nAhead = clamp(Math.round((this.speed * 0.2) / SEG_LEN), 6, 12);
     let ahead = 0, wsum = 0, far = 0;
-    for (let k = 1; k <= 6; k++) {
+    for (let k = 1; k <= nAhead; k++) {
       const sg = this.findSegment(this.position + k * SEG_LEN);
       const sk = (sg.p2.world.y - sg.p1.world.y) / SEG_LEN;
-      const wk = 1.25 - k / 6;
+      const wk = 1.25 - k / nAhead;
       ahead += sk * wk;
       wsum += wk;
       if (k >= 2 && k <= 5) far += sk / 4;
@@ -550,7 +552,7 @@ export class Race {
     // descida forte logo ali: aponta um pouco além dela (a pista não some embaixo do capô)
     if (far < ground) ground = lerp(ground, clamp(far, -0.8, 0), 0.35);
     const pitchTo = this.airborne ? fly * 0.3 + ground * 0.7 : ground;
-    this.pitch = lerp(this.pitch, pitchTo, Math.min(1, dt * (this.airborne ? 5 : 7)));
+    this.pitch = lerp(this.pitch, pitchTo, Math.min(1, dt * (this.airborne ? 6 : 12)));
     // ---- salto: o carro é um corpo com velocidade vertical própria. Segue o chão enquanto a
     // gravidade dá conta; num topo de lombada que cai mais rápido do que ela puxa, decola,
     // voa em parábola e cai com uma pancada proporcional à velocidade de queda ----

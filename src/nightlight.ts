@@ -514,7 +514,25 @@ function secondary(W: number, H: number, ox: number, oy: number, draw: (s: Canva
       t.setTransform(1, 0, 0, 1, 0, 0);
       t.globalCompositeOperation = 'source-over';
       t.clearRect(x0, y0, x1 - x0, y1 - y0);
-      beam(t, b);
+      // o facho só ilumina a pista (com um pouco do acostamento): numa curva o quadrilátero reto
+      // atravessaria paredes de túnel, guard-rails, outdoors e o cenário ao lado
+      if (roadPoly.length > 1) {
+        t.save();
+        t.beginPath();
+        for (let i = 0; i < roadPoly.length; i++) {
+          const q = roadPoly[i];
+          if (i) t.lineTo(q.x - q.w * 1.25 - ox, q.y - oy);
+          else t.moveTo(q.x - q.w * 1.25 - ox, q.y + 2 - oy);
+        }
+        for (let i = roadPoly.length - 1; i >= 0; i--) {
+          const q = roadPoly[i];
+          t.lineTo(q.x + q.w * 1.25 - ox, q.y + (i ? 0 : 2) - oy);
+        }
+        t.closePath();
+        t.clip();
+        beam(t, b);
+        t.restore();
+      } else beam(t, b);
       t.globalCompositeOperation = 'destination-out';
       for (const o of occluders) {
         if (o.idx > b.end) continue;
@@ -554,8 +572,10 @@ let sky: { x: number; y: number; r: number; floor: number; ridge?: { x0: number;
 export function setSkyLight(x: number, y: number, r: number, floor = Infinity, ridge?: { x0: number; ys: number[] }) {
   sky = { x, y, r, floor, ridge };
 }
-export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: number; w: number; h: number; horizon: number; dash?: number }, strength: number, passers: Pass[], segLen: number, road: RoadPt[] = []) {
+let roadPoly: RoadPt[] = [];
+export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: number; w: number; h: number; horizon: number; dash?: number }, strength: number, passers: Pass[], segLen: number, road: RoadPt[] = [], roadAll: RoadPt[] = road) {
   collecting = false;
+  roadPoly = roadAll;
   if (strength <= 0.02) {
     sky = null;
     carBeams.length = 0;

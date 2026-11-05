@@ -450,6 +450,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
 
   let maxy = vp.y + vp.h;
   const road: RoadPt[] = [];
+  const roadAll: RoadPt[] = []; // a pista inteira visível (recorte dos fachos dos faróis)
   let x = 0;
   let dx = -(base.curve * basePct);
   for (let i = base.index; i < end; i++) {
@@ -464,6 +465,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
     maxy = s.p1.screen.y;
     // chão visível à frente, para o facho dos faróis seguir subidas e descidas
     if (i - base.index <= 120) road.push({ d: i - base.index, x: s.p1.screen.x, y: s.p1.screen.y, w: s.p1.screen.w });
+    roadAll.push({ d: i - base.index, x: s.p1.screen.x, y: s.p1.screen.y, w: s.p1.screen.w });
   }
 
   let nearTunnel: Segment | null = null;
@@ -615,7 +617,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   }
   setLightClip(Infinity);
   // escuridão pela intensidade da noite (entra e sai aos poucos no pôr do sol e no amanhecer)
-  finishNight(c, vp, Math.max(r.nightK, r.inTunnel > 0.5 ? 0.45 * r.inTunnel : 0), passers, SEG_LEN, road);
+  finishNight(c, vp, Math.max(r.nightK, r.inTunnel > 0.5 ? 0.45 * r.inTunnel : 0), passers, SEG_LEN, road, roadAll);
   c.restore();
 }
 

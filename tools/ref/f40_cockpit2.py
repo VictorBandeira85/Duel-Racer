@@ -61,6 +61,11 @@ def main():
     H, W = art.shape[:2]
     yy, xx = np.mgrid[0:H, 0:W]
     rgb = art.astype(int)
+    lum_w = rgb.mean(axis=2)  # da arte com volante (recorte do volante)
+    # vidro: tirado da arte sem volante (sem o aro na frente da estrada)
+    nwp = os.path.join(os.path.dirname(src), 'cab-nowheel.png')
+    if os.path.exists(nwp):
+        rgb = np.array(Image.open(nwp).convert('RGB')).astype(int)
     r_, g_, b_ = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     lum = rgb.mean(axis=2)
     sat = rgb.max(axis=2) - rgb.min(axis=2)
@@ -98,7 +103,7 @@ def main():
     hub = np.zeros((H, W), np.uint8)
     cv2.fillPoly(hub, [np.array(HUB, np.int32)], 1)
     disc = np.hypot(xx - HUB_C[0], yy - HUB_C[1]) <= HUB_R
-    hub = (hub.astype(bool) & (lum < 120)) | disc
+    hub = (hub.astype(bool) & (lum_w < 120)) | disc
     wheel = (e_out & ~e_in) | (hub & e_out)
     wheel = cv2.morphologyEx(wheel.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)).astype(bool)
     n, lab, st, _ = cv2.connectedComponentsWithStats(wheel.astype(np.uint8), 8)

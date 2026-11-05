@@ -11,6 +11,7 @@ import math
 import os
 import sys
 
+import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -40,7 +41,6 @@ def main():
         redn = (rgb[..., 0] > 140) & (rgb[..., 0] > rgb[..., 1] * 1.6) & (dd < r)
         redn &= ~((dd > r * 0.82) & (rgb[..., 1] > 60))  # a faixa amarela/vermelha da borda fica
         hub = (dd < r * 0.24) & (rgb.max(axis=2) < 150)
-        import cv2
         k = np.ones((7, 7), np.uint8)
         near = cv2.dilate((redn | hub).astype(np.uint8), k) > 0
         # contorno escuro do ponteiro e do miolo (tudo o que não é creme em volta deles)
@@ -54,9 +54,33 @@ def main():
         kx0, ky0, kx1, ky1 = d['keep']
         band = (dd > r * 0.36) & (dd < r * 0.8) & ~((xx >= kx0) & (xx <= kx1) & (yy >= ky0) & (yy <= ky1))
         clear |= band & (rgb.min(axis=2) < 205)
+        # pedaços dos números antigos que encostam nas marcações (entre 0,8r e 0,93r): cada mancha
+        # escura que não chega na borda das marcações (> 0,9r) sai; as marcações ficam
+        dark = ((rgb.min(axis=2) < 200) & (dd > r * 0.36) & (dd < r * 0.99)).astype(np.uint8)
+        n, lab, st, _ = cv2.connectedComponentsWithStats(dark, 8)
+        outer = np.zeros(n, bool)
+        outer[np.unique(lab[(dd > r * 0.9) & (dark > 0)])] = True
+        keepbox = (xx >= kx0) & (xx <= kx1) & (yy >= ky0) & (yy <= ky1)
+        clear |= (lab > 0) & ~outer[lab] & ~keepbox & (dd < r * 0.93)
+        # ponta vermelha antiga fora da faixa colorida (também a sombreada) e pontinhos soltos
+        redish = (rgb[..., 0] > rgb[..., 1] * 1.3) & (rgb[..., 0] > 110) & ~((ang > 255) & (ang < 365)) & (dd < r + 3)
+        nearred = cv2.dilate(redish.astype(np.uint8), np.ones((11, 11), np.uint8)).astype(bool)
+        shadow = nearred & (rgb.min(axis=2) > 60) & (rgb.min(axis=2) < 190) & (dd > r * 0.85)  # sombra cinza da ponta
+        tipclear = (cv2.dilate(redish.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool) | shadow) & (dd < r + 3)
+        small = (st[:, cv2.CC_STAT_AREA] < 16)
+        clear |= (lab > 0) & small[lab] & (dd < r * 0.86) & ~keepbox
+        # o resto do borrão claro do ponteiro antigo (diferente do creme em volta)
+        clear = cv2.dilate(clear.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool) & (dd < r * 0.93) & ~(keepbox & ~clear)
+        clear |= tipclear
         # o antigo terceiro "180" fica mais embaixo, entre o 180 e o "MPH"
         # (apaga só o que for escuro e fique fora das marcações)
-        a[clear & (dd < r)] = face.astype(np.uint8)
+        # preenchimento com o creme em volta (convolução normalizada): o sombreado do fundo continua
+        w = ((~clear) & (rgb.min(axis=2) > 175) & (dd < r)).astype(np.float32)
+        num = cv2.GaussianBlur(art.astype(np.float32) * w[..., None], (0, 0), 6)
+        den = cv2.GaussianBlur(w, (0, 0), 6)[..., None]
+        val = np.clip(num / np.maximum(den, 1e-3), 0, 255).astype(np.uint8)
+        m = clear & (dd < r + 3)
+        a[m] = val[m]
         # sombra suave na borda de baixo do fundo (como a arte)
         im = Image.fromarray(a)
         dr = ImageDraw.Draw(im)
@@ -74,7 +98,18 @@ def main():
                 lay = lay.resize((int(lay.width * 0.82), lay.height), Image.LANCZOS)
             px, py = int(round(lx - lay.width / 2)), int(round(ly - lay.height / 2))
             im.paste((22, 22, 26), (px, py), lay)
+            txt = Image.new('L', im.size, 0); txt.paste(255, (px, py), lay)
+            textmask = np.maximum(textmask, np.array(txt)) if i else np.array(txt)
         a = np.array(im)
+        # pontinhos escuros que sobraram dos números antigos (soltos, longe dos números novos)
+        tm = cv2.dilate((textmask > 0).astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool)
+        dk = (a.astype(int).min(axis=2) < 190) & (dd > r * 0.36) & (dd < r * 0.99) & ~tm & ~keepbox
+        n2, lab2, st2, _ = cv2.connectedComponentsWithStats(dk.astype(np.uint8), 8)
+        sm = st2[:, cv2.CC_STAT_AREA] < 25
+        sm[np.unique(lab2[(dd > r * 0.86) & dk])] = False  # as marcações (chegam na borda) ficam
+        sm[0] = False
+        dots = cv2.dilate(sm[lab2].astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+        a[dots] = val[dots]
         # recorte: só o fundo redondo (o aro fica no painel)
         R = r + 4
         x0, y0 = cx - R, cy - R

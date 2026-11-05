@@ -20,7 +20,7 @@ from vectra_sprites import red_mask  # noqa: E402
 # (lanternas, bancos vistos pelo vidro); holes: o fundo claro preso dentro (vão da asa) sai
 CFG = {
     'nsx': {'width': {'side': 300, 'rear': 200, 'front': 200}, 'green2red': ('rear', 'front'), 'holes': (),
-            'text': {}, 'cut': {'rear': [(4, 36, 196, 63)]}},
+            'text': {}, 'cut': {'rear': [(4, 36, 196, 63)]}, 'glassband': {'rear': [(38, 43)]}, 'neutral': {'rear': [(32, 38), (43, 52)]}},
     'f40': {'width': {'side': 300, 'rear': 200, 'front': 200}, 'green2red': (), 'holes': ('rear', 'front'),
             'text': {'rear': [(85, 33, 117, 40)], 'side': [(203, 47, 218, 55)]},
             'cut': {'rear': [(15, 40, 185, 61)], 'front': [(45, 4, 155, 34)]}},
@@ -40,6 +40,9 @@ def green_to_red(a):
     hsv = cv2.cvtColor(a[..., :3], cv2.COLOR_RGB2HSV_FULL).astype(int)
     h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
     m = (h > 85) & (h < 140) & (s > 60) & (a[..., 3] > 0)  # verde-azulado da pintura
+    # reflexos claros da pintura verde (pouca cor, puxados para o ciano: frestas do aerofólio,
+    # vincos): viram reflexo rosado da pintura vermelha (o vidro, bem azul e saturado, fica)
+    m |= (h > 95) & (h < 152) & (s > 12) & (s < 60) & (v > 90) & (a[..., 3] > 0)
     hsv[..., 0] = np.where(m, 0, h)
     hsv[..., 1] = np.where(m, np.clip(s * 1.15 + 30, 0, 255), s)
     hsv[..., 2] = np.where(m, np.clip(v * 1.45 + 25, 0, 255), v)
@@ -80,6 +83,27 @@ def main():
             gm = green_to_red(a)
             if ref_v is not None:
                 match_v(a, gm, ref_v)
+        for y0, y1 in cfg.get('neutral', {}).get(k, []):
+            # sombras e frestas em volta do aerofólio: o ciano escuro da pintura verde vira preto neutro
+            hsv = cv2.cvtColor(a[..., :3], cv2.COLOR_RGB2HSV_FULL).astype(int)
+            band = np.zeros(a.shape[:2], bool)
+            W_ = a.shape[1]
+            band[y0:y1, int(W_ * 0.11):int(W_ * 0.89)] = True  # sem os retrovisores
+            band &= (hsv[..., 0] > 100) & (hsv[..., 0] < 170) & (hsv[..., 1] > 30)
+            hsv[..., 1] = np.where(band, hsv[..., 1] // 6, hsv[..., 1])
+            a[..., :3] = np.where(band[..., None], cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2RGB_FULL), a[..., :3])
+        for y0, y1 in cfg.get('glassband', {}).get(k, []):
+            # vidro visto pela fresta do aerofólio: o mesmo azul do vidro de cima (era ciano/verde)
+            hsv = cv2.cvtColor(a[..., :3], cv2.COLOR_RGB2HSV_FULL).astype(int)
+            top = hsv[int(a.shape[0] * 0.06):int(a.shape[0] * 0.19)]
+            gh, gs = int(np.median(top[..., 0])), int(np.median(top[..., 1]))
+            band = np.zeros(a.shape[:2], bool)
+            band[y0:y1] = True
+            band &= (hsv[..., 0] > 120) & (hsv[..., 0] < 160) & (hsv[..., 1] > 40)
+            hsv[..., 0] = np.where(band, gh, hsv[..., 0])
+            hsv[..., 1] = np.where(band, np.maximum(hsv[..., 1], gs), hsv[..., 1])
+            hsv[..., 2] = np.where(band, (hsv[..., 2] * 0.85).astype(int), hsv[..., 2])
+            a[..., :3] = np.where(band[..., None], cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2RGB_FULL), a[..., :3])
         for x0, y0, x1, y1 in cfg['text'].get(k, []):
             for y in range(y0, y1):
                 a[y, x0:x1, :3] = a[y, x0 - 2, :3]

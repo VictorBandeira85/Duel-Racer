@@ -114,10 +114,11 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
   // de verdade (foto do Victor, tools/ref/f40_gauges.py): velocímetro 0-360 com hodômetros,
   // conta-giros 0-100 x100 com marcas vermelhas, água e turbo embaixo, luzes vermelhas; ponteiros brancos
   f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, pivot: [128, 105], wheelTop: 12, tells: null,
-    glass: { at: [60, 160], thr: 256 }, radar: [222, 6], glow: '235,240,230', glowK: 0.5,
-    // à noite números e marcações brancas acendem (o fundo preto continua preto), ponteiros também
-    facesLit: '236,240,228', litNeedles: true,
-    faces: [{ src: cp('f40-cluster'), src2: cp('f40-cluster-2x'), x: 44.5, y: 7.5, w: 169, h: 84 }],
+    glass: { at: [60, 160], thr: 256 }, radar: [222, 6], glow: '110,230,140', glowK: 0.5,
+    // à noite números e marcações acendem em verde (o fundo preto continua preto), ponteiros também
+    facesLit: '110,236,140', litNeedles: true,
+    faces: [{ src: cp('f40-cluster'), src2: cp('f40-cluster-2x'), x: 44.5, y: 7.5, w: 169, h: 84 },
+      { src: cp('f40-console'), src2: cp('f40-console-2x'), x: 238.5, y: 55.5, w: 100, h: 35 }],
     // Veglia: a seta é a primeira lente embaixo do velocímetro (farol de neblina e alto ao lado)
     turnDot: { x: 98.3, y: 68.6, others: [[103.7, 68.6], [109.1, 68.6]] },
     speed: { x: 104.2, y: 45.9, r: 24.5, max: 360, labels: [], tick: 20, red: 999, face: false, a0: 128 * (Math.PI / 180), sweep: 284 * (Math.PI / 180) },
@@ -126,6 +127,10 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
     aux: [
       { x: 68.5, y: 66.1, r: 11, kind: 'single', show: ['water'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
       { x: 189.2, y: 67.3, r: 11, kind: 'single', show: ['boost'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
+      // console: pressão do óleo, temperatura do óleo e bateria
+      { x: 253.8, y: 72, r: 11, kind: 'single', show: ['oil'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
+      { x: 287.8, y: 72, r: 11, kind: 'single', show: ['oiltemp'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
+      { x: 321.5, y: 72, r: 11, kind: 'single', show: ['volt'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
     ],
     extra: (c, ox, r) => {
       odometer(c, ox, r, { x: 98.2, y: 37.5, w: 12, h: 3.5 }, 18373, 6, 0.5);
@@ -988,29 +993,35 @@ const cabinDark = (r: Race) => (r.def.night ? 0.6 : r.inTunnel > 0.5 ? 0.3 * r.i
 const faceImgs = new Map<string, HTMLImageElement>();
 // fundo de mostrador iluminado por trás à noite: o branco vira a cor da luz (multiplicação), o
 // preto dos números e marcações continua preto; em degraus para não refazer a cada quadro
-const litCache = new Map<HTMLImageElement, { k: number; cv: HTMLCanvasElement }>();
+const litCache = new Map<HTMLImageElement, { k: number; key: string; cv: HTMLCanvasElement }>();
 function litImg(img: HTMLImageElement, dk: number, rgb: string): HTMLImageElement | HTMLCanvasElement {
   const k = Math.round(Math.min(1, dk / 0.6) * 10) / 10;
   if (k <= 0) return img;
+  const key = `${rgb}:${k}`;
   const hit = litCache.get(img);
-  if (hit && hit.k === k) return hit.cv;
+  if (hit && hit.k === k && hit.key === key) return hit.cv;
   const cv = hit?.cv ?? document.createElement('canvas');
   cv.width = img.naturalWidth;
   cv.height = img.naturalHeight;
   const g = cv.getContext('2d')!;
-  g.globalCompositeOperation = 'source-over';
   g.clearRect(0, 0, cv.width, cv.height);
   g.drawImage(img, 0, 0);
-  // mistura do branco (dia) com a cor da luz (noite), multiplicada sobre a arte
+  // o claro (números, marcações, fundos brancos) acende na cor da luz; o escuro (placa, aros)
+  // escurece como o resto da cabine
+  const d = g.getImageData(0, 0, cv.width, cv.height);
+  const px = d.data;
   const [lr, lg, lb] = rgb.split(',').map(Number);
-  const mix = (a: number) => Math.round(255 + (a - 255) * k);
-  g.globalCompositeOperation = 'multiply';
-  g.fillStyle = `rgb(${mix(lr)},${mix(lg)},${mix(lb)})`;
-  g.fillRect(0, 0, cv.width, cv.height);
-  g.globalCompositeOperation = 'destination-in';
-  g.drawImage(img, 0, 0);
-  g.globalCompositeOperation = 'source-over';
-  litCache.set(img, { k, cv });
+  const mr = 1 + (lr / 255 - 1) * k, mg = 1 + (lg / 255 - 1) * k, mb = 1 + (lb / 255 - 1) * k;
+  const q = Math.min(1, dk);
+  for (let i = 0; i < px.length; i += 4) {
+    const r = px[i], gg = px[i + 1], b = px[i + 2];
+    const w = Math.max(0, Math.min(1, (Math.max(r, gg, b) - 90) / 80));
+    px[i] = (r * (1 - q) + 4 * q) * (1 - w) + r * mr * w;
+    px[i + 1] = (gg * (1 - q) + 4 * q) * (1 - w) + gg * mg * w;
+    px[i + 2] = (b * (1 - q) + 14 * q) * (1 - w) + b * mb * w;
+  }
+  g.putImageData(d, 0, 0);
+  litCache.set(img, { k, key, cv });
   return cv;
 }
 function faceImg(src: string) {

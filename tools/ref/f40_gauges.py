@@ -189,11 +189,56 @@ def build(out):
     fin.save(os.path.join(out, 'f40-cluster.png' if KO == 4 else 'f40-cluster-2x.png'), optimize=True)
 
 
+CONSOLE = [dict(x=253.8, y=72.0, r=12.6, a0=200, a1=340, labels=['0', '5', '10'], unit='bar', icon='oil'),
+           dict(x=287.8, y=72.0, r=12.6, a0=200, a1=340, labels=['60', '100', '140'], unit='°C', icon='oiltemp'),
+           dict(x=321.5, y=72.0, r=12.6, a0=200, a1=340, labels=['8', '12', '16'], unit='V', icon='volt')]
+
+
+def build_console(out):
+    """os três relógios do console (pressão e temperatura do óleo, bateria), no mesmo estilo"""
+    global X0, Y0, X1, Y1, W, H
+    X0, Y0, X1, Y1 = 238, 55, 338, 90
+    W, H = (X1 - X0) * K, (Y1 - Y0) * K
+    im = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    for g in CONSOLE:
+        ell(d, g['x'], g['y'], g['r'] + 2.4, fill=(18, 18, 22))
+        ell(d, g['x'], g['y'], g['r'] + 1.4, fill=(70, 70, 82))
+        ell(d, g['x'], g['y'], g['r'] + 0.7, fill=(20, 20, 22))
+        ell(d, g['x'], g['y'], g['r'], fill=(10, 10, 11))
+        a0, a1 = g['a0'], g['a1']
+        for i in range(9):
+            a = a0 + (a1 - a0) * i / 8
+            big_ = i % 4 == 0
+            tick(d, g, a, g['r'] - (2.0 if big_ else 1.4), g['r'] - 0.5, 0.42 if big_ else 0.3)
+        for i, L in enumerate(g['labels']):
+            a = a0 + (a1 - a0) * i / 2
+            lx, ly = at(g, a, g['r'] - 4.3)
+            label(L, lx, ly + K * 1.4, 3.0, squeeze=0.86 if len(L) < 3 else 0.72)
+        x, y = P(g['x'], g['y'] + g['r'] * 0.62 * PY)
+        label(g['unit'], x, y, 2.6, squeeze=0.95, small_ok=False)
+        ix, iy = P(g['x'], g['y'] + g['r'] * 0.3 * PY)
+        sz = K * 0.75
+        if g['icon'] == 'volt':
+            d.rectangle([ix - sz * 1.4, iy - sz * 0.6, ix + sz * 1.4, iy + sz * 0.7], outline=WH, width=max(1, K // 6))
+        else:
+            d.polygon([(ix - sz * 1.6, iy - sz * 0.2), (ix + sz * 0.6, iy - sz * 0.2), (ix + sz * 1.6, iy - sz * 0.7), (ix + sz * 0.9, iy + sz * 0.6), (ix - sz * 1.6, iy + sz * 0.6)], fill=WH)
+            if g['icon'] == 'oiltemp':
+                d.rectangle([ix - sz * 0.15, iy - sz * 1.4, ix + sz * 0.15, iy - sz * 0.2], fill=WH)
+    fin = im.resize((W * KO // K, H * KO // K), Image.LANCZOS)
+    draw_labels(fin)
+    fin.save(os.path.join(out, 'f40-console.png' if KO == 4 else 'f40-console-2x.png'), optimize=True)
+    X0, Y0, X1, Y1 = 44, 7, 213, 91
+    W, H = (X1 - X0) * K, (Y1 - Y0) * K
+
+
 def main():
     global KO
     for KO in (4, 2):
         LABELS.clear()
         build(sys.argv[1])
+        LABELS.clear()
+        build_console(sys.argv[1])
     print('quadro', (X0, Y0), (X1 - X0, Y1 - Y0))
 
 

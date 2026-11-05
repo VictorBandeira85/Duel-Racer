@@ -849,7 +849,7 @@ const VP_INK = '#16161a', VP_BG = '#ecebe2';
 COCKPIT_ART.viper = {
   dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
   pivot: [128, 105], wheelTop: 14, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 4, needleFine: true, hub: '#151517', hubR: 3.4, radar: [102, 22],
-  glass: { at: [60, 160], thr: 256 }, tells: null, // sem retrovisor externo à vista (a arte o corta): ponto no painel, não acha vidro
+  glass: { at: [33, 95], thr: 256 }, tells: null, // vidro do retrovisor esquerdo (metade de fora completada)
   // à noite os fundos brancos acendem em âmbar (luz por trás, como no carro); os ponteiros
   // vermelhos não têm luz e ficam escuros contra o fundo aceso
   facesLit: '255,176,92', glow: '255,160,70', glowK: 0.35,

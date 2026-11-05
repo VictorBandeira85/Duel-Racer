@@ -26,6 +26,7 @@ RIM_OUT, RIM_IN = (336, 342), (268, 274)
 HUB = [(352, 459), (470, 453), (560, 436), (720, 436), (810, 453), (930, 459), (930, 560), (820, 560),
        (705, 600), (700, 790), (606, 790), (603, 600), (460, 560), (352, 560)]
 MIRROR = (0, 160, 70, 320)
+MIR_GAP = 30     # vidro que falta entre a borda da arte e a metade de fora (px da arte)
 TEXT = (1440, 370, 1660, 470)  # letreiro da marca no painel
 # mostradores grandes: centro, raio do fundo e o retângulo do texto que fica (MPH, RPM x1000)
 BIG = [(462, 395, 89, (436, 436, 488, 456)), (747, 395, 88, (728, 428, 800, 462))]
@@ -41,6 +42,28 @@ def sample(img, xs, ys):
     xi = np.clip(xs.astype(int), 0, img.shape[1] - 1)
     yi = np.clip(ys.astype(int), 0, img.shape[0] - 1)
     return img[yi][:, xi]
+
+
+def outer_half(xs, ys, dash, glass, shell, my_top, my_bot):
+    """Metade de fora do retrovisor esquerdo, à esquerda da arte (xs < 0): primeiro MIR_GAP px de
+    vidro (a coluna da borda da arte esticada), depois a borda da carcaça espelhada; embaixo, o
+    canto de cima espelhado na vertical (a haste que desce para a porta só existe do lado de dentro)"""
+    H, W = shell.shape
+    yc = (my_top + my_bot - 1) / 2
+    sx = np.where(xs >= -MIR_GAP, 0, -MIR_GAP - xs)
+    left = (xs < 0) & (sx < 72)
+    sy = np.where(ys > yc, 2 * yc - ys, ys)
+    rows = (ys >= my_top) & (ys < my_bot)
+    sxi = np.clip(sx.astype(int), 0, W - 1)
+    syi = np.clip(sy.astype(int), 0, H - 1)
+    sh = shell[syi][:, sxi] & rows[:, None] & left[None, :]
+    rgbm = dash[syi][:, sxi]
+    alm = ~glass[syi][:, sxi]
+    # franja clara do recorte da arte (cinza solto por fora da carcaça) não entra
+    ri = rgbm.astype(int)
+    fringe = (ri.max(axis=2) - ri.min(axis=2) < 40) & (ri.mean(axis=2) > 110) & alm
+    sh &= ~fringe
+    return sh, rgbm, alm
 
 
 def main():
@@ -66,17 +89,19 @@ def main():
     glass[y0:y1, x0:x1] = blue[y0:y1, x0:x1]
     glass = cv2.morphologyEx(glass.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8)).astype(bool)
     sky |= glass
-    # retrovisor externo esquerdo: a arte o corta na borda esquerda; ele sai de vista inteiro
-    # (carcaça vermelha, espelho e haste), no lugar fica o mundo
-    mx0, my0, mx1, my1 = MIRROR
-    housing = np.zeros_like(sky)
+    # retrovisor externo esquerdo: a arte mostra só a metade de dentro (cortada na borda esquerda);
+    # a metade de fora é a borda da carcaça espelhada em torno de MIR_AXIS, com o vidro emendado.
+    # Só a carcaça (sem a haste que desce para a porta) é espelhada
     hr = (rgb[..., 0] > 90) & (rgb[..., 0] > rgb[..., 1] * 1.5) & (rgb[..., 0] > rgb[..., 2] * 1.5)
-    housing[my0:my1 + 25, mx0:mx1 + 20] = hr[my0:my1 + 25, mx0:mx1 + 20] | glass[my0:my1 + 25, mx0:mx1 + 20]
-    housing = cv2.morphologyEx(housing.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8)).astype(bool)
-    housing = cv2.dilate(housing.astype(np.uint8), np.ones((11, 11), np.uint8)).astype(bool) & (yy < 341)
-    sky |= housing
-    sky[150:328, 0:71] = True  # restos do contorno do espelho, à esquerda da coluna
-    sky[328:347, 0:75] |= hr[328:347, 0:75]  # pé vermelho do retrovisor em cima da porta
+    col = np.nonzero(hr[140:340, 12] | glass[140:340, 12])[0] + 140
+    # centro na vertical pelo vidro na borda da arte (assim o canto de baixo espelhado encosta certo)
+    gr = np.nonzero(glass[140:340, 1])[0] + 140
+    yc0 = (gr.min() + gr.max()) / 2
+    half = max(yc0 - col.min(), 0) + 2
+    my_top, my_bot = int(round(yc0 - half)), int(round(yc0 + half)) + 1
+    shell = np.zeros_like(sky)
+    shell[my_top:my_bot, 0:72] = True
+    shell &= ~((rgb.mean(axis=2) > 200) & (sat < 30))  # o fundo claro da arte fica fora
     # mostradores: o jogo desenha marcações, números e ponteiros; da arte ficam o fundo creme,
     # o aro e os textos "MPH" e "RPM x1000". Os números da arte (com repetições) e os ponteiros
     # pintados saem: o miolo de cada mostrador grande é refeito a partir das bordas
@@ -112,12 +137,19 @@ def main():
     d_rgb = sample(dash, xr, ys)
     d_al = ~sample(sky, xr, ys)
     d_al[:, xs < 0] &= (ys[:, None] > 330).repeat((xs < 0).sum(), 1)
+    # metade de fora do retrovisor (à esquerda da arte)
+    put, mrgb, mal = outer_half(xs, ys, dash, glass, shell, my_top, my_bot)
+    d_rgb[put] = mrgb[put]
+    d_al[put] = mal[put]
     Image.fromarray(np.dstack([d_rgb, d_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'viper-dash.png'))
     xs, ys = grid(y0d - EXT * PXH, EXT)
     xr = np.where(xs < 0, -xs, np.clip(xs, 0, W - 1))
     t_rgb = sample(dash, xr, ys)
     t_al = ~sample(sky, xr, ys)
     t_al[:, xs < 0] = False
+    put, mrgb, mal = outer_half(xs, ys, dash, glass, shell, my_top, my_bot)
+    t_rgb[put] = mrgb[put]
+    t_al[put] = mal[put]
     Image.fromarray(np.dstack([t_rgb, t_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'viper-top.png'))
 
     # volante
@@ -215,7 +247,7 @@ def main():
     Image.fromarray(np.dstack([w_rgb, w_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'viper-wheel.png'))
     hubn = (PIV_N[0] + (hx - PIV[0]) * S, (hy - (y0d - WTOP * PXH)) / PXH)
     mg = np.nonzero(glass)
-    mn = (PAD + PIV_N[0] + (np.median(mg[1]) - PIV[0]) * S, EXT + (np.median(mg[0]) - y0d) / PXH)
+    mn = (PAD + PIV_N[0] + (-MIR_GAP / 2 - PIV[0]) * S, EXT + (np.median(mg[0]) - y0d) / PXH)
     gauges = {'speed': (460, 397), 'tach': (748, 393), 'aux': [(1035, 293), (1145, 293), (1255, 293), (1365, 293)]}
     nat = lambda p: (round(PIV_N[0] + (p[0] - PIV[0]) * S, 1), round((p[1] - y0d) / PXH, 1))
     print('miolo', [round(v, 1) for v in hubn], 'espelho', [round(float(v), 1) for v in mn],

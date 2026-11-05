@@ -106,10 +106,15 @@ def main():
 
     # painel sem volante: inpainting em escala menor
     dash = art.copy()
+    # arte sem volante (cab-nowheel.png, do Victor, alinhada): o painel de verdade atrás do volante
+    nw_path = os.path.join(os.path.dirname(src), 'cab-nowheel.png')
+    has_nw = os.path.exists(nw_path)
+    if has_nw:
+        dash = np.array(Image.open(nw_path).convert('RGB'))
     tx0, ty0, tx1, ty1 = TEXT
     for y in range(ty0, ty1):
         dash[y, tx0:tx1] = np.median(dash[y, tx0 - 40:tx0 - 8], axis=0).astype(np.uint8)
-    hole = cv2.dilate(wheel.astype(np.uint8), np.ones((9, 9), np.uint8))
+    hole = cv2.dilate(wheel.astype(np.uint8), np.ones((9, 9), np.uint8)) * (0 if has_nw else 1)
     k = 4
     small = cv2.resize(dash, (W // k, H // k), interpolation=cv2.INTER_AREA)
     hs = cv2.resize(hole, (W // k, H // k), interpolation=cv2.INTER_NEAREST)

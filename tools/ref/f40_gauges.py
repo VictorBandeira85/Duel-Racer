@@ -18,7 +18,7 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
 K = 12
 PY = 8 / 7
-X0, Y0, X1, Y1 = 52, 13, 209, 88
+X0, Y0, X1, Y1 = 44, 7, 213, 91
 FB = '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'
 FR = '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf'
 WH = (240, 240, 236)
@@ -168,9 +168,10 @@ def build(out):
     im = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
     # placa preta de cantos arredondados (como a da foto, mais larga em cima)
-    pl = [P(56, 15), P(205, 15), P(207.5, 50), P(203, 85), P(56, 85), P(51.5, 50)]
+    # preenche o vão escuro da capa do quadro inteiro (sem restos dos mostradores da arte)
+    pl = [P(57.5, 8.5), P(199, 8.5), P(206.5, 13.5), P(211.5, 40), P(211.5, 90), P(45.5, 90), P(45.5, 40), P(50.5, 13.5)]
     d.polygon(pl, fill=(22, 22, 24))
-    for (sx, sy) in [(60, 18), (201, 18), (54.5, 50), (205, 50), (60, 82), (199, 82)]:
+    for (sx, sy) in [(60, 12), (197, 12), (49, 50), (208, 50), (50, 82), (207, 82)]:
         x, y = P(sx, sy)
         d.ellipse([x - K * 0.9, y - K * 0.9, x + K * 0.9, y + K * 0.9], fill=(48, 48, 52))
     big(d, SPEED, list(range(0, 361, 40)), list(range(20, 361, 40)), 10, None, 'km/h')

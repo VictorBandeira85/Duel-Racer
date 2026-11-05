@@ -117,7 +117,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
     glass: { at: [60, 160], thr: 256 }, radar: [222, 6], glow: '235,240,230', glowK: 0.5,
     // à noite números e marcações brancas acendem (o fundo preto continua preto), ponteiros também
     facesLit: '236,240,228', litNeedles: true,
-    faces: [{ src: cp('f40-cluster'), src2: cp('f40-cluster-2x'), x: 52.5, y: 13.5, w: 157, h: 75 }],
+    faces: [{ src: cp('f40-cluster'), src2: cp('f40-cluster-2x'), x: 44.5, y: 7.5, w: 169, h: 84 }],
     // Veglia: a seta é a primeira lente embaixo do velocímetro (farol de neblina e alto ao lado)
     turnDot: { x: 98.3, y: 68.6, others: [[103.7, 68.6], [109.1, 68.6]] },
     speed: { x: 104.2, y: 45.9, r: 24.5, max: 360, labels: [], tick: 20, red: 999, face: false, a0: 128 * (Math.PI / 180), sweep: 284 * (Math.PI / 180) },

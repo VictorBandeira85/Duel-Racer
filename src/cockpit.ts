@@ -36,6 +36,7 @@ interface CockpitArt {
   topMask?: string;
   glowK?: number; // força do brilho noturno do quadro (1 = padrão)
   facesLit?: string; // à noite os fundos (faces) acendem nesta cor (luz por trás) e os ponteiros ficam apagados
+  litMin?: number; // com facesLit: brilho mínimo do que acende (padrão 90; o NX só os números brancos)
   litNeedles?: boolean; // com facesLit: os ponteiros também ficam acesos (pintados de branco, iluminados)
   radar?: [number, number]; // canto do detector de radar no painel (padrão 206, 22)
   // retrovisor desenhado à parte (quando a arte o corta na borda): sprite e posição do canto,
@@ -840,6 +841,8 @@ COCKPIT_ART.nsx = {
   // alumínio escovado, aros prateados, marcações brancas finas, números em grotesca negrita, bloco
   // vermelho de 8 a 9 e os ícones; o jogo desenha só os ponteiros (vermelho-alaranjados, afinados)
   faces: [{ src: cp('nsx-cluster'), src2: cp('nsx-cluster-2x'), x: 38.5, y: 14.5, w: 182, h: 80 }],
+  // à noite só números e marcações brancas acendem (o alumínio e os fundos pretos escurecem); ponteiros acesos
+  facesLit: '236,244,255', litMin: 185, litNeedles: true,
   needleFine: true, hubR: 3, tells: [129, 24], glow: '235,240,255', // setas na janelinha do alto; à noite números brancos
   tach: { x: 100, y: 50, r: 22.5, max: 9, labels: [], tick: 1, red: 999, face: false, a0: 125 * (Math.PI / 180), sweep: 265 * (Math.PI / 180) },
   speed: { x: 157, y: 50, r: 22.5, max: 280, labels: [], tick: 20, red: 999, face: false, a0: 112 * (Math.PI / 180), sweep: 268 * (Math.PI / 180) },
@@ -871,7 +874,7 @@ COCKPIT_ART.nsx = {
 const VP_INK = '#16161a', VP_BG = '#ecebe2';
 COCKPIT_ART.viper = {
   dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
-  pivot: [128, 105], wheelTop: 14, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 4, needleFine: true, hub: '#151517', hubR: 3.4, radar: [102, 22],
+  pivot: [131, 105], wheelTop: 14, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 4, needleFine: true, hub: '#151517', hubR: 3.4, radar: [102, 22],
   glass: { at: [42, 95], thr: 256, x0: 39 }, tells: null, // vidro do retrovisor esquerdo (como na arte, cortado na borda)
   // à noite os fundos brancos acendem em bege claro (luz por trás, como no carro); os ponteiros
   // vermelhos não têm luz e ficam escuros contra o fundo aceso
@@ -996,10 +999,10 @@ const faceImgs = new Map<string, HTMLImageElement>();
 // fundo de mostrador iluminado por trás à noite: o branco vira a cor da luz (multiplicação), o
 // preto dos números e marcações continua preto; em degraus para não refazer a cada quadro
 const litCache = new Map<HTMLImageElement, { k: number; key: string; cv: HTMLCanvasElement }>();
-function litImg(img: HTMLImageElement, dk: number, rgb: string): HTMLImageElement | HTMLCanvasElement {
+function litImg(img: HTMLImageElement, dk: number, rgb: string, lo = 90): HTMLImageElement | HTMLCanvasElement {
   const k = Math.round(Math.min(1, dk / 0.6) * 10) / 10;
   if (k <= 0) return img;
-  const key = `${rgb}:${k}`;
+  const key = `${rgb}:${k}:${lo}`;
   const hit = litCache.get(img);
   if (hit && hit.k === k && hit.key === key) return hit.cv;
   const cv = hit?.cv ?? document.createElement('canvas');
@@ -1017,7 +1020,7 @@ function litImg(img: HTMLImageElement, dk: number, rgb: string): HTMLImageElemen
   const q = Math.min(1, dk);
   for (let i = 0; i < px.length; i += 4) {
     const r = px[i], gg = px[i + 1], b = px[i + 2];
-    const w = Math.max(0, Math.min(1, (Math.max(r, gg, b) - 90) / 80));
+    const w = Math.max(0, Math.min(1, (Math.min(r, gg, b) - lo) / 40));
     px[i] = (r * (1 - q) + 4 * q) * (1 - w) + r * mr * w;
     px[i + 1] = (gg * (1 - q) + 4 * q) * (1 - w) + gg * mg * w;
     px[i + 2] = (b * (1 - q) + 14 * q) * (1 - w) + b * mb * w;
@@ -1113,7 +1116,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     c.imageSmoothingEnabled = true;
     for (const f of art.faces) {
       const im = faceImg(f.src); // sempre a versão alta: os números são os mesmos em qualquer gráfico
-      if (im) c.drawImage(art.facesLit ? litImg(im, dk, art.facesLit) : nightImg(im, dk), ox + f.x, ART_TOP + f.y, f.w, f.h);
+      if (im) c.drawImage(art.facesLit ? litImg(im, dk, art.facesLit, art.litMin) : nightImg(im, dk), ox + f.x, ART_TOP + f.y, f.w, f.h);
     }
     c.imageSmoothingEnabled = sm;
   }

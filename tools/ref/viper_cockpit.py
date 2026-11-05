@@ -19,6 +19,7 @@ S = 0.30
 PXW, PXH = 1 / S, (1 / S) / (8 / 7)
 PIV = (640.0, 495.0)
 PIV_N = (128.0, 105.0)
+WC = (650.0, 495.0)  # centro de verdade do aro na arte (10 px à direita do centro da tela): o jogo gira em volta dele
 ROWS, EXT, PAD = 124, 76, 102
 WTOP, WROWS = 14, 240
 RIM_OUT, RIM_IN = (336, 342), (268, 274)
@@ -144,8 +145,8 @@ def main():
     Image.fromarray(np.dstack([t_rgb, t_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'viper-top.png'))
 
     # volante
-    e_out = ((xx - PIV[0]) / RIM_OUT[0]) ** 2 + ((yy - PIV[1]) / RIM_OUT[1]) ** 2 <= 1
-    e_in = ((xx - PIV[0]) / RIM_IN[0]) ** 2 + ((yy - PIV[1]) / RIM_IN[1]) ** 2 <= 1
+    e_out = ((xx - WC[0]) / RIM_OUT[0]) ** 2 + ((yy - WC[1]) / RIM_OUT[1]) ** 2 <= 1
+    e_in = ((xx - WC[0]) / RIM_IN[0]) ** 2 + ((yy - WC[1]) / RIM_IN[1]) ** 2 <= 1
     hub = np.zeros((H, W), np.uint8)
     cv2.fillPoly(hub, [np.array(HUB, np.int32)], 1)
     # dentro do polígono, só o que é do volante (escuro/cinza, sem o laranja dos bancos atrás)
@@ -160,8 +161,8 @@ def main():
     ss = np.linspace(0.70, 1.08, 380)
     s_in = np.zeros(len(th)); s_out = np.zeros(len(th))
     for i, t in enumerate(th):
-        px_ = np.clip((PIV[0] + np.cos(t) * RIM_OUT[0] * ss).astype(int), 0, W - 1)
-        py_ = np.clip((PIV[1] + np.sin(t) * RIM_OUT[1] * ss).astype(int), 0, H - 1)
+        px_ = np.clip((WC[0] + np.cos(t) * RIM_OUT[0] * ss).astype(int), 0, W - 1)
+        py_ = np.clip((WC[1] + np.sin(t) * RIM_OUT[1] * ss).astype(int), 0, H - 1)
         d = dark[py_, px_]
         k0 = int(np.argmin(np.abs(ss - 0.9)))
         if not d[k0]:
@@ -185,7 +186,7 @@ def main():
     # o aro é uma elipse: ajusta uma elipse (inclinada) a cada borda, sem os desvios locais
     # (sombras, alavancas e o painel escuro encostados no aro); fica um tiquinho para dentro
     def fit(sv, k):
-        pts = np.stack([PIV[0] + np.cos(th) * RIM_OUT[0] * sv, PIV[1] + np.sin(th) * RIM_OUT[1] * sv], 1).astype(np.float32)
+        pts = np.stack([WC[0] + np.cos(th) * RIM_OUT[0] * sv, WC[1] + np.sin(th) * RIM_OUT[1] * sv], 1).astype(np.float32)
         (ex, ey), (ea, eb), eang = cv2.fitEllipse(pts)
         m = np.zeros((H, W), np.uint8)
         cv2.ellipse(m, ((ex, ey), (ea * k, eb * k), eang), 1, -1)

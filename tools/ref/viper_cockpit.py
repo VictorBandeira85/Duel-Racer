@@ -27,6 +27,8 @@ HUB = [(352, 450), (470, 432), (640, 425), (810, 432), (930, 450), (930, 560), (
        (705, 600), (700, 760), (580, 760), (575, 600), (460, 560), (352, 560)]
 MIRROR = (0, 160, 70, 320)
 TEXT = (1440, 370, 1660, 470)  # letreiro da marca no painel
+# mostradores grandes: centro, raio do fundo e o retângulo do texto que fica (MPH, RPM x1000)
+BIG = [(462, 395, 86, (436, 436, 488, 456)), (747, 395, 84, (728, 428, 800, 462))]
 
 
 def grid(y0, rows, x0n=-PAD, cols=256 + 2 * PAD):
@@ -64,6 +66,27 @@ def main():
     glass[y0:y1, x0:x1] = blue[y0:y1, x0:x1]
     glass = cv2.morphologyEx(glass.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8)).astype(bool)
     sky |= glass
+    # mostradores: o jogo desenha marcações, números e ponteiros; da arte ficam o fundo creme,
+    # o aro e os textos "MPH" e "RPM x1000". Os números da arte (com repetições) e os ponteiros
+    # pintados saem: o miolo de cada mostrador grande é refeito a partir das bordas
+    nw = nw.copy()
+    for (cx, cy, rr, keep) in BIG:
+        dd = np.hypot(xx - cx, yy - cy)
+        ring = (dd < rr) & (dd > rr * 0.8)
+        face = np.median(nw[ring & (rgb.min(axis=2) > 170)], axis=0)
+        m = dd < rr
+        kx0, ky0, kx1, ky1 = keep
+        m &= ~((xx >= kx0) & (xx <= kx1) & (yy >= ky0) & (yy <= ky1))
+        # fundo creme liso, um pouco mais escuro na borda de baixo (sombra do aro)
+        shade = np.clip((yy - cy) / rr, 0, 1) * 10
+        fill = np.clip(face[None, None, :] - shade[..., None], 0, 255).astype(np.uint8)
+        nw[m] = fill[m]
+    # ponteiros vermelhos dos quatro pequenos (o jogo desenha os dele): viram o creme em volta
+    r_, g_, b_ = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    redn = (r_ > 120) & (r_ > g_ * 1.7) & (r_ > b_ * 1.7) & (yy > 250) & (yy < 330) & (xx > 990) & (xx < 1410)
+    redn = cv2.dilate(redn.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
+    redn &= (yy > 250) & (yy < 330)
+    nw = cv2.inpaint(nw, redn.astype(np.uint8), 4, cv2.INPAINT_TELEA)
     # letreiro da marca: vira o painel em volta (cor de cada linha tirada à esquerda)
     tx0, ty0, tx1, ty1 = TEXT
     dash = nw.copy()

@@ -17,3 +17,9 @@
   emblemas e marcações que fiquem fora do que o código desenha por cima. Conferir com print
   ampliado do jogo (não só do PNG) a área em volta do que foi mudado antes de publicar.
 - Emblemas das marcas: `tools/ref/brand_badges.py`. Quadro da LP5: `tools/ref/lp5_cluster.py`.
+
+## Mostradores
+- Quando a arte do Victor traz os mostradores desenhados, partir dela: manter o fundo, o aro, os
+  textos e as cores da arte, apagar só números com erro e ponteiros pintados, e desenhar por cima
+  números, marcações e ponteiros no mesmo estilo (cor, grossura, miolo). Comparar lado a lado
+  (arte x print do jogo) antes de publicar.

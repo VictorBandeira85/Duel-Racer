@@ -59,6 +59,7 @@ interface CockpitArt {
   needleTail?: number; // contrapeso do ponteiro, além do eixo (px)
   hub: string;
   aux: Aux[];
+  hubR?: number; // raio do miolo redondo dos ponteiros grandes
   glow?: string; // cor (r,g,b) da iluminação noturna do quadro
   under?: (c: CanvasRenderingContext2D, ox: number, r: Race) => void; // fundo do quadro, antes dos mostradores
   extra?: (c: CanvasRenderingContext2D, ox: number, r: Race) => void; // detalhes próprios (hodômetros, luzes-espia, submostradores)
@@ -92,6 +93,7 @@ interface Aux { x: number; y: number; r: number; kind: 'single' | 'dual' | 'twin
   iconAt?: [number, number]; // posição do ícone em relação ao centro (px)
   ring?: string; // aro em volta do mostrador
   ink?: string; // cor dos números e marcações (padrão branco)
+  needleOnly?: boolean; // o mostrador é da arte: o jogo só desenha o ponteiro (arco em arc)
 }
 
 // a arte cobre da linha 100 da tela até o fim (124 linhas); o topo transparente mostra a estrada
@@ -831,15 +833,18 @@ COCKPIT_ART.nsx = {
 const VP_INK = '#16161a', VP_BG = '#ecebe2';
 COCKPIT_ART.viper = {
   dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
-  pivot: [128, 105], wheelTop: 14, speedMax: 300, needle: '#e01818', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [102, 22],
+  pivot: [128, 105], wheelTop: 14, speedMax: 290, needle: '#e01818', needleW: 2, needleTail: 4, hub: '#141416', hubR: 3, radar: [102, 22],
   glass: { at: [42, 95], thr: 256 },
-  speed: { x: 74, y: 71.4, r: 29, max: 300, labels: [0, 40, 80, 120, 160, 200, 240, 280], tick: 10, red: 999, labelScale: 0.7, ink: VP_INK, bg: VP_BG },
-  tach: { x: 160.4, y: 70, r: 29, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.25, yellow: 5.5, red: 6, redW: 2.5, redLabels: false, labelScale: 0.7, ink: VP_INK, bg: VP_BG },
+  // como na arte: fundo creme, velocímetro em milhas (0-180 mph, de 20 em 20) e conta-giros 0-8 que
+  // vai até as 3 horas, com faixa amarela e vermelha; marcações e números pretos e grossos
+  speed: { x: 75, y: 69, r: 26.5, max: 180, labels: [20, 40, 60, 80, 100, 120, 140, 160, 180], tick: 10, red: 999, labelScale: 0.7, boldTicks: true, ink: VP_INK, bg: 'none' },
+  tach: { x: 160, y: 69, r: 25.5, max: 8, a0: Math.PI * 0.75, sweep: Math.PI * 1.25, labels: [1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, yellow: 5, red: 6, redW: 2.5, redInk: '#e8201a', redLabels: false, labelScale: 1, boldTicks: true, ink: VP_INK, bg: 'none' },
+  // os quatro pequenos são os da arte (água °F, óleo PSI, combustível e bateria): só os ponteiros
   aux: [
-    { x: 246.5, y: 35.7, r: 14, kind: 'single', show: ['water'], icon: 'temp', labels: ['100', '250'], labelIn: 4, ink: VP_INK, bg: VP_BG },
-    { x: 279.5, y: 35.7, r: 14, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '40', '80'], labelIn: 4, ink: VP_INK, bg: VP_BG },
-    { x: 312.5, y: 35.7, r: 14, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1/2', '1'], labelIn: 4, ink: VP_INK, bg: VP_BG },
-    { x: 345.5, y: 35.7, r: 14, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '12', '16'], labelIn: 4, ink: VP_INK, bg: VP_BG },
+    { x: 248, y: 40, r: 11, kind: 'single', show: ['water'], arc: [Math.PI * 1.15, Math.PI * 1.85], needleOnly: true },
+    { x: 280.5, y: 40, r: 11, kind: 'single', show: ['oil'], arc: [Math.PI * 1.15, Math.PI * 1.85], needleOnly: true },
+    { x: 311.8, y: 40, r: 11, kind: 'single', show: ['fuel'], arc: [Math.PI * 1.15, Math.PI * 1.85], needleOnly: true },
+    { x: 344.3, y: 40, r: 11, kind: 'single', show: ['volt'], arc: [Math.PI * 1.15, Math.PI * 1.85], needleOnly: true },
   ],
 };
 
@@ -1087,7 +1092,7 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
   // linhas com meio pixel de sobra para cima e para baixo: com o centro entre dois pixels, as
   // bordas das linhas saem meio transparentes e a arte de baixo aparecia em riscos finos
   c.fillStyle = d.bg ?? '#050506';
-  for (let dy = -Math.floor(ry); dy <= Math.min(Math.floor(ry), d.cut ?? 99); dy++) {
+  if (d.bg !== 'none') for (let dy = -Math.floor(ry); dy <= Math.min(Math.floor(ry), d.cut ?? 99); dy++) {
     const hw = Math.round(r * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2)));
     c.fillRect(cx - hw, cy + dy - 0.5, hw * 2 + 1, 2);
   }
@@ -1190,6 +1195,15 @@ function needle(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, 
   }
   c.fill();
   c.fillStyle = art.hub;
+  if (art.hubR) {
+    // miolo grande e redondo (Viper), com um brilho em cima
+    c.beginPath();
+    c.ellipse(cx + 0.5, cy + 0.5, art.hubR, art.hubR * PIX_Y, 0, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = 'rgba(255,255,255,0.25)';
+    c.fillRect(cx - art.hubR * 0.4, cy - art.hubR * 0.7, art.hubR * 0.6, 1);
+    return;
+  }
   if (w > 1) c.fillRect(cx - 1.5, cy - 1.5, 4, 4);
   c.fillRect(cx - 1, cy - 1, 3, 3);
   c.fillStyle = '#000';
@@ -1268,6 +1282,13 @@ function updateGauges(r: Race, dt: number) {
 function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitArt) {
   const cx = ox + g.x, cy = ART_TOP + g.y, R = g.r;
   const mx = cx + 0.5, my = cy + 0.5; // centro real
+  if (g.needleOnly) {
+    const a0 = g.arc?.[0] ?? Math.PI * 1.1, a1 = g.arc?.[1] ?? Math.PI * 1.9;
+    hand(c, mx, my, a0 + (a1 - a0) * gauges[(g.show ?? ['oil'])[0]], R, art.needle, 1);
+    c.fillStyle = art.hub;
+    c.fillRect(cx - 1.5, cy - 1.5, 4, 4);
+    return;
+  }
   if (g.ring) face(c, cx, cy, R + 1, g.ring); // aro prateado em volta
   face(c, cx, cy, R, g.bg);
   const at = (x: number, y: number, a: number, rr: number): [number, number] => [x + Math.cos(a) * rr, y + Math.sin(a) * rr * PIX_Y];

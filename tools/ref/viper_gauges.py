@@ -18,8 +18,8 @@ FONT = '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf'
 # centro (miolo), raio do fundo, raio dos números, ângulo do primeiro número, passo, valores,
 # meia caixa apagada em volta de cada número, corpo da fonte
 DIALS = {
-    'speed': dict(c=(462, 395), r=86, rl=55, ro=62, a0=149, step=29, vals=list(range(20, 201, 20)), box=(28, 14), size=21),
-    'tach': dict(c=(747, 395), r=84, rl=56, ro=63, a0=132, step=28.25, vals=list(range(0, 9)), box=(16, 14), size=22),
+    'speed': dict(c=(462, 395), r=86, rl=55, ro=62, a0=149, step=29, vals=list(range(20, 201, 20)), box=(28, 14), size=21, keep=(436, 437, 489, 457)),
+    'tach': dict(c=(747, 395), r=84, rl=56, ro=63, a0=132, step=28.25, vals=list(range(0, 9)), box=(16, 14), size=22, keep=(726, 428, 802, 463)),
 }
 
 
@@ -49,13 +49,11 @@ def main():
         ang = np.degrees(np.arctan2(yy - cy, xx - cx)) % 360
         tip = (rgb[..., 0] > 140) & (rgb[..., 1] < 80) & (dd < r * 0.97) & ~((ang > 255) & (ang < 365))
         clear |= cv2.dilate(tip.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool) & (dd < r * 0.97)
-        # números antigos: o escuro dentro da caixa de cada posição
-        for i, v in enumerate(d['vals']):
-            ang = math.radians(d['a0'] + i * d['step'])
-            lx, ly = cx + math.cos(ang) * d['ro'], cy + math.sin(ang) * d['ro']  # onde estava o número antigo
-            bw, bh = d['box']
-            boxm = (np.abs(xx - lx) <= bw) & (np.abs(yy - ly) <= bh) & (dd < r * 0.77)
-            clear |= boxm & (rgb.min(axis=2) < 205)
+        # números antigos: todo o escuro na faixa dos números (entre o miolo e as marcações),
+        # menos os textos que ficam (MPH, RPM x1000)
+        kx0, ky0, kx1, ky1 = d['keep']
+        band = (dd > r * 0.36) & (dd < r * 0.8) & ~((xx >= kx0) & (xx <= kx1) & (yy >= ky0) & (yy <= ky1))
+        clear |= band & (rgb.min(axis=2) < 205)
         # o antigo terceiro "180" fica mais embaixo, entre o 180 e o "MPH"
         # (apaga só o que for escuro e fique fora das marcações)
         a[clear & (dd < r)] = face.astype(np.uint8)

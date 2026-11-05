@@ -117,11 +117,11 @@ def main():
     # dentro do polígono, só o que é do volante (escuro/cinza, sem o laranja dos bancos atrás)
     wr = ww.astype(int)
     orange = (wr[..., 0] > wr[..., 2] + 60) & (wr[..., 0] > 120)
-    orange &= np.hypot(xx - 640, yy - 497) > 60  # a cobra vermelha do miolo é volante (vira o emblema)
+    orange &= np.hypot(xx - 650, yy - 512) > 60  # a cobra vermelha do miolo é volante (vira o emblema)
     wheel = (e_out & ~e_in & ~orange) | (hub.astype(bool) & e_out & ~orange)
     # o fundo creme dos mostradores que aparece acima dos raios não é volante
     wl = wr.mean(axis=2)
-    creamy = (wl > 165) & ((wr.max(axis=2) - wr.min(axis=2)) < 45) & (yy < 485) & hub.astype(bool)
+    creamy = (wl > 165) & ((wr.max(axis=2) - wr.min(axis=2)) < 45) & (yy < 450) & hub.astype(bool) & ((xx < 560) | (xx > 730))
     creamy = cv2.dilate(creamy.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
     wheel &= ~(creamy & ~(e_out & ~e_in))
     wheel = cv2.morphologyEx(wheel.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)).astype(bool)
@@ -135,11 +135,11 @@ def main():
         wheel = lab == 1 + np.argmax(st[1:, cv2.CC_STAT_AREA])
     wart = ww.copy()
     # cobra do miolo: disco escuro liso (o emblema da Serpe entra por brand_badges.py)
-    hx, hy = 640, 497
+    hx, hy = 650, 512
     disc = ((xx - hx) / 46) ** 2 + ((yy - hy) / 46) ** 2 <= 1
     ring = (((xx - hx) / 54) ** 2 + ((yy - hy) / 54) ** 2 <= 1) & ~disc
     # vermelho da cobra que passa da capa do miolo também sai
-    redx = (wr[..., 0] > 110) & (wr[..., 0] > wr[..., 1] * 1.6) & (np.hypot(xx - hx, yy - hy) < 75)
+    redx = (wr[..., 0] > 110) & (wr[..., 0] > wr[..., 1] * 1.6) & (np.hypot(xx - hx, yy - hy) < 60)
     disc = disc | (cv2.dilate(redx.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0)
     wart[disc] = np.percentile(ww[ring], 35, axis=0).astype(np.uint8)
     xs, ys = grid(y0d - WTOP * PXH, WROWS, 0, 256)

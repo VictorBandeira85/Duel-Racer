@@ -1350,6 +1350,9 @@ function drawEnd(c: CanvasRenderingContext2D, s: AppState) {
 
 // ---------- conquistas e medalhas ----------
 const achButton = (): Rect => ({ x: ox() + 210, y: 212, w: 106, h: 15 });
+// voltar visível (no iPhone e no PC nem sempre há um botão de voltar do aparelho)
+const scoresBack = (): Rect => ({ x: ox() + 4, y: 198, w: 74, h: 12 });
+const achBack = (): Rect => ({ x: ox() + SAFE_W - 160, y: 18, w: 70, h: 12 });
 // fantasma por código: enviar o seu (copia o código) e colar o de um amigo
 const ghostButtons = () => ({ send: { x: ox() + 4, y: 212, w: 100, h: 15 }, recv: { x: ox() + 107, y: 212, w: 100, h: 15 } });
 async function sendGhost(s: AppState) {
@@ -1414,6 +1417,7 @@ function drawAchievements(c: CanvasRenderingContext2D, s: AppState) {
     ink(c, ach.name, ax + 11, ay + 1, 5, ok ? INK : GREY);
     ink(c, ach.desc, ax + 96, ay + 1, 5, ok ? BLUE : 'rgba(26,22,20,0.4)');
   });
+  tag(c, achBack(), '◀ RANKING', false, 5);
   const st = loadStats();
   ink(c, `${st.stages} trechos • ${st.passes} ultrapassagens • ${st.tunnels} túneis`, x + 160, 226, 5, GREY, 'center');
 }
@@ -1441,7 +1445,7 @@ function drawScores(c: CanvasRenderingContext2D, s: AppState) {
     ink(c, e.won ? 'VENCEU O DUELO' : 'PERDEU O DUELO', t.x + t.w - 8, y + 13, 5, e.won ? '#1a6a2a' : RED, 'right');
     if (i < list.length - 1) rule(c, t.x + 6, y + 23, t.w - 12, 'rgba(26,22,20,0.15)');
   });
-  ink(c, 'Toque fora para voltar à capa', x + 4, 201, 5, GREY);
+  tag(c, scoresBack(), '◀ CAPA', false, 5);
   const gb = ghostButtons();
   tag(c, gb.send, 'ENVIAR FANTASMA', false);
   tag(c, gb.recv, fr ? 'APAGAR AMIGO' : 'DESAFIO DE AMIGO', false);
@@ -1648,6 +1652,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
     case 'scores':
       if (y < 60 && x < view.w / 2) s.scoreCourse = (s.scoreCourse + COURSES.length - 1) % COURSES.length;
       else if (y < 60) s.scoreCourse = (s.scoreCourse + 1) % COURSES.length;
+      else if (inside(x, y, scoresBack())) a.go('title');
       else if (inside(x, y, achButton())) a.go('achievements');
       else if (inside(x, y, ghostButtons().send)) void sendGhost(s);
       else if (inside(x, y, ghostButtons().recv)) void receiveGhost(s);

@@ -658,7 +658,9 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
     const dz = r.position - b.z;
     if (dz < 300 || dz > 200 * SEG_LEN) continue;
     const k = D / dz;
-    const yy = hz + (bottom - hz) * Math.min(1, k);
+    // perspectiva de verdade: perto, a base do carro passa por baixo do espelho (que fica na altura
+    // dos olhos) e o que aparece é capô, para-brisa e teto, não o para-choque
+    const yy = hz + (bottom - hz) * k;
     const bw = b.w * sb * k;
     if (bw < 2) { // bem longe: um pontinho (os faróis, à noite)
       c.fillStyle = night && b.look.front ? '#fff6c0' : b.look.color;

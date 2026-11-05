@@ -475,6 +475,35 @@ $('qSound').addEventListener('click', () => {
   quickLabels();
 });
 $('resume').addEventListener('click', () => setPaused(false));
+// botões dos painéis da pausa, ajustes e saída: respondem ao soltar o dedo (no iPhone o primeiro
+// toque às vezes só "passa por cima" do botão e o click não vem); o click de verdade que chega
+// logo depois é ignorado, para não acionar duas vezes
+let tapClickAt = 0;
+for (const id of ['pause', 'settings', 'quitDlg']) {
+  const panel = $(id);
+  panel.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'mouse') return; // no mouse o click já vem certo
+    const b = (e.target as HTMLElement).closest('button');
+    if (!b || !panel.contains(b)) return;
+    tapClickAt = performance.now();
+    const ev = new MouseEvent('click', { bubbles: true, cancelable: true });
+    (ev as MouseEvent & { synth?: boolean }).synth = true;
+    b.dispatchEvent(ev);
+  });
+  panel.addEventListener('click', (e) => {
+    if (!(e as MouseEvent & { synth?: boolean }).synth && performance.now() - tapClickAt < 800) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
+}
+document.addEventListener('click', (e) => {
+  // o click atrasado do toque que fechou a pausa cai no que estiver embaixo: ignora
+  if (!(e as MouseEvent & { synth?: boolean }).synth && performance.now() - tapClickAt < 800) {
+    e.stopPropagation();
+    e.preventDefault();
+  }
+}, true);
 $('quit').addEventListener('click', () => {
   // o que foi feito no trecho interrompido (ultrapassagens, túneis) entra nas estatísticas
   if (race) partialStats(race);

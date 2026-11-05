@@ -32,6 +32,7 @@ interface CockpitArt {
   wheel: string;
   dashMask?: string; // partes na cor do carro (capô, porta, colunas), para a repintura
   topMask?: string;
+  glowK?: number; // força do brilho noturno do quadro (1 = padrão)
   radar?: [number, number]; // canto do detector de radar no painel (padrão 206, 22)
   // retrovisor desenhado à parte (quando a arte o corta na borda): sprite e posição do canto,
   // x nas coordenadas do painel (pode ser negativo: fica na área esticada de tela larga), y a
@@ -847,7 +848,9 @@ const VP_INK = '#16161a', VP_BG = '#ecebe2';
 COCKPIT_ART.viper = {
   dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
   pivot: [128, 105], wheelTop: 14, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 4, needleFine: true, hub: '#151517', hubR: 3.4, radar: [102, 22],
-  glass: { at: [42, 95], thr: 256 }, tells: null,
+  glass: { at: [60, 160], thr: 256 }, tells: null, // sem retrovisor externo à vista (a arte o corta): ponto no painel, não acha vidro
+  // à noite: lâmpadas âmbar fracas por trás dos fundos brancos (sem lavar o branco de bege)
+  glow: '255,150,60', glowK: 0.45,
   // fundos dos mostradores grandes: a própria arte, em alta resolução, com os números refeitos
   // (tools/ref/viper_gauges.py): velocímetro 20-200 mph e conta-giros 0-8 com a faixa amarela e vermelha
   faces: [
@@ -982,8 +985,9 @@ function instrumentGlow(c: CanvasRenderingContext2D, ox: number, art: CockpitArt
   const glow = (x: number, y: number, r: number) => {
     const g = c.createRadialGradient(x, y, 0, x, y, r);
     const rgb = art.glow ?? '255,180,110'; // cor da luz do quadro (âmbar; a LP5 acende em verde)
-    g.addColorStop(0, `rgba(${rgb},${(0.16 * k).toFixed(3)})`);
-    g.addColorStop(0.7, `rgba(${rgb},${(0.08 * k).toFixed(3)})`);
+    const gk = k * (art.glowK ?? 1);
+    g.addColorStop(0, `rgba(${rgb},${(0.16 * gk).toFixed(3)})`);
+    g.addColorStop(0.7, `rgba(${rgb},${(0.08 * gk).toFixed(3)})`);
     g.addColorStop(1, `rgba(${rgb},0)`);
     c.fillStyle = g;
     c.fillRect(x - r, y - r, r * 2, r * 2);

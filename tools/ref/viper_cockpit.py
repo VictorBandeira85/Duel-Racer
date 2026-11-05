@@ -66,6 +66,17 @@ def main():
     glass[y0:y1, x0:x1] = blue[y0:y1, x0:x1]
     glass = cv2.morphologyEx(glass.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8)).astype(bool)
     sky |= glass
+    # retrovisor externo esquerdo: a arte o corta na borda esquerda; ele sai de vista inteiro
+    # (carcaça vermelha, espelho e haste), no lugar fica o mundo
+    mx0, my0, mx1, my1 = MIRROR
+    housing = np.zeros_like(sky)
+    hr = (rgb[..., 0] > 90) & (rgb[..., 0] > rgb[..., 1] * 1.5) & (rgb[..., 0] > rgb[..., 2] * 1.5)
+    housing[my0:my1 + 25, mx0:mx1 + 20] = hr[my0:my1 + 25, mx0:mx1 + 20] | glass[my0:my1 + 25, mx0:mx1 + 20]
+    housing = cv2.morphologyEx(housing.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8)).astype(bool)
+    housing = cv2.dilate(housing.astype(np.uint8), np.ones((11, 11), np.uint8)).astype(bool) & (yy < 341)
+    sky |= housing
+    sky[150:328, 0:71] = True  # restos do contorno do espelho, à esquerda da coluna
+    sky[328:347, 0:75] |= hr[328:347, 0:75]  # pé vermelho do retrovisor em cima da porta
     # mostradores: o jogo desenha marcações, números e ponteiros; da arte ficam o fundo creme,
     # o aro e os textos "MPH" e "RPM x1000". Os números da arte (com repetições) e os ponteiros
     # pintados saem: o miolo de cada mostrador grande é refeito a partir das bordas
@@ -100,23 +111,13 @@ def main():
     xr = np.where(xs < 0, -xs, np.clip(xs, 0, W - 1))  # reflete a porta para a esquerda
     d_rgb = sample(dash, xr, ys)
     d_al = ~sample(sky, xr, ys)
-    # à esquerda da arte só a porta (de baixo) e o retrovisor externo, que a arte corta na borda:
-    # o reflexo completa a carcaça e o espelho (o espelho fica vidro, o jogo mostra a vista nele)
-    mir = np.zeros((H, W), bool)
-    mx0, my0, mx1, my1 = MIRROR
-    housing = (rgb[..., 0] > 90) & (rgb[..., 0] > rgb[..., 1] * 1.5) & (rgb[..., 0] > rgb[..., 2] * 1.5)
-    mir[my0:my1, mx0:mx1] = (housing | glass)[my0:my1, mx0:mx1]
-    mir = cv2.morphologyEx(mir.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8)).astype(bool)
-    mir = cv2.dilate(mir.astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool)
-    mir_s = sample(mir, xr, ys)
-    left = xs < 0
-    d_al[:, left] = ((ys[:, None] > 316) | mir_s)[:, left] & ~sample(glass, xr, ys)[:, left]
+    d_al[:, xs < 0] &= (ys[:, None] > 330).repeat((xs < 0).sum(), 1)
     Image.fromarray(np.dstack([d_rgb, d_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'viper-dash.png'))
     xs, ys = grid(y0d - EXT * PXH, EXT)
     xr = np.where(xs < 0, -xs, np.clip(xs, 0, W - 1))
     t_rgb = sample(dash, xr, ys)
     t_al = ~sample(sky, xr, ys)
-    t_al[:, xs < 0] = (sample(mir, xr, ys) & ~sample(glass, xr, ys))[:, xs < 0]
+    t_al[:, xs < 0] = False
     Image.fromarray(np.dstack([t_rgb, t_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'viper-top.png'))
 
     # volante

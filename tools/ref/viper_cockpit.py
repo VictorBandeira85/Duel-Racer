@@ -89,9 +89,7 @@ def main():
     glass[y0:y1, x0:x1] = blue[y0:y1, x0:x1]
     glass = cv2.morphologyEx(glass.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8)).astype(bool)
     sky |= glass
-    # retrovisor externo esquerdo: a arte mostra só a metade de dentro (cortada na borda esquerda);
-    # a metade de fora é a borda da carcaça espelhada em torno de MIR_AXIS, com o vidro emendado.
-    # Só a carcaça (sem a haste que desce para a porta) é espelhada
+    # retrovisor externo esquerdo: fica como na arte, cortado na borda (outer_half não é usado)
     hr = (rgb[..., 0] > 90) & (rgb[..., 0] > rgb[..., 1] * 1.5) & (rgb[..., 0] > rgb[..., 2] * 1.5)
     col = np.nonzero(hr[140:340, 12] | glass[140:340, 12])[0] + 140
     # centro na vertical pelo vidro na borda da arte (assim o canto de baixo espelhado encosta certo)
@@ -137,19 +135,12 @@ def main():
     d_rgb = sample(dash, xr, ys)
     d_al = ~sample(sky, xr, ys)
     d_al[:, xs < 0] &= (ys[:, None] > 330).repeat((xs < 0).sum(), 1)
-    # metade de fora do retrovisor (à esquerda da arte)
-    put, mrgb, mal = outer_half(xs, ys, dash, glass, shell, my_top, my_bot)
-    d_rgb[put] = mrgb[put]
-    d_al[put] = mal[put]
     Image.fromarray(np.dstack([d_rgb, d_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'viper-dash.png'))
     xs, ys = grid(y0d - EXT * PXH, EXT)
     xr = np.where(xs < 0, -xs, np.clip(xs, 0, W - 1))
     t_rgb = sample(dash, xr, ys)
     t_al = ~sample(sky, xr, ys)
     t_al[:, xs < 0] = False
-    put, mrgb, mal = outer_half(xs, ys, dash, glass, shell, my_top, my_bot)
-    t_rgb[put] = mrgb[put]
-    t_al[put] = mal[put]
     Image.fromarray(np.dstack([t_rgb, t_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'viper-top.png'))
 
     # volante
@@ -247,7 +238,7 @@ def main():
     Image.fromarray(np.dstack([w_rgb, w_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'viper-wheel.png'))
     hubn = (PIV_N[0] + (hx - PIV[0]) * S, (hy - (y0d - WTOP * PXH)) / PXH)
     mg = np.nonzero(glass)
-    mn = (PAD + PIV_N[0] + (-MIR_GAP / 2 - PIV[0]) * S, EXT + (np.median(mg[0]) - y0d) / PXH)
+    mn = (PAD + PIV_N[0] + (np.median(mg[1]) - PIV[0]) * S, EXT + (np.median(mg[0]) - y0d) / PXH)
     gauges = {'speed': (460, 397), 'tach': (748, 393), 'aux': [(1035, 293), (1145, 293), (1255, 293), (1365, 293)]}
     nat = lambda p: (round(PIV_N[0] + (p[0] - PIV[0]) * S, 1), round((p[1] - y0d) / PXH, 1))
     print('miolo', [round(v, 1) for v in hubn], 'espelho', [round(float(v), 1) for v in mn],

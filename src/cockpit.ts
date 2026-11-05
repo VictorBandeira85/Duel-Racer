@@ -40,7 +40,7 @@ interface CockpitArt {
   // partir do topo da arte (topo de 76 linhas + painel)
   mirror?: { img: string; x: number; y: number };
   lit?: [number, number, number, number][]; // visores com luz própria na arte do painel (x0, y0, x1, y1 inclusivos, pixels do painel): continuam acesos à noite
-  glass?: { at: [number, number]; thr?: number };
+  glass?: { at: [number, number]; thr?: number; x0?: number }; // x0: o vidro começa nesta coluna (espelho cortado na borda da arte)
   // luz da seta antiga: um só círculo verde que pisca para os dois lados (+ as outras luzes da fileira, apagadas)
   turnDot?: { x: number; y: number; others?: [number, number][] };
   tells?: [number, number] | null; // luzes da seta no quadro (null: a cabine já desenha as dela) // ponto dentro do vidro do retrovisor (teto + painel), ver findGlass
@@ -849,10 +849,10 @@ const VP_INK = '#16161a', VP_BG = '#ecebe2';
 COCKPIT_ART.viper = {
   dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
   pivot: [128, 105], wheelTop: 14, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 4, needleFine: true, hub: '#151517', hubR: 3.4, radar: [102, 22],
-  glass: { at: [33, 95], thr: 256 }, tells: null, // vidro do retrovisor esquerdo (metade de fora completada)
-  // à noite os fundos brancos acendem em âmbar (luz por trás, como no carro); os ponteiros
+  glass: { at: [42, 95], thr: 256, x0: 39 }, tells: null, // vidro do retrovisor esquerdo (como na arte, cortado na borda)
+  // à noite os fundos brancos acendem em bege claro (luz por trás, como no carro); os ponteiros
   // vermelhos não têm luz e ficam escuros contra o fundo aceso
-  facesLit: '255,176,92', glow: '255,160,70', glowK: 0.35,
+  facesLit: '255,236,196', glow: '255,226,170', glowK: 0.3,
   // fundos dos mostradores grandes: a própria arte, em alta resolução, com os números refeitos
   // (tools/ref/viper_gauges.py): velocímetro 20-200 mph e conta-giros 0-8 com a faixa amarela e vermelha
   faces: [

@@ -24,7 +24,7 @@ let view: HTMLCanvasElement | null = null;
 // procura o vidro nas imagens do topo e do painel (as duas empilhadas: topo em cima)
 // seed: um ponto dentro do vidro (arte com reflexo pintado, sujeira ou vidro transparente): o vidro
 // passa a ser tudo o que a moldura escura cerca a partir dele (claro ou transparente), sem furos
-export function findGlass(key: string, top: HTMLCanvasElement | null, dash: HTMLCanvasElement, maxX: number, seed?: { at: [number, number]; thr?: number }): Glass | null {
+export function findGlass(key: string, top: HTMLCanvasElement | null, dash: HTMLCanvasElement, maxX: number, seed?: { at: [number, number]; thr?: number; x0?: number }): Glass | null {
   if (glasses.has(key)) return glasses.get(key)!;
   const W = dash.width;
   const th = top ? top.height : 0;
@@ -38,7 +38,7 @@ export function findGlass(key: string, top: HTMLCanvasElement | null, dash: HTML
   const d = a.getImageData(0, 0, W, H).data;
   const isGlass = new Uint8Array(W * H);
   for (let y = 0; y < H; y++)
-    for (let x = 0; x < maxX; x++) {
+    for (let x = seed?.x0 ?? 0; x < maxX; x++) {
       const i = (y * W + x) * 4;
       const r = d[i], g = d[i + 1], b = d[i + 2];
       if (seed) {

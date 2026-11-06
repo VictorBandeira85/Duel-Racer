@@ -168,6 +168,7 @@ export class Race {
   steer = 0;
   throttle = false;
   braking = false;
+  autoStop = false; // o posto está freando o carro sozinho (o freio do jogador não precisa)
   ghost = 0;
   shake = 0;
   scrapeT = 0; // tremida curta depois de um raspão
@@ -520,6 +521,18 @@ export class Race {
     const copAhead = !!cop && cop.z > this.playerZ + SEG_LEN * 1.2;
     this.throttle = driving && input.gas;
     this.braking = driving ? input.brake : pulling ? copAhead : this.state !== 'ticket' || this.speed > 0;
+    // chegando ao posto: o carro começa a frear sozinho a tempo de chegar na bomba (4 segmentos
+    // depois da linha) já perto da velocidade de parada, em vez de frear só na linha e parar longe
+    if (driving && this.speed > 0) {
+      const toPump = this.track.finishZ + 6 * SEG_LEN - this.playerZ;
+      const vEnd = 18 / KMH;
+      const dec = toGame(G * this.car.brakeG * BRAKE_BOOST) * 0.55; // freada firme (a real é menor que a nominal), sem travar
+      if (toPump > 0 && toPump < this.track.finishZ - this.track.startZ && (this.speed * this.speed - vEnd * vEnd) / (2 * dec) >= toPump - SEG_LEN) {
+        this.throttle = false;
+        this.braking = this.speed > vEnd;
+        this.autoStop = true;
+      }
+    }
     this.steer = driving ? (input.left ? -1 : 0) + (input.right ? 1 : 0) : 0;
 
     // ---- relevo: inclinação e "flutuação" no topo das lombadas ----

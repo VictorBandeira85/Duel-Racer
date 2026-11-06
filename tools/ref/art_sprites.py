@@ -23,7 +23,7 @@ CFG = {
             'text': {}, 'cut': {'rear': [(4, 36, 196, 63)]}, 'glassband': {'rear': [(38, 43)]}, 'neutral': {'rear': [(32, 38), (43, 52)]}},
     'f40': {'width': {'side': 300, 'rear': 200, 'front': 200}, 'green2red': (), 'holes': ('rear', 'front'),
             'text': {'rear': [(85, 33, 117, 40)], 'side': [(203, 47, 218, 55)]},
-            'cut': {'rear': [(15, 40, 185, 61)], 'front': [(45, 4, 155, 34)]}},
+            'cut': {'rear': [(15, 40, 185, 61)], 'front': [(45, 4, 155, 34)]}, 'wide_mask': True},
 }
 
 
@@ -108,6 +108,26 @@ def main():
             for y in range(y0, y1):
                 a[y, x0:x1, :3] = a[y, x0 - 2, :3]
         m = red_mask(a, cut=cfg['cut'].get(k, []))
+        if cfg.get('wide_mask'):
+            # a pintura inteira: também os reflexos rosados e as bordas vermelho-escuras (antes
+            # sobravam fios rosa na troca de cor), menos o que se vê pelos vidros (bancos de couro)
+            hsv = cv2.cvtColor(a[..., :3], cv2.COLOR_RGB2HSV_FULL).astype(int)
+            h_, s_, v_ = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+            red = ((h_ >= 238) | (h_ <= 12)) & (a[..., 3] > 0)
+            extra = red & (((s_ > 25) & (v_ > 150)) | ((s_ > 90) & (v_ > 45)))
+            blue = (h_ > 130) & (h_ < 175) & (s_ > 60) & (v_ > 60)
+            win = np.zeros(m.shape, np.uint8)
+            n_, lab_, st_, _ = cv2.connectedComponentsWithStats(blue.astype(np.uint8), 8)
+            for i in range(1, n_):
+                if st_[i, cv2.CC_STAT_AREA] >= 25:
+                    pts = np.stack(np.nonzero(lab_ == i)[::-1], 1).astype(np.int32)
+                    cv2.fillPoly(win, [cv2.convexHull(pts)], 1)
+            win = cv2.dilate(win, np.ones((3, 3), np.uint8)).astype(bool)
+            # só perto da pintura (não pega lanternas soltas): vizinho de pintura já marcada
+            near = cv2.dilate(m.astype(np.uint8), np.ones((5, 5), np.uint8)).astype(bool)
+            m = (m | (extra & near)) & ~win
+            for x0, y0, x1, y1 in cfg['cut'].get(k, []):
+                m[y0:y1, x0:x1] = False
         if k == 'side':
             ref_v = cv2.cvtColor(a[..., :3], cv2.COLOR_RGB2HSV_FULL)[..., 2][m]
         Image.fromarray(a, 'RGBA').save(os.path.join(out, f'{art}-{k}.png'), optimize=True)

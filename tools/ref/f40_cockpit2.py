@@ -23,8 +23,8 @@ PIV_N = (128.0, 105.0)
 ROWS, EXT, PAD = 124, 76, 102
 WTOP, WROWS = 12, 240
 RIM_OUT, RIM_IN = (288, 300), (240, 252)
-HUB = [(395, 415), (590, 395), (690, 395), (895, 415), (895, 492), (700, 505), (690, 570), (692, 800),
-       (592, 800), (590, 570), (580, 505), (395, 492)]
+HUB = [(380, 448), (500, 441), (580, 421), (640, 413), (700, 421), (780, 441), (900, 448), (900, 504), (700, 508),
+       (676, 560), (673, 720), (702, 772), (578, 772), (607, 720), (604, 560), (580, 508), (380, 504)]
 HUB_C, HUB_R = (640, 492), 72
 SHROUD = [(452, 262), (468, 216), (510, 192), (645, 181), (780, 192), (822, 216), (840, 262), (840, 460), (452, 460)]
 TEXT = (1360, 455, 1470, 508)       # letreiro "F40" do painel
@@ -103,7 +103,7 @@ def main():
     hub = np.zeros((H, W), np.uint8)
     cv2.fillPoly(hub, [np.array(HUB, np.int32)], 1)
     disc = np.hypot(xx - HUB_C[0], yy - HUB_C[1]) <= HUB_R
-    hub = (hub.astype(bool) & (lum_w < 120)) | disc
+    hub = hub.astype(bool) | disc  # raios e miolo pelo contorno justo (o painel atrás não entra)
     wheel = (e_out & ~e_in) | (hub & e_out)
     wheel = cv2.morphologyEx(wheel.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)).astype(bool)
     n, lab, st, _ = cv2.connectedComponentsWithStats(wheel.astype(np.uint8), 8)

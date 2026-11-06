@@ -5,3 +5,5 @@ dist-single
 refs/
 __pycache__/
 vite.log
+android/out/
+android/key.jks

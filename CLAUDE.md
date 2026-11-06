@@ -9,6 +9,8 @@
   `node tools/to-artifact.mjs <scratchpad>/artifact/duel-racer.html`, publicar no mesmo artifact,
   commit e push em `main`. Subir a versão em `package.json` (e `desktop/package.json`).
 - Versão de PC (`npm run desktop`, instalador e zip) **só com autorização explícita do Victor**.
+- Versão Android (APK): `ANDROID_HOME=<sdk> bash android/build.sh` (WebView com o jogo dentro;
+  a chave android/key.jks fica fora do git). Só quando o Victor pedir.
 - Nunca abrir PR.
 
 ## Arte

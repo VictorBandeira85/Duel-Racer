@@ -34,50 +34,93 @@ const rect = (c: CanvasRenderingContext2D, color: string | CanvasPattern, x: num
   c.fillRect(x, y, w, h);
 };
 
-// copa de árvore: base escura, tufos médios e brilho em cima à esquerda
-function canopy(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, dark: string, mid: string, light: string) {
-  ell(c, dark, x, y, rx, ry);
-  ell(c, dither(c, dark, mid), x - rx * 0.1, y - ry * 0.12, rx * 0.86, ry * 0.8);
-  for (const [dx, dy, s] of [[-0.42, -0.1, 0.5], [0.38, -0.05, 0.48], [0, -0.45, 0.55], [-0.2, 0.3, 0.45], [0.3, 0.32, 0.4]]) {
-    ell(c, mid, x + dx * rx, y + dy * ry, rx * s, ry * s * 0.9);
+// Folhagem 16 bits: dezenas de tufos (cada um com sombra embaixo à direita e luz em cima à
+// esquerda) em 5 tons, pontilhado nas transições e brilhos soltos; a forma fica recortada e viva.
+const seeded = (seed: number) => {
+  let v = (seed * 9301 + 49297) % 233280 || 1;
+  return () => ((v = (v * 16807) % 2147483647) / 2147483647);
+};
+type Pal5 = [string, string, string, string, string]; // contorno interno, sombra, médio, claro, brilho
+function foliage(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, pal: Pal5, seed: number, n = 30) {
+  const rnd = seeded(seed + 11);
+  const tufts: [number, number, number][] = [];
+  for (let i = 0; i < n; i++) {
+    const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * 0.82;
+    tufts.push([x + Math.cos(a) * rx * d, y + Math.sin(a) * ry * d, (0.2 + rnd() * 0.16) * Math.min(rx, ry * 1.2)]);
   }
-  for (const [dx, dy, s] of [[-0.45, -0.25, 0.28], [-0.1, -0.58, 0.3], [0.25, -0.35, 0.2]]) {
-    ell(c, light, x + dx * rx, y + dy * ry, rx * s, ry * s * 0.8);
+  tufts.sort((p, q) => p[1] - q[1]);
+  ell(c, pal[0], x, y + ry * 0.05, rx * 0.92, ry * 0.88);
+  for (const [tx, ty, r] of tufts) ell(c, pal[0], tx + r * 0.25, ty + r * 0.3, r * 1.15, r);
+  for (const [tx, ty, r] of tufts) ell(c, pal[1], tx + r * 0.1, ty + r * 0.15, r, r * 0.88);
+  for (const [tx, ty, r] of tufts) {
+    const lit = (x - tx) / rx * 0.6 + (y - ty) / ry * 0.8; // quanto mais em cima à esquerda, mais luz
+    ell(c, lit > -0.5 ? pal[2] : dither(c, pal[1], pal[2]), tx - r * 0.12, ty - r * 0.14, r * 0.8, r * 0.7);
+    if (lit > 0.15) ell(c, lit > 0.45 ? pal[3] : dither(c, pal[2], pal[3]), tx - r * 0.3, ty - r * 0.32, r * 0.48, r * 0.4);
+    if (lit > 0.6) ell(c, pal[4], tx - r * 0.42, ty - r * 0.45, r * 0.18, r * 0.15);
   }
-  ell(c, dither(c, dark, mid), x + rx * 0.45, y + ry * 0.35, rx * 0.3, ry * 0.25);
+  // furinhos de céu/sombra na copa
+  for (let i = 0; i < 4; i++) ell(c, pal[0], x + (rnd() - 0.2) * rx * 0.9, y + (rnd() - 0.1) * ry * 0.7, rx * 0.05, ry * 0.04);
 }
+function trunk(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, dark = '#2e1c0c', mid = '#5a3a1c', light = '#8a5e32') {
+  poly(c, dark, x - w * 0.5, y, x + w * 0.5, y, x + w * 0.36, y - h, x - w * 0.36, y - h);
+  poly(c, mid, x - w * 0.5, y, x + w * 0.1, y, x, y - h, x - w * 0.36, y - h);
+  poly(c, light, x - w * 0.42, y - h * 0.05, x - w * 0.2, y - h * 0.05, x - w * 0.22, y - h, x - w * 0.32, y - h);
+  for (let i = 1; i < 5; i++) rect(c, dark, x - w * 0.3 + (i % 2) * w * 0.25, y - h * i * 0.2, w * 0.1, h * 0.08);
+  // raízes
+  poly(c, dark, x - w * 1.1, y, x - w * 0.4, y - h * 0.16, x - w * 0.2, y);
+  poly(c, dark, x + w * 1.0, y, x + w * 0.4, y - h * 0.14, x + w * 0.25, y);
+  poly(c, mid, x - w * 1.0, y, x - w * 0.42, y - h * 0.12, x - w * 0.36, y);
+}
+const GREEN: Pal5 = ['#062a0c', '#0e4a16', '#1e7022', '#3c9a30', '#8cd050'];
 
-const tree: Draw = (c, x, y, w, h) => {
-  rect(c, '#3a2410', x - w * 0.08, y - h * 0.46, w * 0.16, h * 0.46);
-  rect(c, '#5a3a1c', x - w * 0.08, y - h * 0.46, w * 0.06, h * 0.46);
-  poly(c, '#3a2410', x - w * 0.16, y, x + w * 0.16, y, x + w * 0.06, y - h * 0.08, x - w * 0.06, y - h * 0.08);
-  canopy(c, x, y - h * 0.62, w * 0.5, h * 0.36, '#0a3c10', '#1a6a1e', '#3a9a32');
+const tree: Draw = (c, x, y, w, h, seed) => {
+  trunk(c, x, y, w * 0.15, h * 0.5);
+  // galhos saindo para a copa
+  poly(c, '#2e1c0c', x - w * 0.04, y - h * 0.42, x - w * 0.24, y - h * 0.62, x - w * 0.2, y - h * 0.64, x, y - h * 0.48);
+  poly(c, '#2e1c0c', x + w * 0.03, y - h * 0.4, x + w * 0.22, y - h * 0.58, x + w * 0.25, y - h * 0.56, x + w * 0.05, y - h * 0.46);
+  foliage(c, x, y - h * 0.64, w * 0.5, h * 0.35, GREEN, seed, 34);
 };
 
-const pineDraw = (snow: boolean): Draw => (c, x, y, w, h) => {
-  rect(c, '#40281a', x - w * 0.07, y - h * 0.2, w * 0.14, h * 0.2);
-  rect(c, '#5c3c24', x - w * 0.07, y - h * 0.2, w * 0.05, h * 0.2);
-  for (let i = 0; i < 4; i++) {
-    const by = y - h * (0.12 + i * 0.2);
-    const bw = w * (0.52 - i * 0.1);
-    const ty = by - h * 0.34;
-    poly(c, '#0a3418', x - bw, by, x + bw, by, x, ty);
-    poly(c, '#16502a', x - bw, by, x, by, x, ty);                 // metade iluminada
-    poly(c, '#24683a', x - bw, by, x - bw * 0.45, by, x, ty);
-    poly(c, '#0a3418', x - bw * 0.7, by, x - bw * 0.5, by - h * 0.05, x - bw * 0.3, by);
+const pineDraw = (snow: boolean): Draw => (c, x, y, w, h, seed) => {
+  trunk(c, x, y, w * 0.12, h * 0.2, '#2a1a0e', '#4a2e1a', '#6e4a2c');
+  const rnd = seeded(seed + 3);
+  const tiers = 6;
+  for (let i = 0; i < tiers; i++) {
+    const by = y - h * (0.1 + i * 0.135);
+    const bw = w * (0.52 - i * 0.075);
+    const ty = by - h * 0.26;
+    // galhos em serrilha: dentes na borda de baixo de cada andar
+    const teeth = 5 + (tiers - i);
+    const pts: number[] = [x, ty];
+    for (let k = 0; k <= teeth; k++) {
+      const fx = -1 + (2 * k) / teeth;
+      pts.push(x + fx * bw, by - (k % 2 ? h * 0.035 : 0) - rnd() * h * 0.01);
+    }
+    poly(c, '#041e0e', ...pts);
+    const left: number[] = [x, ty];
+    for (let k = 0; k <= teeth / 2; k++) {
+      const fx = -1 + (2 * k) / teeth;
+      left.push(x + fx * bw * 0.96, by - h * 0.012 - (k % 2 ? h * 0.035 : 0));
+    }
+    left.push(x, by - h * 0.03);
+    poly(c, '#0e4020', ...left);
+    poly(c, '#1c5e30', x, ty + h * 0.02, x - bw * 0.62, by - h * 0.05, x - bw * 0.3, by - h * 0.06, x - bw * 0.05, ty + h * 0.08);
+    poly(c, '#348040', x - bw * 0.05, ty + h * 0.04, x - bw * 0.42, by - h * 0.09, x - bw * 0.28, by - h * 0.1);
+    poly(c, dither(c, '#041e0e', '#0e4020'), x + bw * 0.1, by - h * 0.05, x + bw * 0.7, by - h * 0.02, x + bw * 0.3, ty + h * 0.12);
     if (snow) {
-      poly(c, '#f4f8fc', x - bw * 0.5, by - h * 0.17, x, ty, x + bw * 0.25, by - h * 0.2, x, by - h * 0.14);
-      poly(c, '#f4f8fc', x - bw, by, x - bw * 0.6, by - h * 0.05, x - bw * 0.2, by);
-      poly(c, '#c8d6e6', x, ty, x + bw * 0.25, by - h * 0.2, x + bw * 0.1, by - h * 0.18);
+      poly(c, '#f4f8fc', x - bw * 0.85, by - h * 0.03, x - bw * 0.2, ty + h * 0.12, x + bw * 0.1, ty + h * 0.1, x - bw * 0.1, by - h * 0.07);
+      poly(c, '#c8d6e6', x + bw * 0.1, ty + h * 0.1, x + bw * 0.5, by - h * 0.06, x + bw * 0.1, by - h * 0.08);
+      poly(c, '#ffffff', x - bw * 0.6, by - h * 0.06, x - bw * 0.3, ty + h * 0.15, x - bw * 0.25, by - h * 0.08);
     }
   }
+  poly(c, snow ? '#f4f8fc' : '#348040', x, y - h, x - w * 0.04, y - h * 0.9, x + w * 0.03, y - h * 0.9);
 };
 
-const bush: Draw = (c, x, y, w, h) => {
-  for (const [dx, dy, s] of [[-0.25, -0.4, 0.32], [0.22, -0.4, 0.3], [0, -0.55, 0.36]]) ell(c, '#0c4410', x + dx * w, y + dy * h, w * s, h * s * 1.4);
-  for (const [dx, dy, s] of [[-0.28, -0.48, 0.2], [0.18, -0.48, 0.18], [-0.02, -0.66, 0.22]]) ell(c, '#1e6e1e', x + dx * w, y + dy * h, w * s, h * s * 1.3);
-  for (const [dx, dy] of [[-0.32, -0.58], [-0.06, -0.78]]) ell(c, '#3a9634', x + dx * w, y + dy * h, w * 0.08, h * 0.12);
-  rect(c, '#0a3a0e', x - w * 0.45, y - h * 0.08, w * 0.9, h * 0.08);
+const bush: Draw = (c, x, y, w, h, seed) => {
+  foliage(c, x - w * 0.18, y - h * 0.45, w * 0.3, h * 0.42, GREEN, seed, 14);
+  foliage(c, x + w * 0.2, y - h * 0.42, w * 0.28, h * 0.4, GREEN, seed + 5, 12);
+  foliage(c, x, y - h * 0.6, w * 0.32, h * 0.42, GREEN, seed + 9, 16);
+  rect(c, '#06240a', x - w * 0.46, y - h * 0.07, w * 0.92, h * 0.07);
 };
 
 const cactus: Draw = (c, x, y, w, h) => {
@@ -96,13 +139,21 @@ const cactus: Draw = (c, x, y, w, h) => {
   col(x + w * 0.36, y - h * 0.66, y - h * 0.32, t * 0.7);
 };
 
-const rock: Draw = (c, x, y, w, h) => {
-  poly(c, '#6a5a50', x - w / 2, y, x - w * 0.38, y - h * 0.62, x - w * 0.08, y - h, x + w * 0.3, y - h * 0.78, x + w / 2, y - h * 0.2, x + w * 0.46, y);
-  poly(c, '#9a887a', x - w * 0.38, y - h * 0.62, x - w * 0.08, y - h, x + w * 0.06, y - h * 0.5, x - w * 0.24, y - h * 0.34);
-  poly(c, '#4c3e36', x + w * 0.06, y - h * 0.5, x + w * 0.3, y - h * 0.78, x + w / 2, y - h * 0.2, x + w * 0.46, y, x + w * 0.1, y);
-  poly(c, '#b8a696', x - w * 0.3, y - h * 0.6, x - w * 0.1, y - h * 0.9, x - w * 0.12, y - h * 0.62);
-  c.fillStyle = '#3a2e28';
-  c.fillRect(x - w * 0.2, y - h * 0.3, w * 0.18, Math.max(0.5, h * 0.03));
+const rock: Draw = (c, x, y, w, h, seed) => {
+  const rnd = seeded(seed + 7);
+  const j = () => (rnd() - 0.5) * 0.08;
+  // bloco em facetas: frente iluminada (esquerda), topo claro, lado direito na sombra
+  poly(c, '#2e2620', x - w / 2, y, x - w * (0.42 + j()), y - h * 0.6, x - w * 0.1, y - h, x + w * 0.3, y - h * 0.82, x + w / 2, y - h * 0.25, x + w * 0.47, y);
+  poly(c, '#6e6054', x - w * 0.46, y - h * 0.02, x - w * (0.4 + j()), y - h * 0.58, x - w * 0.08, y - h * 0.92, x + w * 0.04, y - h * 0.5, x - w * 0.02, y - h * 0.02);
+  poly(c, '#9a8a7a', x - w * 0.4, y - h * 0.58, x - w * 0.08, y - h * 0.94, x + w * 0.28, y - h * 0.78, x + w * 0.05, y - h * 0.55);
+  poly(c, '#c4b4a2', x - w * 0.3, y - h * 0.62, x - w * 0.08, y - h * 0.88, x + w * 0.12, y - h * 0.74, x - w * 0.04, y - h * 0.62);
+  poly(c, '#4a3e34', x + w * 0.05, y - h * 0.55, x + w * 0.28, y - h * 0.78, x + w * 0.46, y - h * 0.24, x + w * 0.44, y - h * 0.02, x + w * 0.02, y - h * 0.02);
+  poly(c, dither(c, '#4a3e34', '#6e6054'), x + w * 0.04, y - h * 0.5, x + w * 0.14, y - h * 0.52, x + w * 0.1, y - h * 0.04, x + w * 0.0, y - h * 0.04);
+  // rachaduras e líquen
+  poly(c, '#2e2620', x - w * 0.22, y - h * 0.5, x - w * 0.12, y - h * 0.3, x - w * 0.14, y - h * 0.1, x - w * 0.18, y - h * 0.3);
+  rect(c, '#2e2620', x + w * 0.2, y - h * 0.5, w * 0.12, h * 0.03);
+  for (let i = 0; i < 6; i++) rect(c, rnd() < 0.5 ? '#6a7a3a' : '#8a9a4a', x + (rnd() - 0.6) * w * 0.6, y - h * (0.05 + rnd() * 0.3), w * 0.04, h * 0.04);
+  rect(c, dither(c, '#2e2620', 'rgba(0,0,0,0)'), x - w * 0.5, y - h * 0.04, w, h * 0.04);
 };
 
 const palm: Draw = (c, x, y, w, h) => {
@@ -395,21 +446,23 @@ const bridge: Draw = (c, x, y, w, h) => {
 // ---------- objetos dos biomas novos ----------
 // árvore de outono: copa laranja e vermelha, algumas folhas no chão
 const autumn: Draw = (c, x, y, w, h, seed) => {
-  rect(c, '#3a2410', x - w * 0.07, y - h * 0.46, w * 0.14, h * 0.46);
-  rect(c, '#5a3a1c', x - w * 0.07, y - h * 0.46, w * 0.05, h * 0.46);
+  trunk(c, x, y, w * 0.14, h * 0.5, '#2e1c0c', '#5a3a1c', '#8a5e32');
   const red = seed % 3 === 0;
-  canopy(c, x, y - h * 0.62, w * 0.5, h * 0.36, red ? '#6a1410' : '#7a3410', red ? '#b82a18' : '#d0661a', red ? '#e8603a' : '#f0b030');
-  ell(c, red ? '#9a2a14' : '#c8701e', x + w * 0.2, y - h * 0.01, w * 0.2, h * 0.015);
+  const pal: Pal5 = red ? ['#3a0806', '#6a1410', '#b02a18', '#e05a30', '#ffb070'] : ['#4a1c06', '#7a3a10', '#c8661a', '#f0a830', '#ffe080'];
+  foliage(c, x, y - h * 0.64, w * 0.5, h * 0.35, pal, seed, 34);
+  // folhas caídas no chão
+  const rnd = seeded(seed + 21);
+  for (let i = 0; i < 10; i++) rect(c, rnd() < 0.5 ? pal[2] : pal[3], x + (rnd() - 0.5) * w * 0.8, y - rnd() * h * 0.02, w * 0.03, h * 0.012);
 };
 
-// acácia da savana: tronco fino e torto, copa achatada larga
-const acacia: Draw = (c, x, y, w, h) => {
-  poly(c, '#4a3220', x - w * 0.04, y, x + w * 0.04, y, x + w * 0.02, y - h * 0.55, x + w * 0.16, y - h * 0.72, x + w * 0.12, y - h * 0.74, x - w * 0.02, y - h * 0.6, x - w * 0.14, y - h * 0.74, x - w * 0.18, y - h * 0.72, x - w * 0.05, y - h * 0.55);
-  rect(c, '#6a4a30', x - w * 0.04, y - h * 0.55, w * 0.02, h * 0.55);
-  ell(c, '#2a4a14', x, y - h * 0.8, w * 0.5, h * 0.13);
-  ell(c, '#46701e', x - w * 0.06, y - h * 0.84, w * 0.42, h * 0.09);
-  ell(c, '#6a9a2a', x - w * 0.18, y - h * 0.88, w * 0.18, h * 0.04);
-  ell(c, '#6a9a2a', x + w * 0.16, y - h * 0.87, w * 0.12, h * 0.03);
+// acácia da savana: tronco fino e torto em forquilha, copa achatada larga em camadas
+const acacia: Draw = (c, x, y, w, h, seed) => {
+  poly(c, '#3a2616', x - w * 0.04, y, x + w * 0.04, y, x + w * 0.02, y - h * 0.55, x + w * 0.2, y - h * 0.74, x + w * 0.15, y - h * 0.76, x - w * 0.02, y - h * 0.6, x - w * 0.18, y - h * 0.76, x - w * 0.23, y - h * 0.74, x - w * 0.05, y - h * 0.55);
+  rect(c, '#6a4a30', x - w * 0.035, y - h * 0.55, w * 0.02, h * 0.55);
+  const pal: Pal5 = ['#1a2e0a', '#2e4c14', '#4a7020', '#6e9a2c', '#b0d060'];
+  foliage(c, x - w * 0.16, y - h * 0.82, w * 0.3, h * 0.1, pal, seed, 14);
+  foliage(c, x + w * 0.18, y - h * 0.81, w * 0.28, h * 0.1, pal, seed + 4, 14);
+  foliage(c, x, y - h * 0.86, w * 0.36, h * 0.11, pal, seed + 8, 18);
 };
 
 // guarda-sol de praia listrado com cadeira

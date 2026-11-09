@@ -330,3 +330,57 @@ export function panorama(kind: BgLayer, near: boolean, night: boolean, seed: num
 }
 const skylines = new WeakMap<HTMLCanvasElement, Int16Array>();
 export const skyline = (cv: HTMLCanvasElement) => skylines.get(cv);
+
+// Nuvens em pixel art para o céu de dia (camada própria, bem lenta): cúmulos com topo
+// claro, miolo e base sombreada puxando para a cor do céu, e pontilhado nas emendas.
+const clouds = new Map<string, HTMLCanvasElement>();
+export const CLOUD_H = 44;
+export function cloudStrip(seed: number, sky: string, amount = 1): HTMLCanvasElement {
+  const key = `${seed}:${sky}:${amount}`;
+  let cv = clouds.get(key);
+  if (cv) return cv;
+  const W = PANO_W, H = CLOUD_H;
+  const img = new Img(W, H);
+  const rand = rng(seed * 104729 + 17);
+  const sk = hex(sky);
+  const mixc = (a: RGB, b: RGB, k: number): RGB => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+  const white: RGB = [252, 252, 248], mid = mixc(white, sk, 0.28), low = mixc(white, sk, 0.52), deep = mixc(white, sk, 0.68);
+  const n = Math.round(9 * amount);
+  for (let k = 0; k < n; k++) {
+    const cx = (k + rand() * 0.6) * (W / n), cy = 8 + rand() * (H - 22), len = 26 + rand() * 46, ht = 7 + rand() * 7;
+    // bolhas do cúmulo
+    const puffs: [number, number, number][] = [];
+    const m = 4 + Math.floor(rand() * 4);
+    for (let i = 0; i < m; i++) {
+      const t = i / (m - 1) - 0.5;
+      const r = ht * (0.55 + (1 - Math.abs(t) * 1.6) * 0.6) * (0.8 + rand() * 0.4);
+      puffs.push([cx + t * len, cy + ht * 0.4 - r * 0.6, Math.max(3, r)]);
+    }
+    const base = cy + ht * 0.55;
+    for (let y = Math.floor(cy - ht * 1.6); y <= base; y++) {
+      for (let x = Math.floor(cx - len * 0.75); x <= cx + len * 0.75; x++) {
+        let inside = false, top = 1;
+        for (const [px, py, r] of puffs) {
+          const dx = (x - px) / (r * 1.25), dy = (y - py) / r;
+          const d = dx * dx + dy * dy;
+          if (d <= 1) {
+            inside = true;
+            top = Math.min(top, (y - (py - r)) / (2 * r)); // 0 no alto da bolha
+          }
+        }
+        if (!inside) continue;
+        const v = (y - (cy - ht)) / (base - (cy - ht)); // 0 em cima, 1 na base
+        const s = v * 0.75 + top * 0.35;
+        const dith = ((x + y) & 1) === 0;
+        const col = s < 0.38 ? white : s < 0.48 ? (dith ? white : mid) : s < 0.66 ? mid : s < 0.74 ? (dith ? mid : low) : s < 0.9 ? low : deep;
+        img.set(((x % W) + W) % W, y, col);
+      }
+    }
+  }
+  cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = H;
+  cv.getContext('2d')!.putImageData(img.data, 0, 0);
+  clouds.set(key, cv);
+  return cv;
+}

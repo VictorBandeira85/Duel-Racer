@@ -12,7 +12,7 @@ import { SPRITES } from './sprites';
 import { FOG_COLOR, type BgLayer } from './themes';
 import type { Point, Segment } from './track';
 import { dither } from './ui';
-import { PANO_H, PANO_W, panorama, skyline } from './bgart';
+import { PANO_H, PANO_W, cloudStrip, panorama, skyline } from './bgart';
 import { lerp, shade } from './util';
 
 export interface Viewport {
@@ -64,18 +64,65 @@ function laneLine(c: CanvasRenderingContext2D, s: Segment, at: number, width: nu
   quad(c, x1 + at * w1 - l1, y1, x1 + at * w1 + l1, y1, x2 + at * w2 + l2, y2, x2 + at * w2 - l2, y2);
 }
 
+// Chão e asfalto no estilo 16 bits: textura em tufos (grama) e grãos (asfalto) com faixas claras e
+// escuras alternadas a cada 3 segmentos, que passam por baixo do carro e dão a sensação de velocidade
+const turfs = new Map<string, CanvasPattern>();
+function turf(c: CanvasRenderingContext2D, a: string, b: string, kind: 'grass' | 'asphalt' | 'gravel', light: boolean): CanvasPattern {
+  const key = `${a}|${b}|${kind}|${light}`;
+  let p = turfs.get(key);
+  if (!p) {
+    const N = 16;
+    const t = document.createElement('canvas');
+    t.width = t.height = N;
+    const g = t.getContext('2d')!;
+    g.fillStyle = a;
+    g.fillRect(0, 0, N, N);
+    let seed = kind === 'grass' ? 7 : kind === 'asphalt' ? 19 : 31;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    if (kind === 'grass') {
+      g.fillStyle = b;
+      for (let y = 0; y < N; y++) for (let x = (y & 1); x < N; x += 2) g.fillRect(x, y, 1, 1);
+      // tufos: um risco escuro com a ponta clara
+      for (let i = 0; i < 9; i++) {
+        const x = Math.floor(rnd() * N), y = Math.floor(rnd() * N);
+        g.fillStyle = 'rgba(0,0,0,0.28)';
+        g.fillRect(x, y, 1, 2);
+        g.fillStyle = 'rgba(255,255,210,0.22)';
+        g.fillRect(x, y - 1 < 0 ? N - 1 : y - 1, 1, 1);
+      }
+    } else {
+      for (let i = 0; i < (kind === 'asphalt' ? 22 : 34); i++) {
+        const x = Math.floor(rnd() * N), y = Math.floor(rnd() * N);
+        g.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.12)';
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+    if (light) {
+      g.fillStyle = 'rgba(255,255,230,0.07)';
+      g.fillRect(0, 0, N, N);
+    }
+    p = c.createPattern(t, 'repeat')!;
+    turfs.set(key, p);
+  }
+  return p;
+}
+
 function drawSegment(c: CanvasRenderingContext2D, s: Segment, r: Race, vp: Viewport, ground: CanvasPattern, fogK: number) {
   const th = r.theme;
   const { x: x1, y: y1, w: w1 } = s.p1.screen;
   const { x: x2, y: y2, w: w2 } = s.p2.screen;
+  const band = Math.floor(s.index / 3) & 1;
   // no túnel, o que fica além do acostamento é o pé da parede
-  c.fillStyle = s.tunnel ? wallColor(s, 1) : ground;
+  c.fillStyle = s.tunnel ? wallColor(s, 1) : band ? turf(c, th.ground[0], th.ground[1], 'grass', true) : ground;
   c.fillRect(vp.x, y2, vp.w, y1 - y2);
   const sh1 = w1 * 0.1, sh2 = w2 * 0.1;
-  c.fillStyle = th.shoulder;
+  c.fillStyle = turf(c, th.shoulder, th.shoulder, 'gravel', !!band);
   quad(c, x1 - w1 - sh1, y1, x1 + w1 + sh1, y1, x2 + w2 + sh2, y2, x2 - w2 - sh2, y2);
-  c.fillStyle = th.road;
+  c.fillStyle = turf(c, th.road, th.road, 'asphalt', !!band);
   quad(c, x1 - w1, y1, x1 + w1, y1, x2 + w2, y2, x2 - w2, y2);
+  // faixas brancas contínuas da borda do asfalto
+  laneLine(c, s, -0.965, 0.018, '#e4e4dc');
+  laneLine(c, s, 0.965, 0.018, '#e4e4dc');
   const dash = (s.index >> 2) & 1;
   if (r.track.lanes === 2) {
     if (dash) laneLine(c, s, 0, 0.025, '#f2c81e');
@@ -198,7 +245,7 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   const night = !!r.def.night;
   const yawPx = CAM_DEPTH * r.yaw * vp.K; // carro atravessado: o fundo gira junto com a pista
   // céu em faixas, do tom de cima até o do horizonte (com uma linha pontilhada em cada emenda)
-  const top = vp.y, hz = vp.horizon + 2, bands = 6;
+  const top = vp.y, hz = vp.horizon + 2, bands = 12; // degraus de cor, como o céu dos 16 bits
   for (let i = 0; i < bands; i++) {
     const y0 = Math.round(top + ((hz - top) * i) / bands), y1 = Math.round(top + ((hz - top) * (i + 1)) / bands);
     const col = mix(th.sky[0], th.sky[1], i / (bands - 1));
@@ -208,6 +255,18 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
       c.fillStyle = dither(c, col, mix(th.sky[0], th.sky[1], (i - 1) / (bands - 1)));
       c.fillRect(vp.x, y0, vp.w, 1);
     }
+  }
+  // nuvens de dia (somem com a noite; com neblina ou chuva o céu já está encoberto)
+  if (!night && r.nightK < 0.9 && r.def.weather !== 'fog' && r.def.weather !== 'rain') {
+    const amt = r.course.id.length % 3 === 0 ? 0.7 : 1;
+    const cl = cloudStrip(r.course.id.length * 31 + r.stageIdx, th.sky[1], amt);
+    const off = ((Math.floor(r.bgOffset * 0.12 + yawPx * 0.9) % PANO_W) + PANO_W) % PANO_W;
+    const cy = vp.y + Math.max(2, Math.round((vp.horizon - vp.y) * 0.1));
+    const ga = c.globalAlpha;
+    c.globalAlpha = ga * (1 - r.nightK);
+    c.drawImage(cl, vp.x - off, cy);
+    if (PANO_W - off < vp.w) c.drawImage(cl, vp.x - off + PANO_W, cy);
+    c.globalAlpha = ga;
   }
   // estrelas e lua aparecem aos poucos com a noite (pôr do sol) e somem no amanhecer
   const nk = r.nightK;
@@ -433,7 +492,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   const far = fxMode() === 'alto' ? 1.4 : lowFx() ? 0.65 : 1;
   const far0 = far; // (o facho dos carros à frente usa `far` para outra coisa)
   const end = Math.min(segs.length, base.index + Math.round(DRAW_DIST * far));
-  const ground = dither(c, r.theme.ground[0], r.theme.ground[1]);
+  const ground = turf(c, r.theme.ground[0], r.theme.ground[1], 'grass', false);
   // chão por baixo de tudo: em vales, parte da tela não é coberta por nenhum segmento
   c.fillStyle = ground;
   c.fillRect(vp.x, vp.horizon, vp.w, vp.y + vp.h - vp.horizon);

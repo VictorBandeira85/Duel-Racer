@@ -35,3 +35,11 @@
   posição e de quanto em quanto), marcações (grossura, comprimento, intervalos), faixas de cor,
   textos (MPH, km/h, x1000, marca), fundo (cor, textura, aro) e a iluminação noturna (cor da luz
   dos números/ponteiros e do fundo). Na dúvida, perguntar ou pedir foto do quadro real.
+
+## Capas da revista (fotos)
+- Toda foto de capa (`src/photos.ts`) leva `box: [x0, y0, x1, y1]` em pixels da foto de 560 x 315:
+  a caixa do carro inteiro (para-choque a para-choque, teto ao chão; nas fotos sem carro, o assunto).
+  `drawPhoto`/`photoFrame` enquadram sozinhos: carro inteiro e centrado acima da faixa vermelha, em
+  qualquer tamanho de quadro (capa do menu e carregamento); se não couber, a foto diminui e os lados
+  ficam com a própria foto desfocada. Nunca usar foco fixo.
+- Ao adicionar fotos, conferir todas as capas novas com print (`node tools/covers_check.cjs <pasta>`, com o vite rodando) antes de publicar.

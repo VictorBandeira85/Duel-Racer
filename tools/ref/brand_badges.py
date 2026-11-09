@@ -39,7 +39,7 @@ SPOTS = {
   'patrol':     {'rear': (100, 76, 9, 0),  'front': (100, 87, 9, 0)},
   'br-vectra':  {'rear': (56, 26, 6, 3),   'front': (80, 62, 7, 0)},
   'br-uno':     {'rear': (60, 80, 7, 0),   'front': (120, 107, 11, 7)},
-  'br-golgti':  {'rear': (66, 30, 7, 0),   'front': (89, 67, 11, 7)},
+  'br-golgti':  {'rear': (27, 97, 9, 6), 'front': (100, 94, 11, 7), 'side': [(58, 110, 5, 3.5), (247, 110, 5, 3.5)]},  # Gol GTI 1993 (golgti_sprites.py)
   'br-kadett':  {'rear': (46, 26, 5, 0),   'front': (64, 48, 6, 0)},
   'br-corsa':   {'rear': (115, 88, 9, 6),  'front': (96, 88, 9, 6)},
   'br-pumagtb': {'rear': (47, 18, 5, 3),   'front': (47, 26, 5, 0)},
@@ -50,7 +50,7 @@ SPOTS = {
 # cubos dos volantes (src/assets/cockpit/<arte>-wheel.png): no lugar da buzina/emblema
 WHEELS = {
   'f40': (128, 117, 15, 0), '959': (128.5, 97, 13, 10), 'patrol': (129, 121, 11, 0),
-  'diablo': (128.7, 131, 15, 0), 'br-vectra': (129, 108, 13, 0), 'br-golgti': (128, 148, 13, 0),
+  'diablo': (128.7, 131, 15, 0), 'br-vectra': (129, 108, 13, 0), 'br-golgti': (128, 135, 13, 0),
   'br-kadett': (128, 104, 11, 0), 'br-uno': (128, 106, 11, 7), 'br-corsa': (127, 112, 13, 8),
   'br-passat': (129, 112, 13, 8), 'br-pumagtb': (128.5, 127, 13, 9), 'br-pumagte': (128.5, 116, 13, 10),
   'zr1': (128, 90, 13, 0), 'testarossa': (128, 117, 15, 0), 'nsx': (129.1, 115.9, 21, 0),

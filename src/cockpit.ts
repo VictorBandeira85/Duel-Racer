@@ -102,6 +102,7 @@ interface Aux { x: number; y: number; r: number; kind: 'single' | 'dual' | 'twin
   ring?: string; // aro em volta do mostrador
   ink?: string; // cor dos números e marcações (padrão branco)
   needleOnly?: boolean; // o mostrador é da arte: o jogo só desenha o ponteiro (arco em arc)
+  hubR?: number; // miolo do ponteiro (needleOnly com needleFine; 0 = sem miolo, eixo escondido)
 }
 
 // a arte cobre da linha 100 da tela até o fim (124 linhas); o topo transparente mostra a estrada
@@ -235,150 +236,31 @@ COCKPIT_ART['br-vectra'] = {
   },
 };
 
-// Gol GTI: quadro VDO como o de verdade — velocímetro 20-240 à esquerda e conta-giros 0-7 à
-// direita (faixa vermelha de 6,5 a 7), números e marcações laranja, ponteiros creme; hodômetro
-// 020285 e parcial no velocímetro, água e combustível nos cantos de baixo do conta-giros e, no
-// meio, o logotipo GTi, as luzes-espia e o relógio de cristal líquido
-const GTI_INK = '#ff7a1e';
-const GTI_LOGO = [
-  ['.111.', '1....', '1.11.', '1..1.', '.111.'], // G
-  ['111', '.1.', '.1.', '.1.', '.1.'], // T
-];
-function golMini(c: CanvasRenderingContext2D, x: number, y: number, R: number, a0: number, a1: number, v: number, art: CockpitArt) {
-  // mostrador de canto do conta-giros: marcações grossas laranja, as duas últimas da ponta
-  // de alerta (água quente / reserva) vermelhas, ponteiro creme com eixo preto
-  const at = (a: number, rr: number): [number, number] => [x + Math.cos(a) * rr, y + Math.sin(a) * rr * PIX_Y];
-  for (let i = 0; i <= 4; i++) {
-    const a = a0 + ((a1 - a0) * i) / 4, px = -Math.sin(a) * 0.5, py = Math.cos(a) * 0.5;
-    c.fillStyle = i >= 3 ? '#ff3a18' : GTI_INK;
-    c.beginPath();
-    for (const k of i === 0 || i === 4 ? [0, 0.5, 1, 1.5] : [0, 0.5, 1]) {
-      const [xx, yy] = at(a, R - k);
-      half(c, xx, yy);
-      half(c, xx + px, yy + py);
-    }
-    c.fill();
-  }
-  hand(c, x, y, a1 + (a0 - a1) * clamp(v, 0, 1), R - 2.5, art.needle);
-  c.fillStyle = '#060607';
-  c.fillRect(Math.round(x * 2) / 2 - 1, Math.round(y * 2) / 2 - 1, 2, 2);
-}
-// rótulo pequeno (letras em meio pixel), centrado
-const tiny = (c: CanvasRenderingContext2D, s: string, x: number, y: number, color = '#c8c8c8') => pix(c, s, x, y, color, 0.5);
-// tambores do hodômetro com a moldura prateada
-function golDrums(c: CanvasRenderingContext2D, ox: number, r: Race, b: Box, base: number, digits: number, lastRed: boolean) {
-  rect(c, ox + b.x - 1, ART_TOP + b.y - 0.5, b.w + 2, b.h + 1, '#5a5a60');
-  rect(c, ox + b.x - 0.5, ART_TOP + b.y, b.w + 1, b.h, '#020203');
-  odometer(c, ox, r, b, base, digits, 0.5, lastRed);
-}
-function golCluster(c: CanvasRenderingContext2D, ox: number, r: Race, art: CockpitArt) {
-  const T = ART_TOP;
-  const sp = art.speed!, t = art.tach!;
-  c.save();
-  c.beginPath();
-  c.rect(ox + 56, T + 18, 158, 60); // borda de baixo do quadro
-  c.clip();
-  // velocímetro: "vdo km", hodômetro, parcial com o botão de zerar e "km/h"
-  tiny(c, 'vdo', ox + sp.x + 1, T + sp.y - 15);
-  tiny(c, 'km', ox + sp.x + 1, T + sp.y - 12);
-  golDrums(c, ox, r, { x: sp.x - 7.5, y: sp.y - 10, w: 15, h: 4 }, 20285, 6, false);
-  golDrums(c, ox, r, { x: sp.x - 8, y: sp.y + 5, w: 10, h: 4 }, 116.0, 4, true);
-  tiny(c, 'km/h', ox + sp.x - 4, T + sp.y + 13);
-  rect(c, ox + sp.x - 6, T + sp.y + 15.5, 2.5, 2.5, '#2a2a2e');
-  rect(c, ox + sp.x - 5.5, T + sp.y + 16, 1, 1, '#6a6a70');
-  // conta-giros: "VDO" acima do eixo, "1/min x1000" abaixo, água e combustível nos cantos
-  tiny(c, 'VDO', ox + t.x + 1, T + t.y - 8);
-  tiny(c, '1/min x1000', ox + t.x + 1, T + t.y + 9);
-  golMini(c, ox + t.x - 8, T + t.y + 17, 9, Math.PI * 1.2, Math.PI * 0.74, 1 - gauges.water, art);
-  drawIcon(c, 'temp', ox + t.x - 3, T + t.y + 13, GTI_INK);
-  golMini(c, ox + t.x + 9, T + t.y + 17, 9, -Math.PI * 0.2, Math.PI * 0.26, gauges.fuel, art);
-  drawIcon(c, 'fuel', ox + t.x + 4.5, T + t.y + 13, GTI_INK);
-  c.restore();
-  // módulo do meio
-  const mx = ox + 121, my = T + 24;
-  rect(c, mx, my, 28, 52, '#0c0c0e');
-  rect(c, mx, my, 28, 0.5, '#2e2e32');
-  // logotipo GTi: placa preta com moldura cinza, letras cromadas inclinadas e o i vermelho
-  rect(c, mx + 2, my + 1.5, 24, 10, '#3a3a40');
-  rect(c, mx + 2.5, my + 2, 23, 9, '#030304');
-  let gx = mx + 6.5;
-  for (const g of GTI_LOGO) {
-    g.forEach((row, j) => [...row].forEach((ch, i) => {
-      if (ch !== '1') return;
-      c.fillStyle = j < 2 ? '#f4f6f8' : j < 4 ? '#c4c8ce' : '#8e949c';
-      c.fillRect(gx + i + (4 - j) * 0.5, my + 4 + j, 1, 1);
-    }));
-    gx += g[0].length + 1;
-  }
-  c.fillStyle = '#ff3a1a';
-  for (const j of [0, 2, 3, 4]) c.fillRect(gx + (4 - j) * 0.5, my + 4 + j, 1.5, 1);
-  // faixa de símbolos de cima: setas, bateria, farol alto
-  const strip = (y: number) => {
-    rect(c, mx + 2, y, 24, 4, '#232327');
-    rect(c, mx + 2, y + 4, 24, 0.5, '#050506');
-  };
-  strip(my + 13);
-  const ink = '#d8d8d8';
-  c.fillStyle = ink;
-  // setas ⇦⇨
-  for (const [x, d] of [[mx + 4, -1], [mx + 8, 1]] as [number, number][]) {
-    c.fillRect(x, my + 14.5, 2, 0.5);
-    c.fillRect(x + (d > 0 ? 2 : -0.5), my + 14, 0.5, 1.5);
-  }
-  c.fillRect(mx + 12, my + 14, 3, 2); // bateria
-  c.fillStyle = '#232327';
-  c.fillRect(mx + 12.5, my + 14.5, 2, 1);
-  c.fillStyle = ink;
-  c.fillRect(mx + 19, my + 14, 1, 2); // farol alto
-  c.fillRect(mx + 20.5, my + 14, 2, 0.5);
-  c.fillRect(mx + 20.5, my + 15, 2, 0.5);
-  c.fillRect(mx + 20.5, my + 15.75, 2, 0.5);
-  // luzes-espia: duas fileiras de cinco lentes coloridas (apagadas ficam escuras na cor)
-  const blink = r.signal !== 0 && blinkOn();
-  const stop = r.state === 'ticket' || r.state === 'pullover';
-  const leds: [string, string, boolean][][] = [
-    [['#1e6a24', '#3cf040', blink], ['#6a1c18', '#ff3020', stop], ['#3e1814', '#ff4020', false], ['#6a1c18', '#ff3020', r.damage > 0.6], ['#1e2e78', '#4a7cff', !!r.def?.night]],
-    [['#14401a', '#3cf040', false], ['#6a5a16', '#ffd020', gauges.fuel < 0.68], ['#6a1c18', '#ff3020', gauges.water > 0.8], ['#7a4012', '#ffa030', r.speed < 1 && !r.throttle], ['#3e1814', '#ff4020', false]],
-  ];
-  rect(c, mx + 2, my + 18, 24, 10, '#08080a');
-  leds.forEach((row, j) => row.forEach(([off, on, lit], i) => {
-    const lx = mx + 3.5 + i * 4.5, ly = my + 19 + j * 4.5;
-    rect(c, lx, ly, 3, 3, lit ? on : off);
-    rect(c, lx + 0.5, ly + 0.5, 1, 0.5, lit ? '#ffffff' : 'rgba(255,255,255,0.35)');
-  }));
-  // faixa de símbolos de baixo: óleo, água, freio
-  strip(my + 28.5);
-  c.fillStyle = ink;
-  c.fillRect(mx + 5, my + 30, 3, 1.5); c.fillRect(mx + 8, my + 30, 1, 0.5); // almotolia
-  c.fillRect(mx + 13.5, my + 29.5, 0.5, 2); c.fillRect(mx + 12.5, my + 31.5, 2.5, 0.5); // termômetro
-  c.fillRect(mx + 19.5, my + 29.5, 2, 0.5); c.fillRect(mx + 19.5, my + 31.5, 2, 0.5); // freio (O)
-  c.fillRect(mx + 19, my + 30, 0.5, 1.5); c.fillRect(mx + 21.5, my + 30, 0.5, 1.5);
-  c.fillRect(mx + 20.5, my + 30, 0.5, 1);
-  // relógio digital: cristal líquido esverdeado numa moldura, hora de verdade
-  rect(c, mx + 3, my + 36, 22, 11, '#3a3a40');
-  rect(c, mx + 3.5, my + 36.5, 21, 10, '#141416');
-  rect(c, mx + 4.5, my + 37.5, 19, 8, '#a8b48a');
-  rect(c, mx + 4.5, my + 37.5, 19, 1, '#bcc69e');
-  const now = new Date();
-  const hh = now.getHours() % 12 || 12;
-  pix(c, `${hh}:${String(now.getMinutes()).padStart(2, '0')}`, mx + 14, my + 42, '#1e2616', 1);
-  // parafusos do quadro
-  rect(c, mx + 1, my + 49, 1.5, 1.5, '#4a4a50');
-  rect(c, mx + 25.5, my + 50, 1.5, 1.5, '#4a4a50');
-}
+// Gaúcho GTI (Gol GTI 1993): interior novo do Victor (tools/ref/gol_cockpit2.py: painel da arte sem
+// volante, volante da arte com volante ampliado e centrado no quadro) e o quadro VDO da foto do carro
+// real (tools/ref/gol_gauges.py): grafite com números laranja, velocímetro 20-240 com hodômetro e
+// parcial, conta-giros 1-7 com faixa hachurada, temperatura e combustível dentro dele, luzes-espia e
+// relógio de cristal líquido no meio; ponteiros brancos finos de miolo preto
+const GOL_DEG = Math.PI / 180;
 COCKPIT_ART['br-golgti'] = {
   tells: null,
-  dash: cp('br-golgti-dash'), top: cp('br-golgti-top'), wheel: cp('br-golgti-wheel'),
-  pivot: [128, 99.9], wheelTop: 28, wheelDy: 20, speedMax: 240, needle: '#f4eedc', needleW: 1.5, needleTail: 4, hub: '#1a1a1c', radar: [222, 8],
-  speed: { x: 89.5, y: 57.5, r: 28, max: 240, labels: [20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240], tick: 10, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, ink: GTI_INK, bg: '#121214', cut: 20, boldTicks: true },
-  tach: { x: 179.5, y: 57.5, r: 28, max: 7, labels: [1, 2, 3, 4, 5, 6, 7], tick: 0.25, red: 6.5, a0: Math.PI * 0.917, sweep: Math.PI * 1.167, labelScale: 0.7, redLabels: false, ink: GTI_INK, bg: '#121214', cut: 20, redInk: '#ff4a18', redW: 2.5, redHatch: true, boldTicks: true },
-  aux: [],
-  under: (c, ox) => {
-    // face do quadro (cinza quase preto) e a borda de cima, sob a viseira
-    rect(c, ox + 58, ART_TOP + 22, 154, 56, '#161618');
-    rect(c, ox + 58, ART_TOP + 22, 154, 1, '#08080a');
+  dash: cp('br-golgti-dash'), top: cp('br-golgti-top'), wheel: cp('br-golgti-wheel'), dashMask: cp('br-golgti-dash-mask'), topMask: cp('br-golgti-top-mask'),
+  glass: { at: [86, 110], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
+  pivot: [128, 112], wheelTop: 8, radar: [200, 6], speedMax: 240, needle: '#f2eee2', needleW: 1.4, needleTail: 2.5, needleFine: true, hub: '#151517', hubR: 2.1,
+  faces: [{ src: cp('br-golgti-cluster'), x: 69.5, y: 31.5, w: 118, h: 47 }],
+  glow: '255,120,40', glowK: 0.6,
+  speed: { x: 93.6, y: 54.4, r: 20, max: 240, labels: [], tick: 20, red: 999, face: false, a0: 112.5 * GOL_DEG, sweep: 293.5 * GOL_DEG },
+  tach: { x: 154.5, y: 54.4, r: 20, max: 8, labels: [], tick: 1, red: 999, face: false, a0: 170.7 * GOL_DEG, sweep: 218.7 * GOL_DEG },
+  aux: [
+    { x: 150.5, y: 63.4, r: 7.6, kind: 'single', show: ['water'], arc: [160 * GOL_DEG, 110 * GOL_DEG], needleOnly: true, hubR: 0 },
+    { x: 158.5, y: 63.4, r: 7.6, kind: 'single', show: ['fuel'], arc: [70 * GOL_DEG, 20 * GOL_DEG], needleOnly: true, hubR: 0 },
+  ],
+  extra: (c, ox, r) => {
+    odometer(c, ox, r, { x: 87.6, y: 45.8, w: 12, h: 3.5 }, 86476, 6, 0.5);
+    odometer(c, ox, r, { x: 89.4, y: 58.8, w: 8.4, h: 3.5 }, 168.5, 4, 0.5, true);
+    const now = new Date();
+    pix(c, `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`, ox + 123.8, ART_TOP + 63.3, '#1e2616', 0.5);
   },
-  extra: (c, ox, r) => golCluster(c, ox, r, COCKPIT_ART['br-golgti']),
 };
 
 // Onça GTB: mostradores pretos com números âmbar e ponteiros laranja — velocímetro 20-220 com
@@ -1439,7 +1321,7 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
   if (g.needleOnly) {
     const a0 = g.arc?.[0] ?? Math.PI * 1.1, a1 = g.arc?.[1] ?? Math.PI * 1.9;
     const a = a0 + (a1 - a0) * gauges[(g.show ?? ['oil'])[0]];
-    if (art.needleFine) return fineNeedle(c, mx, my, R, a, 1.4, art.needle, art.hub, 2.6, 1.5);
+    if (art.needleFine) return fineNeedle(c, mx, my, R, a, 1.4, art.needle, art.hub, g.hubR ?? 2.6, g.hubR === 0 ? 0 : 1.5);
     hand(c, mx, my, a, R, art.needle, 1);
     c.fillStyle = art.hub;
     c.fillRect(cx - 1.5, cy - 1.5, 4, 4);

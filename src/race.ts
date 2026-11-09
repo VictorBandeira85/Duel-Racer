@@ -25,8 +25,10 @@ const COP_SV_KMH = 300;
 const COP_SV_ACC = 2300;
 const TRUCK_KG = 9000;
 
-export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck';
-const CAR_MODELS: TrafficModel[] = ['sedan', 'sedan', 'hatch', 'hatch', 'pickup', 'van'];
+export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck' | 'fusca' | 'kombi' | 'suv' | 'sedan90';
+// sorteio do trânsito, com o peso dos carros mais vendidos nos anos 90 (pesquisa: Gol, Uno e Escort
+// = hatch; Monza = sedan; Fusca e Kombi; Taurus/Accord = sedan90; utilitários)
+const CAR_MODELS: TrafficModel[] = ['sedan', 'sedan', 'hatch', 'hatch', 'hatch', 'pickup', 'van', 'fusca', 'kombi', 'suv', 'sedan90', 'sedan90'];
 // Carros do jogo no meio do trânsito: quanto mais caro, mais raro (como na rua). Peso de cada
 // classe no sorteio; GAME_SHARE = fração dos carros (fora caminhões) que são modelos do jogo.
 const CLASS_WEIGHT: Record<PerfClass, number> = { D: 10, C: 6, B: 2.2, A: 0.8, S: 0.3 };

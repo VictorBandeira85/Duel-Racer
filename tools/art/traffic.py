@@ -237,9 +237,175 @@ def truck_front(color=BASE):
     return p
 
 
+# ------------------------------------------------------------- modelos dos anos 90 (pesquisa de
+# mais vendidos: Gol/Uno/Monza/Escort/Fusca/Kombi no Brasil, Taurus/Accord e utilitários nos EUA)
+def fusca_rear(color=BASE):
+    """besouro: tampa do motor arredondada com grelhas, janelinha oval, para-lamas redondos"""
+    p = Pic(W, 100, color)
+    tires(p, w=22, h=16, inset=16)
+    for cx in (24, 136):  # para-lamas traseiros, salientes dos lados
+        p.ellipse(cx, 34, 22, 20, 'body', body=True)
+    p.poly([24, 14, 136, 14, 144, 30, 142, 56, 128, 74, 110, 86, 50, 86, 32, 74, 18, 56, 16, 30], 'body', body=True)
+    p.ellipse(80, 74, 22, 7, GLASS)
+    p.ellipse(73, 76, 7, 3, GLASS_HI)
+    shade(p, 40)
+    for y in range(40, 52, 3):  # grelhas da tampa do motor
+        p.line([62, y, 98, y], 'sh3', body=True)
+    p.line([80, 28, 80, 62], 'sh2', body=True)
+    for x in (34, 126):  # vinco entre o para-lama e a carroceria
+        p.line([x, 16, x + (6 if x < 80 else -6), 54], 'sh2', body=True)
+    for x0 in (8, 138):  # lanternas no alto dos para-lamas
+        p.rect(x0, 38, x0 + 14, 50, BLACK)
+        p.rect(x0 + 1, 39, x0 + 13, 49, RED)
+        p.rect(x0 + 1, 45, x0 + 13, 49, AMBER)
+    p.rect(14, 12, 146, 16, CHROME)  # para-choque fino
+    plate(p, 20, 26, 8)
+    p.rect(108, 8, 114, 12, CHROME)
+    p.outline()
+    return p, {'dots': [[0.08, 0.57], [0.92, 0.57]]}
+
+
+def fusca_front(color=BASE):
+    p = Pic(W, 96, color)
+    tires(p, w=22, h=16, inset=16)
+    for cx in (22, 138):
+        p.ellipse(cx, 32, 22, 22, 'body', body=True)
+    p.poly([28, 14, 132, 14, 138, 30, 132, 50, 114, 60, 46, 60, 28, 50, 22, 30], 'body', body=True)
+    p.poly([42, 60, 118, 60, 108, 86, 52, 86], 'body', body=True)
+    p.poly([48, 62, 112, 62, 104, 83, 56, 83], GLASS)
+    p.poly([56, 63, 62, 63, 64, 82, 60, 82], GLASS_HI)
+    p.band(0, 22, 'sh')
+    p.edge_light()
+    p.line([80, 20, 80, 56], 'sh2', body=True)
+    for cx in (22, 138):  # faróis redondos em cima dos para-lamas
+        p.ellipse(cx, 42, 9, 9, CHROME)
+        p.ellipse(cx, 42, 7, 7, WHITE)
+        p.ellipse(cx - 2, 44, 2, 2, (255, 255, 255))
+        p.rect(cx - 3, 26, cx + 3, 29, AMBER)
+    p.rect(14, 12, 146, 16, CHROME)
+    p.outline()
+    return p
+
+
+def kombi_rear(color=BASE):
+    """perua de linhas retas: metade de cima branca (fixa), janelas largas, tampa do motor embaixo"""
+    p = Pic(W, 132, color)
+    tires(p, w=24, inset=14)
+    p.poly([6, 12, 154, 12, 156, 22, 156, 66, 4, 66, 4, 22], 'body', body=True)
+    p.poly([4, 66, 156, 66, 154, 118, 146, 128, 14, 128, 6, 118], (232, 232, 224))
+    p.poly([4, 66, 156, 66, 156, 70, 4, 70], (204, 204, 196))
+    p.rect(22, 84, 138, 118, GLASS)
+    p.rect(28, 86, 40, 116, GLASS_HI)
+    shade(p, 60)
+    p.rect(40, 26, 120, 52, 'sh', body=True)  # tampa do motor
+    for y in range(30, 48, 4):
+        p.line([46, y, 114, y], 'sh3', body=True)
+    p.rect(74, 56, 86, 60, CHROME)
+    for x0 in (8, 140):
+        p.rect(x0, 34, x0 + 12, 54, BLACK)
+        p.rect(x0 + 1, 35, x0 + 11, 53, RED)
+        p.rect(x0 + 1, 35, x0 + 11, 41, AMBER)
+    p.rect(2, 10, 158, 16, CHROME)
+    plate(p, 18)
+    p.outline()
+    return p, {'dots': [[0.09, 0.66], [0.91, 0.66]]}
+
+
+def kombi_front(color=BASE):
+    p = Pic(W, 128, color)
+    tires(p, w=24, inset=14)
+    p.poly([6, 12, 154, 12, 156, 22, 156, 60, 4, 60, 4, 22], 'body', body=True)
+    p.poly([80, 24, 150, 60, 10, 60], (232, 232, 224))  # o "V" branco do bico
+    p.poly([4, 60, 156, 60, 154, 118, 146, 126, 14, 126, 6, 118], (232, 232, 224))
+    for x0 in (12, 84):  # para-brisa bipartido
+        p.rect(x0, 70, x0 + 64, 114, GLASS)
+        p.rect(x0 + 4, 72, x0 + 12, 112, GLASS_HI)
+    p.band(0, 22, 'sh')
+    p.edge_light()
+    p.ellipse(80, 42, 9, 9, CHROME)  # emblema redondo (genérico)
+    p.ellipse(80, 42, 6, 6, (210, 210, 214))
+    for cx in (22, 138):
+        p.ellipse(cx, 36, 10, 10, CHROME)
+        p.ellipse(cx, 36, 8, 8, WHITE)
+        p.ellipse(cx - 2, 38, 2, 2, (255, 255, 255))
+        p.rect(cx - 4, 22, cx + 4, 26, AMBER)
+    p.rect(2, 10, 158, 16, CHROME)
+    p.outline()
+    return p
+
+
+def suv_rear(color=BASE):
+    """utilitário alto: estepe pendurado na porta, vidro traseiro grande, rack no teto"""
+    p = Pic(W, 120, color)
+    tires(p, w=28, h=20, inset=10)
+    p.poly([4, 16, 156, 16, 158, 26, 158, 66, 150, 72, 10, 72, 2, 66, 2, 26], 'body', body=True)
+    cabin(p, 72, 108, 66, 60, 8)
+    shade(p, 66)
+    p.rect(0, 12, 160, 20, DARK)  # para-choque de plástico
+    p.rect(2, 14, 158, 16, GREY)
+    p.ellipse(80, 50, 20, 20, BLACK)  # estepe
+    p.ellipse(80, 50, 17, 17, (34, 34, 38))
+    p.ellipse(80, 50, 10, 10, CHROME)
+    p.ellipse(80, 50, 4, 4, DARK)
+    for x0 in (6, 140):
+        p.rect(x0, 30, x0 + 14, 62, BLACK)
+        p.rect(x0 + 1, 31, x0 + 13, 61, RED)
+        p.rect(x0 + 1, 31, x0 + 13, 38, AMBER)
+    p.rect(14, 110, 146, 113, DARK)  # rack
+    for x in (20, 140):
+        p.rect(x, 106, x + 2, 112, DARK)
+    plate(p, 22)
+    mirrors(p, 74)
+    p.outline()
+    return p, {'dots': [[0.08, 0.6], [0.92, 0.6]]}
+
+
+def suv_front(color=BASE):
+    p = Pic(W, 116, color)
+    tires(p, w=28, h=20, inset=10)
+    front_base(p, 56, 104, 52, [(8, 36, 34, 46), (126, 36, 152, 46)], (40, 120, 30, 48))
+    for x in range(48, 118, 10):
+        p.rect(x, 31, x + 2, 47, DARK)
+    p.rect(0, 12, 160, 20, DARK)
+    p.rect(14, 106, 146, 109, DARK)
+    p.outline()
+    return p
+
+
+def sedan90_rear(color=BASE):
+    """sedã aerodinâmico do começo dos 90: lanterna inteiriça de ponta a ponta e vidro bem inclinado"""
+    p = Pic(W, 90, color)
+    tires(p)
+    p.poly([6, 10, 154, 10, 158, 22, 156, 44, 146, 50, 14, 50, 4, 44, 2, 22], 'body', body=True)
+    cabin(p, 50, 80, 60, 40, 7)
+    shade(p, 44)
+    p.rect(2, 10, 158, 18, 'sh2', body=True)  # para-choque na cor do carro
+    p.line([4, 18, 156, 18], 'sh3', body=True)
+    p.rect(6, 30, 154, 40, BLACK)  # faixa de lanternas inteiriça
+    p.rect(7, 31, 153, 39, RED_D)
+    for x0 in (8, 120):
+        p.rect(x0, 31, x0 + 32, 39, RED)
+        p.rect(x0 + (0 if x0 < 80 else 24), 31, x0 + (8 if x0 < 80 else 32), 39, AMBER)
+    p.rect(60, 33, 100, 37, (150, 20, 18))
+    plate(p, 20)
+    mirrors(p, 52)
+    p.outline()
+    return p, {'dots': [[0.15, 0.6], [0.85, 0.6]]}
+
+
+def sedan90_front(color=BASE):
+    p = Pic(W, 82, color)
+    front_base(p, 38, 72, 40, [(8, 24, 50, 32), (110, 24, 152, 32)], (54, 106, 25, 31))
+    p.rect(2, 10, 158, 16, 'sh2', body=True)
+    p.outline()
+    return p
+
+
 MODELS = {
     'sedan': (sedan_rear, sedan_front), 'hatch': (hatch_rear, hatch_front), 'pickup': (pickup_rear, pickup_front),
     'van': (van_rear, van_front), 'truck': (truck_rear, truck_front),
+    'fusca': (fusca_rear, fusca_front), 'kombi': (kombi_rear, kombi_front), 'suv': (suv_rear, suv_front),
+    'sedan90': (sedan90_rear, sedan90_front),
 }
 
 if __name__ == '__main__':

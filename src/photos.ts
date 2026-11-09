@@ -51,11 +51,11 @@ export const TR_PHOTOS: Photo[] = [
   { src: ph('tr-cabine'), kicker: 'POR DENTRO', kc: '#1a6a2a', title: 'O PAINEL DA TR', sub: 'Relógios laranja e couro azul', inside: ['Quatro relógios', 'Câmbio de grade', 'Bancos baixos'], box: [60, 60, 500, 300] },
 ].filter((p) => !!p.src);
 export const F4_PHOTOS: Photo[] = [
-  { src: ph('f4-pista'), kicker: 'ENSAIO', kc: '#d01f26', title: 'FURIA F4', sub: 'Dois turbos e nenhum luxo', inside: ['V8 biturbo de 478 cv', 'Carroceria de kevlar', '324 km/h na pista'], box: [35, 55, 525, 232] },
+  { src: ph('f4-pista'), kicker: 'ENSAIO', kc: '#d01f26', title: 'FURIA F4', sub: 'Dois turbos e nenhum luxo', inside: ['V8 biturbo de 478 cv', 'Carroceria de kevlar', '340 km/h na pista'], box: [35, 55, 525, 232] },
   { src: ph('f4-raiox'), kicker: 'RAIO-X', kc: '#1a1614', title: 'POR DENTRO DA F4', sub: 'Tubos, kevlar e dois turbos', inside: ['Gaiola e chassi tubular', 'Motor atrás dos bancos', 'Peso: 1.100 kg'], box: [25, 40, 540, 290] },
 ].filter((p) => !!p.src);
 export const DIA_PHOTOS: Photo[] = [
-  { src: ph('dia-salao'), kicker: 'ENSAIO', kc: '#d01f26', title: 'TORO V12', sub: 'O diabo agora tem portas tesoura', inside: ['V12 de 517 cv', '300 km/h de máxima', 'Portas que abrem para o céu'], box: [55, 85, 500, 285] },
+  { src: ph('dia-salao'), kicker: 'ENSAIO', kc: '#d01f26', title: 'TORO V12', sub: 'O diabo agora tem portas tesoura', inside: ['V12 de 517 cv', '330 km/h de máxima', 'Portas que abrem para o céu'], box: [55, 85, 500, 285] },
   { src: ph('dia-deserto'), kicker: 'TESTE', kc: '#1e4fb8', title: 'V12 NO DESERTO', sub: 'Asa alta e quatro escapes', inside: ['Retas sem fim', 'Lanternas duplas', 'Consumo a 300 km/h'], box: [60, 110, 520, 250] },
   { src: ph('dia-bolonha'), kicker: 'VIAGEM', kc: '#1a1614', title: 'DE VOLTA À FÁBRICA', sub: 'Um amarelo que para a cidade', inside: ['Ruas de pedra', 'Faróis escamoteáveis', 'Os vizinhos aprovam'], box: [15, 125, 445, 278] },
   { src: ph('dia-console'), kicker: 'POR DENTRO', kc: '#1a6a2a', title: 'O CONSOLE DO V12', sub: 'Fibra, ar automático e toca-fitas', inside: ['Climatizador digital', 'Botões de grade', 'Câmbio de alavanca alta'], box: [110, 20, 480, 300] },

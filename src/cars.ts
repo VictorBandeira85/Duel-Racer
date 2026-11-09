@@ -123,7 +123,7 @@ export const CARS: CarSpec[] = [
   {
     id: 'furia-f4', name: 'Furia F4', basedOn: 'Ferrari F40', color: '#c8161a',
     price: '$400.000', position: 'central', drive: 'traseira', engine: 'V8 biturbo',
-    displacement: '2.936 cc', power: '478 cv', maxSpeed: kmh(324), zeroTo100: 4.1, zeroTo200: 11.0, accel: 1, mass: 1100, gears: G5, curve: 'turbo', lateralG: 1.0, brakeG: 1.05, aero: 0.12, handling: 1.0,
+    displacement: '2.936 cc', power: '478 cv', maxSpeed: kmh(340), zeroTo100: 4.1, zeroTo200: 11.0, accel: 1, mass: 1100, gears: G5, curve: 'turbo', lateralG: 1.0, brakeG: 1.05, aero: 0.12, handling: 1.0,
     dash: 'f40', hood: '#b01014', art: 'f40',
     // proporções tiradas de fotos de perfil do modelo real
     side: {
@@ -181,7 +181,7 @@ export const CARS: CarSpec[] = [
     id: 'toro-v12', name: 'Toro V12', basedOn: 'Lamborghini Diablo SV', color: '#a02cb4',
     // SV: versão leve e mais forte (sem tração integral), câmbio mais curto, asa regulável
     price: '$260.000', position: 'central', drive: 'traseira', engine: 'V12 48v',
-    displacement: '5.707 cc', power: '517 cv', maxSpeed: kmh(300), zeroTo100: 4.0, zeroTo200: 14.0, accel: 1, mass: 1530, gears: [0.3, 0.47, 0.64, 0.82, 1], curve: 'v12', lateralG: 0.95, brakeG: 1.02, handling: 0.93, aero: 0.08,
+    displacement: '5.707 cc', power: '517 cv', maxSpeed: kmh(330), zeroTo100: 4.0, zeroTo200: 14.0, accel: 1, mass: 1530, gears: [0.3, 0.47, 0.64, 0.82, 1], curve: 'v12', lateralG: 0.95, brakeG: 1.02, handling: 0.93, aero: 0.08,
     dash: 'diablo', hood: '#8a2498', art: 'diablo',
     side: {
       body: [0, 0.055, 0, 0.085, 0.03, 0.115, 0.2, 0.145, 0.3, 0.162, 0.47, 0.246, 0.58, 0.25, 0.64, 0.236, 0.85, 0.198, 0.96, 0.19, 1, 0.17, 1, 0.08, 0.985, 0.055],
@@ -293,7 +293,7 @@ export const CARS: CarSpec[] = [
     // Diablo SV da polícia: adversária nos eventos de classe S da carreira e pilotável no Arcade
     id: 'patrol-sv', name: 'Toro V12 Polícia', basedOn: 'Lamborghini Diablo SV (polícia)', color: '#f2f2f2', arcadeOnly: true,
     price: '$260.000', position: 'central', drive: 'traseira', engine: 'V12 48v',
-    displacement: '5.707 cc', power: '517 cv', maxSpeed: kmh(300), zeroTo100: 4.0, zeroTo200: 14.0, accel: 1, mass: 1560, gears: [0.3, 0.47, 0.64, 0.82, 1], curve: 'v12', lateralG: 0.95, brakeG: 1.02, handling: 0.93, aero: 0.08,
+    displacement: '5.707 cc', power: '517 cv', maxSpeed: kmh(330), zeroTo100: 4.0, zeroTo200: 14.0, accel: 1, mass: 1560, gears: [0.3, 0.47, 0.64, 0.82, 1], curve: 'v12', lateralG: 0.95, brakeG: 1.02, handling: 0.93, aero: 0.08,
     dash: 'diablo', hood: '#e8e8ea', art: 'patrolsv', cockpitPaint: '#1c1c20',
     side: {
       body: [0, 0.055, 0, 0.085, 0.03, 0.115, 0.2, 0.145, 0.3, 0.162, 0.47, 0.246, 0.58, 0.25, 0.64, 0.236, 0.85, 0.198, 0.96, 0.19, 1, 0.17, 1, 0.08, 0.985, 0.055],
@@ -627,7 +627,7 @@ export interface CarLook {
   brake?: boolean;
   night?: boolean;
   paint?: string; // cor escolhida (troca a carroceria do sprite pela máscara)
-  model?: string; // trânsito: sedan, hatch, pickup, van, truck (sprites de assets/traffic)
+  model?: string; // trânsito: sedan, hatch, pickup, van, truck, fusca, kombi, suv, sedan90 (sprites de assets/traffic)
   signal?: number; // seta ligada: -1 lado esquerdo da tela, 1 direito
   flash?: boolean; // trânsito de frente piscando o farol alto (assustado)
   tilt?: number; // batido: o desenho fica inclinado (rad), girando em torno da base
@@ -730,10 +730,12 @@ function lampSpots(w: number, look: CarLook): { h: number; dots: number[][] } {
 const TRAFFIC_PLATE: Record<string, number[]> = { // como PLATE_BOX, nos sprites do trânsito
   sedan: [66, 62, 94, 71, 160, 92], hatch: [66, 65, 95, 74, 160, 96], pickup: [66, 76, 94, 85, 160, 98],
   van: [66, 103, 95, 112, 160, 132], truck: [66, 138, 94, 147, 160, 168], police: [68, 65, 90, 77, 160, 124],
+  fusca: [67, 70, 93, 79, 160, 100], kombi: [66, 104, 94, 113, 160, 132], suv: [66, 88, 94, 97, 160, 120], sedan90: [66, 60, 94, 69, 160, 90],
 };
 const TRAFFIC_GLOW: Record<string, { dots?: number[][]; siren?: number[][]; sirenFront?: number[][]; sirenColors?: string[]; sirenColorsFront?: string[] }> = {
   sedan: { dots: [[0.15, 0.6], [0.85, 0.6]] }, hatch: { dots: [[0.11, 0.62], [0.89, 0.62]] },
   pickup: { dots: [[0.06, 0.6], [0.94, 0.6]] }, van: { dots: [[0.06, 0.71], [0.94, 0.71]] },
+  fusca: { dots: [[0.09, 0.56], [0.91, 0.56]] }, kombi: { dots: [[0.09, 0.66], [0.91, 0.66]] }, suv: { dots: [[0.08, 0.62], [0.92, 0.62]] }, sedan90: { dots: [[0.15, 0.6], [0.85, 0.6]] },
   truck: { dots: [[0.08, 0.79], [0.92, 0.79]] },
   // giroflex da arte: azul à esquerda, vermelho à direita (u0, f0, u1, f1 em fração do sprite)
   police: { dots: [[0.17, 0.6], [0.83, 0.6]], siren: [[0.23, 0.0, 0.42, 0.075], [0.52, 0.0, 0.77, 0.075]] },

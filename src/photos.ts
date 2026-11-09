@@ -65,7 +65,7 @@ export const GOL_PHOTOS: Photo[] = [
   { src: ph('gol-preto'), kicker: 'ENSAIO', kc: '#d01f26', title: 'GAÚCHO GTI', sub: 'O esportivo nacional de injeção', inside: ['AP 2.0 de 120 cv', 'Faróis de milha de série', 'Bancos com tecido xadrez'], box: [35, 75, 530, 282] },
   { src: ph('gol-amarelo'), kicker: 'TESTE', kc: '#1e4fb8', title: 'GTI NA ESTRADA', sub: 'Aerofólio, escape duplo e 185 km/h', inside: ['0 a 100 em 9,2 s', 'Consumo na serra', 'Rodas de liga leve'], box: [62, 95, 530, 278] },
   { src: ph('gol-giro'), kicker: 'TÉCNICA', kc: '#1a1614', title: 'ATÉ O CORTE', sub: 'Conta-giros VDO e motor AP', inside: ['Leia o painel do GTI', 'Faixa vermelha em 6.250', 'Relógio digital no meio'], box: [150, 100, 410, 315] },
-  { src: ph('gol-motor'), kicker: 'OFICINA', kc: '#1a6a2a', title: 'INJEÇÃO NO CAPÔ', sub: 'O primeiro nacional injetado', inside: ['Revisão da injeção', 'Velas e cabos', 'Filtro de ar esportivo'], box: [60, 40, 540, 315] },
+  { src: ph('gol-motor'), kicker: 'OFICINA', kc: '#1a6a2a', title: 'INJEÇÃO ELETRÔNICA', sub: 'O primeiro nacional injetado', inside: ['Revisão da injeção', 'Velas e cabos', 'Filtro de ar esportivo'], box: [60, 40, 540, 315] },
 ].filter((p) => !!p.src);
 export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS].forEach((p) => img(p.src));
 

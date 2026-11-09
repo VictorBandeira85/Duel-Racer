@@ -74,10 +74,10 @@ def speed(d):
         x, y = at(g, fr(v), g['r'] - 6.9)
         label(str(v), x, y, 3.5, squeeze=0.66 if v >= 100 else 0.8)
     x, y = P(g['x'], g['y'])
-    label('vdo', x, y - K * 12.4, 1.3, FR, col=WHITE)
-    label('km', x, y - K * 10.4, 1.7, FR, col=WHITE)
+    label('vdo', x, y - K * 11.6, 1.2, FR, col=WHITE)
+    label('km', x, y - K * 9.6, 1.5, FR, col=WHITE)
     label('km/h', x, y + K * 12.2, 1.9, FR, col=WHITE)
-    for bx, by, bw in ((-6.0, -8.6, 12), (-4.2, 4.4, 8.4)):   # janelas do hodômetro e do parcial
+    for bx, by, bw in ((-6.0, -7.4, 12), (-4.2, 6.0, 8.4)):   # janelas do hodômetro e do parcial
         x0, y0 = P(g['x'] + bx, g['y'] + by)
         d.rectangle([x0 - K * 0.3, y0 - K * 0.3, x0 + (bw + 0.3) * K, y0 + 3.8 * K], fill=(10, 10, 12))
     for sx in (-1, 1):  # parafusos dos lados do eixo
@@ -156,6 +156,51 @@ def gti_logo(d, cx, cy):
     d.ellipse([cx + K * 2.6, cy - K * 2.2, cx + K * 3.5, cy - K * 1.4], fill=INK)
 
 
+def icons(d, x0, x1):
+    """pictogramas brancos das luzes-espia (como na foto): em cima setas, bateria ... almotolia e
+    farol; embaixo injeção/motor, temperatura e freio de mão"""
+    u = K * 0.36
+    W_ = WHITE
+    col = lambda i: P(x0 + 2.6 + i * (x1 - x0 - 5.2) / 4, 0)[0]
+    yt, yb = P(0, 44.0)[1], P(0, 53.4)[1]
+    lw = max(1, int(0.45 * u))
+    # setas do pisca
+    cx = col(0)
+    d.polygon([(cx - 3 * u, yt), (cx - 1.4 * u, yt - 1.3 * u), (cx - 1.4 * u, yt + 1.3 * u)], fill=W_)
+    d.polygon([(cx + 3 * u, yt), (cx + 1.4 * u, yt - 1.3 * u), (cx + 1.4 * u, yt + 1.3 * u)], fill=W_)
+    # bateria
+    cx = col(1)
+    d.rectangle([cx - 2.4 * u, yt - 1.2 * u, cx + 2.4 * u, yt + 1.5 * u], outline=W_, width=lw)
+    d.rectangle([cx - 1.8 * u, yt - 1.9 * u, cx - 0.9 * u, yt - 1.2 * u], fill=W_)
+    d.rectangle([cx + 0.9 * u, yt - 1.9 * u, cx + 1.8 * u, yt - 1.2 * u], fill=W_)
+    # almotolia de óleo
+    cx = col(3)
+    d.polygon([(cx - 2.4 * u, yt - 0.3 * u), (cx + 0.8 * u, yt - 0.3 * u), (cx + 2.6 * u, yt - 1.3 * u), (cx + 1.2 * u, yt + 1.2 * u), (cx - 2.4 * u, yt + 1.2 * u)], fill=W_)
+    d.rectangle([cx - 1.6 * u, yt - 1.3 * u, cx - 0.6 * u, yt - 0.3 * u], fill=W_)
+    # farol
+    cx = col(4)
+    d.chord([cx - 2.6 * u, yt - 1.6 * u, cx + 0.6 * u, yt + 1.6 * u], 270, 90, fill=W_)
+    for k in (-1, 0, 1):
+        d.line([(cx + 1.0 * u, yt + k * 1.0 * u), (cx + 2.8 * u, yt + k * 1.0 * u)], fill=W_, width=lw)
+    # motor (injeção)
+    cx = col(1)
+    d.rectangle([cx - 2.0 * u, yb - 1.0 * u, cx + 1.6 * u, yb + 1.4 * u], outline=W_, width=lw)
+    d.rectangle([cx - 1.0 * u, yb - 1.8 * u, cx + 0.6 * u, yb - 1.0 * u], fill=W_)
+    d.line([(cx + 1.6 * u, yb), (cx + 2.6 * u, yb)], fill=W_, width=lw)
+    # temperatura (termômetro com ondas)
+    cx = col(2)
+    d.rectangle([cx - 0.35 * u, yb - 2.0 * u, cx + 0.35 * u, yb + 0.6 * u], fill=W_)
+    d.ellipse([cx - 0.9 * u, yb + 0.2 * u, cx + 0.9 * u, yb + 1.8 * u], fill=W_)
+    d.line([(cx - 2.4 * u, yb + 1.0 * u), (cx + 2.4 * u, yb + 1.0 * u)], fill=W_, width=lw)
+    # freio de mão: (!) dentro de um círculo com arcos
+    cx = col(3)
+    d.ellipse([cx - 1.6 * u, yb - 1.6 * u, cx + 1.6 * u, yb + 1.6 * u], outline=W_, width=lw)
+    d.rectangle([cx - 0.3 * u, yb - 1.0 * u, cx + 0.3 * u, yb + 0.4 * u], fill=W_)
+    d.rectangle([cx - 0.3 * u, yb + 0.8 * u, cx + 0.3 * u, yb + 1.1 * u], fill=W_)
+    for sx in (-1, 1):
+        d.arc([cx - 2.6 * u, yb - 2.2 * u, cx + 2.6 * u, yb + 2.2 * u], 140 if sx < 0 else -40, 220 if sx < 0 else 40, fill=W_, width=lw)
+
+
 def middle(d):
     x0, x1 = MID
     a, b = P(x0, 34.0), P(x1, 75.0)
@@ -166,8 +211,7 @@ def middle(d):
     cx = (x0 + x1) / 2
     gti_logo(d, P(cx, 0)[0], P(0, 38.4)[1])
     # ícones de cima (setas, bateria ... óleo, farol) e de baixo (motor, água, freio), em branco
-    label('<> =  o~ D', P(cx, 0)[0], P(0, 44.0)[1], 1.5, FR, 0.86, col=WHITE)
-    label('#  t  (!)', P(cx, 0)[0], P(0, 53.6)[1], 1.5, FR, 0.86, col=WHITE)
+    icons(d, x0, x1)
     # luzes-espia: duas fileiras de cinco (apagadas, cores da lente)
     cols = [(60, 110, 50), (200, 190, 120), (120, 30, 30), (120, 30, 30), (30, 50, 120)]
     cols2 = [(110, 30, 26), (190, 170, 90), (120, 30, 30), (120, 30, 30), (26, 26, 28)]

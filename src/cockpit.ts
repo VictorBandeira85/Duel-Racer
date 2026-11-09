@@ -256,8 +256,8 @@ COCKPIT_ART['br-golgti'] = {
     { x: 164.7, y: 65.1, r: 5.6, kind: 'single', show: ['fuel'], arc: [80 * GOL_DEG, 10 * GOL_DEG], needleOnly: true, hubR: 0 },
   ],
   extra: (c, ox, r) => {
-    odometer(c, ox, r, { x: 87.6, y: 45.8, w: 12, h: 3.5 }, 86476, 6, 0.5);
-    odometer(c, ox, r, { x: 89.4, y: 58.8, w: 8.4, h: 3.5 }, 168.5, 4, 0.5, true);
+    odometer(c, ox, r, { x: 87.6, y: 47.0, w: 12, h: 3.5 }, 86476, 6, 0.5);
+    odometer(c, ox, r, { x: 89.4, y: 60.4, w: 8.4, h: 3.5 }, 168.5, 4, 0.5, true);
     const now = new Date();
     pix(c, `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`, ox + 123.8, ART_TOP + 63.3, '#1e2616', 0.5);
   },

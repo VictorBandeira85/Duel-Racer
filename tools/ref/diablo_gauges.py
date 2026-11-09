@@ -22,18 +22,18 @@ ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
 K = 12
 KO = 4
 PY = 8 / 7
-X0, Y0, X1, Y1 = 26, 12, 228, 80
+X0, Y0, X1, Y1 = 26, 12, 214, 82
 FB = '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'
 FR = '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf'
 INK = (24, 24, 26)
 FACE = (240, 240, 236)
 SPEED = dict(x=106.4, y=45.9, r=21.7, a0=121, sweep=289, max=360)
 TACH = dict(x=153.7, y=45.9, r=21.7, a0=140, sweep=260, max=90)
-RS = 9.5  # raio dos pequenos; o eixo fica meio raio abaixo do centro
-SMALL = [dict(x=67.9, y=42.0, labels=['0', '2', '4', '6', '8', '10'], red=(0, 0.06), icon='oil', unit=''),
-         dict(x=49.1, y=59.4, labels=['50', '80', '120', '150'], red=(0, 0.08), icon='oil', unit='°C'),
-         dict(x=192.2, y=42.0, labels=['40', '80', '100', '120'], red=(0.92, 1), icon='water', unit='°C'),
-         dict(x=211.0, y=59.4, labels=['0', '½', '1'], red=None, icon='fuel', unit='')]
+RS = 8.0  # raio dos pequenos; o eixo fica meio raio abaixo do centro
+SMALL = [dict(x=72.4, y=49.5, labels=['0', '2', '4', '6', '8', '10'], red=(0, 0.06), icon='oil', unit=''),
+         dict(x=61.4, y=67.5, labels=['50', '80', '120', '150'], red=(0, 0.08), icon='oil', unit='°C'),
+         dict(x=187.7, y=49.5, labels=['40', '80', '100', '120'], red=(0.92, 1), icon='water', unit='°C'),
+         dict(x=198.7, y=67.5, labels=['0', '½', '1'], red=None, icon='fuel', unit='')]
 OLD = [(44.1, 61.3), (70.4, 61.3), (188.1, 60.4)]  # relógios pequenos da arte, apagados
 RECESS = (23, 19, 36)
 A0S, A1S = 225, 315
@@ -151,7 +151,7 @@ def small(im, d, al, g):
     """relógio pequeno do Diablo: eixo meio raio abaixo do centro, marcações e números num arco de
     90° (225° a 315°) que acompanha a borda de cima"""
     g = dict(g, r=RS)
-    bezel(d, al, g, RS, 3.2)
+    bezel(d, al, g, RS, 2.8)
     pv = dict(x=g['x'], y=g['y'] + 0.5 * RS * PY)
 
     def rim(ang):  # distância do eixo até a borda do mostrador nessa direção (unidades reais)
@@ -166,23 +166,23 @@ def small(im, d, al, g):
         for k in range(24):
             a = fr(u0 + (u1 - u0) * k / 23)
             e = rim(a) - 0.5
-            tick(d, pv, a, e - 2.2, e, 0.7, (176, 26, 22))
+            tick(d, pv, a, e - 1.9, e, 0.7, (176, 26, 22))
     for i in range(steps + 1):
         a = fr(i / steps)
         e = rim(a) - 0.5
-        tick(d, pv, a, e - (2.2 if i % 2 == 0 else 1.4), e, 0.6 if i % 2 == 0 else 0.45)
+        tick(d, pv, a, e - (1.9 if i % 2 == 0 else 1.2), e, 0.6 if i % 2 == 0 else 0.45)
     for i, L in enumerate(g['labels']):
         a = fr(i / (n - 1))
-        x, y = at(pv, a, rim(a) - 4.3)
-        label(L, x, y, 2.6 if n < 5 else 2.3, squeeze=0.85)
+        x, y = at(pv, a, rim(a) - 3.8)
+        label(L, x, y, (2.6 if n < 5 else 2.3) * 0.9, squeeze=0.85)
     for sx in (-1, 1):
         dot(d, pv, sx * 0.62 * RS, 0.1 * RS, 0.6)
     x, y = P(pv['x'], pv['y'] + 0.42 * RS * PY)
     label('VDO', x, y, 1.2)
-    x, y = P(g['x'] + (1.6 if g['unit'] else 0), g['y'] - 0.62 * RS * PY)
+    x, y = P(g['x'] + (1.4 if g['unit'] else 0), g['y'] - 0.05 * RS * PY)
     icon(d, x, y, g['icon'])
     if g['unit']:
-        label(g['unit'], x - K * 3.4, y, 1.7, font=FR)
+        label(g['unit'], x - K * 3.0, y, 1.5, font=FR)
 
 
 def main():

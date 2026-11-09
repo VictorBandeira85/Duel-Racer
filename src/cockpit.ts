@@ -191,17 +191,18 @@ COCKPIT_ART.patrol = {
 // relógios pequenos em escada (pressão e temperatura do óleo à esquerda, água e gasolina à direita)
 // com o eixo abaixo do centro e arco de 90°; ponteiros laranja com rabicho preto e miolo grande
 const DEG = Math.PI / 180;
-const DIA_SMALL: [number, number, Gauge][] = [[67.9, 42, 'oil'], [49.1, 59.4, 'oiltemp'], [192.2, 42, 'water'], [211, 59.4, 'fuel']];
+// os quatro pequenos cabem inteiros no vão do volante (posições calculadas pela máscara do volante)
+const DIA_SMALL: [number, number, Gauge][] = [[72.4, 49.5, 'oil'], [61.4, 67.5, 'oiltemp'], [187.7, 49.5, 'water'], [198.7, 67.5, 'fuel']];
 COCKPIT_ART.diablo = {
   glass: { at: [60, 160], thr: 256 }, tells: [130, 30],
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'),
   pivot: [128, 112], wheelTop: 8, radar: [196, 6], speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 5, needleTailCol: '#141416', needleFine: true, hub: '#151517', hubR: 3.4,
-  faces: [{ src: cp('diablo-cluster'), x: 26.5, y: 12.5, w: 202, h: 68 }],
+  faces: [{ src: cp('diablo-cluster'), x: 26.5, y: 12.5, w: 188, h: 70 }],
   // à noite os fundos brancos acendem (luz por trás) e os ponteiros laranja também
   facesLit: '255,240,215', litNeedles: true, glow: '255,230,190', glowK: 0.3,
   speed: { x: 106.4, y: 45.9, r: 21.4, max: 360, labels: [], tick: 20, red: 999, face: false, a0: 121 * DEG, sweep: 289 * DEG },
   tach: { x: 153.7, y: 45.9, r: 21.4, max: 9, labels: [], tick: 1, red: 999, face: false, a0: 140 * DEG, sweep: 260 * DEG },
-  aux: DIA_SMALL.map(([x, y, k]) => ({ x, y: y + 0.5 * 9.5 * (8 / 7), r: 10, kind: 'single' as const, show: [k], arc: [225 * DEG, 315 * DEG] as [number, number], needleOnly: true })),
+  aux: DIA_SMALL.map(([x, y, k]) => ({ x, y: y + 0.5 * 8 * (8 / 7), r: 8.4, kind: 'single' as const, show: [k], arc: [225 * DEG, 315 * DEG] as [number, number], needleOnly: true })),
   extra: (c, ox, r) => {
     odometer(c, ox, r, { x: 100.4, y: 35.7, w: 12, h: 3.5 }, 30414, 6, 0.5);
     odometer(c, ox, r, { x: 102.4, y: 51.4, w: 8, h: 3.5 }, 128.4, 4, 0.5, true);

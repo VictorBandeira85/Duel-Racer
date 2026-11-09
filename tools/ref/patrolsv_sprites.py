@@ -37,14 +37,19 @@ def main():
     assets = sys.argv[1]
     cars = os.path.join(assets, 'cars')
     s, m = load(cars, 'side')
+    # a lateral do Diablo olha para a esquerda; as medidas abaixo são da arte espelhada (frente à
+    # direita): espelha, pinta e volta, e só então desenha brasão, letreiro e giroflex
+    s, m = s[:, ::-1].copy(), m[:, ::-1].copy()
     door = np.zeros(m.shape, np.uint8)
     cv2.fillPoly(door, [np.array(DOOR, np.int32)], 1)
     repaint(s, m & (door == 0), 10, 70)
     repaint(s, m & (door > 0), 170, 250)
-    badge(s, 152, 30)
-    text(s, 'POLICE', 30, 21, (236, 236, 236, 255))
+    s = s[:, ::-1].copy()
+    W = s.shape[1]
+    badge(s, W - 152 - 7, 30)
+    text(s, 'POLICE', W - 30 - 23, 21, (236, 236, 236, 255))
     s = pad_top(s, 5)
-    lightbar(s, 140, 172, 1, 'red', 'blue')
+    lightbar(s, W - 172, W - 140, 1, 'red', 'blue')
     Image.fromarray(s, 'RGBA').save(os.path.join(cars, 'patrolsv-side.png'))
 
     f, m = load(cars, 'front')

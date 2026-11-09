@@ -43,3 +43,7 @@
   qualquer tamanho de quadro (capa do menu e carregamento); se não couber, a foto diminui e os lados
   ficam com a própria foto desfocada. Nunca usar foco fixo.
 - Ao adicionar fotos, conferir todas as capas novas com print (`node tools/covers_check.cjs <pasta>`, com o vite rodando) antes de publicar.
+
+## Carros novos
+- A vista lateral de todo carro fica com a **frente para a esquerda** (como os demais). Se a arte vier
+  virada para a direita, espelhar a lateral e a máscara e espelhar as rodas em `WHEELS` (x -> 1 - x).

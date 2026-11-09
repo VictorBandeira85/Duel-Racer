@@ -44,7 +44,7 @@ interface CockpitArt {
   // partir do topo da arte (topo de 76 linhas + painel)
   mirror?: { img: string; x: number; y: number };
   lit?: [number, number, number, number][]; // visores com luz própria na arte do painel (x0, y0, x1, y1 inclusivos, pixels do painel): continuam acesos à noite
-  glass?: { at: [number, number]; thr?: number; x0?: number }; // x0: o vidro começa nesta coluna (espelho cortado na borda da arte)
+  glass?: { at: [number, number]; thr?: number; x0?: number; toEdge?: boolean }; // x0: o vidro começa nesta coluna (espelho cortado na borda da arte)
   // luz da seta antiga: um só círculo verde que pisca para os dois lados (+ as outras luzes da fileira, apagadas)
   turnDot?: { x: number; y: number; others?: [number, number][] };
   tells?: [number, number] | null; // luzes da seta no quadro (null: a cabine já desenha as dela) // ponto dentro do vidro do retrovisor (teto + painel), ver findGlass
@@ -784,7 +784,7 @@ function c4Cluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
 COCKPIT_ART.testarossa = {
   dash: cp('testarossa-dash'), top: cp('testarossa-top'), wheel: cp('testarossa-wheel'),
   pivot: [128, 105], wheelTop: 12, speedMax: 320, needle: '#ff8a1c', needleW: 1.5, needleTail: 3, needleFine: true, hub: '#141415', hubR: 2.2,
-  glass: { at: [12, 96], thr: 256, x0: 3 }, glow: '255,140,40', tells: null,
+  glass: { at: [12, 96], thr: 256, x0: 3, toEdge: true }, glow: '255,140,40', tells: null,
   faces: [{ src: cp('tr-cluster'), src2: cp('tr-cluster-2x'), x: 63.5, y: 29.5, w: 137, h: 54 }],
   speed: { x: 95.4, y: 53.7, r: 21, max: 320, labels: [], tick: 20, red: 999, face: false, a0: 135 * (Math.PI / 180), sweep: 270 * (Math.PI / 180) },
   tach: { x: 166.1, y: 53.7, r: 21, max: 10, labels: [], tick: 1, red: 999, face: false, a0: 135 * (Math.PI / 180), sweep: 270 * (Math.PI / 180) },

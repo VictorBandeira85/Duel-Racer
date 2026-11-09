@@ -79,7 +79,19 @@ function turf(c: CanvasRenderingContext2D, a: string, b: string, kind: 'grass' |
     g.fillRect(0, 0, N, N);
     let seed = kind === 'grass' ? 7 : kind === 'asphalt' ? 19 : 31;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    if (kind === 'grass') {
+    // chão que não é verde (areia, neve, terra, cascalho do cânion): grãos finos e espaçados, sem
+    // os tufos de capim (no claro eles viravam tracinhos cinzas correndo com a velocidade)
+    const rgbOf = (col: string) => col.startsWith('#') ? [1, 3, 5].map((i) => parseInt(col.slice(i, i + 2), 16)) : (col.match(/\d+/g) ?? ['0', '0', '0']).slice(0, 3).map(Number);
+    const [cr, cg, cb] = rgbOf(a);
+    if (kind === 'grass' && !(cg > cr * 1.12 && cg > cb)) {
+      g.fillStyle = b;
+      for (let y = 0; y < N; y++) for (let x = (y & 1); x < N; x += 2) g.fillRect(x, y, 1, 1);
+      for (let i = 0; i < 7; i++) {
+        const x = Math.floor(rnd() * N), y = Math.floor(rnd() * N);
+        g.fillStyle = i % 2 ? 'rgba(90,60,30,0.16)' : 'rgba(255,255,240,0.22)';
+        g.fillRect(x, y, 1, 1);
+      }
+    } else if (kind === 'grass') {
       g.fillStyle = b;
       for (let y = 0; y < N; y++) for (let x = (y & 1); x < N; x += 2) g.fillRect(x, y, 1, 1);
       // tufos: um risco escuro com a ponta clara

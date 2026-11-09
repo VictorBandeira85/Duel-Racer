@@ -29,7 +29,7 @@ ART_BRAND = {
 SPOTS = {
   'f40':        {'rear': (100, 51, 9, 6),  'front': (100, 71, 7, 4), 'side': [(100, 42, 7, 5)]},
   'testarossa': {'rear': (136, 78, 11, 8), 'front': (91, 59, 7, 4), 'side': [(81.5, 68.5, 5, 6.6), (283.5, 68.5, 5, 6.6)]},
-  'diablo':     {'rear': (100, 46, 9, 0),  'front': (100, 76, 9, 0)},
+  'diablo':     {'rear': (139, 46, 9, 0),  'front': (99.5, 59.5, 9, 6), 'side': [(52, 53, 5, 4), (229, 53, 5, 4.5)]},
   'patrolsv':   {'rear': (100, 46, 9, 0),  'front': (100, 76, 9, 0)},
   'countach':   {'rear': (112, 70, 9, 0),  'front': (92, 69, 9, 5)},
   '959':        {'rear': (100, 70, 9, 0),  'front': (100, 64, 9, 0)},
@@ -50,14 +50,14 @@ SPOTS = {
 # cubos dos volantes (src/assets/cockpit/<arte>-wheel.png): no lugar da buzina/emblema
 WHEELS = {
   'f40': (128, 117, 15, 0), '959': (128.5, 97, 13, 10), 'patrol': (129, 121, 11, 0),
-  'diablo': (128, 104, 13, 0), 'br-vectra': (129, 108, 13, 0), 'br-golgti': (128, 148, 13, 0),
+  'diablo': (128.7, 131, 15, 0), 'br-vectra': (129, 108, 13, 0), 'br-golgti': (128, 148, 13, 0),
   'br-kadett': (128, 104, 11, 0), 'br-uno': (128, 106, 11, 7), 'br-corsa': (127, 112, 13, 8),
   'br-passat': (129, 112, 13, 8), 'br-pumagtb': (128.5, 127, 13, 9), 'br-pumagte': (128.5, 116, 13, 10),
   'zr1': (128, 90, 13, 0), 'testarossa': (128, 117, 15, 0), 'nsx': (129.1, 115.9, 21, 0),
   'viper': (131, 125, 17, 0), 'countach': (127.5, 117, 13, 11),
 }
 ZR1_CLEAR = (128, 90, 15, 13)  # elipse do emblema largo do C4
-ELL = {'zr1': ZR1_CLEAR, 'testarossa': (128, 117, 13.6, 15.8), 'f40': (128, 117, 13.6, 15.8)}  # emblemas apagados por uma elipse
+ELL = {'zr1': ZR1_CLEAR, 'testarossa': (128, 117, 13.6, 15.8), 'f40': (128, 117, 13.6, 15.8), 'diablo': (128.7, 132, 14.5, 17)}  # emblemas apagados por uma elipse
 
 
 def hexrgb(h):

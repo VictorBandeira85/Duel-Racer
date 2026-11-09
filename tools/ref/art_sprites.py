@@ -21,6 +21,8 @@ from vectra_sprites import red_mask  # noqa: E402
 CFG = {
     'nsx': {'width': {'side': 300, 'rear': 200, 'front': 200}, 'green2red': ('rear', 'front'), 'holes': (),
             'text': {}, 'cut': {'rear': [(4, 36, 196, 63)]}, 'glassband': {'rear': [(38, 43)]}, 'neutral': {'rear': [(32, 38), (43, 52)]}},
+    'diablo': {'width': {'side': 300, 'rear': 200, 'front': 200}, 'green2red': (), 'holes': (), 'paint': 'purple',
+               'text': {'rear': [(55, 43, 88, 50), (132, 40, 146, 52)]}, 'cut': {}, 'fillholes': ('side',)},
     'f40': {'width': {'side': 300, 'rear': 200, 'front': 200}, 'green2red': (), 'holes': ('rear', 'front'),
             'text': {'rear': [(85, 33, 117, 40)], 'side': [(203, 47, 218, 55)]},
             'cut': {'rear': [(15, 40, 185, 61)], 'front': [(45, 4, 155, 34)]}, 'wide_mask': True},
@@ -34,6 +36,20 @@ def match_v(a, m, ref_v):
     ranks = np.argsort(np.argsort(v)) / max(1, len(v) - 1)
     hsv[..., 2][m] = np.percentile(ref_v, ranks * 100).astype(np.uint8)
     a[..., :3] = np.where(m[..., None], cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB_FULL), a[..., :3])
+
+
+def purple_mask(a, cut=()):
+    """pintura roxa (Diablo): tons de roxo/magenta, inclusive reflexos claros e bordas escuras"""
+    hsv = cv2.cvtColor(a[..., :3], cv2.COLOR_RGB2HSV_FULL).astype(int)
+    h, s, v = hsv[..., 0] * 360 / 256, hsv[..., 1], hsv[..., 2]
+    m = (h > 262) & (h < 338) & (((s > 70) & (v > 40)) | ((s > 30) & (v > 170))) & (a[..., 3] > 0)
+    for x0, y0, x1, y1 in cut:
+        m[y0:y1, x0:x1] = False
+    m &= cv2.erode((a[..., 3] > 0).astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+    n, lab, st, _ = cv2.connectedComponentsWithStats(m.astype(np.uint8), 4)
+    keep = np.zeros(n, bool)
+    keep[1:] = st[1:, cv2.CC_STAT_AREA] >= 12
+    return keep[lab]
 
 
 def green_to_red(a):
@@ -61,6 +77,8 @@ def main():
         n, lab = cv2.connectedComponents(white.astype(np.uint8), connectivity=4)
         border = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
         al = ~np.isin(lab, list(border))
+        # magenta puro = transparente na arte original (vãos da asa, entre aerofólio e teto)
+        al &= ~((rgb[..., 0] > 250) & (rgb[..., 1] < 5) & (rgb[..., 2] > 250))
         if k in cfg['holes']:
             # xadrez/branco preso entre a asa e a carroceria: claro, sem cor, mancha grande
             lt = ((rgb.min(axis=2) > 200) & (rgb.max(axis=2).astype(int) - rgb.min(axis=2) < 14)).astype(np.uint8)
@@ -69,6 +87,18 @@ def main():
                 if st2[i, cv2.CC_STAT_AREA] > 1500:
                     al[lab2 == i] = False
         al = cv2.morphologyEx(al.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)).astype(bool)
+        if k in cfg.get('fillholes', ()):
+            # furinhos transparentes no meio da arte (no vidro): fecham com a cor em volta
+            inv = (~al).astype(np.uint8)
+            n2, lab2, st2, _ = cv2.connectedComponentsWithStats(inv, 4)
+            bd = set(np.unique(np.concatenate([lab2[0], lab2[-1], lab2[:, 0], lab2[:, -1]])))
+            hole = np.zeros(al.shape, bool)
+            for i in range(1, n2):
+                if i not in bd and st2[i, cv2.CC_STAT_AREA] < 4000:
+                    hole |= lab2 == i
+            if hole.any():
+                rgb = cv2.inpaint(rgb, cv2.dilate(hole.astype(np.uint8), np.ones((3, 3), np.uint8)), 5, cv2.INPAINT_TELEA)
+                al |= hole
         n, lab, st, _ = cv2.connectedComponentsWithStats(al.astype(np.uint8), 8)
         al = lab == 1 + np.argmax(st[1:, cv2.CC_STAT_AREA])
         ys, xs = np.nonzero(al)
@@ -107,7 +137,7 @@ def main():
         for x0, y0, x1, y1 in cfg['text'].get(k, []):
             for y in range(y0, y1):
                 a[y, x0:x1, :3] = a[y, x0 - 2, :3]
-        m = red_mask(a, cut=cfg['cut'].get(k, []))
+        m = red_mask(a, cut=cfg['cut'].get(k, [])) if cfg.get('paint') != 'purple' else purple_mask(a, cfg['cut'].get(k, []))
         if cfg.get('wide_mask'):
             # a pintura inteira: também os reflexos rosados e as bordas vermelho-escuras (antes
             # sobravam fios rosa na troca de cor), menos o que se vê pelos vidros (bancos de couro)

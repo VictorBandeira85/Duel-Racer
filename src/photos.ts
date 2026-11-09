@@ -51,7 +51,14 @@ export const F4_PHOTOS: Photo[] = [
   { src: ph('f4-pista'), kicker: 'ENSAIO', kc: '#d01f26', title: 'FURIA F4', sub: 'Dois turbos e nenhum luxo', inside: ['V8 biturbo de 478 cv', 'Carroceria de kevlar', '324 km/h na pista'], focus: 0.25 },
   { src: ph('f4-raiox'), kicker: 'RAIO-X', kc: '#1a1614', title: 'POR DENTRO DA F4', sub: 'Tubos, kevlar e dois turbos', inside: ['Gaiola e chassi tubular', 'Motor atrás dos bancos', 'Peso: 1.100 kg'], focus: 0.5 },
 ].filter((p) => !!p.src);
-export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS].forEach((p) => img(p.src));
+export const DIA_PHOTOS: Photo[] = [
+  { src: ph('dia-salao'), kicker: 'ENSAIO', kc: '#d01f26', title: 'TORO V12', sub: 'O diabo agora tem portas tesoura', inside: ['V12 de 517 cv', '300 km/h de máxima', 'Portas que abrem para o céu'], focus: 0.5 },
+  { src: ph('dia-deserto'), kicker: 'TESTE', kc: '#1e4fb8', title: 'V12 NO DESERTO', sub: 'Asa alta e quatro escapes', inside: ['Retas sem fim', 'Lanternas duplas', 'Consumo a 300 km/h'], focus: 0.55 },
+  { src: ph('dia-bolonha'), kicker: 'VIAGEM', kc: '#1a1614', title: 'DE VOLTA À FÁBRICA', sub: 'Um amarelo que para a cidade', inside: ['Ruas de pedra', 'Faróis escamoteáveis', 'Os vizinhos aprovam'], focus: 0.45 },
+  { src: ph('dia-console'), kicker: 'POR DENTRO', kc: '#1a6a2a', title: 'O CONSOLE DO V12', sub: 'Fibra, ar automático e toca-fitas', inside: ['Climatizador digital', 'Botões de grade', 'Câmbio de alavanca alta'], focus: 0.5 },
+  { src: ph('dia-motor'), kicker: 'TÉCNICA', kc: '#1e4fb8', title: 'V12 5.7 DE 48V', sub: 'Doze cilindros atrás dos bancos', inside: ['Coletor de magnésio', 'Injeção multiponto', 'Revisão das válvulas'], focus: 0.5 },
+].filter((p) => !!p.src);
+export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS].forEach((p) => img(p.src));
 
 // a foto cobre o quadro inteiro (corta em cima e embaixo), com uma aproximação lenta (u: 0..1)
 export function drawPhoto(c: CanvasRenderingContext2D, r: Rect, p: Photo, u: number) {

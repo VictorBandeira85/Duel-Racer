@@ -184,23 +184,28 @@ COCKPIT_ART.patrol = {
   odo: { x: 118, y: 43, w: 32, h: 11 }, prnd: { x: 118, y: 59, w: 32, h: 8 },
 };
 
-// Diablo SV: interior do Victor com o quadro VDO de verdade: velocímetro 0-360 com hodômetro
-// de cristal líquido, conta-giros 0-90 (× 100 rpm) com faixa amarela e vermelha, ponteiros
-// laranja; à esquerda temperatura e pressão do óleo, no meio a água, à direita combustível e relógio
+// Toro V12 (Diablo): interior novo do Victor (com e sem volante, tools/ref/diablo_cockpit.py) e o
+// quadro VDO da foto do carro real (tools/ref/diablo_gauges.py): fundos brancos, velocímetro 0-360
+// com hodômetros, conta-giros 0-90 (× 100) com faixa amarela e vermelha, temperatura do óleo,
+// combustível e pressão do óleo; ponteiros laranja
 COCKPIT_ART.diablo = {
-  glass: { at: [20, 70] },
+  glass: { at: [60, 160], thr: 256 }, tells: [130, 30],
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'),
-  pivot: [128, 103], dy: 14, wheelDx: 10, wheelTop: 7, radar: [196, 6], speedMax: 360, needle: '#ff7a1a', hub: '#1a1a1c',
-  speed: { x: 103.5, y: 40, r: 23, max: 360, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320, 360], nudge: { 120: [-0.5, 0.5], 160: [-2.5, 0.5], 200: [1.5, 0], 240: [0.5, 0.5] }, tick: 10, red: 999, labelScale: 0.7 },
-  tach: { x: 178.5, y: 39.5, r: 23, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], labelMul: 10, tick: 0.25, yellow: 6.8, red: 7.2, labelScale: 0.7, redLabels: false },
+  pivot: [128, 112], wheelTop: 8, radar: [196, 6], speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 3, needleFine: true, hub: '#151517', hubR: 2.6,
+  faces: [{ src: cp('diablo-cluster'), x: 26.5, y: 12.5, w: 180, h: 68 }],
+  // à noite os fundos brancos acendem (luz por trás) e os ponteiros laranja também
+  facesLit: '255,240,215', litNeedles: true, glow: '255,230,190', glowK: 0.3,
+  speed: { x: 106.4, y: 45.9, r: 21.4, max: 360, labels: [], tick: 20, red: 999, face: false, a0: 125 * (Math.PI / 180), sweep: 290 * (Math.PI / 180) },
+  tach: { x: 153.7, y: 45.9, r: 21.4, max: 9, labels: [], tick: 1, red: 999, face: false, a0: 125 * (Math.PI / 180), sweep: 290 * (Math.PI / 180) },
   aux: [
-    { x: 140.5, y: 28, r: 12, kind: 'single', show: ['water'], icon: 'temp', labels: ['40', '80', '120'] },
-    { x: 221, y: 30.5, r: 11, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1/2', '1'] },
-    { x: 238, y: 53, r: 12.5, kind: 'clock' },
-    { x: 68, y: 40, r: 9.5, kind: 'single', show: ['oiltemp'], icon: 'temp', labels: ['50', '100', '150'] },
-    { x: 52, y: 60.5, r: 8, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '5', '10'] },
+    { x: 44.1, y: 61.3, r: 8.4, kind: 'single', show: ['oiltemp'], arc: [205 * (Math.PI / 180), 335 * (Math.PI / 180)], needleOnly: true },
+    { x: 70.4, y: 61.3, r: 8.4, kind: 'single', show: ['fuel'], arc: [205 * (Math.PI / 180), 335 * (Math.PI / 180)], needleOnly: true },
+    { x: 188.1, y: 60.4, r: 8.4, kind: 'single', show: ['oil'], arc: [205 * (Math.PI / 180), 335 * (Math.PI / 180)], needleOnly: true },
   ],
-  extra: (c, ox, r) => odometer(c, ox, r, { x: 97.5, y: 47.5, w: 12, h: 3.5 }, 30414, 6, 0.5),
+  extra: (c, ox, r) => {
+    odometer(c, ox, r, { x: 100.4, y: 35.7, w: 12, h: 3.5 }, 30414, 6, 0.5);
+    odometer(c, ox, r, { x: 102.4, y: 51.4, w: 8, h: 3.5 }, 128.4, 4, 0.5, true);
+  },
 };
 
 // Vectra GSi: quadro como o de verdade — conta-giros 0-8 ("ELECTRONIC", faixa vermelha a partir de

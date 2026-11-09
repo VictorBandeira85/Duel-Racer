@@ -177,11 +177,11 @@ export const CARS: CarSpec[] = [
     imgSide: s959SidePng,
   },
   {
-    id: 'toro-v12', name: 'Toro V12', basedOn: 'Lamborghini Diablo SV', color: '#f2c200',
+    id: 'toro-v12', name: 'Toro V12', basedOn: 'Lamborghini Diablo SV', color: '#a02cb4',
     // SV: versão leve e mais forte (sem tração integral), câmbio mais curto, asa regulável
     price: '$260.000', position: 'central', drive: 'traseira', engine: 'V12 48v',
     displacement: '5.707 cc', power: '517 cv', maxSpeed: kmh(300), zeroTo100: 4.0, zeroTo200: 14.0, accel: 1, mass: 1530, gears: [0.3, 0.47, 0.64, 0.82, 1], curve: 'v12', lateralG: 0.95, brakeG: 1.02, handling: 0.93, aero: 0.08,
-    dash: 'diablo', hood: '#d8a808', art: 'diablo',
+    dash: 'diablo', hood: '#8a2498', art: 'diablo',
     side: {
       body: [0, 0.055, 0, 0.085, 0.03, 0.115, 0.2, 0.145, 0.3, 0.162, 0.47, 0.246, 0.58, 0.25, 0.64, 0.236, 0.85, 0.198, 0.96, 0.19, 1, 0.17, 1, 0.08, 0.985, 0.055],
       glass: [0.33, 0.168, 0.47, 0.24, 0.575, 0.243, 0.615, 0.2],
@@ -192,7 +192,7 @@ export const CARS: CarSpec[] = [
         { fill: 'shade', pts: [0.9, 0.193, 1, 0.188, 1, 0.198, 0.92, 0.2] },
       ],
     },
-    rear: { h: 0.56, roof: 0.5, lights: 'quadRound', wing: 1, glow: { dots: [[0.145, 0.357], [0.225, 0.357], [0.775, 0.357], [0.855, 0.357]] } },
+    rear: { h: 0.51, roof: 0.5, lights: 'quadRound', wing: 1, glow: { dots: [[0.103, 0.44], [0.183, 0.44], [0.817, 0.44], [0.897, 0.44]] } },
   },
   {
     id: 'vortex-zr', name: 'Vortex ZR', basedOn: 'Corvette ZR-1 (C4)', color: '#d81a12',
@@ -319,7 +319,7 @@ export const DEALER_CARS = CARS.filter((c) => !c.arcadeOnly);
 const VARIANT_PAINT: Record<string, string> = { nero: 'Deep Black', rosso: 'Rosso Lucido', blu: 'Blu Le Mans', verde: 'Verde Ithaca', giallo: 'Giallo' };
 
 const LAMPS: Record<string, LampDef> = {
-  diablo: { pop: [0.145, 0.473, 0.29, 0.58], sigRear: [0.145, 0.357, 0.036], sigFront: [0.125, 0.66, 0.165, 0.715] },
+  diablo: { pop: [0.14, 0.485, 0.3, 0.6], sigRear: [0.183, 0.44, 0.04], sigFront: [0.113, 0.7, 0.175, 0.75] },
   patrolsv: { pop: [0.145, 0.473, 0.29, 0.58], podColor: '#1c1c1e', sigRear: [0.145, 0.384, 0.036], sigFront: [0.125, 0.66, 0.165, 0.715] },
   f40: { head: [0.195, 0.613, 0.03], sigRear: [0.138, 0.446, 0.04], sigFront: [0.105, 0.595, 0.165, 0.649] },
   zr1: { pop: [0.105, 0.385, 0.29, 0.505], sigRear: [0.135, 0.39, 0.045], sigRed: true, sigFront: [0.03, 0.66, 0.07, 0.73] },
@@ -352,7 +352,7 @@ const WHEELS: Record<string, number[][]> = {
   'br-golgti': [[0.197, 0.773, 0.086], [0.833, 0.773, 0.086]],
   'br-vectra': [[0.178, 0.777, 0.07], [0.778, 0.779, 0.07]],
   'countach': [[0.225, 0.732, 0.054], [0.809, 0.735, 0.054]],
-  'diablo': [[0.204, 0.73, 0.072], [0.794, 0.72, 0.074]],
+  'diablo': [[0.173, 0.688, 0.072], [0.763, 0.688, 0.072]],
   'f40': [[0.244, 0.741, 0.08], [0.812, 0.735, 0.08]],
   'nsx': [[0.208, 0.728, 0.074], [0.777, 0.729, 0.074]],
   'patrol': [[0.188, 0.794, 0.07], [0.739, 0.798, 0.068]],
@@ -368,7 +368,7 @@ const PLATE_BOX: Record<string, number[]> = {
   'br-golgti': [51, 41, 84, 55, 134, 100], 'br-kadett': [31, 30, 62, 40, 93, 70], 'br-pumagte': [35, 34, 64, 46, 102, 65],
   'br-corsa': [88, 108, 150, 127, 239, 212], 'br-uno': [70, 81, 118, 100, 189, 157], 'br-passat': [63, 58, 109, 72, 173, 124],
   'br-vectra': [40, 52, 73, 62, 113, 79], 'br-pumagtb': [38, 31, 57, 37, 95, 59],
-  '959': [77, 74, 124, 87, 200, 118], countach: [90, 82, 132, 94, 224, 124], diablo: [86, 83, 114, 94, 199, 113],
+  '959': [77, 74, 124, 87, 200, 118], countach: [90, 82, 132, 94, 224, 124], diablo: [86, 63, 114, 72, 200, 102],
   f40: [80, 66, 121, 78, 200, 112], nsx: [78, 85, 122, 102, 200, 133], patrol: [84, 82, 116, 96, 200, 155],
   patrolsv: [86, 85, 114, 96, 199, 118], testarossa: [116, 103, 161, 125, 275, 162], viper: [103, 76, 133, 91, 237, 155],
   zr1: [80, 63, 121, 78, 200, 125],

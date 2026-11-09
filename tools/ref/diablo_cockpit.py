@@ -37,6 +37,14 @@ def sample(img, xs, ys):
     return img[yi][:, xi]
 
 
+def save_mask(rgb, al, path):
+    """máscara da lataria roxa (capô, colunas, porta, retrovisor) para a troca de cor no jogo"""
+    hsv = cv2.cvtColor(np.ascontiguousarray(rgb), cv2.COLOR_RGB2HSV_FULL).astype(int)
+    hue = hsv[..., 0] * 360 / 256
+    m = al & (hue > 262) & (hue < 340) & (hsv[..., 1] > 70) & (hsv[..., 2] > 25)
+    Image.fromarray((m * 255).astype(np.uint8), 'L').save(path, optimize=True)
+
+
 def side_mirror(rgb, al):
     """retrovisor esquerdo completo (a arte só mostra a ponta dele, cortada na borda): carcaça na cor
     da carroceria com luz em cima, moldura escura e o vidro transparente (o jogo põe a vista de trás
@@ -111,6 +119,7 @@ def main():
     d_al[:, xs < 0] = (ys[:, None] > 330).repeat((xs < 0).sum(), 1)
     d_rgb, d_al = side_mirror(d_rgb, d_al)
     Image.fromarray(np.dstack([d_rgb, d_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'diablo-dash.png'))
+    save_mask(d_rgb, d_al, os.path.join(out, 'diablo-dash-mask.png'))
     xs, ys = grid(y0d - EXT * PXH, EXT)
     xr = np.clip(xs, 0, W - 1)
     t_rgb = sample(nw, xr, ys)
@@ -118,6 +127,7 @@ def main():
     t_al[ys < 0, :] = False
     t_al[:, xs < 0] = False
     Image.fromarray(np.dstack([t_rgb, t_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'diablo-top.png'))
+    save_mask(t_rgb, t_al, os.path.join(out, 'diablo-top-mask.png'))
 
     # volante
     rr = np.hypot(xx - PIV[0], yy - PIV[1])

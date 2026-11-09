@@ -99,6 +99,7 @@ export interface CarSpec {
   pendingArt?: boolean; // ficha pronta, esperando a arte (src/carsbr.ts)
   dash: string; // cabine: 'A'/'B' (desenhadas por código) ou a chave da arte em COCKPIT_ART
   hood: string;
+  cockpitPaint?: string; // cor da lataria vista de dentro (capô, colunas) quando a cabine é de outro carro
   side: SideDef;
   rear: RearDef;
   svgSide?: string; // arte vetorial do perfil (viewBox com chão na base)
@@ -293,13 +294,13 @@ export const CARS: CarSpec[] = [
     id: 'patrol-sv', name: 'Toro V12 Polícia', basedOn: 'Lamborghini Diablo SV (polícia)', color: '#f2f2f2', arcadeOnly: true,
     price: '$260.000', position: 'central', drive: 'traseira', engine: 'V12 48v',
     displacement: '5.707 cc', power: '517 cv', maxSpeed: kmh(300), zeroTo100: 4.0, zeroTo200: 14.0, accel: 1, mass: 1560, gears: [0.3, 0.47, 0.64, 0.82, 1], curve: 'v12', lateralG: 0.95, brakeG: 1.02, handling: 0.93, aero: 0.08,
-    dash: 'diablo', hood: '#e8e8ea', art: 'patrolsv',
+    dash: 'diablo', hood: '#e8e8ea', art: 'patrolsv', cockpitPaint: '#1c1c20',
     side: {
       body: [0, 0.055, 0, 0.085, 0.03, 0.115, 0.2, 0.145, 0.3, 0.162, 0.47, 0.246, 0.58, 0.25, 0.64, 0.236, 0.85, 0.198, 0.96, 0.19, 1, 0.17, 1, 0.08, 0.985, 0.055],
       glass: [0.33, 0.168, 0.47, 0.24, 0.575, 0.243, 0.615, 0.2],
       wheels: [0.2, 0.8], shoulder: 0.15,
     },
-    rear: { h: 0.585, roof: 0.5, lights: 'quadRound', wing: 1, glow: { dots: [[0.145, 0.384], [0.225, 0.384], [0.775, 0.384], [0.855, 0.384]] } },
+    rear: { h: 0.535, roof: 0.5, lights: 'quadRound', wing: 1, glow: { dots: [[0.103, 0.466], [0.183, 0.466], [0.817, 0.466], [0.897, 0.466]] } },
   },
 ];
 
@@ -320,7 +321,7 @@ const VARIANT_PAINT: Record<string, string> = { nero: 'Deep Black', rosso: 'Ross
 
 const LAMPS: Record<string, LampDef> = {
   diablo: { pop: [0.14, 0.485, 0.3, 0.6], sigRear: [0.183, 0.44, 0.04], sigFront: [0.113, 0.7, 0.175, 0.75] },
-  patrolsv: { pop: [0.145, 0.473, 0.29, 0.58], podColor: '#1c1c1e', sigRear: [0.145, 0.384, 0.036], sigFront: [0.125, 0.66, 0.165, 0.715] },
+  patrolsv: { pop: [0.14, 0.495, 0.3, 0.608], podColor: '#1c1c1e', sigRear: [0.183, 0.466, 0.04], sigFront: [0.113, 0.706, 0.175, 0.755] }, // Diablo novo + giroflex (patrolsv_sprites.py)
   f40: { head: [0.195, 0.613, 0.03], sigRear: [0.138, 0.446, 0.04], sigFront: [0.105, 0.595, 0.165, 0.649] },
   zr1: { pop: [0.105, 0.385, 0.29, 0.505], sigRear: [0.135, 0.39, 0.045], sigRed: true, sigFront: [0.03, 0.66, 0.07, 0.73] },
   testarossa: { pop: [0.067, 0.424, 0.256, 0.534], popLit: [0.126, 0.472], sigRear: [0.08, 0.42, 0.182, 0.556], sigFront: [0.061, 0.636, 0.228, 0.686] },
@@ -356,7 +357,7 @@ const WHEELS: Record<string, number[][]> = {
   'f40': [[0.244, 0.741, 0.08], [0.812, 0.735, 0.08]],
   'nsx': [[0.208, 0.728, 0.074], [0.777, 0.729, 0.074]],
   'patrol': [[0.188, 0.794, 0.07], [0.739, 0.798, 0.068]],
-  'patrolsv': [[0.204, 0.747, 0.072], [0.794, 0.738, 0.074]],
+  'patrolsv': [[0.173, 0.707, 0.072], [0.763, 0.707, 0.072]],
   'testarossa': [[0.231, 0.692, 0.082], [0.803, 0.692, 0.082]],
   'viper': [[0.199, 0.742, 0.077], [0.761, 0.742, 0.077]],
   'zr1': [[0.21, 0.734, 0.076], [0.766, 0.734, 0.076]],
@@ -370,7 +371,7 @@ const PLATE_BOX: Record<string, number[]> = {
   'br-vectra': [40, 52, 73, 62, 113, 79], 'br-pumagtb': [38, 31, 57, 37, 95, 59],
   '959': [77, 74, 124, 87, 200, 118], countach: [90, 82, 132, 94, 224, 124], diablo: [86, 63, 114, 72, 200, 102],
   f40: [80, 66, 121, 78, 200, 112], nsx: [78, 85, 122, 102, 200, 133], patrol: [84, 82, 116, 96, 200, 155],
-  patrolsv: [86, 85, 114, 96, 199, 118], testarossa: [116, 103, 161, 125, 275, 162], viper: [103, 76, 133, 91, 237, 155],
+  patrolsv: [86, 68, 114, 77, 200, 107], testarossa: [116, 103, 161, 125, 275, 162], viper: [103, 76, 133, 91, 237, 155],
   zr1: [80, 63, 121, 78, 200, 125],
 };
 const frac = (b: number[]) => [b[0] / b[4], b[1] / b[5], b[2] / b[4], b[3] / b[5]];

@@ -195,7 +195,7 @@ const DEG = Math.PI / 180;
 const DIA_SMALL: [number, number, Gauge][] = [[72.4, 49.5, 'oil'], [61.4, 67.5, 'oiltemp'], [187.7, 49.5, 'water'], [198.7, 67.5, 'fuel']];
 COCKPIT_ART.diablo = {
   glass: { at: [36, 93], thr: 256 }, tells: [130, 30], // retrovisor esquerdo desenhado em diablo_cockpit.py (side_mirror)
-  dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'),
+  dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'), dashMask: cp('diablo-dash-mask'), topMask: cp('diablo-top-mask'),
   pivot: [128, 112], wheelTop: 8, radar: [196, 6], speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 5, needleTailCol: '#141416', needleFine: true, hub: '#151517', hubR: 3.4,
   faces: [{ src: cp('diablo-cluster'), x: 26.5, y: 12.5, w: 188, h: 70 }],
   // à noite os fundos brancos acendem (luz por trás) e os ponteiros laranja também
@@ -1061,7 +1061,7 @@ function instrumentGlow(c: CanvasRenderingContext2D, ox: number, art: CockpitArt
 function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: CockpitArt): boolean {
   const { w } = view;
   const ox = coreX();
-  const color = paintHex(r.car.id);
+  const color = paintHex(r.car.id) ?? r.car.cockpitPaint;
   const tint = (mask?: string) => (color && mask ? { mask, color } : undefined);
   const dash0 = svgSprite(art.dash, DASH_W, 124, tint(art.dashMask));
   // o volante pode ter mais linhas que o painel (inteiro, para girar sem mostrar corte)

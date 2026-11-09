@@ -246,14 +246,14 @@ COCKPIT_ART['br-golgti'] = {
   tells: null,
   dash: cp('br-golgti-dash'), top: cp('br-golgti-top'), wheel: cp('br-golgti-wheel'), dashMask: cp('br-golgti-dash-mask'), topMask: cp('br-golgti-top-mask'),
   glass: { at: [86, 110], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, radar: [200, 6], speedMax: 240, needle: '#f2eee2', needleW: 1.4, needleTail: 2.5, needleFine: true, hub: '#151517', hubR: 2.1,
+  pivot: [128, 112], wheelTop: 8, radar: [200, 6], speedMax: 240, needle: '#f2eee2', needleW: 1.6, needleTail: 3.5, needleFine: true, hub: '#141416', hubR: 2.4,
   faces: [{ src: cp('br-golgti-cluster'), x: 69.5, y: 31.5, w: 118, h: 47 }],
   glow: '255,120,40', glowK: 0.6,
-  speed: { x: 93.6, y: 54.4, r: 20, max: 240, labels: [], tick: 20, red: 999, face: false, a0: 112.5 * GOL_DEG, sweep: 293.5 * GOL_DEG },
-  tach: { x: 154.5, y: 54.4, r: 20, max: 8, labels: [], tick: 1, red: 999, face: false, a0: 170.7 * GOL_DEG, sweep: 218.7 * GOL_DEG },
+  speed: { x: 93.6, y: 54.4, r: 20, max: 240, labels: [], tick: 20, red: 999, face: false, a0: (134 - 271 / 11) * GOL_DEG, sweep: (271 * 12 / 11) * GOL_DEG },
+  tach: { x: 154.5, y: 54.4, r: 20, max: 8, labels: [], tick: 1, red: 999, face: false, a0: 165.7 * GOL_DEG, sweep: 226.7 * GOL_DEG },
   aux: [
-    { x: 150.5, y: 63.4, r: 7.6, kind: 'single', show: ['water'], arc: [160 * GOL_DEG, 110 * GOL_DEG], needleOnly: true, hubR: 0 },
-    { x: 158.5, y: 63.4, r: 7.6, kind: 'single', show: ['fuel'], arc: [70 * GOL_DEG, 20 * GOL_DEG], needleOnly: true, hubR: 0 },
+    { x: 144.3, y: 65.1, r: 5.6, kind: 'single', show: ['water'], arc: [170 * GOL_DEG, 100 * GOL_DEG], needleOnly: true, hubR: 0 },
+    { x: 164.7, y: 65.1, r: 5.6, kind: 'single', show: ['fuel'], arc: [80 * GOL_DEG, 10 * GOL_DEG], needleOnly: true, hubR: 0 },
   ],
   extra: (c, ox, r) => {
     odometer(c, ox, r, { x: 87.6, y: 45.8, w: 12, h: 3.5 }, 86476, 6, 0.5);

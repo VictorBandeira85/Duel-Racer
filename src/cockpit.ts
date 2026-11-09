@@ -62,6 +62,7 @@ interface CockpitArt {
   needle: string;
   needleW?: number; // espessura do ponteiro (padrão 1 px)
   needleTail?: number; // contrapeso do ponteiro, além do eixo (px)
+  needleTailCol?: string; // cor do contrapeso (padrão: a do ponteiro)
   hub: string;
   aux: Aux[];
   hubR?: number; // raio do miolo redondo dos ponteiros grandes
@@ -185,23 +186,22 @@ COCKPIT_ART.patrol = {
 };
 
 // Toro V12 (Diablo): interior novo do Victor (com e sem volante, tools/ref/diablo_cockpit.py) e o
-// quadro VDO da foto do carro real (tools/ref/diablo_gauges.py): fundos brancos, velocímetro 0-360
-// com hodômetros, conta-giros 0-90 (× 100) com faixa amarela e vermelha, temperatura do óleo,
-// combustível e pressão do óleo; ponteiros laranja
+// quadro VDO da foto do carro real (tools/ref/diablo_gauges.py): fundos brancos, velocímetro 20-360
+// com hodômetros, conta-giros 0-90 (× 100) varrendo 260° com faixa amarela e vermelha, e quatro
+// relógios pequenos em escada (pressão e temperatura do óleo à esquerda, água e gasolina à direita)
+// com o eixo abaixo do centro e arco de 90°; ponteiros laranja com rabicho preto e miolo grande
+const DEG = Math.PI / 180;
+const DIA_SMALL: [number, number, Gauge][] = [[67.9, 42, 'oil'], [49.1, 59.4, 'oiltemp'], [192.2, 42, 'water'], [211, 59.4, 'fuel']];
 COCKPIT_ART.diablo = {
   glass: { at: [60, 160], thr: 256 }, tells: [130, 30],
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'),
-  pivot: [128, 112], wheelTop: 8, radar: [196, 6], speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 3, needleFine: true, hub: '#151517', hubR: 2.6,
-  faces: [{ src: cp('diablo-cluster'), x: 26.5, y: 12.5, w: 180, h: 68 }],
+  pivot: [128, 112], wheelTop: 8, radar: [196, 6], speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 5, needleTailCol: '#141416', needleFine: true, hub: '#151517', hubR: 3.4,
+  faces: [{ src: cp('diablo-cluster'), x: 26.5, y: 12.5, w: 202, h: 68 }],
   // à noite os fundos brancos acendem (luz por trás) e os ponteiros laranja também
   facesLit: '255,240,215', litNeedles: true, glow: '255,230,190', glowK: 0.3,
-  speed: { x: 106.4, y: 45.9, r: 21.4, max: 360, labels: [], tick: 20, red: 999, face: false, a0: 125 * (Math.PI / 180), sweep: 290 * (Math.PI / 180) },
-  tach: { x: 153.7, y: 45.9, r: 21.4, max: 9, labels: [], tick: 1, red: 999, face: false, a0: 125 * (Math.PI / 180), sweep: 290 * (Math.PI / 180) },
-  aux: [
-    { x: 44.1, y: 61.3, r: 8.4, kind: 'single', show: ['oiltemp'], arc: [205 * (Math.PI / 180), 335 * (Math.PI / 180)], needleOnly: true },
-    { x: 70.4, y: 61.3, r: 8.4, kind: 'single', show: ['fuel'], arc: [205 * (Math.PI / 180), 335 * (Math.PI / 180)], needleOnly: true },
-    { x: 188.1, y: 60.4, r: 8.4, kind: 'single', show: ['oil'], arc: [205 * (Math.PI / 180), 335 * (Math.PI / 180)], needleOnly: true },
-  ],
+  speed: { x: 106.4, y: 45.9, r: 21.4, max: 360, labels: [], tick: 20, red: 999, face: false, a0: 121 * DEG, sweep: 289 * DEG },
+  tach: { x: 153.7, y: 45.9, r: 21.4, max: 9, labels: [], tick: 1, red: 999, face: false, a0: 140 * DEG, sweep: 260 * DEG },
+  aux: DIA_SMALL.map(([x, y, k]) => ({ x, y: y + 0.5 * 9.5 * (8 / 7), r: 10, kind: 'single' as const, show: [k], arc: [225 * DEG, 315 * DEG] as [number, number], needleOnly: true })),
   extra: (c, ox, r) => {
     odometer(c, ox, r, { x: 100.4, y: 35.7, w: 12, h: 3.5 }, 30414, 6, 0.5);
     odometer(c, ox, r, { x: 102.4, y: 51.4, w: 8, h: 3.5 }, 128.4, 4, 0.5, true);
@@ -1287,7 +1287,7 @@ function dialNeedle(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: numb
 // ponteiro: do centro exato, traçado em meio pixel (1 px de espessura)
 // ponteiro fino e afinado (arte com mostradores em alta resolução): polígono suavizado, com a
 // sombra leve no fundo, rabicho e miolo redondo com brilho
-function fineNeedle(c: CanvasRenderingContext2D, x: number, y: number, len: number, a: number, w: number, color: string, hub: string, hubR: number, tail: number) {
+function fineNeedle(c: CanvasRenderingContext2D, x: number, y: number, len: number, a: number, w: number, color: string, hub: string, hubR: number, tail: number, tailCol?: string) {
   const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y, px = -Math.sin(a), py = Math.cos(a) * PIX_Y;
   const poly = (ox: number, oy: number, col: string) => {
     c.fillStyle = col;
@@ -1301,6 +1301,17 @@ function fineNeedle(c: CanvasRenderingContext2D, x: number, y: number, len: numb
   };
   poly(0.6, 0.8, 'rgba(0,0,0,0.22)');
   poly(0, 0, color);
+  if (tailCol && tail > 0) {
+    // contrapeso de outra cor (o Diablo tem o rabicho preto)
+    c.fillStyle = tailCol;
+    c.beginPath();
+    c.moveTo(x - ca * tail + px * w * 0.55, y - sa * tail + py * w * 0.55);
+    c.lineTo(x + px * w * 0.45, y + py * w * 0.45);
+    c.lineTo(x - px * w * 0.45, y - py * w * 0.45);
+    c.lineTo(x - ca * tail - px * w * 0.55, y - sa * tail - py * w * 0.55);
+    c.closePath();
+    c.fill();
+  }
   c.fillStyle = 'rgba(255,255,255,0.28)';
   c.beginPath();
   c.moveTo(x - ca * tail + px * w * 0.45, y - sa * tail + py * w * 0.45);
@@ -1320,7 +1331,7 @@ function fineNeedle(c: CanvasRenderingContext2D, x: number, y: number, len: numb
 }
 
 function needle(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, a: number, art: CockpitArt) {
-  if (art.needleFine) return fineNeedle(c, cx + 0.5, cy + 0.5, r - 2, a, art.needleW ?? 2, art.needle, art.hub, art.hubR ?? 2.5, art.needleTail ?? 3);
+  if (art.needleFine) return fineNeedle(c, cx + 0.5, cy + 0.5, r - 2, a, art.needleW ?? 2, art.needle, art.hub, art.hubR ?? 2.5, art.needleTail ?? 3, art.needleTailCol);
   const len = r - 2.5;
   const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y;
   const w = art.needleW ?? 1;

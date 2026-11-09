@@ -256,25 +256,55 @@ function windowPane(c: CanvasRenderingContext2D, x: number, y: number, w: number
   rect(c, '#e8e4d8', x - w * 0.16, y + h * 1.06, w * 1.32, Math.max(0.5, h * 0.1)); // peitoril
 }
 
+
+// cilindro iluminado pela esquerda: faixas verticais em 5 tons com pontilhado nas emendas
+function cylinder(c: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, pal: Pal5) {
+  const order = [3, 4, 3, 2, 2, 1, 1, 0];
+  const n = order.length;
+  for (let i = 0; i < n; i++) {
+    const col = pal[order[i]];
+    rect(c, col, x0 + (w * i) / n, y0, w / n + 0.3, h);
+    if (i > 0 && order[i] !== order[i - 1]) rect(c, dither(c, pal[order[i - 1]], col), x0 + (w * i) / n - w / (n * 3), y0, w / (n * 3), h);
+  }
+}
 const WINDOW = ['#2a3a5a', '#2a3a5a', '#33476a', '#f0d070'];
 const building: Draw = (c, x, y, w, h, seed) => {
   const hh = h * (0.55 + (seed % 45) / 100);
-  const colors = ['#8a8aa0', '#a09078', '#707890', '#b0a890', '#7a6a80'];
-  const base = colors[seed % colors.length];
-  const L = x - w / 2, side = w * 0.16;
-  rect(c, base, L, y - hh, w - side, hh);
-  rect(c, '#3c3c48', L + w - side, y - hh + side * 0.4, side, hh - side * 0.4);      // lateral na sombra
-  poly(c, '#5a5a68', L, y - hh, L + w - side, y - hh, L + w, y - hh + side * 0.4, L + side, y - hh + side * 0.4);
-  rect(c, '#d8d8e0', L, y - hh, w - side, Math.max(0.5, hh * 0.02));
+  const pals: Pal5[] = [['#3e3e50', '#5e5e74', '#8a8aa0', '#a8a8bc', '#d0d0dc'], ['#4e4234', '#706048', '#a09078', '#bcae94', '#e0d4bc'],
+    ['#30364a', '#4a5268', '#707890', '#8e96ac', '#b8c0d0'], ['#5a5444', '#807a64', '#b0a890', '#c8c2aa', '#e8e2cc'], ['#3a3040', '#564a5e', '#7a6a80', '#988aa0', '#c0b4c8']];
+  const P = pals[seed % pals.length];
+  const L = x - w / 2, side = w * 0.16, fw = w - side;
+  // fachada com faixas de laje, lateral na sombra e cobertura vista de cima
+  rect(c, P[2], L, y - hh, fw, hh);
+  rect(c, P[3], L, y - hh, fw * 0.08, hh);
+  rect(c, P[1], L + fw, y - hh + side * 0.4, side, hh - side * 0.4);
+  rect(c, dither(c, P[1], P[0]), L + fw + side * 0.6, y - hh + side * 0.4, side * 0.4, hh - side * 0.4);
+  poly(c, P[1], L, y - hh, L + fw, y - hh, L + w, y - hh + side * 0.4, L + side, y - hh + side * 0.4);
+  rect(c, P[4], L, y - hh, fw, Math.max(0.5, hh * 0.015));
+  // caixa d'água e antena no topo
+  rect(c, P[1], L + fw * 0.6, y - hh - hh * 0.06, fw * 0.2, hh * 0.06);
+  rect(c, P[3], L + fw * 0.6, y - hh - hh * 0.06, fw * 0.06, hh * 0.06);
+  rect(c, '#2a2a30', L + fw * 0.25, y - hh - hh * 0.12, Math.max(0.5, w * 0.012), hh * 0.12);
+  rect(c, '#e82a2a', L + fw * 0.25 - w * 0.01, y - hh - hh * 0.125, w * 0.03, Math.max(0.5, hh * 0.008));
   if (w < 10) return;
   const cols = 4, rows = Math.max(4, Math.round(hh / (w * 0.22)));
-  const cw = (w - side) / (cols * 2 + 1), rh = hh / (rows * 2 + 1.5);
-  for (let r = 0; r < rows; r++)
+  const cw = fw / (cols * 2 + 1), rh = hh / (rows * 2 + 1.5);
+  for (let r = 0; r < rows; r++) {
+    rect(c, P[1], L, y - hh + rh * (r * 2 + 2.3), fw, Math.max(0.5, rh * 0.25)); // laje
     for (let k = 0; k < cols; k++) {
-      c.fillStyle = WINDOW[(seed * 7 + r * 13 + k * 5) % WINDOW.length];
-      c.fillRect(L + cw * (k * 2 + 1), y - hh + rh * (r * 2 + 1.2), cw, rh);
+      const wx = L + cw * (k * 2 + 1), wy = y - hh + rh * (r * 2 + 1.2);
+      const lit = WINDOW[(seed * 7 + r * 13 + k * 5) % WINDOW.length] === '#f0d070';
+      rect(c, P[0], wx - cw * 0.12, wy - rh * 0.1, cw * 1.24, rh * 1.2);
+      rect(c, lit ? '#f0d070' : '#2e4468', wx, wy, cw, rh);
+      if (!lit) { poly(c, '#5a7aa8', wx, wy + rh * 0.7, wx + cw * 0.6, wy, wx + cw * 0.85, wy, wx, wy + rh); rect(c, '#9ab8e0', wx, wy, cw * 0.25, Math.max(0.5, rh * 0.15)); }
+      else rect(c, '#fff0b0', wx, wy, cw * 0.3, rh * 0.3);
     }
-  rect(c, '#2a2a30', x - side - w * 0.08, y - h * 0.08, w * 0.16, h * 0.08);
+  }
+  // térreo: marquise e porta de vidro
+  rect(c, P[0], L, y - h * 0.1, fw, h * 0.02);
+  rect(c, '#24324a', x - side - w * 0.1, y - h * 0.08, w * 0.2, h * 0.08);
+  rect(c, '#6a8ab8', x - side - w * 0.1, y - h * 0.08, w * 0.05, h * 0.08);
+  rect(c, P[0], x - side - w * 0.005, y - h * 0.08, Math.max(0.5, w * 0.01), h * 0.08);
 };
 
 const house: Draw = (c, x, y, w, h, seed) => {
@@ -463,23 +493,39 @@ const stop: Draw = (c, x, y, w, h) => {
 };
 
 const station: Draw = (c, x, y, w, h) => {
-  // loja ao fundo
-  rect(c, '#e8e8e0', x + w * 0.1, y - h * 0.5, w * 0.38, h * 0.5);
-  rect(c, '#b8b8b0', x + w * 0.38, y - h * 0.5, w * 0.1, h * 0.5);
-  rect(c, '#2a4a8a', x + w * 0.14, y - h * 0.38, w * 0.2, h * 0.2);
-  rect(c, '#8ab0d8', x + w * 0.14, y - h * 0.38, w * 0.06, h * 0.06);
-  // cobertura das bombas
+  // loja de conveniência com vitrine, porta de vidro e letreiro
+  siding(c, x + w * 0.08, y - h * 0.52, w * 0.4, h * 0.52, '#ecece4', '#b8b8b0', '#ffffff', h * 0.06, true);
+  rect(c, '#c82020', x + w * 0.08, y - h * 0.56, w * 0.4, h * 0.06);
+  rect(c, '#f4f4f0', x + w * 0.12, y - h * 0.55, w * 0.32, h * 0.025);
+  windowPane(c, x + w * 0.12, y - h * 0.4, w * 0.16, h * 0.2, '#5a5a62', '#2e4a7a');
+  rect(c, '#2a3a5a', x + w * 0.32, y - h * 0.36, w * 0.1, h * 0.36);
+  rect(c, '#7aa4d8', x + w * 0.32, y - h * 0.36, w * 0.03, h * 0.36);
+  rect(c, '#5a5a62', x + w * 0.365, y - h * 0.36, Math.max(0.5, w * 0.006), h * 0.36);
+  // pilares e cobertura das bombas com faixa da bandeira (fictícia) e luzes embaixo
   for (const px of [-0.4, -0.06]) {
-    rect(c, '#9a9aa0', x + w * px, y - h * 0.8, w * 0.03, h * 0.8);
+    rect(c, '#8a8a92', x + w * px, y - h * 0.8, w * 0.03, h * 0.8);
     rect(c, '#d8d8de', x + w * px, y - h * 0.8, w * 0.01, h * 0.8);
+    rect(c, '#5a5a62', x + w * px + w * 0.024, y - h * 0.8, w * 0.006, h * 0.8);
+    rect(c, '#e8c020', x + w * px - w * 0.004, y - h * 0.08, w * 0.038, h * 0.03);
   }
-  rect(c, '#f2f2f2', x - w / 2, y - h * 0.92, w * 0.56, h * 0.14);
-  rect(c, '#c82020', x - w / 2, y - h * 0.83, w * 0.56, h * 0.05);
-  rect(c, '#b0b0b0', x - w / 2, y - h * 0.78, w * 0.56, h * 0.02);
+  rect(c, '#f4f4f2', x - w / 2, y - h * 0.94, w * 0.56, h * 0.16);
+  rect(c, '#ffffff', x - w / 2, y - h * 0.94, w * 0.56, h * 0.02);
+  rect(c, '#c82020', x - w / 2, y - h * 0.86, w * 0.56, h * 0.05);
+  rect(c, '#e8c020', x - w / 2, y - h * 0.81, w * 0.56, h * 0.012);
+  rect(c, '#9a9aa0', x - w / 2, y - h * 0.78, w * 0.56, h * 0.02);
+  for (let i = 0; i < 6; i++) rect(c, '#fff8d0', x - w * 0.47 + i * w * 0.09, y - h * 0.765, w * 0.05, h * 0.01);
+  // ilha e bombas com visor, bico e mangueira
+  rect(c, '#9a9a96', x - w * 0.38, y - h * 0.04, w * 0.3, h * 0.04);
+  rect(c, '#c8c8c0', x - w * 0.38, y - h * 0.04, w * 0.3, h * 0.012);
   for (const px of [-0.32, -0.18]) {
-    rect(c, '#d02a2a', x + w * px, y - h * 0.32, w * 0.07, h * 0.32);
-    rect(c, '#f0f0f0', x + w * px + w * 0.01, y - h * 0.28, w * 0.05, h * 0.08);
-    rect(c, '#202020', x + w * px + w * 0.07, y - h * 0.24, w * 0.01, h * 0.14);
+    rect(c, '#d02a2a', x + w * px, y - h * 0.34, w * 0.07, h * 0.3);
+    rect(c, '#f05040', x + w * px, y - h * 0.34, w * 0.02, h * 0.3);
+    rect(c, '#8a1810', x + w * px + w * 0.055, y - h * 0.34, w * 0.015, h * 0.3);
+    rect(c, '#f0f0f0', x + w * px + w * 0.01, y - h * 0.3, w * 0.05, h * 0.07);
+    rect(c, '#1a2a1a', x + w * px + w * 0.015, y - h * 0.29, w * 0.04, h * 0.025);
+    rect(c, '#7aff7a', x + w * px + w * 0.02, y - h * 0.285, w * 0.025, h * 0.012);
+    rect(c, '#202020', x + w * px + w * 0.07, y - h * 0.26, w * 0.012, h * 0.14);
+    rect(c, '#3a3a3a', x + w * px + w * 0.06, y - h * 0.27, w * 0.025, h * 0.02);
   }
 };
 
@@ -510,19 +556,24 @@ const billboard: Draw = (c, x, y, w, h, seed) => {
 
 // viaduto sobre a pista: tabuleiro com mureta e dois pilares (o vão no meio é transparente)
 const bridge: Draw = (c, x, y, w, h) => {
+  // viaduto de concreto: tabuleiro com juntas e manchas, mureta com pingadeira, pilares em 3 tons
   const deck = h * 0.22;
   rect(c, '#8a8a8e', x - w / 2, y - h, w, deck);
-  rect(c, '#b4b4b8', x - w / 2, y - h, w, deck * 0.25);
+  for (let i = 0; i < 40; i++) rect(c, i % 3 ? '#7e7e84' : '#96969a', x - w / 2 + (w * i) / 40, y - h + deck * 0.3, w / 80, deck * 0.4);
+  for (let i = 1; i < 6; i++) rect(c, '#5e5e64', x - w / 2 + (w * i) / 6, y - h, Math.max(0.5, w * 0.003), deck);
+  rect(c, '#b4b4b8', x - w / 2, y - h, w, deck * 0.22);
   rect(c, '#5e5e64', x - w / 2, y - h + deck * 0.75, w, deck * 0.25);
+  rect(c, dither(c, '#5e5e64', 'rgba(0,0,0,0)'), x - w / 2, y - h + deck, w, deck * 0.12);
   for (let i = 0; i < 24; i++) rect(c, '#6a6a70', x - w / 2 + (w * i) / 24, y - h - deck * 0.3, w * 0.008, deck * 0.3);
   rect(c, '#6a6a70', x - w / 2, y - h - deck * 0.34, w, deck * 0.08);
+  rect(c, '#9a9aa0', x - w / 2, y - h - deck * 0.34, w, deck * 0.025);
   for (const px of [-0.5, 0.43]) {
     rect(c, '#7a7a80', x + w * px, y - h + deck, w * 0.07, h - deck);
-    rect(c, '#a0a0a6', x + w * px, y - h + deck, w * 0.02, h - deck);
-    rect(c, '#55555a', x + w * px + w * 0.05, y - h + deck, w * 0.02, h - deck);
+    rect(c, '#a8a8ae', x + w * px, y - h + deck, w * 0.02, h - deck);
+    rect(c, '#4e4e54', x + w * px + w * 0.05, y - h + deck, w * 0.02, h - deck);
     rect(c, dither(c, '#7a7a80', '#6a6a70'), x + w * (px + 0.02), y - h + deck, w * 0.03, h - deck);
+    for (let k = 1; k < 4; k++) rect(c, '#5e5e64', x + w * px, y - h + deck + (h - deck) * k / 4, w * 0.07, Math.max(0.5, h * 0.006));
   }
-  // faixa amarela e preta embaixo do tabuleiro (altura livre)
   for (let i = 0; i < 16; i++) rect(c, i % 2 ? '#202020' : '#e8c020', x - w * 0.42 + (w * 0.84 * i) / 16, y - h + deck * 0.8, (w * 0.84) / 16, deck * 0.2);
 };
 
@@ -564,15 +615,24 @@ const umbrella: Draw = (c, x, y, w, h, seed) => {
 
 // quiosque de praia com teto de palha
 const kiosk: Draw = (c, x, y, w, h) => {
-  rect(c, '#8a5a2a', x - w * 0.36, y - h * 0.5, w * 0.72, h * 0.5);
-  rect(c, '#a8743a', x - w * 0.36, y - h * 0.5, w * 0.72, h * 0.05);
-  rect(c, '#5a3a1a', x + w * 0.18, y - h * 0.5, w * 0.18, h * 0.5);
+  siding(c, x - w * 0.36, y - h * 0.5, w * 0.72, h * 0.5, '#8a5a2a', '#5a3a1a', '#b07a40', h * 0.05);
   rect(c, '#2a1a0a', x - w * 0.3, y - h * 0.44, w * 0.42, h * 0.18);
-  rect(c, '#e8e0c0', x - w * 0.4, y - h * 0.28, w * 0.8, h * 0.06);
-  for (const px of [-0.42, 0.38]) rect(c, '#6a4a2a', x + w * px, y - h * 0.62, w * 0.04, h * 0.62);
-  poly(c, '#c8a250', x - w / 2, y - h * 0.58, x + w / 2, y - h * 0.58, x, y - h);
-  poly(c, '#9a7a30', x, y - h, x + w / 2, y - h * 0.58, x + w * 0.2, y - h * 0.58);
-  for (let i = 0; i < 6; i++) rect(c, '#e0c070', x - w * 0.46 + i * w * 0.18, y - h * 0.6, w * 0.02, h * 0.06);
+  for (let i = 0; i < 4; i++) ell(c, i % 2 ? '#6a4a1a' : '#8a6a2a', x - w * 0.24 + i * w * 0.1, y - h * 0.3, w * 0.035, h * 0.03); // cocos no balcão
+  rect(c, '#e8e0c0', x - w * 0.4, y - h * 0.28, w * 0.8, h * 0.05);
+  rect(c, '#b8b090', x - w * 0.4, y - h * 0.24, w * 0.8, h * 0.012);
+  for (const px of [-0.42, 0.38]) { rect(c, '#6a4a2a', x + w * px, y - h * 0.62, w * 0.04, h * 0.62); rect(c, '#8a6a3a', x + w * px, y - h * 0.62, w * 0.012, h * 0.62); }
+  // telhado de palha em camadas, com fios soltos na borda
+  const pts = [x - w / 2, y - h * 0.58, x + w / 2, y - h * 0.58, x, y - h];
+  poly(c, '#c8a250', ...pts);
+  clipPoly(c, pts, () => {
+    for (let r = 0; r < 6; r++) {
+      const yy = y - h + (h * 0.42 * r) / 6;
+      rect(c, '#9a7a30', x - w / 2, yy + h * 0.055, w, h * 0.015);
+      for (let k = 0; k < 30; k++) rect(c, k % 3 ? '#e0c070' : '#a8862e', x - w / 2 + k * w / 30 + (r % 2) * w / 60, yy, Math.max(0.5, w * 0.006), h * 0.06);
+    }
+    poly(c, dither(c, '#7a5a20', 'rgba(0,0,0,0)'), x, y - h, x + w / 2, y - h * 0.58, x + w * 0.18, y - h * 0.58);
+  });
+  for (let i = 0; i < 12; i++) rect(c, i % 2 ? '#e0c070' : '#b0903a', x - w * 0.49 + i * w * 0.083, y - h * 0.6, Math.max(0.5, w * 0.012), h * (0.05 + (i % 3) * 0.015));
   if (w > 14) {
     c.font = `bold ${Math.floor(h * 0.1)}px monospace`;
     c.textAlign = 'center';
@@ -584,62 +644,110 @@ const kiosk: Draw = (c, x, y, w, h) => {
 
 // fábrica: galpão com telhado em serra e chaminé listrada
 const factory: Draw = (c, x, y, w, h) => {
+  // galpão de chapa ondulada com telhado em serra envidraçado e chaminé listrada fumegando
   rect(c, '#7a7466', x - w / 2, y - h * 0.45, w * 0.8, h * 0.45);
-  rect(c, '#5a564c', x + w * 0.3, y - h * 0.45, w * 0.2, h * 0.45);
+  for (let i = 0; i < 40; i++) rect(c, i % 2 ? '#8e887a' : '#666054', x - w / 2 + i * w * 0.02, y - h * 0.45, w * 0.01, h * 0.45);
+  rect(c, '#4a463e', x + w * 0.3, y - h * 0.45, w * 0.2, h * 0.45);
+  for (let i = 0; i < 10; i++) rect(c, '#3a362e', x + w * 0.3 + i * w * 0.02, y - h * 0.45, w * 0.006, h * 0.45);
   for (let i = 0; i < 4; i++) {
     const tx = x - w / 2 + i * w * 0.2;
     poly(c, '#8a8478', tx, y - h * 0.45, tx + w * 0.2, y - h * 0.45, tx + w * 0.2, y - h * 0.6);
-    rect(c, '#9ab0c8', tx + w * 0.16, y - h * 0.58, w * 0.03, h * 0.12);
+    poly(c, '#a8a296', tx, y - h * 0.45, tx + w * 0.05, y - h * 0.45, tx + w * 0.2, y - h * 0.59, tx + w * 0.2, y - h * 0.6);
+    rect(c, '#6a8aa8', tx + w * 0.165, y - h * 0.58, w * 0.03, h * 0.12);
+    rect(c, '#b8d0e8', tx + w * 0.165, y - h * 0.58, w * 0.01, h * 0.12);
   }
-  for (let i = 0; i < 5; i++) rect(c, '#3a4a5a', x - w * 0.44 + i * w * 0.15, y - h * 0.32, w * 0.1, h * 0.1);
+  for (let i = 0; i < 5; i++) windowPane(c, x - w * 0.44 + i * w * 0.15, y - h * 0.34, w * 0.09, h * 0.09, '#4a4a50', '#2e3e52');
   rect(c, '#4a4a50', x - w * 0.1, y - h * 0.18, w * 0.18, h * 0.18);
-  for (let i = 0; i < 8; i++) rect(c, i % 2 ? '#c83a2a' : '#e8e8e8', x + w * 0.34, y - h * (0.45 + i * 0.07), w * 0.1, h * 0.07);
-  rect(c, '#8a8a90', x + w * 0.34, y - h, w * 0.1, h * 0.02);
-  ell(c, 'rgba(200,200,205,0.85)', x + w * 0.42, y - h * 1.02, w * 0.08, h * 0.04);
+  for (let i = 0; i < 6; i++) rect(c, '#5e5e64', x - w * 0.1, y - h * (0.17 - i * 0.03), w * 0.18, h * 0.006);
+  for (let i = 0; i < 8; i++) {
+    const col = i % 2 ? ['#a02a1e', '#c83a2a', '#e86050'] : ['#b8b8b8', '#e8e8e8', '#ffffff'];
+    rect(c, col[1], x + w * 0.34, y - h * (0.45 + (i + 1) * 0.07), w * 0.1, h * 0.07);
+    rect(c, col[2], x + w * 0.34, y - h * (0.45 + (i + 1) * 0.07), w * 0.025, h * 0.07);
+    rect(c, col[0], x + w * 0.42, y - h * (0.45 + (i + 1) * 0.07), w * 0.02, h * 0.07);
+  }
+  rect(c, '#6a6a70', x + w * 0.33, y - h * 1.01, w * 0.12, h * 0.02);
+  for (const [dx, dy, r] of [[0.42, 1.04, 0.07], [0.48, 1.08, 0.09], [0.56, 1.1, 0.08]]) {
+    ell(c, '#a8a8b0', x + w * dx, y - h * dy, w * r, h * r * 0.5);
+    ell(c, '#e4e4ea', x + w * (dx - 0.02), y - h * (dy + 0.01), w * r * 0.6, h * r * 0.3);
+  }
 };
 
 // silo / tanque industrial
 const silo: Draw = (c, x, y, w, h) => {
-  rect(c, '#b8b8c0', x - w * 0.4, y - h * 0.85, w * 0.8, h * 0.85);
-  rect(c, '#d8d8e0', x - w * 0.4, y - h * 0.85, w * 0.18, h * 0.85);
-  rect(c, '#8a8a92', x + w * 0.2, y - h * 0.85, w * 0.2, h * 0.85);
-  ell(c, '#a8a8b0', x, y - h * 0.85, w * 0.4, h * 0.08);
-  ell(c, '#d8d8e0', x - w * 0.1, y - h * 0.87, w * 0.2, h * 0.04);
-  for (let i = 1; i < 5; i++) rect(c, '#9a9aa2', x - w * 0.4, y - h * (0.85 - i * 0.17), w * 0.8, h * 0.01);
-  for (let i = 0; i < 6; i++) rect(c, '#5a5a62', x + w * 0.42, y - h * (0.1 + i * 0.13), w * 0.06, h * 0.01);
-  rect(c, '#5a5a62', x + w * 0.42, y - h * 0.85, w * 0.01, h * 0.85);
+  const P: Pal5 = ['#6a6a72', '#8a8a92', '#b0b0b8', '#d4d4dc', '#f0f0f6'];
+  cylinder(c, x - w * 0.4, y - h * 0.85, w * 0.8, h * 0.85, P);
+  ell(c, P[1], x, y - h * 0.85, w * 0.4, h * 0.07);
+  ell(c, P[3], x - w * 0.08, y - h * 0.87, w * 0.22, h * 0.035);
+  for (let i = 1; i < 6; i++) { rect(c, P[0], x - w * 0.4, y - h * (0.85 - i * 0.14), w * 0.8, Math.max(0.5, h * 0.008)); rect(c, P[4], x - w * 0.4, y - h * (0.85 - i * 0.14) + h * 0.008, w * 0.3, Math.max(0.5, h * 0.004)); }
+  // escada com gaiola
+  rect(c, '#4a4a52', x + w * 0.42, y - h * 0.85, w * 0.012, h * 0.85);
+  rect(c, '#4a4a52', x + w * 0.5, y - h * 0.85, w * 0.012, h * 0.7);
+  for (let i = 0; i < 14; i++) rect(c, '#4a4a52', x + w * 0.42, y - h * (0.08 + i * 0.055), w * 0.09, Math.max(0.5, h * 0.006));
+  rect(c, '#7a7a82', x - w * 0.42, y - h * 0.03, w * 0.84, h * 0.03);
 };
 
 // bananeira da selva: folhas grandes e caídas
 const banana: Draw = (c, x, y, w, h) => {
-  rect(c, '#4a6a2a', x - w * 0.06, y - h * 0.55, w * 0.12, h * 0.55);
-  rect(c, '#6a8a3a', x - w * 0.06, y - h * 0.55, w * 0.04, h * 0.55);
-  const leaf = (dx: number, up: number, col: string) => poly(c, col, x, y - h * 0.58, x + dx * w * 0.3, y - h * (0.6 + up * 0.35), x + dx * w * 0.55, y - h * (0.45 + up * 0.2), x + dx * w * 0.25, y - h * 0.5);
-  for (const [dx, up] of [[-1, 0.6], [1, 0.5], [-0.8, 1.1], [0.9, 1]]) leaf(dx, up, '#1a6a1a');
-  for (const [dx, up] of [[-0.5, 1.2], [0.4, 1.25], [0.1, 1.3]]) leaf(dx, up, '#2e9a2a');
-  ell(c, '#c8b020', x + w * 0.08, y - h * 0.5, w * 0.06, h * 0.06);
+  // pseudocaule com bainhas, folhas largas com nervura e rasgos, cacho e coração roxo
+  rect(c, '#3a5a1e', x - w * 0.06, y - h * 0.56, w * 0.12, h * 0.56);
+  rect(c, '#6a8a3a', x - w * 0.06, y - h * 0.56, w * 0.04, h * 0.56);
+  for (let i = 1; i < 5; i++) poly(c, '#4e6e28', x - w * 0.06, y - h * i * 0.12, x + w * 0.06, y - h * (i * 0.12 + 0.05), x + w * 0.06, y - h * (i * 0.12 + 0.02));
+  const leaf = (dx: number, up: number, cols: [string, string, string]) => {
+    const bx = x, by = y - h * 0.58, tx = x + dx * w * 0.55, ty = y - h * (0.45 + up * 0.2), mx = x + dx * w * 0.3, my = y - h * (0.6 + up * 0.35);
+    poly(c, cols[0], bx, by, mx - dx * w * 0.04, my - h * 0.03, tx, ty, mx + dx * w * 0.06, my + h * 0.08, x + dx * w * 0.22, y - h * 0.48);
+    poly(c, cols[1], bx, by, mx - dx * w * 0.03, my - h * 0.02, tx, ty, mx, my + h * 0.02);
+    poly(c, cols[2], bx, by - h * 0.005, mx, my - h * 0.005, tx, ty, mx, my + h * 0.004); // nervura
+    for (let k = 1; k < 4; k++) { const f = k / 4; rect(c, cols[0], bx + (tx - bx) * f, by + (ty - by) * f + h * 0.01, Math.max(0.5, w * 0.012), h * 0.05); } // rasgos
+  };
+  const D: [string, string, string] = ['#0e4a12', '#1a6a1a', '#4a9a3a'], M: [string, string, string] = ['#1a6a1a', '#2e9a2a', '#7ac85a'];
+  for (const [dx, up] of [[-1, 0.6], [1, 0.5], [-0.8, 1.1], [0.9, 1]]) leaf(dx, up, D);
+  for (const [dx, up] of [[-0.5, 1.2], [0.4, 1.25], [0.1, 1.3]]) leaf(dx, up, M);
+  for (let i = 0; i < 5; i++) ell(c, i % 2 ? '#c8b020' : '#a8a018', x + w * 0.08 + (i % 2) * w * 0.03, y - h * (0.52 - i * 0.025), w * 0.04, h * 0.018);
+  ell(c, '#7a2a5a', x + w * 0.1, y - h * 0.4, w * 0.03, h * 0.035);
 };
 
 // torre de pedra vermelha do cânion
 const spire: Draw = (c, x, y, w, h) => {
-  poly(c, '#a8482a', x - w / 2, y, x - w * 0.32, y - h * 0.5, x - w * 0.26, y - h * 0.92, x + w * 0.1, y - h, x + w * 0.3, y - h * 0.6, x + w / 2, y);
-  poly(c, '#d47a4a', x - w * 0.32, y - h * 0.5, x - w * 0.26, y - h * 0.92, x - w * 0.08, y - h * 0.96, x - w * 0.14, y - h * 0.4, x - w * 0.3, y);
-  poly(c, '#6a2a1a', x + w * 0.1, y - h, x + w * 0.3, y - h * 0.6, x + w / 2, y, x + w * 0.18, y);
-  for (let i = 1; i < 6; i++) rect(c, '#8a3a20', x - w * 0.36, y - h * (i * 0.16), w * 0.7, Math.max(0.5, h * 0.012));
+  // torre de arenito em estratos: face esquerda ao sol, direita na sombra, fendas e cascalho no pé
+  const out = [x - w / 2, y, x - w * 0.32, y - h * 0.5, x - w * 0.26, y - h * 0.92, x + w * 0.1, y - h, x + w * 0.3, y - h * 0.6, x + w / 2, y];
+  poly(c, '#a8482a', ...out);
+  clipPoly(c, out, () => {
+    for (let i = 0; i < 12; i++) {
+      const yy = y - h * (i + 1) / 12;
+      rect(c, i % 3 === 0 ? '#c0603a' : i % 3 === 1 ? '#a8482a' : '#94402a', x - w / 2, yy, w, h / 12);
+      rect(c, '#7a3018', x - w / 2, yy + h / 12 - Math.max(0.5, h * 0.006), w, Math.max(0.5, h * 0.006));
+    }
+    poly(c, '#e0905a', x - w * 0.34, y, x - w * 0.32, y - h * 0.5, x - w * 0.26, y - h * 0.92, x - w * 0.12, y - h * 0.95, x - w * 0.18, y - h * 0.4, x - w * 0.24, y);
+    poly(c, dither(c, '#e0905a', '#c0603a'), x - w * 0.24, y, x - w * 0.18, y - h * 0.4, x - w * 0.1, y - h * 0.4, x - w * 0.14, y);
+    poly(c, '#5a2214', x + w * 0.1, y - h, x + w * 0.3, y - h * 0.6, x + w / 2, y, x + w * 0.16, y);
+    poly(c, dither(c, '#5a2214', '#94402a'), x + w * 0.02, y - h * 0.9, x + w * 0.1, y - h, x + w * 0.16, y, x + w * 0.06, y);
+    rect(c, '#4a1a10', x - w * 0.04, y - h * 0.7, Math.max(0.5, w * 0.02), h * 0.3);
+    rect(c, '#4a1a10', x + w * 0.22, y - h * 0.4, Math.max(0.5, w * 0.02), h * 0.2);
+  });
+  for (let i = 0; i < 7; i++) ell(c, i % 2 ? '#8a3a20' : '#c06a40', x - w * 0.45 + i * w * 0.15, y - h * 0.01, w * 0.05, h * 0.015);
 };
 
 // farol listrado (praia)
 const lighthouse: Draw = (c, x, y, w, h) => {
-  rect(c, '#9a9a9a', x - w * 0.4, y - h * 0.08, w * 0.8, h * 0.08);
+  rect(c, '#8a8a88', x - w * 0.4, y - h * 0.08, w * 0.8, h * 0.08);
+  rect(c, '#b8b8b4', x - w * 0.4, y - h * 0.08, w * 0.8, h * 0.015);
   for (let i = 0; i < 6; i++) {
     const t0 = i / 6, t1 = (i + 1) / 6;
     const w0 = w * (0.3 - t0 * 0.12), w1 = w * (0.3 - t1 * 0.12);
-    poly(c, i % 2 ? '#d02020' : '#f2f2f2', x - w0, y - h * 0.08 - h * 0.7 * t0, x + w0, y - h * 0.08 - h * 0.7 * t0, x + w1, y - h * 0.08 - h * 0.7 * t1, x - w1, y - h * 0.08 - h * 0.7 * t1);
+    const red = i % 2 === 1;
+    const y0 = y - h * 0.08 - h * 0.7 * t0, y1 = y - h * 0.08 - h * 0.7 * t1;
+    poly(c, red ? '#c01c1c' : '#e8e8e4', x - w0, y0, x + w0, y0, x + w1, y1, x - w1, y1);
+    poly(c, red ? '#e84a3a' : '#ffffff', x - w0, y0, x - w0 * 0.5, y0, x - w1 * 0.5, y1, x - w1, y1);
+    poly(c, red ? '#7a1010' : '#a8a8a4', x + w0 * 0.55, y0, x + w0, y0, x + w1, y1, x + w1 * 0.55, y1);
   }
-  rect(c, '#2a2a30', x - w * 0.22, y - h * 0.8, w * 0.44, h * 0.03);
-  rect(c, '#fff4b0', x - w * 0.14, y - h * 0.92, w * 0.28, h * 0.12);
-  rect(c, '#2a2a30', x - w * 0.02, y - h * 0.92, w * 0.04, h * 0.12);
-  poly(c, '#d02020', x - w * 0.18, y - h * 0.92, x + w * 0.18, y - h * 0.92, x, y - h);
+  rect(c, '#2a2a30', x - w * 0.24, y - h * 0.8, w * 0.48, h * 0.025);
+  for (let i = 0; i < 7; i++) rect(c, '#2a2a30', x - w * 0.22 + i * w * 0.07, y - h * 0.835, Math.max(0.5, w * 0.012), h * 0.035);
+  rect(c, '#2a2a30', x - w * 0.24, y - h * 0.84, w * 0.48, h * 0.008);
+  rect(c, '#fff4b0', x - w * 0.14, y - h * 0.92, w * 0.28, h * 0.1);
+  rect(c, '#ffffe8', x - w * 0.12, y - h * 0.91, w * 0.08, h * 0.08);
+  rect(c, '#2a2a30', x - w * 0.02, y - h * 0.92, w * 0.04, h * 0.1);
+  poly(c, '#a01818', x - w * 0.18, y - h * 0.92, x + w * 0.18, y - h * 0.92, x, y - h);
+  poly(c, '#d83a2a', x - w * 0.18, y - h * 0.92, x - w * 0.04, y - h * 0.92, x, y - h);
 };
 
 // chalé dos alpes: madeira escura, telhado de duas águas com neve

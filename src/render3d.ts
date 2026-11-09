@@ -177,6 +177,20 @@ function tunnelSlice(c: CanvasRenderingContext2D, s: Segment, vp: Viewport, road
   quad(c, a.x + a.tw, a.y, a.x + a.tw, a.y - a.h, b.x + b.tw, b.y - b.h, b.x + b.tw, b.y);
   c.fillStyle = wallColor(s, light * 0.7);
   quad(c, a.x - a.tw, a.y - a.h, a.x + a.tw, a.y - a.h, b.x + b.tw, b.y - b.h, b.x - b.tw, b.y - b.h);
+  // azulejos: emenda vertical a cada 2 segmentos, faixa clara no meio da parede e nervuras no teto
+  if (s.index % 2 === 0) {
+    c.fillStyle = wallColor(s, light * 0.62);
+    const jw = (p: typeof a) => Math.max(0.5, p.tw * 0.012);
+    c.fillRect(Math.round(a.x - a.tw), Math.round(a.y - a.h), Math.ceil(jw(a)), Math.round(a.h));
+    c.fillRect(Math.round(a.x + a.tw - jw(a)), Math.round(a.y - a.h), Math.ceil(jw(a)), Math.round(a.h));
+  }
+  c.fillStyle = wallColor(s, Math.min(1.25, light * 1.22));
+  const my = (p: typeof a, k: number) => p.y - p.h * k;
+  for (const side of [-1, 1]) quad(c, a.x + side * a.tw, my(a, 0.42), a.x + side * a.tw, my(a, 0.46), b.x + side * b.tw, my(b, 0.46), b.x + side * b.tw, my(b, 0.42));
+  if (s.index % 4 === 0) {
+    c.fillStyle = wallColor(s, light * 0.45);
+    c.fillRect(Math.round(a.x - a.tw), Math.round(a.y - a.h), Math.round(a.tw * 2), Math.max(1, Math.round(a.h * 0.02)));
+  }
   // faixa refletiva na base das paredes
   c.fillStyle = (s.index >> 1) & 1 ? '#d8c020' : '#202020';
   const fy = (p: typeof a) => p.y - p.h * 0.06;
@@ -199,7 +213,7 @@ function tunnelPortal(c: CanvasRenderingContext2D, s: Segment, vp: Viewport, roa
   const tw = p.w * ((roadW + TUN_W) / roadW), h = p.scale * TUN_H * vp.K;
   const x0 = p.x - tw, x1 = p.x + tw, top = p.y - h;
   // encosta: um morro largo em volta (para não tapar o céu inteiro de longe)
-  c.fillStyle = dither(c, '#5a5046', '#4a4038');
+  c.fillStyle = turf(c, '#5a5046', '#4a4038', 'gravel', false);
   c.beginPath();
   c.moveTo(p.x - tw * 6, p.y);
   c.lineTo(p.x - tw * 3.2, top - h * 1.1);
@@ -213,14 +227,31 @@ function tunnelPortal(c: CanvasRenderingContext2D, s: Segment, vp: Viewport, roa
   c.lineTo(x0, p.y);
   c.closePath();
   c.fill();
+  // luz na encosta da esquerda e sombra na da direita, com blocos de pedra
+  c.fillStyle = 'rgba(255,240,210,0.14)';
+  c.beginPath(); c.moveTo(p.x - tw * 6, p.y); c.lineTo(p.x - tw * 3.2, top - h * 1.1); c.lineTo(p.x - tw * 1.2, top - h * 1.6); c.lineTo(x0, top); c.lineTo(x0, p.y); c.closePath(); c.fill();
+  c.fillStyle = 'rgba(0,0,0,0.22)';
+  c.beginPath(); c.moveTo(p.x + tw * 1.4, top - h * 1.5); c.lineTo(p.x + tw * 3.4, top - h * 1.0); c.lineTo(p.x + tw * 6, p.y); c.lineTo(x1, p.y); c.lineTo(x1, top); c.closePath(); c.fill();
+  if (tw > 12) {
+    c.fillStyle = 'rgba(30,24,20,0.5)';
+    for (let i = 0; i < 9; i++) {
+      const bx = p.x + (hash(i + s.index) - 0.5) * tw * 7, by = top - h * (0.2 + hash(i * 3 + s.index) * 1.1);
+      if (bx > x0 - tw * 0.2 && bx < x1 + tw * 0.2 && by > top - h * 0.1) continue;
+      c.fillRect(Math.round(bx), Math.round(by), Math.max(1, Math.round(tw * 0.25)), Math.max(1, Math.round(h * 0.05)));
+    }
+  }
   // moldura de concreto da boca
   const fw = Math.max(1, tw * 0.12);
   c.fillStyle = '#9a968e';
   c.fillRect(Math.round(x0 - fw), Math.round(top - fw), Math.round(x1 - x0 + 2 * fw), Math.round(fw));
   c.fillRect(Math.round(x0 - fw), Math.round(top), Math.round(fw), Math.round(p.y - top));
   c.fillRect(Math.round(x1), Math.round(top), Math.round(fw), Math.round(p.y - top));
-  c.fillStyle = '#6a665e';
+  c.fillStyle = '#c8c4bc';
   c.fillRect(Math.round(x0 - fw), Math.round(top - fw), Math.round(x1 - x0 + 2 * fw), Math.max(1, Math.round(fw * 0.25)));
+  c.fillRect(Math.round(x0 - fw), Math.round(top), Math.max(1, Math.round(fw * 0.3)), Math.round(p.y - top));
+  c.fillStyle = '#6a665e';
+  c.fillRect(Math.round(x0 - fw), Math.round(top - fw * 0.25), Math.round(x1 - x0 + 2 * fw), Math.max(1, Math.round(fw * 0.25)));
+  c.fillRect(Math.round(x1 + fw * 0.7), Math.round(top), Math.max(1, Math.round(fw * 0.3)), Math.round(p.y - top));
 }
 // dentro do túnel: do para-brisa até a primeira fatia desenhada também é parede e teto (abaixo
 // da base dela as laterais já saem cor de parede, drawSegment)

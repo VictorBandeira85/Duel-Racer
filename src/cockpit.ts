@@ -194,7 +194,7 @@ const DEG = Math.PI / 180;
 // os quatro pequenos cabem inteiros no vão do volante (posições calculadas pela máscara do volante)
 const DIA_SMALL: [number, number, Gauge][] = [[72.4, 49.5, 'oil'], [61.4, 67.5, 'oiltemp'], [187.7, 49.5, 'water'], [198.7, 67.5, 'fuel']];
 COCKPIT_ART.diablo = {
-  glass: { at: [60, 160], thr: 256 }, tells: [130, 30],
+  glass: { at: [36, 93], thr: 256 }, tells: [130, 30], // retrovisor esquerdo desenhado em diablo_cockpit.py (side_mirror)
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'),
   pivot: [128, 112], wheelTop: 8, radar: [196, 6], speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 5, needleTailCol: '#141416', needleFine: true, hub: '#151517', hubR: 3.4,
   faces: [{ src: cp('diablo-cluster'), x: 26.5, y: 12.5, w: 188, h: 70 }],

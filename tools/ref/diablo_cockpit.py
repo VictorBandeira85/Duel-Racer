@@ -37,6 +37,45 @@ def sample(img, xs, ys):
     return img[yi][:, xi]
 
 
+def side_mirror(rgb, al):
+    """retrovisor esquerdo completo (a arte só mostra a ponta dele, cortada na borda): carcaça na cor
+    da carroceria com luz em cima, moldura escura e o vidro transparente (o jogo põe a vista de trás
+    nele: glass em COCKPIT_ART.diablo), e o braço até a porta. Colunas do painel (com as 102 extras)."""
+    rgb, al = rgb.copy(), al.copy()
+    # tons da lataria roxa da arte (coluna e capô): claro, médio e escuro
+    light, mid, dark = (np.array(c, np.uint8) for c in ((214, 64, 214), (150, 20, 150), (78, 8, 84)))
+    h, w = al.shape
+    yy, xx = np.mgrid[0:h, 0:w]
+    # janela livre onde a borda da arte esticava a ponta do retrovisor
+    clear = ((xx < 58) & (yy < 31)) | ((xx < 50) & (yy < 44))
+    al[clear] = False
+
+    def rrect(x0, y0, x1, y1, r):
+        cx = np.clip(xx, x0 + r, x1 - r)
+        cy = np.clip(yy, y0 + r, y1 - r)
+        return ((xx - cx) ** 2 + ((yy - cy) * 8 / 7) ** 2 <= r * r) & (xx >= x0) & (xx <= x1) & (yy >= y0) & (yy <= y1)
+    arm = np.zeros_like(al)
+    for y in range(30, 45):
+        t = (y - 30) / 14
+        arm[y, int(46 + 5 * t):int(54 + 3 * t)] = True
+    body = rrect(12, 3, 60, 34, 10)
+    glass = rrect(19, 8, 53, 27, 6)
+    ring = rrect(18, 7, 54, 28, 7) & ~glass
+    t = np.clip((yy - 30) / 14, 0, 1)[..., None]
+    rgb[arm] = (mid * (1 - t) + dark * t).astype(np.uint8)[arm]
+    al[arm] = True
+    t = np.clip((yy - 3) / 31, 0, 1)[..., None]
+    shade = np.where(t < 0.5, light * (1 - 2 * t) + mid * 2 * t, mid * (2 - 2 * t) + dark * (2 * t - 1)).astype(np.uint8)
+    rgb[body] = shade[body]
+    edge = body & ~cv2.erode(body.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+    rgb[edge] = (24, 14, 30)
+    rgb[ring] = (18, 14, 22)
+    al[body] = True
+    al[glass] = False
+    print('vidro do retrovisor: colunas 19-53, linhas 8-27 do painel; semente', (36, 76 + 17))
+    return rgb, al
+
+
 def main():
     d, out = sys.argv[1], sys.argv[2]
     ww = np.array(Image.open(os.path.join(d, 'cab.png')).convert('RGB'))
@@ -70,6 +109,7 @@ def main():
     d_rgb = sample(nw, xr, ys)
     d_al = ~sample(sky, xr, ys)
     d_al[:, xs < 0] = (ys[:, None] > 330).repeat((xs < 0).sum(), 1)
+    d_rgb, d_al = side_mirror(d_rgb, d_al)
     Image.fromarray(np.dstack([d_rgb, d_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'diablo-dash.png'))
     xs, ys = grid(y0d - EXT * PXH, EXT)
     xr = np.clip(xs, 0, W - 1)
@@ -92,6 +132,14 @@ def main():
     xs, ys = grid(y0d - WTOP * PXH, WROWS, 0, 256)
     w_rgb = sample(ww, xs, ys)
     w_al = sample(wheel, xs, ys)
+    # a arte corta o aro embaixo: abaixo dela o aro é o de cima espelhado (círculo inteiro ao girar,
+    # sem as duas hastes retas), um pouco mais escuro
+    low = ys >= H - 2
+    if low.any():
+        ym = 2 * PIV[1] - ys[low]
+        ring = (rr <= R_OUT) & (rr >= R_IN)
+        w_rgb[low] = (sample(ww, xs, ym).astype(int) * 0.82).astype(np.uint8)
+        w_al[low] = sample(ring, xs, ym)
     Image.fromarray(np.dstack([w_rgb, w_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'diablo-wheel.png'))
     nat = lambda p: (round(PIV_N[0] + (p[0] - PIV[0]) * S, 1), round((p[1] - y0d) / PXH, 1))
     print('emblema volante', (round(PIV_N[0] + (768 - PIV[0]) * S, 1), round((745 - (y0d - WTOP * PXH)) / PXH, 1)),

@@ -47,3 +47,10 @@
 ## Carros novos
 - A vista lateral de todo carro fica com a **frente para a esquerda** (como os demais). Se a arte vier
   virada para a direita, espelhar a lateral e a máscara e espelhar as rodas em `WHEELS` (x -> 1 - x).
+
+## Trânsito
+- Cada modelo do trânsito (`tools/art/traffic.py`, `src/assets/traffic`) segue um carro real dos anos 90
+  (formas e luzes, sem marca): sedan = Monza, hatch = Gol quadrado, pickup = F-1000, van = Econoline,
+  truck = cara-chata LP 1113, fusca, kombi, suv = Explorer, sedan90 = Taurus. Modelo novo: escolher um
+  carro real, desenhar traseira e frente, e medir a placa nos PNG (`TRAFFIC_PLATE`/`TRAFFIC_GLOW` em cars.ts).
+  A viatura (police-*.png) foi retocada à mão: não sobrescrever ao rodar o script.

@@ -49,74 +49,98 @@ def cabin(p, y0, y1, w0, w1, glass_inset=6):
 
 
 # ------------------------------------------------------------- traseiras
+# Cada modelo do trânsito segue um carro real dos anos 90 (formas e luzes; sem marcas):
+#   sedan   = sedã de três volumes tipo Chevrolet Monza       hatch  = VW Gol "quadrado"
+#   pickup  = picape grande tipo Ford F-1000                   van    = furgão tipo Ford Econoline
+#   truck   = caminhão cara-chata tipo Mercedes-Benz LP 1113   fusca  = VW Fusca
+#   kombi   = VW Kombi                                         suv    = Ford Explorer (1ª geração)
+#   sedan90 = Ford Taurus (1992)
+def ribs(p, x0, y0, x1, y1, col=RED_D, step=2):
+    for y in range(y0 + 1, y1, step):
+        p.line([x0 + 1, y, x1 - 1, y], col)
+
+
 def sedan_rear(color=BASE, police=False):
+    """Monza: traseira alta e reta, lanternas largas com frisos até perto da placa, para-choque preto"""
     p = Pic(W, 92, color)
     tires(p)
-    p.poly([4, 10, 156, 10, 159, 22, 158, 46, 150, 52, 10, 52, 2, 46, 1, 22], 'body', body=True)
-    cabin(p, 52, 80, 58, 44)
+    p.poly([4, 10, 156, 10, 159, 22, 158, 48, 152, 52, 8, 52, 2, 48, 1, 22], 'body', body=True)
+    cabin(p, 52, 80, 54, 42, 9)
     shade(p, 46)
-    p.rect(2, 10, 158, 16, BLACK)
-    p.rect(4, 12, 156, 14, CHROME)
-    for x0 in (8, 120):
-        p.rect(x0, 30, x0 + 32, 42, BLACK)
-        p.rect(x0 + 1, 31, x0 + 31, 41, RED)
-        p.rect(x0 + (1 if x0 < 80 else 21), 31, x0 + (11 if x0 < 80 else 31), 41, AMBER)
-        p.rect(x0 + 1, 38, x0 + 31, 39, (255, 110, 90))
-    plate(p, 20)
-    p.rect(68, 4, 74, 9, CHROME)
+    p.rect(1, 10, 159, 20, BLACK)  # para-choque de plástico
+    p.rect(3, 15, 157, 16, (60, 60, 64))
+    p.rect(4, 26, 156, 44, BLACK)  # painel das lanternas
+    for x0, x1, inner in ((6, 62, 52), (98, 154, 98)):
+        p.rect(x0, 27, x1, 43, RED)
+        ribs(p, x0, 27, x1, 43)
+        p.rect(inner, 27, inner + 10, 43, AMBER if inner > 80 else AMBER)
+        p.rect(x0 + 1, 40, x1 - 1, 41, (255, 120, 100))
+    p.rect(62, 27, 98, 43, (30, 30, 34))
+    plate(p, 31)
+    p.line([8, 46, 152, 46], 'sh2', body=True)  # vinco da tampa do porta-malas
     mirrors(p, 54)
     if police:
         p.rect(52, 80, 108, 86, BLACK)
         p.rect(54, 81, 79, 85, (150, 20, 20))
         p.rect(81, 81, 106, 85, (20, 40, 150))
     p.outline()
-    glow = {'dots': [[0.15, 0.6], [0.85, 0.6]]}
+    glow = {'dots': [[0.2, 0.62], [0.8, 0.62]]}
     if police:
         glow['siren'] = [[0.34, 0.07, 0.49, 0.11], [0.51, 0.07, 0.66, 0.11]]
     return p, glow
 
 
 def hatch_rear(color=BASE):
+    """Gol quadrado: tampa traseira com vidro grande, lanternas retangulares nos cantos"""
     p = Pic(W, 96, color)
     tires(p, inset=14)
-    p.poly([6, 10, 154, 10, 157, 22, 156, 44, 148, 50, 12, 50, 4, 44, 3, 22], 'body', body=True)
-    cabin(p, 44, 84, 56, 46, 8)
+    p.poly([6, 10, 154, 10, 157, 22, 156, 44, 150, 50, 10, 50, 4, 44, 3, 22], 'body', body=True)
+    cabin(p, 44, 84, 56, 48, 7)
     shade(p, 44)
-    p.rect(4, 10, 156, 16, BLACK)
-    for x0 in (10, 134):
-        p.rect(x0, 24, x0 + 16, 46, BLACK)
-        p.rect(x0 + 1, 25, x0 + 15, 45, RED)
-        p.rect(x0 + 1, 25, x0 + 15, 30, AMBER)
-    plate(p, 22)
-    p.rect(30, 4, 36, 9, CHROME)
+    p.rect(3, 10, 157, 18, BLACK)
+    p.rect(5, 14, 155, 15, (60, 60, 64))
+    for x0 in (8, 124):
+        p.rect(x0, 22, x0 + 28, 42, BLACK)
+        p.rect(x0 + 1, 23, x0 + 27, 41, RED)
+        p.rect(x0 + 1, 34, x0 + 27, 41, AMBER)
+        p.rect(x0 + (20 if x0 < 80 else 1), 23, x0 + (27 if x0 < 80 else 8), 28, WHITE)  # ré
+        ribs(p, x0, 23, x0 + 27, 34)
+    p.rect(40, 24, 120, 40, 'sh', body=True)  # rebaixo da placa
+    plate(p, 28)
+    p.line([60, 82, 100, 78], BLACK)  # palheta do limpador
     mirrors(p, 50)
     p.outline()
-    return p, {'dots': [[0.11, 0.62], [0.89, 0.62]]}
+    return p, {'dots': [[0.14, 0.65], [0.86, 0.65]]}
 
 
 def pickup_rear(color=BASE):
+    """F-1000: tampa da caçamba larga com friso, lanternas verticais nas pontas, para-choque cromado com degrau"""
     p = Pic(W, 98, color)
     tires(p, w=26, inset=10)
-    # caçamba: tampa traseira larga; cabine mais estreita lá na frente
-    p.poly([4, 12, 156, 12, 158, 24, 158, 56, 2, 56, 2, 24], 'body', body=True)
-    p.poly([28, 56, 132, 56, 128, 86, 32, 86], 'body', body=True)
-    p.poly([36, 62, 124, 62, 120, 82, 40, 82], GLASS)
-    p.poly([44, 63, 52, 63, 48, 81, 44, 81], GLASS_HI)
-    shade(p, 56)
-    p.rect(2, 52, 158, 56, 'sh2', body=True)
-    p.line([10, 30, 150, 30], 'sh2', body=True)
-    p.rect(0, 8, 160, 14, CHROME)
-    for x0 in (4, 146):
-        p.rect(x0, 22, x0 + 10, 50, BLACK)
-        p.rect(x0 + 1, 23, x0 + 9, 49, RED)
-        p.rect(x0 + 1, 23, x0 + 9, 30, AMBER)
-    plate(p, 16)
-    mirrors(p, 60)
+    p.poly([4, 14, 156, 14, 158, 24, 158, 58, 2, 58, 2, 24], 'body', body=True)
+    p.poly([30, 58, 130, 58, 126, 88, 34, 88], 'body', body=True)
+    p.poly([40, 64, 120, 64, 116, 82, 44, 82], GLASS)
+    p.poly([48, 65, 56, 65, 52, 81, 48, 81], GLASS_HI)
+    shade(p, 58)
+    p.rect(2, 54, 158, 58, 'sh2', body=True)
+    p.rect(24, 34, 136, 44, 'sh', body=True)  # friso em relevo da tampa
+    p.line([24, 44, 136, 44], 'hi', body=True)
+    p.rect(72, 48, 88, 51, CHROME)  # maçaneta
+    p.rect(0, 6, 160, 14, CHROME)
+    p.rect(60, 8, 100, 12, (150, 152, 158))  # degrau
+    for x0 in (3, 147):
+        p.rect(x0, 20, x0 + 10, 54, BLACK)
+        p.rect(x0 + 1, 21, x0 + 9, 53, RED)
+        p.rect(x0 + 1, 21, x0 + 9, 28, AMBER)
+        p.rect(x0 + 1, 29, x0 + 9, 33, WHITE)
+    plate(p, 18)
+    mirrors(p, 62)
     p.outline()
-    return p, {'dots': [[0.06, 0.6], [0.94, 0.6]]}
+    return p, {'dots': [[0.05, 0.6], [0.95, 0.6]]}
 
 
 def van_rear(color=BASE):
+    """furgão tipo Econoline: duas portas traseiras com vidros, lanternas altas e estreitas"""
     p = Pic(W, 132, color)
     tires(p, w=24, inset=14)
     p.poly([4, 12, 156, 12, 158, 22, 158, 122, 150, 130, 10, 130, 2, 122, 2, 22], 'body', body=True)
@@ -127,21 +151,25 @@ def van_rear(color=BASE):
         p.rect(x0 + 4, 86, x0 + 14, 116, GLASS_HI)
     p.rect(70, 60, 78, 64, CHROME)
     p.rect(82, 60, 90, 64, CHROME)
-    p.rect(2, 10, 158, 16, BLACK)
+    for y in (40, 100):  # dobradiças
+        p.rect(4, y, 8, y + 6, DARK)
+        p.rect(152, y, 156, y + 6, DARK)
+    p.rect(2, 10, 158, 16, CHROME)
     for x0 in (4, 146):
-        p.rect(x0, 22, x0 + 10, 54, BLACK)
-        p.rect(x0 + 1, 23, x0 + 9, 53, RED)
+        p.rect(x0, 22, x0 + 10, 62, BLACK)
+        p.rect(x0 + 1, 23, x0 + 9, 61, RED)
         p.rect(x0 + 1, 23, x0 + 9, 31, AMBER)
+        p.rect(x0 + 1, 32, x0 + 9, 36, WHITE)
     plate(p, 20)
     p.outline()
-    return p, {'dots': [[0.06, 0.73], [0.94, 0.73]]}
+    return p, {'dots': [[0.06, 0.7], [0.94, 0.7]]}
 
 
 def truck_rear(color=BASE):
+    """caminhão baú (cara-chata tipo LP 1113): baú claro com faixa na cor da empresa"""
     p = Pic(W, 168, color)
     for x0 in (8, 34, 102, 128):
         p.rect(x0, 0, x0 + 24, 20, BLACK)
-    # baú claro com faixa na cor da empresa
     p.rect(2, 22, 158, 166, (216, 216, 210))
     p.rect(2, 22, 158, 26, (160, 160, 156))
     p.line([80, 28, 80, 162], (150, 150, 146), 2)
@@ -171,10 +199,11 @@ def front_base(p, hood, top, w_roof, lights, grille):
     p.band(0, 18, 'sh')
     p.band(0, 13, 'sh2')
     p.edge_light()
-    gx0, gx1, gy0, gy1 = grille
-    p.rect(gx0, gy0, gx1, gy1, BLACK)
-    for y in range(gy0 + 2, gy1, 2):
-        p.line([gx0 + 1, y, gx1 - 1, y], DARK)
+    if grille:
+        gx0, gx1, gy0, gy1 = grille
+        p.rect(gx0, gy0, gx1, gy1, BLACK)
+        for y in range(gy0 + 2, gy1, 2):
+            p.line([gx0 + 1, y, gx1 - 1, y], DARK)
     for x0, y0, x1, y1 in lights:
         p.rect(x0, y0, x1, y1, WHITE)
         p.rect(x0 + 1, y0 + 1, x0 + 3, y1 - 1, (255, 255, 255))
@@ -182,11 +211,20 @@ def front_base(p, hood, top, w_roof, lights, grille):
     mirrors(p, hood + 2)
 
 
+def emblem(p, cx, cy, r=3):
+    p.ellipse(cx, cy, r, r, CHROME)
+    p.ellipse(cx, cy, r - 1, r - 1, (150, 152, 158))
+
+
 def sedan_front(color=BASE, police=False):
+    """Monza: faróis retangulares finos colados na grade preta de frisos, piscas nas quinas"""
     p = Pic(W, 84, color)
-    front_base(p, 40, 74, 42, [(10, 26, 38, 34), (122, 26, 150, 34)], (44, 122, 24, 34))
-    for x0 in (10, 140):
-        p.rect(x0, 18, x0 + 10, 22, AMBER)
+    front_base(p, 40, 74, 42, [(8, 26, 46, 33), (114, 26, 152, 33)], (46, 114, 25, 34))
+    for x0 in (2, 152):
+        p.rect(x0, 24, x0 + 6, 33, AMBER)
+    emblem(p, 80, 29)
+    p.rect(1, 10, 159, 20, BLACK)
+    p.rect(3, 15, 157, 16, (60, 60, 64))
     if police:
         p.rect(50, 74, 110, 80, BLACK)
         p.rect(52, 75, 79, 79, (150, 20, 20))
@@ -196,16 +234,31 @@ def sedan_front(color=BASE, police=False):
 
 
 def hatch_front(color=BASE):
+    """Gol quadrado: faróis quadrados e grade preta de ponta a ponta entre eles"""
     p = Pic(W, 88, color)
-    front_base(p, 38, 78, 44, [(12, 26, 40, 33), (120, 26, 148, 33)], (48, 112, 24, 32))
+    front_base(p, 38, 78, 44, [(10, 24, 36, 34), (124, 24, 150, 34)], (36, 124, 24, 34))
+    for x0 in (10, 124):
+        p.rect(x0, 20, x0 + 26, 23, AMBER)
+    emblem(p, 80, 29)
+    p.rect(3, 10, 157, 18, BLACK)
     p.outline()
     return p
 
 
 def pickup_front(color=BASE):
+    """F-1000: grade cromada alta de ponta a ponta com os faróis retangulares nas pontas"""
     p = Pic(W, 92, color)
-    front_base(p, 48, 84, 40, [(8, 30, 30, 40), (130, 30, 152, 40)], (34, 126, 26, 42))
-    p.rect(76, 26, 84, 42, CHROME)
+    front_base(p, 50, 84, 40, [], None)
+    p.rect(6, 24, 154, 46, CHROME)
+    p.rect(30, 26, 130, 44, BLACK)
+    for x in range(34, 128, 8):
+        p.rect(x, 27, x + 4, 43, (70, 72, 78))
+    p.rect(30, 34, 130, 36, CHROME)
+    for x0 in (8, 130):
+        p.rect(x0, 30, x0 + 22, 42, WHITE)
+        p.rect(x0 + 1, 31, x0 + 4, 41, (255, 255, 255))
+        p.rect(x0, 26, x0 + 22, 29, AMBER)
+    p.rect(0, 8, 160, 16, CHROME)
     p.outline()
     return p
 
@@ -213,24 +266,32 @@ def pickup_front(color=BASE):
 def van_front(color=BASE):
     p = Pic(W, 124, color)
     front_base(p, 52, 118, 62, [(8, 30, 30, 40), (130, 30, 152, 40)], (40, 120, 24, 40))
+    p.rect(8, 26, 30, 29, AMBER)
+    p.rect(130, 26, 152, 29, AMBER)
     p.outline()
     return p
 
 
 def truck_front(color=BASE):
+    """cara-chata tipo LP 1113: cabine reta, para-brisa grande, grade de frisos e faróis redondos no para-choque"""
     p = Pic(W, 150, color)
     for x0 in (8, 128):
         p.rect(x0, 0, x0 + 24, 20, BLACK)
     p.rect(4, 14, 156, 110, 'body', body=True)
     p.rect(14, 64, 146, 104, GLASS)
     p.rect(20, 66, 40, 102, GLASS_HI)
-    p.rect(30, 20, 130, 50, BLACK)
-    for y in range(22, 50, 3):
-        p.line([32, y, 128, y], DARK)
-    for x0 in (8, 136):
-        p.rect(x0, 26, x0 + 16, 40, WHITE)
-    p.rect(2, 110, 158, 148, (216, 216, 210))                    # baú atrás, mais alto
-    p.rect(0, 12, 160, 18, CHROME)
+    p.line([80, 64, 80, 104], (60, 64, 72))
+    p.rect(34, 30, 126, 56, BLACK)
+    for y in range(32, 56, 3):
+        p.line([36, y, 124, y], (150, 150, 156))
+    emblem(p, 80, 60, 4)
+    p.rect(2, 110, 158, 148, (216, 216, 210))
+    p.rect(0, 12, 160, 24, (40, 40, 44))  # para-choque de aço
+    for cx in (18, 142):
+        p.ellipse(cx, 18, 7, 7, CHROME)
+        p.ellipse(cx, 18, 5, 5, WHITE)
+        p.ellipse(cx - 1, 19, 1, 1, (255, 255, 255))
+        p.rect(cx - 5, 28, cx + 5, 32, AMBER)
     p.band(0, 40, 'sh')
     p.edge_light()
     p.outline()
@@ -335,29 +396,29 @@ def kombi_front(color=BASE):
 
 
 def suv_rear(color=BASE):
-    """utilitário alto: estepe pendurado na porta, vidro traseiro grande, rack no teto"""
+    """Explorer (1ª geração): tampa traseira com vidro grande, lanternas verticais altas nas colunas"""
     p = Pic(W, 120, color)
     tires(p, w=28, h=20, inset=10)
-    p.poly([4, 16, 156, 16, 158, 26, 158, 66, 150, 72, 10, 72, 2, 66, 2, 26], 'body', body=True)
-    cabin(p, 72, 108, 66, 60, 8)
+    p.poly([4, 16, 156, 16, 158, 26, 158, 70, 150, 74, 10, 74, 2, 70, 2, 26], 'body', body=True)
+    cabin(p, 74, 110, 66, 62, 14)
     shade(p, 66)
-    p.rect(0, 12, 160, 20, DARK)  # para-choque de plástico
-    p.rect(2, 14, 158, 16, GREY)
-    p.ellipse(80, 50, 20, 20, BLACK)  # estepe
-    p.ellipse(80, 50, 17, 17, (34, 34, 38))
-    p.ellipse(80, 50, 10, 10, CHROME)
-    p.ellipse(80, 50, 4, 4, DARK)
-    for x0 in (6, 140):
-        p.rect(x0, 30, x0 + 14, 62, BLACK)
-        p.rect(x0 + 1, 31, x0 + 13, 61, RED)
-        p.rect(x0 + 1, 31, x0 + 13, 38, AMBER)
-    p.rect(14, 110, 146, 113, DARK)  # rack
+    p.rect(0, 12, 160, 22, DARK)
+    p.rect(2, 16, 158, 18, GREY)
+    for x0 in (4, 142):  # lanternas verticais subindo pela coluna
+        p.rect(x0, 30, x0 + 14, 98, BLACK)
+        p.rect(x0 + 1, 31, x0 + 13, 97, RED)
+        ribs(p, x0, 31, x0 + 13, 97, RED_D, 4)
+        p.rect(x0 + 1, 50, x0 + 13, 58, AMBER)
+        p.rect(x0 + 1, 40, x0 + 13, 46, WHITE)
+    p.rect(40, 36, 120, 54, 'sh', body=True)
+    plate(p, 40)
+    p.rect(72, 58, 88, 61, CHROME)
+    p.rect(14, 112, 146, 115, DARK)
     for x in (20, 140):
-        p.rect(x, 106, x + 2, 112, DARK)
-    plate(p, 22)
-    mirrors(p, 74)
+        p.rect(x, 108, x + 2, 114, DARK)
+    mirrors(p, 76)
     p.outline()
-    return p, {'dots': [[0.08, 0.6], [0.92, 0.6]]}
+    return p, {'dots': [[0.07, 0.6], [0.93, 0.6]]}
 
 
 def suv_front(color=BASE):
@@ -394,9 +455,16 @@ def sedan90_rear(color=BASE):
 
 
 def sedan90_front(color=BASE):
+    """Taurus 92: bico baixo sem grade, faróis finos ligados por uma faixa de luz clara no meio"""
     p = Pic(W, 82, color)
-    front_base(p, 38, 72, 40, [(8, 24, 50, 32), (110, 24, 152, 32)], (54, 106, 25, 31))
-    p.rect(2, 10, 158, 16, 'sh2', body=True)
+    front_base(p, 38, 72, 40, [(8, 26, 48, 33), (112, 26, 152, 33)], None)
+    p.rect(48, 28, 112, 31, (220, 224, 230))
+    p.rect(48, 28, 112, 28, (250, 250, 252))
+    emblem(p, 80, 30, 3)
+    p.rect(2, 10, 158, 18, 'sh2', body=True)
+    p.rect(50, 12, 110, 17, BLACK)  # entrada de ar no para-choque
+    for x0 in (2, 152):
+        p.rect(x0, 26, x0 + 6, 33, AMBER)
     p.outline()
     return p
 

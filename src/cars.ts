@@ -727,15 +727,13 @@ function lampSpots(w: number, look: CarLook): { h: number; dots: number[][] } {
   return { h, dots: [[0.15, 0.55], [0.85, 0.55]] };
 }
 
-const TRAFFIC_PLATE: Record<string, number[]> = { // como PLATE_BOX, nos sprites do trânsito
-  sedan: [66, 62, 94, 71, 160, 92], hatch: [66, 65, 95, 74, 160, 96], pickup: [66, 76, 94, 85, 160, 98],
-  van: [66, 103, 95, 112, 160, 132], truck: [66, 138, 94, 147, 160, 168], police: [68, 65, 90, 77, 160, 124],
-  fusca: [67, 70, 93, 79, 160, 100], kombi: [66, 104, 94, 113, 160, 132], suv: [66, 88, 94, 97, 160, 120], sedan90: [66, 60, 94, 69, 160, 90],
+const TRAFFIC_PLATE: Record<string, number[]> = { // como PLATE_BOX, nos sprites do trânsito (medido nos PNG)
+  sedan: [66, 52, 95, 61, 160, 92], hatch: [66, 59, 95, 68, 160, 96], pickup: [66, 71, 95, 80, 160, 98], van: [66, 103, 95, 112, 160, 132], truck: [66, 135, 95, 144, 160, 168], fusca: [67, 71, 94, 80, 160, 100], kombi: [66, 105, 95, 114, 160, 132], suv: [66, 71, 95, 80, 160, 120], sedan90: [66, 61, 95, 70, 160, 90], police: [68, 65, 90, 77, 160, 124],
 };
 const TRAFFIC_GLOW: Record<string, { dots?: number[][]; siren?: number[][]; sirenFront?: number[][]; sirenColors?: string[]; sirenColorsFront?: string[] }> = {
-  sedan: { dots: [[0.15, 0.6], [0.85, 0.6]] }, hatch: { dots: [[0.11, 0.62], [0.89, 0.62]] },
-  pickup: { dots: [[0.06, 0.6], [0.94, 0.6]] }, van: { dots: [[0.06, 0.71], [0.94, 0.71]] },
-  fusca: { dots: [[0.09, 0.56], [0.91, 0.56]] }, kombi: { dots: [[0.09, 0.66], [0.91, 0.66]] }, suv: { dots: [[0.08, 0.62], [0.92, 0.62]] }, sedan90: { dots: [[0.15, 0.6], [0.85, 0.6]] },
+  sedan: { dots: [[0.2, 0.62], [0.8, 0.62]] }, hatch: { dots: [[0.14, 0.65], [0.86, 0.65]] },
+  pickup: { dots: [[0.05, 0.6], [0.95, 0.6]] }, van: { dots: [[0.06, 0.7], [0.94, 0.7]] },
+  fusca: { dots: [[0.09, 0.56], [0.91, 0.56]] }, kombi: { dots: [[0.09, 0.66], [0.91, 0.66]] }, suv: { dots: [[0.07, 0.6], [0.93, 0.6]] }, sedan90: { dots: [[0.15, 0.6], [0.85, 0.6]] },
   truck: { dots: [[0.08, 0.79], [0.92, 0.79]] },
   // giroflex da arte: azul à esquerda, vermelho à direita (u0, f0, u1, f1 em fração do sprite)
   police: { dots: [[0.17, 0.6], [0.83, 0.6]], siren: [[0.23, 0.0, 0.42, 0.075], [0.52, 0.0, 0.77, 0.075]] },

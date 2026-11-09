@@ -34,6 +34,21 @@ class Img {
   }
 }
 
+
+// tom com pontilhado ordenado (Bayer 4x4): v contínuo entre 0 e n-1 escolhe dois tons vizinhos
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+function tone(pal: RGB[], v: number, x: number, y: number): RGB {
+  const vv = Math.max(0, Math.min(pal.length - 1, v));
+  const i = Math.floor(vv), f = vv - i;
+  if (i >= pal.length - 1) return pal[pal.length - 1];
+  return f * 16 > BAYER[(y & 3) * 4 + (x & 3)] + 0.5 ? pal[i + 1] : pal[i];
+}
+// encosta iluminada pela esquerda: subindo para a direita a face olha para a luz
+const lightOf = (h: Float32Array, x: number) => {
+  const a = h[(x - 2 + PANO_W) % PANO_W], b = h[(x + 2) % PANO_W];
+  return Math.max(-1, Math.min(1, (b - a) * 0.35));
+};
+
 // alturas suaves e periódicas (o panorama se repete sem emenda)
 function wave(x: number, parts: [number, number, number][]) {
   let v = 0;
@@ -112,14 +127,16 @@ function forest(img: Img, rand: () => number, night: boolean, base: number, pal 
       heights[xx] = Math.max(heights[xx], top);
     }
   }
+  // cada copa com luz à esquerda e sombra à direita, mata mais escura embaixo
+  const shadeP = [dim(dark, 0.7), dark, mid, light, dim(light, 1.18)];
   for (let x = 0; x < PANO_W; x++) {
     const top = Math.floor(PANO_H - heights[x]);
+    const L = lightOf(heights, x);
     for (let y = Math.max(0, top); y < PANO_H; y++) {
       const depth = y - top;
-      let c = dark;
-      if (depth < 2) c = (x + y) % 2 ? light : mid;
-      else if (depth < 5) c = rand() < 0.35 ? mid : dark;
-      else if (rand() < 0.12) c = mid;
+      let v = depth < 2 ? 2.6 + L * 1.5 : depth < 6 ? 1.6 + L * 1.2 : 1 - depth * 0.02;
+      if (rand() < 0.1) v += 0.8;
+      let c = tone(shadeP, v, x, y);
       // mata nevada: as copas ficam brancas e a neve salpica o meio
       if (snowy && (depth < 2 || (depth < 6 && rand() < 0.3))) c = hex(night ? '#8a94a8' : (x + y) % 3 ? '#f2f6fa' : '#d0dcea');
       img.set(x, y, c);
@@ -128,80 +145,101 @@ function forest(img: Img, rand: () => number, night: boolean, base: number, pal 
 }
 
 function rocks(img: Img, rand: () => number, night: boolean, red = false) {
-  const pal = red ? ['#a8482a', '#d47a4a', '#6a2a1a'] : ['#4a6878', '#6e8e9e', '#344e5c'];
-  const nt = (c: string) => (night ? dim(hex(c), 0.5) : hex(c));
-  const base = nt(pal[0]);
-  const light = nt(pal[1]);
-  const dark = nt(pal[2]);
-  const colNoise = Array.from({ length: PANO_W }, () => rand());
+  // mesas e penhascos em camadas (estratos), face iluminada à esquerda e sombra à direita
+  const P = red ? ['#4e1c10', '#7a2e1a', '#a8482a', '#c8663a', '#e89a62'] : ['#24343e', '#344e5c', '#4a6878', '#6e8e9e', '#9ab4c0'];
+  const pal = P.map((c) => (night ? dim(hex(c), 0.45) : hex(c)));
+  const h = new Float32Array(PANO_W);
   for (let x = 0; x < PANO_W; x++) {
     const ridge = 26 + wave(x, [[10, 2, 0.3], [7, 5, 2.1], [4, 11, 0.7], [2, 23, 1.9]]);
     const cliff = Math.abs(wave(x, [[1, 9, 0.4]])) > 0.75 ? 6 : 0;
-    const h = Math.max(4, Math.min(PANO_H - 2, ridge + cliff + (colNoise[x] - 0.5) * 3));
-    const top = Math.floor(PANO_H - h);
+    h[x] = Math.max(4, Math.min(PANO_H - 2, ridge + cliff));
+  }
+  const strata = Array.from({ length: 12 }, () => rand());
+  for (let x = 0; x < PANO_W; x++) {
+    const top = Math.floor(PANO_H - h[x]);
+    const L = lightOf(h, x);
     for (let y = top; y < PANO_H; y++) {
-      const n = rand();
-      const streak = colNoise[x];
-      let c = base;
-      if (y - top < 2) c = light;
-      else if (n < 0.08 + streak * 0.14) c = light;
-      else if (n > 0.86 - streak * 0.12) c = dark;
-      img.set(x, y, c);
+      const d = y - top;
+      let v = 2 + L * 1.6 - d * 0.035;
+      const band = strata[Math.floor((y + Math.sin(x * 0.03) * 2) / 5) % 12];
+      if (band > 0.7) v += 0.6; else if (band < 0.25) v -= 0.6;
+      if (d < 1) v = Math.max(v, 3.4);
+      img.set(x, y, tone(pal, v, x, y));
     }
   }
 }
 
 function hills(img: Img, rand: () => number, night: boolean, dry = false) {
-  const pal = dry ? ['#9a8a3a', '#b8a24a', '#d8c26a'] : ['#1d6a22', '#2c8430', '#46a03e'];
-  const nt = (c: string) => (night ? dim(hex(c), 0.42) : hex(c));
-  const a = nt(pal[0]);
-  const b = nt(pal[1]);
-  const hi = nt(pal[2]);
+  // colinas com luz pela encosta, crista clara e o pé mais escuro (perspectiva aérea)
+  const P = dry ? ['#6a5a22', '#8a7a32', '#a8963e', '#c8b45a', '#e4d482'] : ['#0e4a16', '#1a6420', '#2a7e2c', '#46a03e', '#78c25a'];
+  const pal = P.map((c) => (night ? dim(hex(c), 0.42) : hex(c)));
+  const h = new Float32Array(PANO_W);
+  for (let x = 0; x < PANO_W; x++) h[x] = 14 + wave(x, [[7, 2, 1.1], [4, 5, 0.2], [2, 9, 2.5]]);
   for (let x = 0; x < PANO_W; x++) {
-    const h = 14 + wave(x, [[7, 2, 1.1], [4, 5, 0.2], [2, 9, 2.5]]);
-    const top = Math.floor(PANO_H - h);
+    const top = Math.floor(PANO_H - h[x]);
+    const L = lightOf(h, x);
     for (let y = top; y < PANO_H; y++) {
-      let c = (x + y) % 2 ? a : b;
-      if (y - top < 1) c = hi;
-      else if (rand() < 0.08) c = hi;
-      img.set(x, y, c);
+      const d = y - top;
+      let v = 2.2 + L * 1.8 - d * 0.06;
+      if (d < 1) v = 3.6;
+      if (rand() < 0.04) v += 1; // moitas e pedras soltas
+      img.set(x, y, tone(pal, v, x, y));
     }
   }
 }
 
 function snowpeaks(img: Img, rand: () => number, night: boolean, tall = 1, deep = false) {
-  const rock = hex(night ? '#3a4458' : '#7e8aa2');
-  const rockDark = hex(night ? '#262e3e' : '#5a6680');
-  const snow = hex(night ? '#9aa4b8' : '#f2f6fa');
+  // picos com a face esquerda ao sol e a direita na sombra azulada; neve no alto com borda serrilhada
+  const R = (night ? ['#1a2030', '#262e3e', '#3a4458', '#4c5870'] : ['#3e4a62', '#5a6680', '#7e8aa2', '#a2aec4']).map(hex);
+  const S = (night ? ['#5a6478', '#7a8498', '#9aa4b8', '#b0bacc'] : ['#9aaccc', '#c4d2e6', '#e6eef8', '#ffffff']).map(hex);
+  const h = new Float32Array(PANO_W);
   for (let x = 0; x < PANO_W; x++) {
     const p = Math.abs(((x / 64) % 2) - 1);
     const peak = (1 - p) * (24 + 18 * Math.abs(Math.sin(Math.floor(x / 128) * 2.3))) * tall;
-    const h = Math.min(PANO_H - 1, Math.max(6, 10 + peak + wave(x, [[2, 17, 0.4]])));
-    const top = Math.floor(PANO_H - h);
+    h[x] = Math.min(PANO_H - 1, Math.max(6, 10 + peak + wave(x, [[2, 17, 0.4], [1, 41, 1.2]])));
+  }
+  const jag = Array.from({ length: PANO_W }, () => (rand() - 0.5) * 0.1);
+  for (let x = 0; x < PANO_W; x++) {
+    const top = Math.floor(PANO_H - h[x]);
+    const L = lightOf(h, x);
+    const snowLine = (deep ? 0.75 : 0.3) + jag[x] + Math.sin(x * 0.4) * 0.03;
     for (let y = top; y < PANO_H; y++) {
-      const rel = (y - top) / h;
-      let c = rand() < 0.3 ? rockDark : rock;
-      if (rel < (deep ? 0.75 : 0.28) + (rand() - 0.5) * 0.08 && h > (deep ? 8 : 22)) c = rand() < (deep ? 0.93 : 0.85) ? snow : rock;
-      img.set(x, y, c);
+      const rel = (y - top) / h[x];
+      const gully = Math.sin(x * 0.55 + y * 0.9) > 0.85; // sulcos descendo a encosta
+      if (rel < snowLine && h[x] > (deep ? 8 : 22) && !gully) img.set(x, y, tone(S, 1.6 + L * 1.5 - rel * 1.2, x, y));
+      else img.set(x, y, tone(R, 1.6 + L * 1.4 - rel * 0.6 - (gully ? 0.8 : 0), x, y));
     }
   }
 }
 
 function dunes(img: Img, rand: () => number, night: boolean) {
-  const a = hex(night ? '#4a3a22' : '#c49a58');
-  const b = hex(night ? '#5a4628' : '#d4aa66');
+  const pal = (night ? ['#2e2414', '#3e3020', '#4a3a22', '#5a4628', '#6a5432'] : ['#9a7038', '#b48848', '#c49a58', '#d8b070', '#f0cc90']).map(hex);
+  const h = new Float32Array(PANO_W);
+  for (let x = 0; x < PANO_W; x++) h[x] = 8 + wave(x, [[3, 3, 0.4], [2, 8, 1.7], [1, 19, 0.6]]);
   for (let x = 0; x < PANO_W; x++) {
-    const h = 8 + wave(x, [[3, 3, 0.4], [2, 8, 1.7]]);
-    const top = Math.floor(PANO_H - h);
-    for (let y = top; y < PANO_H; y++) img.set(x, y, (x + y) % 2 || rand() < 0.1 ? a : b);
+    const top = Math.floor(PANO_H - h[x]);
+    const L = lightOf(h, x) * 2;
+    for (let y = top; y < PANO_H; y++) {
+      const d = y - top;
+      const ripple = Math.sin(x * 0.7 + y * 2.1) > 0.92 ? -0.7 : 0; // marcas do vento
+      img.set(x, y, tone(pal, (d < 1 ? 3.5 : 2 + L * 1.5 - d * 0.08) + ripple, x, y));
+    }
   }
 }
 
 function sea(img: Img, rand: () => number, night: boolean) {
-  const a = hex(night ? '#0c1c3a' : '#1f5eb8');
-  const wv = hex(night ? '#1c3058' : '#6aa8e8');
+  // mar em faixas: escuro no horizonte, ondas brancas e reflexos cintilando perto da praia
+  const pal = (night ? ['#081430', '#0c1c3a', '#14284e', '#1c3058', '#2a4270'] : ['#14468e', '#1f5eb8', '#2e74cc', '#4a92e0', '#9ac8f4']).map(hex);
   for (let x = 0; x < PANO_W; x++) {
-    for (let y = PANO_H - 6; y < PANO_H; y++) img.set(x, y, rand() < 0.12 ? wv : a);
+    for (let y = PANO_H - 7; y < PANO_H; y++) {
+      const d = y - (PANO_H - 7);
+      let v = 0.6 + d * 0.35;
+      const crest = Math.sin(x * 0.21 + d * 1.7 + Math.sin(x * 0.03) * 3);
+      if (crest > 0.93) v = 4;
+      else if (crest > 0.8) v += 1;
+      if (rand() < 0.02) v = 4;
+      img.set(x, y, tone(pal, v, x, y));
+    }
   }
 }
 

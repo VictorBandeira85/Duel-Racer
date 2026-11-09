@@ -41,9 +41,14 @@ def sample(img, xs, ys):
 
 
 def red_mask(rgb, al):
+    """lataria vermelha vista de dentro; inclui as bordas e reflexos avermelhados (pouca cor) que
+    ficam em volta dela (senão sobram pixels vermelhos com outra cor, no retrovisor)"""
     hsv = cv2.cvtColor(np.ascontiguousarray(rgb), cv2.COLOR_RGB2HSV_FULL).astype(int)
     hue = hsv[..., 0] * 360 / 256
-    return al & ((hue < 14) | (hue > 344)) & (hsv[..., 1] > 110) & (hsv[..., 2] > 50)
+    redh = (hue < 18) | (hue > 338)
+    core = al & redh & (hsv[..., 1] > 110) & (hsv[..., 2] > 50)
+    near = cv2.dilate(core.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
+    return core | (al & near & redh & (hsv[..., 1] > 40) & (hsv[..., 2] > 28))
 
 
 def main():
@@ -91,7 +96,29 @@ def main():
     xr = np.clip(xs, 0, W - 1)
     t_rgb = sample(nw, xr, ys)
     t_al = ~sample(sky, xr, ys)
-    t_al[ys < 0, :] = False
+    # a arte corta o teto no alto: acima dela entra o forro (cinza do painel, mais escuro no alto) e as
+    # colunas continuam subindo até ele; embaixo do forro, a borracha escura do para-brisa
+    roof = ys < 12
+    top_row = np.argmax(ys >= 12)
+    for c in range(t_al.shape[1]):
+        if t_al[top_row, c]:
+            t_rgb[:top_row, c] = t_rgb[top_row, c]
+            t_al[:top_row, c] = True
+    rows = np.nonzero(roof)[0]
+    if len(rows):
+        y1 = rows.max()
+        n = max(1, y1 - max(0, y1 - 14))
+        for k, r in enumerate(range(max(0, y1 - 14), y1 + 1)):
+            t = k / n
+            col = np.array([34, 34, 38]) * (1 - t) + np.array([66, 66, 72]) * t
+            t_rgb[r, :] = col.astype(np.uint8)
+            t_al[r, :] = True
+        t_rgb[:max(0, y1 - 14), :] = (30, 30, 34)
+        t_al[:max(0, y1 - 14), :] = True
+        t_rgb[y1 + 1:y1 + 3, :] = (14, 14, 16)  # borracha do para-brisa
+        t_al[y1 + 1:y1 + 3, :] = True
+        for c in range(0, t_al.shape[1], 3):  # textura do forro
+            t_rgb[max(0, y1 - 13):y1 - 1:4, c] = (48, 48, 54)
     Image.fromarray(np.dstack([t_rgb, t_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'br-golgti-top.png'))
     Image.fromarray((red_mask(t_rgb, t_al) * 255).astype(np.uint8), 'L').save(os.path.join(out, 'br-golgti-top-mask.png'))
     # volante (na arte com volante)

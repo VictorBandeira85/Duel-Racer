@@ -100,6 +100,7 @@ def main():
     # reflexos rosados do bordô (pouca cor), só na lataria acima dos frisos cinzas
     ms |= (s[..., 3] > 0) & ((h > 290) | (h < 25)) & (sat > 18) & (v > 110) & (np.arange(s.shape[0])[:, None] < 86)
     ms[89:] = False  # abaixo: frisos cinzas e o filete vermelho
+    ms[73:89, 289:] = False  # lanterna traseira (fica com a cor dela)
     ms = clean(ms, 10)
     ref = r[..., :3][mr].astype(float)
     ref_l = ref.mean(axis=1)

@@ -267,6 +267,24 @@ function cylinder(c: CanvasRenderingContext2D, x0: number, y0: number, w: number
     if (i > 0 && order[i] !== order[i - 1]) rect(c, dither(c, pal[order[i - 1]], col), x0 + (w * i) / n - w / (n * 3), y0, w / (n * 3), h);
   }
 }
+
+// poste metálico de placa: luz à esquerda, sombra à direita, abraçadeiras e base
+function pole(c: CanvasRenderingContext2D, cx: number, y0: number, w: number, h: number) {
+  rect(c, '#5a5a62', cx - w / 2, y0, w, h);
+  rect(c, '#a8a8b0', cx - w / 2, y0, w * 0.35, h);
+  rect(c, '#d8d8e0', cx - w / 2 + w * 0.1, y0, Math.max(0.5, w * 0.12), h);
+  rect(c, '#3a3a40', cx + w * 0.25, y0, w * 0.25, h);
+  rect(c, '#2a2a30', cx - w * 0.7, y0 + h - Math.max(0.5, h * 0.03), w * 1.4, Math.max(0.5, h * 0.03));
+}
+// moldura de chapa: filete claro em cima/à esquerda, escuro embaixo/à direita, rebites
+function plate(c: CanvasRenderingContext2D, x0: number, y0: number, w: number, h: number, light: string, dark: string, bolts = true) {
+  const t = Math.max(0.5, Math.min(w, h) * 0.04);
+  rect(c, light, x0, y0, w, t);
+  rect(c, light, x0, y0, t, h);
+  rect(c, dark, x0, y0 + h - t, w, t);
+  rect(c, dark, x0 + w - t, y0, t, h);
+  if (bolts) for (const [bx, by] of [[0.08, 0.15], [0.92, 0.15], [0.08, 0.85], [0.92, 0.85]]) rect(c, '#8a8a90', x0 + w * bx - t / 2, y0 + h * by - t / 2, t, t);
+}
 const WINDOW = ['#2a3a5a', '#2a3a5a', '#33476a', '#f0d070'];
 const building: Draw = (c, x, y, w, h, seed) => {
   const hh = h * (0.55 + (seed % 45) / 100);
@@ -356,33 +374,44 @@ const barn: Draw = (c, x, y, w, h) => {
 };
 
 const fence: Draw = (c, x, y, w, h) => {
+  // cerca de madeira: tábuas com veios, pregos e sombra no chão
+  rect(c, dither(c, 'rgba(0,0,0,0.35)', 'rgba(0,0,0,0)'), x - w / 2, y - h * 0.05, w, h * 0.05);
   for (const ry of [0.75, 0.42]) {
-    rect(c, '#b89a78', x - w / 2, y - h * ry, w, Math.max(1, h * 0.12));
-    rect(c, '#e0c8a0', x - w / 2, y - h * ry, w, Math.max(0.5, h * 0.04));
+    rect(c, '#a8865e', x - w / 2, y - h * ry, w, Math.max(1, h * 0.13));
+    rect(c, '#e0c8a0', x - w / 2, y - h * ry, w, Math.max(0.5, h * 0.035));
+    rect(c, '#6e5236', x - w / 2, y - h * ry + h * 0.1, w, Math.max(0.5, h * 0.03));
+    for (let k = 0; k < 6; k++) rect(c, '#8a6a46', x - w / 2 + w * (0.05 + k * 0.17), y - h * ry + h * 0.055, w * 0.08, Math.max(0.5, h * 0.015));
   }
   for (let i = 0; i <= 4; i++) {
     const px = x - w / 2 + (w * i) / 4 - w * 0.02;
-    rect(c, '#8a6a48', px, y - h, Math.max(1, w * 0.04), h);
+    rect(c, '#7a5a3a', px, y - h, Math.max(1, w * 0.045), h);
     rect(c, '#c8a882', px, y - h, Math.max(0.5, w * 0.015), h);
+    rect(c, '#4e3622', px + w * 0.03, y - h, Math.max(0.5, w * 0.015), h);
+    poly(c, '#7a5a3a', px, y - h, px + w * 0.045, y - h, px + w * 0.0225, y - h * 1.08);
+    for (const ry of [0.7, 0.37]) rect(c, '#3a3a3a', px + w * 0.015, y - h * ry, Math.max(0.5, w * 0.012), Math.max(0.5, h * 0.03));
   }
 };
 
 const lamp: Draw = (c, x, y, w, h) => {
-  rect(c, '#5a5a62', x - w * 0.15, y - h, w * 0.3, h);
-  rect(c, '#9a9aa4', x - w * 0.15, y - h, w * 0.1, h);
+  // poste de iluminação: coluna cilíndrica, braço curvo e luminária com lente
+  rect(c, '#3a3a42', x - w * 0.15, y - h, w * 0.3, h);
+  rect(c, '#7a7a84', x - w * 0.15, y - h, w * 0.14, h);
+  rect(c, '#b8b8c2', x - w * 0.12, y - h, Math.max(0.5, w * 0.05), h);
   rect(c, '#4a4a52', x - w * 0.3, y - h * 0.08, w * 0.6, h * 0.08);
-  poly(c, '#5a5a62', x + w * 0.15, y - h, x - w * 1.3, y - h + w * 0.1, x - w * 1.3, y - h + w * 0.35, x + w * 0.15, y - h + w * 0.35);
-  poly(c, '#3a3a40', x - w * 1.65, y - h + w * 0.05, x - w * 0.95, y - h + w * 0.05, x - w * 1.05, y - h + w * 0.42, x - w * 1.55, y - h + w * 0.42);
+  rect(c, '#8a8a94', x - w * 0.3, y - h * 0.08, w * 0.6, h * 0.015);
+  poly(c, '#4a4a52', x + w * 0.15, y - h, x - w * 1.3, y - h + w * 0.1, x - w * 1.3, y - h + w * 0.32, x + w * 0.15, y - h + w * 0.32);
+  poly(c, '#8a8a94', x + w * 0.15, y - h, x - w * 1.3, y - h + w * 0.1, x - w * 1.3, y - h + w * 0.17, x + w * 0.15, y - h + w * 0.07);
+  poly(c, '#2e2e34', x - w * 1.65, y - h + w * 0.05, x - w * 0.95, y - h + w * 0.05, x - w * 1.05, y - h + w * 0.42, x - w * 1.55, y - h + w * 0.42);
+  poly(c, '#5a5a62', x - w * 1.65, y - h + w * 0.05, x - w * 0.95, y - h + w * 0.05, x - w * 1.0, y - h + w * 0.15, x - w * 1.6, y - h + w * 0.15);
   rect(c, '#fff4b0', x - w * 1.5, y - h + w * 0.42, w * 0.4, w * 0.18);
+  rect(c, '#ffffff', x - w * 1.45, y - h + w * 0.43, w * 0.12, w * 0.08);
 };
 
 const sign = (dir: 1 | -1): Draw => (c, x, y, w, h) => {
-  for (const px of [-0.3, 0.3]) {
-    rect(c, '#6a6a6a', x + w * px - w * 0.04, y - h * 0.5, w * 0.08, h * 0.5);
-    rect(c, '#9a9a9a', x + w * px - w * 0.04, y - h * 0.5, w * 0.03, h * 0.5);
-  }
+  for (const px of [-0.3, 0.3]) pole(c, x + w * px, y - h * 0.5, w * 0.08, h * 0.5);
   rect(c, '#ffcc00', x - w / 2, y - h, w, h * 0.55);
-  rect(c, '#c89a00', x - w / 2, y - h * 0.5, w, h * 0.05);
+  rect(c, dither(c, '#ffcc00', '#e8b000'), x - w / 2, y - h * 0.62, w, h * 0.17);
+  plate(c, x - w / 2, y - h, w, h * 0.55, '#fff0a0', '#a87a00');
   // duas setas (chevrons)
   for (const off of [-0.18, 0.18]) {
     const cx = x + w * off * dir, cy = y - h * 0.725, s = w * 0.16;
@@ -393,12 +422,13 @@ const sign = (dir: 1 | -1): Draw => (c, x, y, w, h) => {
 // placa de advertência de curva (losango amarelo com borda preta, como as do Brasil):
 // curva suave = seta encurvada; curva acentuada = seta que dobra em ângulo reto
 const warn = (dir: 1 | -1, sharp: boolean): Draw => (c, x, y, w, h) => {
-  rect(c, '#6a6a6a', x - w * 0.05, y - h * 0.6, w * 0.1, h * 0.6);
-  rect(c, '#9a9a9a', x - w * 0.05, y - h * 0.6, w * 0.035, h * 0.6);
+  pole(c, x, y - h * 0.6, w * 0.1, h * 0.6);
   const cy = y - h * 0.78, r = w * 0.5;
   poly(c, '#111', x, cy - r, x + r, cy, x, cy + r, x - r, cy);
   const k = 0.84;
   poly(c, '#ffcc00', x, cy - r * k, x + r * k, cy, x, cy + r * k, x - r * k, cy);
+  poly(c, '#fff0a0', x, cy - r * k, x - r * k, cy, x - r * k * 0.86, cy, x, cy - r * k * 0.86); // filete de luz
+  poly(c, dither(c, '#ffcc00', '#d8a000'), x + r * k * 0.2, cy + r * k * 0.8, x + r * k, cy, x + r * k * 0.7, cy, x, cy + r * k * 0.7);
   // seta (traço grosso) e ponta
   const lw = Math.max(1, w * 0.1);
   c.strokeStyle = '#111';
@@ -430,10 +460,11 @@ const warn = (dir: 1 | -1, sharp: boolean): Draw => (c, x, y, w, h) => {
 };
 
 const gasSign: Draw = (c, x, y, w, h) => {
-  rect(c, '#6a6a70', x - w * 0.04, y - h * 0.55, w * 0.08, h * 0.55);
-  rect(c, '#9a9aa0', x - w * 0.04, y - h * 0.55, w * 0.03, h * 0.55);
+  pole(c, x, y - h * 0.55, w * 0.08, h * 0.55);
   rect(c, '#1a3aa8', x - w / 2, y - h, w, h * 0.45);
   rect(c, '#2a52d0', x - w / 2, y - h, w, h * 0.06);
+  rect(c, dither(c, '#1a3aa8', '#12287a'), x - w / 2, y - h * 0.62, w, h * 0.07);
+  plate(c, x - w / 2, y - h, w, h * 0.45, '#5a82f0', '#0c1c5a', false);
   rect(c, '#fff', x - w / 2 + w * 0.04, y - h * 0.68, w * 0.92, h * 0.1);
   rect(c, '#d02020', x - w / 2 + w * 0.06, y - h * 0.665, w * 0.4, h * 0.07);
   if (w > 14) {
@@ -447,11 +478,9 @@ const gasSign: Draw = (c, x, y, w, h) => {
 
 // placa azul de serviço avisando o posto: bomba de combustível e a distância (seed = metros)
 const gasKm: Draw = (c, x, y, w, h, seed) => {
-  for (const px of [-0.3, 0.3]) {
-    rect(c, '#6a6a70', x + w * px - w * 0.03, y - h * 0.45, w * 0.06, h * 0.45);
-    rect(c, '#9a9aa0', x + w * px - w * 0.03, y - h * 0.45, w * 0.022, h * 0.45);
-  }
+  for (const px of [-0.3, 0.3]) pole(c, x + w * px, y - h * 0.45, w * 0.06, h * 0.45);
   rect(c, '#f2f2f2', x - w / 2, y - h, w, h * 0.57);
+  plate(c, x - w / 2, y - h, w, h * 0.57, '#ffffff', '#9a9aa0');
   rect(c, '#1a4ab8', x - w / 2 + w * 0.03, y - h + h * 0.03, w * 0.94, h * 0.51);
   // bomba (ícone branco)
   const bx = x - w * 0.3, by = y - h * 0.82;
@@ -474,15 +503,15 @@ const gasKm: Draw = (c, x, y, w, h, seed) => {
 
 // placa de PARE da chegada (octógono vermelho com borda branca)
 const stop: Draw = (c, x, y, w, h) => {
-  rect(c, '#6a6a70', x - w * 0.05, y - h * 0.62, w * 0.1, h * 0.62);
-  rect(c, '#9a9aa0', x - w * 0.05, y - h * 0.62, w * 0.04, h * 0.62);
-  const oct = (r: number, color: string) => {
+  pole(c, x, y - h * 0.62, w * 0.1, h * 0.62);
+  const oct = (r: number, color: string | CanvasPattern) => {
     const cy = y - h * 0.78, k = Math.tan(Math.PI / 8);
     const ry = r * (h / w) * 0.55;
     poly(c, color, x - r * k, cy - ry, x + r * k, cy - ry, x + r, cy - ry * k, x + r, cy + ry * k, x + r * k, cy + ry, x - r * k, cy + ry, x - r, cy + ry * k, x - r, cy - ry * k);
   };
   oct(w / 2, '#f4f4f4');
   oct(w * 0.44, '#d01818');
+  oct(w * 0.36, dither(c, '#d01818', '#e83a2a'));
   if (w > 14) {
     c.font = `bold ${Math.floor(w * 0.26)}px monospace`;
     c.textAlign = 'center';
@@ -542,16 +571,23 @@ const rail: Draw = (c, x, y, w, h) => {
 // ampliada, sem suavizar, no painel
 const billboard: Draw = (c, x, y, w, h, seed) => {
   for (const px of [-0.3, 0.3]) {
-    rect(c, '#5a5a60', x + w * px - w * 0.025, y - h * 0.5, w * 0.05, h * 0.5);
-    rect(c, '#8a8a90', x + w * px - w * 0.025, y - h * 0.5, w * 0.018, h * 0.5);
+    pole(c, x + w * px, y - h * 0.5, w * 0.05, h * 0.5);
   }
   rect(c, '#3a3a40', x - w * 0.36, y - h * 0.5, w * 0.72, h * 0.04);
+  // passarela de manutenção com grade
+  rect(c, '#4a4a50', x - w * 0.46, y - h * 0.47, w * 0.92, h * 0.025);
+  for (let i = 0; i < 18; i++) rect(c, '#4a4a50', x - w * 0.46 + i * w * 0.054, y - h * 0.5, Math.max(0.5, w * 0.006), h * 0.03);
   rect(c, '#e8e8e8', x - w / 2, y - h, w, h * 0.52);
+  plate(c, x - w / 2, y - h, w, h * 0.52, '#ffffff', '#8a8a90', false);
   const prev = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = false;
   c.drawImage(adCanvas(seed), x - w / 2 + w * 0.03, y - h + h * 0.05, w * 0.94, h * 0.42);
   c.imageSmoothingEnabled = prev;
-  for (const px of [-0.3, 0, 0.3]) rect(c, '#2a2a30', x + w * px - w * 0.02, y - h * 1.04, w * 0.04, h * 0.05);
+  for (const px of [-0.3, 0, 0.3]) {
+    rect(c, '#2a2a30', x + w * px - w * 0.005, y - h * 1.06, Math.max(0.5, w * 0.01), h * 0.06);
+    poly(c, '#3a3a40', x + w * px - w * 0.03, y - h * 1.06, x + w * px + w * 0.03, y - h * 1.06, x + w * px + w * 0.02, y - h * 1.03, x + w * px - w * 0.02, y - h * 1.03);
+    rect(c, '#fff4c0', x + w * px - w * 0.018, y - h * 1.03, w * 0.036, Math.max(0.5, h * 0.008));
+  }
 };
 
 // viaduto sobre a pista: tabuleiro com mureta e dois pilares (o vão no meio é transparente)

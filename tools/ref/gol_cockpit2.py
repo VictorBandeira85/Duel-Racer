@@ -80,6 +80,14 @@ def main():
     cx = lab3[340, 95]
     if cx:
         sky |= lab3 == cx
+    # janela da porta (embaixo do retrovisor até a soleira): é tudo paisagem, menos a carcaça vermelha
+    jan = (xx < 250) & (yy > 250) & (yy < 475 - 0.27 * xx) & ((lum > 95) | (yy < 462 - 0.27 * xx)) & ~cv2.dilate(red.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+    mbox = np.zeros((H, W), bool)
+    mbox[262:410, 0:200] = True
+    sky |= jan & ~(mbox & ~sky & (lum < 60))  # o miolo escuro do retrovisor fica
+    # faixa lilás (o vidro da porta visto de lado) acima da borracha da soleira: também é janela
+    lil = (xx < 320) & (yy > 360) & (yy < 505 - 0.27 * xx) & (rgb[..., 2] > rgb[..., 0] + 4) & (lum > 88) & ~red
+    sky |= lil
     inv = (~sky & win).astype(np.uint8)
     n2, lab2, st2, _ = cv2.connectedComponentsWithStats(inv, 4)
     for i in range(1, n2):
@@ -90,6 +98,23 @@ def main():
     xr = np.clip(xs, 0, W - 1)
     d_rgb = sample(nw, xr, ys)
     d_al = ~sample(sky, xr, ys)
+    # à esquerda da arte (telas largas) a porta continua: cada ponto segue a diagonal do forro (as
+    # linhas da soleira, do apoio de braço e do friso vermelho sobem para a direita, 0,48 px por px)
+    # até cair numa faixa de 60 px da borda da arte, espelhada a cada volta (sem emenda e sem
+    # esticar); o retrovisor não se repete (o vidro da janela fica transparente)
+    SL, BAND = 0.48, 60.0
+    left = np.nonzero(xs < 0)[0]
+    if len(left):
+        X = xs[left][None, :]
+        Y = ys[:, None]
+        t = np.mod(-X, 2 * BAND)
+        sx = np.where(t < BAND, t, 2 * BAND - t)
+        sy = Y - SL * (sx - X)  # mesma diagonal: y sobe 0,48 a cada px para a direita
+        xi = np.clip(sx.astype(int), 0, W - 1)
+        yi = np.clip(sy.astype(int), 0, H - 1)
+        mir = (xi < 200) & (yi > 255) & (yi < 415)
+        d_rgb[:, left] = nw[yi, xi]
+        d_al[:, left] = ~sky[yi, xi] & ~mir & (sy < H) & ~(sky[yi, xi])  # acima da soleira: janela
     Image.fromarray(np.dstack([d_rgb, d_al.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, 'br-golgti-dash.png'))
     Image.fromarray((red_mask(d_rgb, d_al) * 255).astype(np.uint8), 'L').save(os.path.join(out, 'br-golgti-dash-mask.png'))
     xs, ys = grid(y0d - EXT * PXH, EXT)

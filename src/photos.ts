@@ -67,7 +67,15 @@ export const GOL_PHOTOS: Photo[] = [
   { src: ph('gol-giro'), kicker: 'TÉCNICA', kc: '#1a1614', title: 'ATÉ O CORTE', sub: 'Conta-giros VDO e motor AP', inside: ['Leia o painel do GTI', 'Faixa vermelha em 6.250', 'Relógio digital no meio'], box: [150, 100, 410, 315] },
   { src: ph('gol-motor'), kicker: 'OFICINA', kc: '#1a6a2a', title: 'INJEÇÃO ELETRÔNICA', sub: 'O primeiro nacional injetado', inside: ['Revisão da injeção', 'Velas e cabos', 'Filtro de ar esportivo'], box: [60, 40, 540, 315] },
 ].filter((p) => !!p.src);
-export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS].forEach((p) => img(p.src));
+// Monção S/R (Monza S/R 1987): tools/ref/monza_photos.py
+export const MZ_PHOTOS: Photo[] = [
+  { src: ph('mz-aviao'), kicker: 'TESTE', kc: '#d01f26', title: 'MONÇÃO S/R', sub: 'O hatch esportivo decola na pista', inside: ['2.0 a álcool de 110 cv', 'Contra o treinador da base', 'Câmbio curto de 5 marchas'], box: [104, 100, 506, 302] },
+  { src: ph('mz-preto'), kicker: 'ENSAIO', kc: '#1a1614', title: 'HATCH DE RESPEITO', sub: 'Aerofólio, filetes vermelhos e escape esportivo', inside: ['Rodas de liga de série', 'Bancos de tecido exclusivo', 'Porta-malas com tampão'], box: [65, 85, 517, 300] },
+  { src: ph('mz-casal'), kicker: 'COMPARATIVO', kc: '#1e4fb8', title: 'DOIS MONÇÕES', sub: 'Prata ou cobre: qual levar para casa?', inside: ['Consumo na estrada', 'Econômetro no painel', 'O preço de cada versão'], box: [189, 105, 553, 286] },
+  { src: ph('mz-garagem'), kicker: 'FAMÍLIA', kc: '#1a6a2a', title: 'SEDÃ OU HATCH?', sub: 'A linha Monção inteira na garagem', inside: ['Sedã de quatro portas', 'Hatch para quem dirige', 'Câmbio automático: vale?'], box: [15, 57, 533, 290] },
+  { src: ph('mz-motor'), kicker: 'TÉCNICA', kc: '#1e4fb8', title: 'ÁLCOOL 2.0', sub: 'Comando no cabeçote e torque em baixa', inside: ['Partida a frio sem susto', 'Regulagem do carburador', 'Velas e ponto certos'], box: [40, 20, 520, 300] },
+].filter((p) => !!p.src);
+export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS].forEach((p) => img(p.src));
 
 // Enquadramento: a foto cobre o quadro e a caixa do carro (p.box) fica inteira e centrada na área
 // livre (sem a faixa vermelha de baixo, 'bottom' px), com uma aproximação lenta (u: 0..1) que nunca

@@ -95,8 +95,8 @@ interface Dial { x: number; y: number; r: number; max: number; labels: number[];
 
 // Mostradores auxiliares, também redesenhados: 'single' (um ponteiro), 'dual' (dois
 // ponteiros no mesmo eixo, em V), 'twin' (dois eixos lado a lado) e 'clock' (relógio)
-// oil = pressão do óleo, boost = pressão do turbo, volt = voltímetro
-type Gauge = 'oil' | 'water' | 'oiltemp' | 'fuel' | 'boost' | 'volt';
+// oil = pressão do óleo, boost = pressão do turbo, volt = voltímetro, vac = econômetro (vácuo do coletor)
+type Gauge = 'oil' | 'water' | 'oiltemp' | 'fuel' | 'boost' | 'volt' | 'vac';
 interface Aux { x: number; y: number; r: number; kind: 'single' | 'dual' | 'twin' | 'clock' | 'combo'; show?: Gauge[]; icon?: keyof typeof ICONS; labels?: string[]; bg?: string; labelIn?: number;
   arc?: [number, number]; // ângulos do arco (padrão: metade de cima); o NX tem arcos de lado, virados para o centro
   iconAt?: [number, number]; // posição do ícone em relação ao centro (px)
@@ -264,6 +264,34 @@ COCKPIT_ART['br-golgti'] = {
     odometer(c, ox, r, { x: 89.4, y: 61.0, w: 8.4, h: 3.5 }, 168.5, 4, 0.5, true);
     const now = new Date();
     pix(c, `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`, ox + 123.8, ART_TOP + 63.3, '#1e2616', 0.5);
+  },
+};
+
+// Monção S/R (Monza S/R hatch 1987): interior do Victor (tools/ref/monza_cockpit.py: painel da arte sem
+// volante, volante da arte com volante, retrovisor completado, porta construída até a borda) e o quadro
+// da foto do carro real (tools/ref/monza_gauges.py): grafite com números laranja finos, velocímetro
+// 20-220 com hodômetro e parcial, conta-giros 10-70 com faixa vermelha vazada e, no meio, quatro
+// mostradores de arco em pé (voltímetro, econômetro, temperatura e combustível); ponteiros laranja
+const MZ_DEG = Math.PI / 180;
+COCKPIT_ART['br-monza'] = {
+  tells: null,
+  dash: cp('br-monza-dash'), top: cp('br-monza-top'), wheel: cp('br-monza-wheel'), dashMask: cp('br-monza-dash-mask'), topMask: cp('br-monza-top-mask'),
+  glass: { at: [56, 108], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
+  pivot: [128, 112], wheelTop: 8, radar: [222, 12], speedMax: 220, needle: '#f47c2c', needleW: 1.6, needleTail: 2.5, needleFine: true, hub: '#26262a', hubR: 2.4,
+  faces: [{ src: cp('br-monza-cluster'), x: 64.5, y: 37.5, w: 153, h: 54 }],
+  glow: '255,120,40', glowK: 0.6,
+  facesLit: '255,190,130', litMin: 150, litByMax: true, litNeedles: true,
+  speed: { x: 97, y: 64.7, r: 19, max: 220, labels: [], tick: 20, red: 999, face: false, a0: 124 * MZ_DEG, sweep: 220 * 1.21 * MZ_DEG },
+  tach: { x: 175.3, y: 64.7, r: 19, max: 7, labels: [], tick: 1, red: 999, face: false, a0: 133.5 * MZ_DEG, sweep: 7 * 38.2 * MZ_DEG },
+  aux: [
+    { x: 134.6, y: 53.3, r: 8.6, kind: 'single', show: ['volt'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
+    { x: 149.9, y: 53.3, r: 8.6, kind: 'single', show: ['vac'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
+    { x: 134.6, y: 77.1, r: 8.6, kind: 'single', show: ['water'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
+    { x: 149.9, y: 77.1, r: 8.6, kind: 'single', show: ['fuel'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
+  ],
+  extra: (c, ox, r) => {
+    odometer(c, ox, r, { x: 90.3, y: 56.1, w: 14.4, h: 3.6 }, 16803, 6, 0.5);
+    odometer(c, ox, r, { x: 92.7, y: 70.8, w: 9.6, h: 3.4 }, 481.3, 4, 0.5, true);
   },
 };
 
@@ -1302,7 +1330,7 @@ function hand(c: CanvasRenderingContext2D, x0: number, y0: number, a: number, le
 // Leitura dos mostradores auxiliares (0..1 da escala), cada um com sua função:
 // pressão do óleo sobe na partida e estabiliza; água e óleo esquentam aos poucos;
 // o combustível baixa ao longo do trecho; o turbo só enche acelerando; a bateria fica parada.
-const gauges: Record<Gauge, number> = { oil: 0.3, water: 0.3, oiltemp: 0.25, fuel: 0.92, boost: 0, volt: 0.62 };
+const gauges: Record<Gauge, number> = { oil: 0.3, water: 0.3, oiltemp: 0.25, fuel: 0.92, boost: 0, volt: 0.62, vac: 0.8 };
 let gaugeRace: Race | null = null;
 function updateGauges(r: Race, dt: number) {
   if (gaugeRace !== r) {
@@ -1320,6 +1348,8 @@ function updateGauges(r: Race, dt: number) {
   const boost = r.throttle && r.car.curve.includes('turbo') ? r.pt.boost * clamp((rpm - 0.2) / 0.4, 0, 1) : 0;
   gauges.boost += (boost - gauges.boost) * Math.min(1, dt * 6);
   gauges.volt = r.speed > 0 || r.throttle ? 0.62 : 0.55;
+  // econômetro: vácuo alto (faixa verde) com o pé leve, cai acelerando fundo
+  gauges.vac += ((r.throttle ? 0.22 + 0.2 * rpm : 0.86) - gauges.vac) * Math.min(1, dt * 5);
 }
 
 function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitArt) {

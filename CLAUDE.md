@@ -48,6 +48,11 @@
 - A vista lateral de todo carro fica com a **frente para a esquerda** (como os demais). Se a arte vier
   virada para a direita, espelhar a lateral e a máscara e espelhar as rodas em `WHEELS` (x -> 1 - x).
 
+- Arte que vem com cenário (não recortada): seguir `tools/ref/monza_sprites.py` (fundo inundado a partir
+  das bordas, o contorno preto do carro segura; sombra e asfalto de baixo saem por geometria) e
+  `tools/ref/monza_cockpit.py` (vidros por geometria medida, retrovisor completado, porta construída,
+  forro no alto). Paisagem vista pelos vidros do sprite vira cor de vidro.
+
 ## Trânsito
 - Cada modelo do trânsito (`tools/art/traffic.py`, `src/assets/traffic`) segue um carro real dos anos 90
   (formas e luzes, sem marca): sedan = Monza, hatch = Gol quadrado, pickup = F-1000, van = Econoline,

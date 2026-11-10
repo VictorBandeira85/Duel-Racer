@@ -86,6 +86,10 @@
 - Todo carro tem retrovisor do lado do motorista funcionando (vidro com a vista de trás). Se a arte
   não tem, desenhar com `python3 tools/qa/add_mirror.py <cabine> x0 y0 x1 y1 braço_x braço_y #cor` e pôr
   a semente em `glass.at`. Mão inglesa (NSX): o do motorista é o da direita.
+- Retrovisor cortado pela borda esquerda da arte (aparece sem moldura no celular): completar o próprio
+  desenho com `python3 tools/qa/mirror_complete.py flip|shift ...` (moldura direita refletida vira a
+  esquerda, ou a moldura rente à borda anda para dentro) e acertar `glass.at`; só se não houver espaço
+  (959), desenhar com add_mirror.py.
 - Fonte dos números do quadro: se nenhuma fonte instalada tem o desenho do carro (ex.: algarismos
   quadrados da VW no GTI), desenhar os algarismos à mão em traço (`SQ` em `gol_gauges.py`) em vez de
   usar uma grotesca parecida.

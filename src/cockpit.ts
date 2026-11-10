@@ -159,6 +159,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
     } },
   // 959: interior completo do Victor; os cinco mostradores redesenhados com números maiores
   '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.2, 84.3], tells: [129, 37],
+    glass: { at: [16, 92], thr: 256 }, // retrovisor desenhado (tools/qa/add_mirror.py)
     // VDO: conta-giros 1-8 com faixa vermelha a partir de 7,5 e o manômetro do turbo (0-2,5 bar)
     // embaixo; velocímetro 20-340 com hodômetro; à esquerda o combinado de óleo (temperatura,
     // pressão e nível) e o de combustível e água
@@ -179,6 +180,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
 // Viatura: painel de sedã com hodômetro e indicador da alavanca funcionando
 COCKPIT_ART.patrol = {
   dash: cp('patrol-dash'), top: cp('patrol-top'), wheel: cp('patrol-wheel'),
+  glass: { at: [26, 102] }, // retrovisor completado (tools/qa/mirror_complete.py)
   pivot: [128.2, 103.1], wheelTop: 5, speedMax: 240, needle: '#ff2a1a', hub: '#1a1a1c', aux: [],
   // redesenhados nítidos sobre a arte (reduzida, ela borra); escala como na arte: do 0 (≈ 148°)
   // ao fim (≈ 30°), 242° de abertura, números em pixel inteiro
@@ -272,6 +274,7 @@ COCKPIT_ART['br-golgti'] = {
 const GTB_INK = '#ffb43a';
 COCKPIT_ART['br-pumagtb'] = {
   dash: cp('br-pumagtb-dash'), top: cp('br-pumagtb-top'), wheel: cp('br-pumagtb-wheel'),
+  glass: { at: [17, 104] }, // retrovisor completado (tools/qa/mirror_complete.py)
   pivot: [127, 128.3], speedMax: 220, needle: '#ff8c1a', needleW: 1.5, needleTail: 3, hub: '#141416', radar: [206, 4],
   speed: { x: 98, y: 65.5, r: 25.5, max: 220, labels: [20, 60, 100, 140, 180, 220], minor: [40, 80, 120, 160, 200], tick: 10, red: 999, labelScale: 0.7, ink: GTB_INK, bg: '#0c0c0e', boldTicks: true },
   tach: { x: 171.5, y: 65.5, r: 27, max: 7, labels: [0, 1, 2, 3, 4, 5, 6, 7], tick: 0.25, red: 5, labelScale: 0.7, redLabels: false, ink: GTB_INK, bg: '#0c0c0e', redInk: '#e8301a', redW: 2, boldTicks: true },
@@ -766,7 +769,7 @@ const VP_INK = '#16161a', VP_BG = '#ecebe2';
 COCKPIT_ART.viper = {
   dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
   pivot: [131, 105], wheelDx: -14.4, wheelTop: 14, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 4, needleFine: true, hub: '#151517', hubR: 3.4, radar: [102, 22],
-  glass: { at: [42, 95], thr: 256, x0: 39 }, tells: null, // vidro do retrovisor esquerdo (como na arte, cortado na borda)
+  glass: { at: [32, 95], thr: 256 }, tells: null, // retrovisor esquerdo completado (tools/qa/mirror_complete.py)
   // à noite os fundos brancos acendem em bege claro (luz por trás, como no carro); os ponteiros
   // vermelhos não têm luz e ficam escuros contra o fundo aceso
   facesLit: '255,236,196', glow: '255,226,170', glowK: 0.3,

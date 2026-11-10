@@ -52,8 +52,51 @@ def label(s, x, y, size, font=FB, squeeze=0.88, col=INK):
     LABELS.append((s, x / K, y / K, size, font, squeeze, col))
 
 
+# algarismos da VW dos anos 90 (os do quadro do Gol): quadrados, largos, traço grosso e cantos
+# arredondados, desenhados à mão numa caixa 4 x 6 (x, y em unidades da caixa)
+SQ = {
+    '0': [[(0, 0), (4, 0), (4, 6), (0, 6), (0, 0)]],
+    '1': [[(1.6, 1.2), (3, 0), (3, 6)]],
+    '2': [[(0, 0), (4, 0), (4, 3), (0, 3), (0, 6), (4, 6)]],
+    '3': [[(0, 0), (4, 0), (4, 6), (0, 6)], [(1.2, 3), (4, 3)]],
+    '4': [[(0, 0), (0, 3.6), (4, 3.6)], [(3.2, 1.6), (3.2, 6)]],
+    '5': [[(4, 0), (0, 0), (0, 3), (4, 3), (4, 6), (0, 6)]],
+    '6': [[(4, 0), (0, 0), (0, 6), (4, 6), (4, 3), (0, 3)]],
+    '7': [[(0, 0), (4, 0), (4, 6)]],
+    '8': [[(0, 0), (4, 0), (4, 6), (0, 6), (0, 0)], [(0, 3), (4, 3)]],
+    '9': [[(4, 3), (0, 3), (0, 0), (4, 0), (4, 6), (0, 6)]],
+}
+
+
+def sq_number(s, h, col):
+    """número no estilo VW: imagem RGBA (desenhada em 8x e reduzida), altura h px"""
+    S = 8
+    u = h * S / 7.2  # unidade da caixa (6 de altura + traço)
+    t = u * 1.8  # grossura do traço (negrito como o da VW)
+    adv = u * 6.3
+    w = int(adv * len(s) + t * 2)
+    lay = Image.new('L', (w, int(u * 6 + t * 2)), 0)
+    dd = ImageDraw.Draw(lay)
+    for i, ch in enumerate(s):
+        ox = t + i * adv
+        for path in SQ.get(ch, []):
+            pts = [(ox + x * u, t + y * u) for x, y in path]
+            dd.line(pts, fill=255, width=int(t), joint='curve')
+            for x, y in pts:
+                dd.ellipse([x - t / 2, y - t / 2, x + t / 2, y + t / 2], fill=255)
+    lay = lay.resize((max(1, w // S), max(1, lay.height // S)), Image.LANCZOS)
+    img = Image.new('RGBA', lay.size, col + (0,))
+    img.putalpha(lay)
+    return img
+
+
 def draw_labels(im):
     for s, cx, cy, size, font, sq, col in LABELS:
+        if font == 'SQ':
+            g = sq_number(s, size * KO * 0.86, col)
+            g = g.resize((max(1, int(g.width * sq)), g.height), Image.LANCZOS)
+            im.alpha_composite(g, (int(round(cx * KO - g.width / 2)), int(round(cy * KO - g.height / 2))))
+            continue
         f = ImageFont.truetype(font, int(round(size * KO * 4)))
         bx0, by0, bx1, by1 = ImageDraw.Draw(Image.new('L', (4, 4))).textbbox((0, 0), s, font=f)
         lay = Image.new('L', (bx1 - bx0 + 8, by1 - by0 + 8), 0)
@@ -72,7 +115,7 @@ def speed(d):
             tick(d, g, fr(v), g['r'] - 1.8, g['r'] - 0.2, 0.6)
     for v in range(20, 241, 20):
         x, y = at(g, fr(v), g['r'] - 6.9)
-        label(str(v), x, y, 3.5, squeeze=0.66 if v >= 100 else 0.8)
+        label(str(v), x, y, 2.9, 'SQ', squeeze=0.74 if v >= 100 else 0.95)
     x, y = P(g['x'], g['y'])
     label('vdo', x, y - K * 12.2, 1.6, FB, col=WHITE)
     label('km', x, y - K * 9.9, 1.9, FB, col=WHITE)
@@ -119,7 +162,7 @@ def tach(d):
         tick(d, g, fr(vv), g['r'] - 3.0, g['r'] - 0.2, 0.3, INK if k % 3 else (120, 40, 20))
     for n in range(1, 8):
         x, y = at(g, fr(n), g['r'] - 6.4)
-        label(str(n), x, y, 4.0, squeeze=0.86)
+        label(str(n), x, y, 3.5, 'SQ', squeeze=1.0)
     label('VDO', cx, cy - K * 9.6, 1.3, FR, col=WHITE)
     label('1/min x 1000', cx, cy + K * 6.6, 2.0, FR, squeeze=0.86, col=WHITE)
     c0 = P(g['x'] + 5.2, g['y'])

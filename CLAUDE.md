@@ -79,3 +79,6 @@
 - Teto: se a arte corta no alto, desenhar o forro e continuar as colunas até ele.
 - Borda esticada não se resolve espelhando a linha inteira (duplica saídas de ar, retrovisor e abre
   buracos no vidro): continuar a peça seguindo a diagonal dela, como no GTI (`gol_cockpit2.py`).
+- Fonte dos números do quadro: se nenhuma fonte instalada tem o desenho do carro (ex.: algarismos
+  quadrados da VW no GTI), desenhar os algarismos à mão em traço (`SQ` em `gol_gauges.py`) em vez de
+  usar uma grotesca parecida.

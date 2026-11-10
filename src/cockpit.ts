@@ -246,7 +246,7 @@ COCKPIT_ART['br-golgti'] = {
   tells: null,
   dash: cp('br-golgti-dash'), top: cp('br-golgti-top'), wheel: cp('br-golgti-wheel'), dashMask: cp('br-golgti-dash-mask'), topMask: cp('br-golgti-top-mask'),
   glass: { at: [86, 110], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, radar: [200, 6], speedMax: 240, needle: '#f2eee2', needleW: 1.6, needleTail: 3.5, needleFine: true, hub: '#141416', hubR: 2.4,
+  pivot: [128, 112], wheelTop: 8, radar: [200, 6], speedMax: 240, needle: '#f2eee2', needleW: 1.5, needleTail: 3.0, needleFine: true, hub: '#141416', hubR: 1.7,
   faces: [{ src: cp('br-golgti-cluster'), x: 69.5, y: 31.5, w: 118, h: 47 }],
   glow: '255,120,40', glowK: 0.6,
   speed: { x: 93.6, y: 54.4, r: 20, max: 240, labels: [], tick: 20, red: 999, face: false, a0: (134 - 271 / 11) * GOL_DEG, sweep: (271 * 12 / 11) * GOL_DEG },
@@ -257,7 +257,7 @@ COCKPIT_ART['br-golgti'] = {
   ],
   extra: (c, ox, r) => {
     odometer(c, ox, r, { x: 87.6, y: 47.0, w: 12, h: 3.5 }, 86476, 6, 0.5);
-    odometer(c, ox, r, { x: 89.4, y: 60.4, w: 8.4, h: 3.5 }, 168.5, 4, 0.5, true);
+    odometer(c, ox, r, { x: 89.4, y: 61.0, w: 8.4, h: 3.5 }, 168.5, 4, 0.5, true);
     const now = new Date();
     pix(c, `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`, ox + 123.8, ART_TOP + 63.3, '#1e2616', 0.5);
   },

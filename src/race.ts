@@ -1129,7 +1129,12 @@ export class Race {
     const gap = (r.z - this.playerZ) / SEG_LEN; // > 0: rival na frente
     let target = 0;
     let cornerCap = Infinity;
-    if (r.finishTime >= 0 || this.state === 'arrived') target = max * 0.25;
+    // posto: depois da linha o rival freia como o jogador e para na bomba ao lado (não segue embora);
+    // se o jogador chegou antes, ele continua até o posto e para lá também
+    const stopZ = this.track.finishZ + 6 * SEG_LEN;
+    const pitDec = toGame(G * this.rivalCar.brakeG * BRAKE_BOOST) * 0.45; // como a freada automática do jogador no posto
+    const pitCap = Math.sqrt(2 * pitDec * Math.max(0, stopZ - r.z));
+    if (r.finishTime >= 0) target = Math.min(max * 0.6, pitCap);
     else {
       // elástico: na frente, o rival alivia (os mais fracos aliviam mais, dando chance de
       // recuperar depois de uma batida); atrás, acelera um pouco
@@ -1158,7 +1163,7 @@ export class Race {
     // limite de curva (depois de todos os ajustes: vácuo, pressão e erro não passam da
     // aderência): para cada curva até ~80 segmentos à frente, a velocidade de contorno com
     // folga (o rival não derrapa como o jogador) e o quanto ele consegue frear até chegar nela
-    if (r.finishTime < 0 && this.state !== 'arrived') {
+    if (r.finishTime < 0) {
       const segs = this.track.segments;
       const nerve = r.style === 'agressivo' ? 0.93 : r.style === 'cauteloso' ? 0.82 : 0.88;
       const brakeA = toGame(G * this.rivalCar.brakeG * BRAKE_BOOST * this.surface(this.rivalCar)) * 0.6;
@@ -1173,10 +1178,11 @@ export class Race {
       }
       target = Math.min(target, cornerCap);
     }
+    target = Math.min(target, pitCap); // começa a frear a tempo de parar na bomba
     const want = target; // o que ele quer andar (antes de ficar preso atrás de alguém)
     // ritmo de ultrapassagem: o normal do piloto, sem o elástico. Mesmo aliviando para esperar
     // o jogador, ele não fica atrás de um caminhão lento: ultrapassa como faria de qualquer jeito
-    const wantPass = r.finishTime < 0 && this.state !== 'arrived' ? Math.min(cornerCap, Math.max(want, max * this.course.rivalSkill * 0.92)) : want;
+    const wantPass = r.finishTime < 0 ? Math.min(cornerCap, Math.max(want, max * this.course.rivalSkill * 0.92)) : want;
     r.mistake = Math.max(0, r.mistake - dt);
     r.boost = Math.max(0, r.boost - dt);
     r.wasAhead = gap > 0;

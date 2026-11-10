@@ -74,10 +74,10 @@ def speed(d):
         x, y = at(g, fr(v), g['r'] - 6.9)
         label(str(v), x, y, 3.5, squeeze=0.66 if v >= 100 else 0.8)
     x, y = P(g['x'], g['y'])
-    label('vdo', x, y - K * 11.6, 1.2, FR, col=WHITE)
-    label('km', x, y - K * 9.6, 1.5, FR, col=WHITE)
-    label('km/h', x, y + K * 12.2, 1.9, FR, col=WHITE)
-    for bx, by, bw in ((-6.0, -7.4, 12), (-4.2, 6.0, 8.4)):   # janelas do hodômetro e do parcial
+    label('vdo', x, y - K * 12.2, 1.6, FB, col=WHITE)
+    label('km', x, y - K * 9.9, 1.9, FB, col=WHITE)
+    label('km/h', x, y + K * 13.6, 2.1, FB, col=WHITE)
+    for bx, by, bw in ((-6.0, -7.4, 12), (-4.2, 6.6, 8.4)):   # janelas do hodômetro e do parcial
         x0, y0 = P(g['x'] + bx, g['y'] + by)
         d.rectangle([x0 - K * 0.3, y0 - K * 0.3, x0 + (bw + 0.3) * K, y0 + 3.8 * K], fill=(10, 10, 12))
     for sx in (-1, 1):  # parafusos dos lados do eixo

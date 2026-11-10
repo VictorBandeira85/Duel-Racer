@@ -82,9 +82,16 @@ def main():
         sky |= lab3 == cx
     # janela da porta (embaixo do retrovisor até a soleira): é tudo paisagem, menos a carcaça vermelha
     jan = (xx < 250) & (yy > 250) & (yy < 475 - 0.27 * xx) & ((lum > 95) | (yy < 462 - 0.27 * xx)) & ~cv2.dilate(red.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
-    mbox = np.zeros((H, W), bool)
-    mbox[262:410, 0:200] = True
-    sky |= jan & ~(mbox & ~sky & (lum < 60))  # o miolo escuro do retrovisor fica
+    # do retrovisor fica só a carcaça (moldura vermelha) e o vidro que ela cerca (o jogo põe a vista
+    # de trás nele); a estrada pintada em volta, até a coluna, é janela
+    box = np.zeros((H, W), bool)
+    box[262:410, 0:200] = True
+    fr = cv2.dilate((red & box).astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+    n4, lab4 = cv2.connectedComponents((box & ~fr).astype(np.uint8), connectivity=4)
+    keep = fr | ((lab4 == lab4[340, 95]) & (lab4 > 0))
+    sky |= jan & ~keep
+    # palhetas do limpador e o que sobe acima do painel: o painel termina numa linha limpa
+    sky |= (yy < 297) & (xx > 330) & (xx < 1625)
     # faixa lilás (o vidro da porta visto de lado) acima da borracha da soleira: também é janela
     lil = (xx < 320) & (yy > 360) & (yy < 505 - 0.27 * xx) & (rgb[..., 2] > rgb[..., 0] + 4) & (lum > 88) & ~red
     sky |= lil

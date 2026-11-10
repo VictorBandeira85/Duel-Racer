@@ -246,7 +246,7 @@ COCKPIT_ART['br-golgti'] = {
   tells: null,
   dash: cp('br-golgti-dash'), top: cp('br-golgti-top'), wheel: cp('br-golgti-wheel'), dashMask: cp('br-golgti-dash-mask'), topMask: cp('br-golgti-top-mask'),
   glass: { at: [86, 110], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, radar: [200, 6], speedMax: 240, needle: '#f2eee2', needleW: 1.5, needleTail: 3.0, needleFine: true, hub: '#141416', hubR: 1.7,
+  pivot: [128, 112], wheelTop: 8, radar: [206, 20], speedMax: 240, needle: '#f2eee2', needleW: 1.5, needleTail: 3.0, needleFine: true, hub: '#141416', hubR: 1.7,
   faces: [{ src: cp('br-golgti-cluster'), x: 69.5, y: 31.5, w: 118, h: 47 }],
   glow: '255,120,40', glowK: 0.6,
   speed: { x: 93.6, y: 54.4, r: 20, max: 240, labels: [], tick: 20, red: 999, face: false, a0: (134 - 271 / 11) * GOL_DEG, sweep: (271 * 12 / 11) * GOL_DEG },
@@ -992,7 +992,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     }
   } else {
     const glass = findGlass(art.dash, svgSprite(art.top, DASH_W, TOP_EXT), svgSprite(art.dash, DASH_W, 124) ?? dash0, art.glass ? DASH_W : DASH_PAD + 90, art.glass);
-    if (glass) drawSideMirror(c, r, glass, dx, ART_TOP, color ?? r.car.color);
+    if (glass) drawSideMirror(c, r, glass, dx, ART_TOP, color ?? r.car.color, art.glass?.toEdge ? Math.max(0, dx) : 0);
   }
   if (art.lcd) lcdPanel(c, ox, r, art);
   if (art.odo) odometer(c, ox, r, art.odo);

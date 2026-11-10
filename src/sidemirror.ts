@@ -145,12 +145,13 @@ export function findGlass(key: string, top: HTMLCanvasElement | null, dash: HTML
 }
 
 // desenha a vista do retrovisor esquerdo sobre o vidro; (ox, oy) = canto da imagem do painel na tela
-export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, ox: number, oy: number, bodyColor: string) {
+export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, ox: number, oy: number, bodyColor: string, edgeFill = 0) {
   const { w, h } = g;
   if (!view) view = document.createElement('canvas');
   // econômico: o espelho é redesenhado em quadros alternados (no outro repete a imagem)
   if (lowFx() && fxTick() % 2 && view.width === w * RES && view.height === h * RES) {
     c.drawImage(view, ox + g.x, oy + g.y, w, h);
+    if (edgeFill > 0 && g.x === 0) c.drawImage(view, 0, 0, Math.max(1, RES), h * RES, ox + g.x - edgeFill, oy + g.y, edgeFill + 0.5, h);
     return;
   }
   if (view.width !== w * RES || view.height !== h * RES) {
@@ -290,4 +291,7 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
   v.drawImage(g.mask, 0, 0, w * RES, h * RES);
   v.globalCompositeOperation = 'source-over';
   c.drawImage(view, ox + g.x, oy + g.y, w, h);
+  // espelho cortado na borda da arte (toEdge): à esquerda da arte (tela mais larga que ela) o vidro
+  // continua até a borda da tela, com a primeira coluna da vista esticada (nada de estrada ali)
+  if (edgeFill > 0 && g.x === 0) c.drawImage(view, 0, 0, Math.max(1, RES), h * RES, ox + g.x - edgeFill, oy + g.y, edgeFill + 0.5, h);
 }

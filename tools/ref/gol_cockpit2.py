@@ -81,7 +81,7 @@ def main():
     if cx:
         sky |= lab3 == cx
     # janela da porta (embaixo do retrovisor até a soleira): é tudo paisagem, menos a carcaça vermelha
-    jan = (xx < 250) & (yy > 250) & (yy < 475 - 0.27 * xx) & ((lum > 95) | (yy < 462 - 0.27 * xx)) & ~cv2.dilate(red.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
+    jan = (xx < 188) & (yy > 250) & (yy < 475 - 0.27 * xx) & ((lum > 95) | (yy < 462 - 0.27 * xx)) & ~cv2.dilate(red.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
     # do retrovisor fica só a carcaça (moldura vermelha) e o vidro que ela cerca (o jogo põe a vista
     # de trás nele); a estrada pintada em volta, até a coluna, é janela
     box = np.zeros((H, W), bool)
@@ -93,12 +93,12 @@ def main():
     # palhetas do limpador e o que sobe acima do painel: o painel termina numa linha limpa
     sky |= (yy < 297) & (xx > 330) & (xx < 1625)
     # faixa lilás (o vidro da porta visto de lado) acima da borracha da soleira: também é janela
-    lil = (xx < 320) & (yy > 360) & (yy < 505 - 0.27 * xx) & (rgb[..., 2] > rgb[..., 0] + 4) & (lum > 88) & ~red
+    lil = (xx < 188) & (yy > 360) & (yy < 505 - 0.27 * xx) & (rgb[..., 2] > rgb[..., 0] + 4) & (lum > 88) & ~red
     sky |= lil
     # coluna da porta: a moldura cinza-azulada entre a borracha preta (à esquerda) e o friso
     # vermelho é peça do carro, não paisagem (o azulado dela enganava a detecção do vidro)
     for y in range(0, 330):
-        rx = np.nonzero(red[y, 120:300])[0]
+        rx = np.nonzero(red[y, 192:300])[0] + 72  # o friso da coluna (a carcaça do retrovisor fica à esquerda de 190)
         if not len(rx):
             continue
         r0 = 120 + rx[0]
@@ -110,6 +110,9 @@ def main():
         dk2 = np.nonzero(lum[y, r1 + 6:r1 + 140] < 40)[0]
         if len(dk2):
             sky[y, r1:r1 + 6 + dk2[-1] + 1] = False if dk2[-1] < 110 else sky[y, r1:r1 + 6 + dk2[-1] + 1]
+    sky |= (xx >= 168) & (xx < 236) & (yy > 236) & (yy < 300) & (sat > 50) & ~red  # nesga de paisagem entre o retrovisor e a coluna
+    hue = cv2.cvtColor(nw, cv2.COLOR_RGB2HSV_FULL).astype(int)[..., 0] * 360 / 256
+    sky |= (xx >= 230) & (xx < 430) & (yy > 236) & (yy < 340) & (sat > 60) & (hue > 70) & (hue < 250)  # restos de paisagem verde/azul junto da coluna
     inv = (~sky & win).astype(np.uint8)
     n2, lab2, st2, _ = cv2.connectedComponentsWithStats(inv, 4)
     for i in range(1, n2):

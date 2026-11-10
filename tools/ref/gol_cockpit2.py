@@ -95,6 +95,21 @@ def main():
     # faixa lilás (o vidro da porta visto de lado) acima da borracha da soleira: também é janela
     lil = (xx < 320) & (yy > 360) & (yy < 505 - 0.27 * xx) & (rgb[..., 2] > rgb[..., 0] + 4) & (lum > 88) & ~red
     sky |= lil
+    # coluna da porta: a moldura cinza-azulada entre a borracha preta (à esquerda) e o friso
+    # vermelho é peça do carro, não paisagem (o azulado dela enganava a detecção do vidro)
+    for y in range(0, 330):
+        rx = np.nonzero(red[y, 120:300])[0]
+        if not len(rx):
+            continue
+        r0 = 120 + rx[0]
+        dk = np.nonzero(lum[y, 100:r0] < 45)[0]
+        l0 = 100 + dk[0] if len(dk) else r0 - 40
+        sky[y, l0:r0 + 1] = False
+        # e o acabamento cinza à direita do friso, até a borracha preta do para-brisa
+        r1 = 120 + rx[-1]
+        dk2 = np.nonzero(lum[y, r1 + 6:r1 + 140] < 40)[0]
+        if len(dk2):
+            sky[y, r1:r1 + 6 + dk2[-1] + 1] = False if dk2[-1] < 110 else sky[y, r1:r1 + 6 + dk2[-1] + 1]
     inv = (~sky & win).astype(np.uint8)
     n2, lab2, st2, _ = cv2.connectedComponentsWithStats(inv, 4)
     for i in range(1, n2):

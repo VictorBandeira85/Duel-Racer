@@ -54,3 +54,26 @@
   truck = cara-chata LP 1113, fusca, kombi, suv = Explorer, sedan90 = Taurus. Modelo novo: escolher um
   carro real, desenhar traseira e frente, e medir a placa nos PNG (`TRAFFIC_PLATE`/`TRAFFIC_GLOW` em cars.ts).
   A viatura (police-*.png) foi retocada à mão: não sobrescrever ao rodar o script.
+
+## Conferência antes de publicar (obrigatória em arte nova ou mexida)
+1. `python3 tools/qa/art_lint.py [carro]`: furos transparentes na cabine, bordas esticadas, máscara de
+   pintura pegando lanterna/pisca e reflexos fora da máscara. Furos pequenos: `--fill <cabine>`.
+2. `node tools/qa/cockpit_shots.cjs <pasta> <id>` + `python3 tools/qa/sheet.py <pasta>` (vite rodando):
+   folha com dia, noite e volante virado, em tela larga (1000x400) e de celular (932x430), com o canto
+   esquerdo (retrovisor/coluna) e o quadro ampliados. Olhar a folha inteira, não só o que mudou.
+3. Rival/trânsito/física: testar com script que mede posição e velocidade (ex.: rival parando no posto).
+4. Depois de mexer em `src/*.ts`, se o teste der igual ao anterior, reiniciar o vite (cache).
+
+## Lições (erros que já aconteceram — não repetir)
+- Recorte de cabine: tons azulados/cinzentos de peças (molduras, colunas, borracha) passam por vidro;
+  marcar as peças à mão (polígono ou varredura por linha a partir do friso) em vez de confiar só na cor.
+- Janela da porta: só até a borda do retrovisor; base do retrovisor e coluna ficam sólidas.
+- Telas largas: à esquerda/direita da arte nada pode ser esticado; continuar a textura seguindo a
+  diagonal da peça (forro da porta do GTI) e o vidro do retrovisor até a borda (toEdge + edgeFill).
+- Máscara de pintura: excluir lanternas, piscas, frisos e letreiros; incluir reflexos claros e bordas
+  da cor da lataria (senão ficam rosados/vermelhos com outra cor). Conferir repintando de azul.
+- Arte que vem com uma cor diferente da de fábrica numa vista: converter pelo brilho da outra vista.
+- Quadro de instrumentos: medir os ângulos de início/fim das escalas na foto; números grandes e
+  negritos; nada de texto improvisado no lugar de ícone (desenhar o pictograma).
+- Textura de chão/asfalto: nada de grão forte (pisca com o movimento); variação só em faixas.
+- Teto: se a arte corta no alto, desenhar o forro e continuar as colunas até ele.

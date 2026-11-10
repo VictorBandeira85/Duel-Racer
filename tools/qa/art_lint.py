@@ -4,6 +4,7 @@
 - sprites: máscara de pintura pegando lanterna/luz (vermelho ou âmbar saturado) e reflexos fora dela
 Uso: python3 tools/qa/art_lint.py [carro ...]   (sem nomes: todos)   -> lista de avisos com posição
      python3 tools/qa/art_lint.py --fill <cabine ...>  fecha os furos pequenos (até 8 px) da cabine
+     python3 tools/qa/art_lint.py --mask <arte ...>  põe na máscara os reflexos claros da pintura
 """
 import glob
 import os
@@ -101,7 +102,34 @@ def fill_tiny(name, maxa=8):
     return k
 
 
+def fix_mask(art, rounds=3):
+    """reflexos claros da pintura encostados na máscara (mesmo matiz, pouca cor) entram nela"""
+    k = 0
+    for v in ('side', 'rear', 'front'):
+        p, mp = os.path.join(CARS, f'{art}-{v}.png'), os.path.join(CARS, f'{art}-{v}-mask.png')
+        if not (os.path.exists(p) and os.path.exists(mp)):
+            continue
+        a = rgba(p)
+        m = np.array(Image.open(mp).convert('L')) > 127
+        hsv = cv2.cvtColor(np.ascontiguousarray(a[..., :3]), cv2.COLOR_RGB2HSV_FULL).astype(int)
+        h, s, val = hsv[..., 0] * 360 / 256, hsv[..., 1], hsv[..., 2]
+        body_h = np.median(h[m])
+        cand = (a[..., 3] > 0) & (val > 140) & (s > 12) & (s < 120) & (np.abs(((h - body_h + 180) % 360) - 180) < 28)
+        n0 = m.sum()
+        for _ in range(rounds):
+            near = cv2.dilate(m.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+            m = m | (near & cand)
+        k += int(m.sum() - n0)
+        Image.fromarray((m * 255).astype(np.uint8), 'L').convert('RGBA').save(mp, optimize=True)
+    return k
+
+
 def main():
+    if sys.argv[1:2] == ['--mask']:
+        for nme in sys.argv[2:]:
+            print(nme, 'pixels de reflexo incluídos:', fix_mask(nme))
+        return
+
     if sys.argv[1:2] == ['--fill']:
         for nme in sys.argv[2:]:
             print(nme, 'furos fechados:', fill_tiny(nme))

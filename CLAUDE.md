@@ -77,3 +77,5 @@
   negritos; nada de texto improvisado no lugar de ícone (desenhar o pictograma).
 - Textura de chão/asfalto: nada de grão forte (pisca com o movimento); variação só em faixas.
 - Teto: se a arte corta no alto, desenhar o forro e continuar as colunas até ele.
+- Borda esticada não se resolve espelhando a linha inteira (duplica saídas de ar, retrovisor e abre
+  buracos no vidro): continuar a peça seguindo a diagonal dela, como no GTI (`gol_cockpit2.py`).

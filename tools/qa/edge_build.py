@@ -53,6 +53,17 @@ def build(name, side, c0, slope=None, band=6):
     base = cv2.GaussianBlur(rgb, (0, 0), 1.6)
     detail = rgb - base
     out = st.copy()
+    # só as linhas que estavam esticadas (4+ pixels iguais encostados na borda): o resto da faixa
+    # (retrovisor, janela) fica como está
+    def run(y):
+        r = st[y]
+        if r[0, 3] == 0:
+            return 0
+        e = 1
+        while e < c0 + 4 and np.array_equal(r[e], r[0]):
+            e += 1
+        return e
+    stretched = np.array([run(y) >= 4 for y in range(H)])
     for X in range(0, c0):
         dist = c0 - X
         ys = np.arange(H)
@@ -62,8 +73,9 @@ def build(name, side, c0, slope=None, band=6):
         # "dentes" nas bordas); um pontilhado leve alterna 1 px para não ficar chapado
         bcol = rgb[yb, c0:c0 + 2].mean(axis=1)
         dth = ((X + ys) % 2 == 0)[:, None] * (detail[yb, c0 + 1] * 0.35)
-        out[:, X, :3] = np.clip(bcol + dth, 0, 255).astype(np.uint8)
-        out[:, X, 3] = st[yb, c0, 3]
+        col = np.clip(bcol + dth, 0, 255).astype(np.uint8)
+        out[stretched, X, :3] = col[stretched]
+        out[stretched, X, 3] = st[yb, c0, 3][stretched]
     if side == 'R':
         out = out[:, ::-1]
     Image.fromarray(out[:t.shape[0]], 'RGBA').save(tp, optimize=True)

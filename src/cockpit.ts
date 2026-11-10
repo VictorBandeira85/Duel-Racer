@@ -120,7 +120,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
   // de verdade (foto do Victor, tools/ref/f40_gauges.py): velocímetro 0-360 com hodômetros,
   // conta-giros 0-100 x100 com marcas vermelhas, água e turbo embaixo, luzes vermelhas; ponteiros brancos
   f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, pivot: [128, 105], wheelTop: 12, tells: null,
-    glass: { at: [60, 160], thr: 256 }, radar: [222, 6], glow: '110,230,140', glowK: 0.5,
+    glass: { at: [31, 106], thr: 256 }, radar: [222, 6], glow: '110,230,140', glowK: 0.5, // retrovisor desenhado (tools/qa/add_mirror.py)
     // à noite números e marcações acendem em verde (o fundo preto continua preto), ponteiros também
     facesLit: '110,236,140', litNeedles: true,
     faces: [{ src: cp('f40-cluster'), src2: cp('f40-cluster-2x'), x: 44.5, y: 7.5, w: 169, h: 84 },
@@ -696,6 +696,7 @@ COCKPIT_ART.testarossa = {
 // conta-giros 0-90 (× 100) com faixa amarela e vermelha, combustível e água; números verdes
 const LP5_INK = '#bfe8cc';
 COCKPIT_ART.countach = {
+  glass: { at: [28, 68], thr: 256 }, // retrovisor esquerdo desenhado (tools/qa/add_mirror.py)
   glow: '120,230,150',
   dash: cp('countach-dash'), top: cp('countach-top'), wheel: cp('countach-wheel'),
   pivot: [128, 104], wheelTop: 8, speedMax: 320, needle: '#ff7a1a', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [196, 4],

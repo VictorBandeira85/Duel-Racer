@@ -81,7 +81,11 @@
   tela, continuando cada linha da peça (soleira, apoio de braço, frisos, borracha da janela) na própria
   inclinação, com a cor da peça e sem copiar maçanetas/saídas de ar/retrovisores. Ferramenta:
   `python3 tools/qa/edge_build.py <cabine> <L|R> <c0> <inclinação>` (inclinação positiva = a linha desce
-  indo para a borda; medir na arte, a automática erra). Conferir com `WIDE=1 node tools/qa/cockpit_shots.cjs`.
+  indo para a borda; medir na arte, a automática erra). Ela só refaz as linhas esticadas: retrovisor e
+  janela ficam. Conferir com `WIDE=1400 DAYONLY=1 node tools/qa/cockpit_shots.cjs <pasta>` (todos os carros).
+- Todo carro tem retrovisor do lado do motorista funcionando (vidro com a vista de trás). Se a arte
+  não tem, desenhar com `python3 tools/qa/add_mirror.py <cabine> x0 y0 x1 y1 braço_x braço_y #cor` e pôr
+  a semente em `glass.at`. Mão inglesa (NSX): o do motorista é o da direita.
 - Fonte dos números do quadro: se nenhuma fonte instalada tem o desenho do carro (ex.: algarismos
   quadrados da VW no GTI), desenhar os algarismos à mão em traço (`SQ` em `gol_gauges.py`) em vez de
   usar uma grotesca parecida.

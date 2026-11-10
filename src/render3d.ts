@@ -86,26 +86,26 @@ function turf(c: CanvasRenderingContext2D, a: string, b: string, kind: 'grass' |
     if (kind === 'grass' && !(cg > cr * 1.12 && cg > cb)) {
       g.fillStyle = b;
       for (let y = 0; y < N; y++) for (let x = (y & 1); x < N; x += 2) g.fillRect(x, y, 1, 1);
-      for (let i = 0; i < 7; i++) {
+      for (let i = 0; i < 3; i++) {
         const x = Math.floor(rnd() * N), y = Math.floor(rnd() * N);
-        g.fillStyle = i % 2 ? 'rgba(90,60,30,0.16)' : 'rgba(255,255,240,0.22)';
+        g.fillStyle = 'rgba(90,60,30,0.08)';
         g.fillRect(x, y, 1, 1);
       }
     } else if (kind === 'grass') {
       g.fillStyle = b;
       for (let y = 0; y < N; y++) for (let x = (y & 1); x < N; x += 2) g.fillRect(x, y, 1, 1);
       // tufos: um risco escuro com a ponta clara
-      for (let i = 0; i < 9; i++) {
+      for (let i = 0; i < 4; i++) { // tufos discretos (o grão forte "ferve" com o movimento)
         const x = Math.floor(rnd() * N), y = Math.floor(rnd() * N);
-        g.fillStyle = 'rgba(0,0,0,0.28)';
+        g.fillStyle = 'rgba(0,0,0,0.1)';
         g.fillRect(x, y, 1, 2);
-        g.fillStyle = 'rgba(255,255,210,0.22)';
-        g.fillRect(x, y - 1 < 0 ? N - 1 : y - 1, 1, 1);
       }
     } else {
-      for (let i = 0; i < (kind === 'asphalt' ? 22 : 34); i++) {
+      // asfalto liso (sem granulado: os pontos piscavam o tempo todo com o carro andando);
+      // o cascalho do acostamento leva só uns poucos grãos bem suaves
+      if (kind === 'gravel') for (let i = 0; i < 8; i++) {
         const x = Math.floor(rnd() * N), y = Math.floor(rnd() * N);
-        g.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.12)';
+        g.fillStyle = rnd() < 0.5 ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
         g.fillRect(x, y, 1, 1);
       }
     }

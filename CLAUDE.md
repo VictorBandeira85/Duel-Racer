@@ -77,8 +77,11 @@
   negritos; nada de texto improvisado no lugar de ícone (desenhar o pictograma).
 - Textura de chão/asfalto: nada de grão forte (pisca com o movimento); variação só em faixas.
 - Teto: se a arte corta no alto, desenhar o forro e continuar as colunas até ele.
-- Borda esticada não se resolve espelhando a linha inteira (duplica saídas de ar, retrovisor e abre
-  buracos no vidro): continuar a peça seguindo a diagonal dela, como no GTI (`gol_cockpit2.py`).
+- **Portas e laterais da cabine NUNCA são espelhadas nem esticadas**: são construídas até a borda da
+  tela, continuando cada linha da peça (soleira, apoio de braço, frisos, borracha da janela) na própria
+  inclinação, com a cor da peça e sem copiar maçanetas/saídas de ar/retrovisores. Ferramenta:
+  `python3 tools/qa/edge_build.py <cabine> <L|R> <c0> <inclinação>` (inclinação positiva = a linha desce
+  indo para a borda; medir na arte, a automática erra). Conferir com `WIDE=1 node tools/qa/cockpit_shots.cjs`.
 - Fonte dos números do quadro: se nenhuma fonte instalada tem o desenho do carro (ex.: algarismos
   quadrados da VW no GTI), desenhar os algarismos à mão em traço (`SQ` em `gol_gauges.py`) em vez de
   usar uma grotesca parecida.

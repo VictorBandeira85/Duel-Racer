@@ -9,7 +9,7 @@ const out = process.argv[2] || '.';
 const only = process.argv.slice(3);
 (async () => {
   const b = await chromium.launch();
-  const sizes = [[1000, 400], [932, 430]];
+  const sizes = process.env.WIDE ? [[1200, 400]] : [[1000, 400], [932, 430]];
   for (const [vw, vh] of sizes) {
     const p = await b.newPage({ viewport: { width: vw, height: vh }, deviceScaleFactor: 3 });
     await p.goto('http://localhost:5173/'); await p.waitForTimeout(2500);

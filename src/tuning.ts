@@ -211,6 +211,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     // relógios auxiliares: pressão do turbo/compressor, de óleo (pistões e bielas) e de combustível (alimentação)
     pods: [...(forced ? ['boost' as const] : []), ...(build.pistoes ? ['oil' as const] : []), ...(build.alimentacao ? ['fuel' as const] : [])],
     carb: isCarb(car),
+    prep: power,
     wheelArt: wheel,
     soundMods: snd,
   };

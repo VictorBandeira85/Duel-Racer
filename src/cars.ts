@@ -76,6 +76,7 @@ export interface CarSpec {
   forced?: 'turbo' | 'super'; // turbo/supercharger instalado na preparação: a cabine ganha o manômetro auxiliar
   boostMax?: number; // pressão máxima (kgf/cm²) do manômetro
   pods?: ('boost' | 'oil' | 'fuel')[]; // relógios auxiliares na cabine, conforme as peças instaladas
+  prep?: number; // multiplicador de potência das peças (1 = original): tração dianteira preparada patina mais
   carb?: boolean; // alimentação por carburador (escala do relógio de combustível)
   soundMods?: import('./tuning').SoundMods; // mudanças no ronco pelas peças instaladas
   id: string;
@@ -514,9 +515,12 @@ export class Powertrain {
     const cap = (car.traction ?? 1) * G * tracMul;
     // a tração calibrada já é a arrancada "no limite"; as rodas só giram em falso quando
     // sobra bem mais potência do que isso (integral quase nunca, motor central menos que dianteiro)
-    const loose = cap * (car.drive === 'integral' ? 2.5 : car.position === 'dianteira' ? 1.6 : 1.8);
+    // tração dianteira preparada: a frente alivia ao acelerar e a potência a mais sobra nas rodas,
+    // então patina (canta pneu) também em segunda e, com muita potência, em terceira, e perde tração
+    const fwdPrep = car.drive === 'dianteira' ? clamp(((car.prep ?? 1) - 1) / 0.4, 0, 1) : 0;
+    const loose = cap * (car.drive === 'integral' ? 2.5 : car.position === 'dianteira' ? 1.6 - 0.75 * fwdPrep : 1.8);
     this.spin = clamp((aPow / loose - 1) * 0.6, 0, 1);
-    return Math.min(aPow, cap);
+    return Math.min(aPow, cap * (1 - 0.06 * fwdPrep * this.spin));
   }
 }
 

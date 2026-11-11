@@ -637,7 +637,9 @@ export class Race {
     this.speed = clamp(this.speed, 0, max * 1.12);
     // patinando, o giro sobe sem o carro andar
     this.spin = lerp(this.spin, this.pt.spin, Math.min(1, dt * 8));
-    const rpmGear = Math.min(1.02, this.speed / (max * this.car.gears[this.gear]) + this.spin * 0.3);
+    // rodas patinando: o giro dispara, e mais ainda em alta rotação nos carros preparados
+    const rpmBase = this.speed / (max * this.car.gears[this.gear]);
+    const rpmGear = Math.min(1.02, rpmBase + this.spin * (0.3 + ((this.car.prep ?? 1) > 1 ? 0.4 * clamp(rpmBase, 0, 1) : 0)));
     // troca de marcha de câmbio manual: embreagem pisada, o giro cai devagar no começo e depressa
     // depois, e casa com a marcha nova quando ela entra (na redução, sobe no "punta-tacco")
     if (this.gear !== this.shownGear) {

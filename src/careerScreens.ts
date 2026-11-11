@@ -425,7 +425,7 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
     c.lineWidth = hot ? 2 : 1;
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
     ink(c, sl.name.toUpperCase(), r.x + 4, r.y + 2, 4, hot ? YELLOW : GREY);
-    ink(c, vp.name, r.x + 4, r.y + 8.5, 5, hot ? '#fff' : vp.id ? RED : INK);
+    ink(c, vp.name, r.x + 4, r.y + 8.5, vp.name.length * 5.6 > r.w - 8 ? 4 : 5, hot ? '#fff' : vp.id ? RED : INK);
     if (!installed) ink(c, 'EM VISTA', r.x + r.w - 4, r.y + 2, 4, hot ? YELLOW : RED, 'right');
   });
   // barra da vaga escolhida: ◀ peça ▶ e o botão de comprar/instalar

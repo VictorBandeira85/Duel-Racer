@@ -140,7 +140,14 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
     { id: 'freios', name: 'Freios', parts: [ORIGINAL(),
       { id: 'esportivo', name: 'Discos ventilados', note: '+10,5% freio', cost: 0.04, brake: 1.105 },
       { id: 'corrida', name: 'Discos de corrida', note: '+21% freio', cost: 0.08, brake: 1.21 }] },
-    { id: 'bancos', name: 'Alívio de peso', parts: [ORIGINAL(), { id: 'concha', name: 'Bancos concha', note: '-4,5% peso', cost: 0.03, mass: 0.955 }] }, // (id 'bancos' mantido por causa dos saves)
+    // alívio de peso em etapas (cada uma inclui as anteriores); id 'bancos' e 'concha' mantidos por causa dos saves
+    { id: 'bancos', name: 'Alívio de peso', parts: [ORIGINAL(),
+      { id: 'entretenimento', name: 'Retirar entretenimento', note: '-1,5% peso', cost: 0.01, mass: 0.985 },
+      { id: 'forros', name: 'Forros de porta', note: '-3% peso', cost: 0.02, mass: 0.97 },
+      { id: 'acabamentos', name: 'Acabamentos', note: '-4,5% peso', cost: 0.03, mass: 0.955 },
+      { id: 'concha', name: 'Bancos de corrida', note: '-6,5% peso', cost: 0.05, mass: 0.935 },
+      { id: 'estrutura', name: 'Estrutura', note: '-9% peso', cost: 0.07, mass: 0.91 },
+      { id: 'corrida', name: 'Alívio de corrida', note: '-12% peso', cost: 0.1, mass: 0.88 }] },
     { id: 'rodas', name: 'Rodas', parts: [ORIGINAL('Originais'), ...WHEEL_LIST.map(([id, name]): Part => ({ id, name, note: id[0] === 'c' ? 'clássica' : 'liga leve', cost: 0.03, wheel: id }))] },
   ];
 }

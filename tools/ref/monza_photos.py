@@ -1,6 +1,6 @@
 """Fotos da revista do Ímola S/R (Monza S/R, pixel art do Victor): as gravatas das grades viram o logo
 da Vanguarda (src/assets/brands.json), os letreiros "CHEVROLET"/"MONZA" somem (cor da lataria em
-volta), a placa "MONZA" vira "S/R 87" e a marca da bateria some. Reduz para 560 x 315.
+volta), a placa "MONZA" vira "S/R 87", o "1.8/S" da tampa do preto vira "2.0/S" e a marca da bateria some. Reduz para 560 x 315.
 Uso: python3 tools/ref/monza_photos.py <pasta com ph-*.png> <src/assets/photos>
 """
 import os
@@ -17,9 +17,10 @@ from brand_badges import logo_img  # noqa: E402
 EMB = {'aviao': [(573, 657, 36, 17, 30)], 'casal': [(800, 620, 34, 16, 28)], 'garagem': [(956, 677, 19, 14, 22), (1457, 393, 7, 7, 0)]}
 # letreiros: retângulo pintado com a cor do fundo dele (mediana da metade escura ou clara de cada
 # linha) ou, com 'ink', só as letras brancas refeitas com a lataria em volta
-TXT = {'preto': [(626, 494, 840, 536, 'dark')], 'casal': [(730, 684, 848, 727, 'dark')],
+TXT = {'preto': [(626, 494, 840, 536, 'dark'), (256, 513, 342, 545, 'dark')], 'casal': [(730, 684, 848, 727, 'dark')],
        'garagem': [(1498, 362, 1562, 392, 'ink'), (1347, 406, 1397, 434, 'ink'), (881, 340, 932, 384, 'ink')]}
-PLATE = {'casal': ('S/R 87', (789, 705), 30)}
+# textos novos: (texto, centro, corpo, cor); o S/R é 2.0 (a arte trazia "1.8/S" na tampa do preto)
+PLATE = {'casal': ('S/R 87', (789, 705), 30, (236, 236, 236)), 'preto': ('2.0/S', (299, 529), 25, (238, 40, 40))}
 # bateria: dentro do polígono, o que não é o azul da faixa vira azul
 BATT = {'motor': [(1232, 584), (1270, 578), (1350, 682), (1318, 700)]}
 OUT = {'aviao': 'mz-aviao', 'preto': 'mz-preto', 'casal': 'mz-casal', 'garagem': 'mz-garagem', 'motor': 'mz-motor'}
@@ -61,8 +62,8 @@ def main():
             a[(pm > 0) & (rgb.mean(axis=2) > 60)] = col
         im = Image.fromarray(a)
         if k in PLATE:
-            t, (tx, ty), size = PLATE[k]
-            ImageDraw.Draw(im).text((tx, ty), t, font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size), fill=(236, 236, 236), anchor='mm')
+            t, (tx, ty), size, tcol = PLATE[k]
+            ImageDraw.Draw(im).text((tx, ty), t, font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size), fill=tcol, anchor='mm')
         if os.environ.get('DBG'):
             im.save(os.path.join(os.environ['DBG'], f'full-{k}.png'))
         th = int(round(W * 315 / 560))

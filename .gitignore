@@ -8,3 +8,4 @@ vite.log
 android/out/
 android/key.jks
 dist-artifact
+android/test-key.jks

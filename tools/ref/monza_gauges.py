@@ -1,4 +1,4 @@
-"""Quadro do Monção S/R (Monza S/R 1987), copiando a foto do quadro real que o Victor mandou: fundo
+"""Quadro do Ímola S/R (Monza S/R 1987), copiando a foto do quadro real que o Victor mandou: fundo
 grafite, números e marcações laranja em grotesca fina. Velocímetro 20-220 km/h (número a cada 20,
 marcação a cada 10, 120 no alto) com hodômetro em cima do eixo, parcial embaixo e "km/h"; conta-giros
 10-70 (x100 min-1) com a faixa vermelha vazada no fim; no meio, quatro mostradores de arco em pé com

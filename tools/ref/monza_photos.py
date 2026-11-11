@@ -1,4 +1,4 @@
-"""Fotos da revista do Monção S/R (Monza S/R, pixel art do Victor): as gravatas das grades viram o logo
+"""Fotos da revista do Ímola S/R (Monza S/R, pixel art do Victor): as gravatas das grades viram o logo
 da Vanguarda (src/assets/brands.json), os letreiros "CHEVROLET"/"MONZA" somem (cor da lataria em
 volta), a placa "MONZA" vira "S/R 87" e a marca da bateria some. Reduz para 560 x 315.
 Uso: python3 tools/ref/monza_photos.py <pasta com ph-*.png> <src/assets/photos>

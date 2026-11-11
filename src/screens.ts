@@ -145,7 +145,7 @@ function newsLines(slot: number): string[] {
     'Onça GTE: fibra, boxer a ar e charme',
     'Cadete GSi e o painel que é só números',
     'Gaúcho GTI encara a serra de faróis acesos',
-    'Monção S/R: o econômetro ensina a poupar álcool',
+    'Ímola S/R: o econômetro ensina a poupar álcool',
     'Vortex ZR: quadro digital dos anos 80',
     'Onça GTB: seis cilindros e muito torque',
   ];

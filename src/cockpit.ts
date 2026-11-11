@@ -267,7 +267,7 @@ COCKPIT_ART['br-golgti'] = {
   },
 };
 
-// Monção S/R (Monza S/R hatch 1987): interior do Victor (tools/ref/monza_cockpit.py: painel da arte sem
+// Ímola S/R (Monza S/R hatch 1987): interior do Victor (tools/ref/monza_cockpit.py: painel da arte sem
 // volante, volante da arte com volante, retrovisor completado, porta construída até a borda) e o quadro
 // da foto do carro real (tools/ref/monza_gauges.py): grafite com números laranja finos, velocímetro
 // 20-220 com hodômetro e parcial, conta-giros 10-70 com faixa vermelha vazada e, no meio, quatro

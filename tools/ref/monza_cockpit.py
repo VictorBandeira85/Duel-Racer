@@ -1,4 +1,4 @@
-"""Cabine do Monção S/R (Monza S/R 1987) a partir das artes do Victor (mesmo enquadramento nas duas):
+"""Cabine do Ímola S/R (Monza S/R 1987) a partir das artes do Victor (mesmo enquadramento nas duas):
 - painel da arte sem volante; o volante vem da arte com volante (aro pela geometria, miolo e os quatro
   raios por contorno)
 - vidros por geometria medida na arte: para-brisa (da borda de dentro da coluna até a linha do alto do
@@ -40,7 +40,7 @@ P_OUT = [(0, 118), (30, 130), (60, 143), (90, 154), (120, 165), (150, 178), (180
 P_IN = [(0, 309), (30, 303), (60, 306), (90, 313), (120, 318), (150, 325), (180, 330), (210, 337), (240, 344), (262, 352)]
 LP, TP = 150, 60                # folga construída à esquerda e no alto (px da arte)
 SILL = 0.40                     # quanto as linhas da porta descem a cada px indo para a borda esquerda
-M_A, M_R, M_X0 = 112, 170, -45  # retrovisor: faixa refletida (do começo da curva dos cantos até a borda) e a borda nova
+M_A, M_R, M_X0 = 112, 153, -50  # retrovisor: faixa refletida (da curva dos cantos até o filete da moldura, sem a lateral grossa da carcaça) e a borda nova
 
 
 def interp(tab, y):
@@ -118,6 +118,10 @@ def opaque(nw):
     glass = lab == lab[300, 70]
     glass = cv2.morphologyEx(glass.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8)) > 0
     al &= ~(win & ~body)
+    al &= ~(box & (yy < 214) & (nw[..., 0] > 180) & (nw[..., 1] > 80) & (nw[..., 2] < 100))  # tufo alaranjado da paisagem em cima da moldura
+    for _ in range(2):  # pontinhos soltos da paisagem grudados no alto da moldura
+        cnt = cv2.filter2D(al.astype(np.uint8), -1, np.ones((3, 3), np.float32), borderType=cv2.BORDER_REPLICATE)
+        al &= ~((cnt < 5) & box & (yy < 222))
     al &= ~glass
     return al, body, glass
 
@@ -137,28 +141,50 @@ def extend(nw, al, body):
         ybc = np.clip(yb, 0, H - 1)
         E[TP:, LP - X] = base[ybc].astype(np.uint8)
         A[TP:, LP - X] = ok & edge_ok[ybc]
-    # retrovisor: moldura direita refletida (cor e vidro)
+    # retrovisor: o lado de lá (esquerdo) é refeito fino, como se vê de dentro: a curva dos cantos e o
+    # filete da moldura direita refletidos (sem a lateral grossa da carcaça, que só aparece do lado
+    # de cá); entre eles e a borda da arte, a moldura de cima, o vidro e a de baixo continuam. O
+    # retrovisor está em perspectiva (o alto desce para a esquerda): cada coluna nova é encolhida na
+    # vertical, presa embaixo, seguindo essa inclinação
     rows = slice(TP + 198, TP + 396)
-    # o retrovisor está em perspectiva (mais alto à direita): a faixa refletida é encolhida na
-    # vertical, presa embaixo, para o alto dela casar com o alto da moldura na borda da arte
+    bot = 392
     first = lambda x: 198 + int(np.argmax(al[198:260, x]))
-    t_src, t_dst, bot = first(M_A), first(M_X0 + (M_R - M_A) + 1), 392
+    slope = (first(4) - first(M_A)) / (M_A - 4.0)   # quanto o alto desce por px indo para a esquerda
     yd = np.arange(198, 396)
-    ysrc = np.round(bot - (bot - yd) * (bot - t_src) / (bot - t_dst)).astype(int)
-    okr = ysrc >= 198
-    ysrc = np.clip(ysrc, 198, 395)
+
+    def put(tx, sx):
+        t_src, t_dst = first(sx), first(4) + slope * (4 - tx)
+        ysrc = np.round(bot - (bot - yd) * (bot - t_src) / (bot - t_dst)).astype(int)
+        ok = ysrc >= 198
+        ysrc = np.clip(ysrc, 198, 395)
+        E[rows, LP + tx] = nw[ysrc, sx]
+        A[rows, LP + tx] = al[ysrc, sx] & ok
+
+    w = M_R - M_A
     for x in range(M_A, M_R + 1):
-        tx = LP + M_X0 + (M_R - x)
-        E[rows, tx] = nw[ysrc, x]
-        A[rows, tx] = al[ysrc, x] & okr
-    edge = A[rows, LP + M_X0]
-    for k in (1, 2, 3):
-        col = E[rows, LP + M_X0 - k]
-        col[edge] = (14, 12, 14)
-        E[rows, LP + M_X0 - k] = col
-        ca = A[rows, LP + M_X0 - k]
-        ca[edge] = True
-        A[rows, LP + M_X0 - k] = ca
+        put(M_X0 + (M_R - x), x)
+    n = 4 - (M_X0 + w + 1)
+    for i, tx in enumerate(range(M_X0 + w + 1, 4)):  # a moldura engrossa aos poucos até a curva do canto
+        put(tx, int(round(M_A - 1 - (M_A - 5) * i / max(1, n - 1))))
+    # cantos de fora arredondados e contorno escuro em volta do lado novo
+    x0, x1 = LP + M_X0, LP + 4
+    reg = A[TP + 190:TP + 400, x0 - 6:x1].copy()
+    pad = np.pad(reg, 1, constant_values=False)
+    nlab, lab = cv2.connectedComponents((~pad).astype(np.uint8), connectivity=4)
+    solid = (lab != lab[0, 0])[1:-1, 1:-1] | reg  # com o vidro tampado
+    ys_, xs_ = np.nonzero(solid[:, 6:8])
+    ytop, ybot, R = ys_.min(), ys_.max(), 11
+    yy, xx = np.mgrid[0:solid.shape[0], 0:solid.shape[1]]
+    for cy in (ytop + R, ybot - R):
+        out_c = (xx < 6 + R) & ((yy < cy) if cy == ytop + R else (yy > cy)) & (np.hypot(xx - (6 + R), yy - cy) > R)
+        solid &= ~out_c
+        reg &= ~out_c
+    line = (cv2.dilate(solid.astype(np.uint8), np.ones((7, 7), np.uint8)) > 0) & ~solid
+    line[:, -3:] = False
+    A[TP + 190:TP + 400, x0 - 6:x1] = reg | line
+    blk = E[TP + 190:TP + 400, x0 - 6:x1]
+    blk[line] = (14, 12, 14)
+    E[TP + 190:TP + 400, x0 - 6:x1] = blk
     # alto: a coluna continua subindo (0,3 px para a esquerda por px)
     for Y in range(1, TP + 1):
         sh = int(round(0.3 * Y))

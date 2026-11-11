@@ -1,4 +1,4 @@
-"""Sprites do Monção S/R (Monza S/R hatch 1987, pixel art do Victor). A arte vem com cenário: o carro
+"""Sprites do Ímola S/R (Monza S/R hatch 1987, pixel art do Victor). A arte vem com cenário: o carro
 é recortado por inundação do fundo a partir das bordas (o contorno preto do carro segura), fica só a
 maior mancha e a sombra azulada do chão sai. A lateral vem com a frente para a direita: é espelhada.
 Marcas reais somem: gravata na grade e nas rodas, "CHEVROLET" na tampa e a placa "MONZA" da frente;

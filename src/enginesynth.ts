@@ -65,6 +65,7 @@ const CAR_SOUND: Record<string, Partial<EngineSpec>> = {
   'br-kadett': { redline: 6300 },
   'br-monza': { redline: 6000, low: 760 },
   'br-monzasedan': { redline: 6000, low: 760 },
+  'br-monzacoupe': { redline: 6000, low: 760 },
   'br-chevette': { redline: 5800, rasp: 0.13, jitter: 0.09 },
   'br-147': { redline: 6000, rasp: 0.14, jitter: 0.1 },
   'br-uno': { redline: 6200, rasp: 0.13 }, // 1.4 turbo: assobio com pouco motor

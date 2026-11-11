@@ -147,6 +147,7 @@ function newsLines(slot: number): string[] {
     'Gaúcho GTI encara a serra de faróis acesos',
     'Ímola S/R: o econômetro ensina a poupar álcool',
     'Ímola Classic SE: o sedã de luxo da linha 89',
+    'Ímola Classic Coupé: duas portas, mesmo luxo',
     'Vortex ZR: quadro digital dos anos 80',
     'Onça GTB: seis cilindros e muito torque',
   ];

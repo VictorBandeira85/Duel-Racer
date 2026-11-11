@@ -6,7 +6,10 @@ cinza: passa para o bordô da frente/traseira copiando o brilho (mesma posição
 Marcas reais somem: gravata da grade, "CHEVROLET" da tampa, "Monza" da saia e da placa da frente; a
 placa de trás fica lisa (o jogo escreve a dele). Reduz por área (lateral 300, frente/traseira 200).
 Emblemas da marca: brand_badges.py.
-Uso: python3 tools/ref/monzasedan_sprites.py <pasta com src-*.png> <src/assets/cars>   (DBG=<pasta>)
+Cupê (Ímola Classic Coupé): mesma frente e traseira; só a lateral muda. Com "coupe <pasta do cupê>" no
+fim, a lateral vem de <pasta do cupê>/src-side.png (ampliada para o tamanho da do sedã, as medidas são
+as mesmas) e sai como br-monzacoupe-side; frente e traseira são cópias das do sedã já com emblema.
+Uso: python3 tools/ref/monzasedan_sprites.py <pasta com src-*.png> <src/assets/cars> [coupe <pasta>]   (DBG=<pasta>)
 """
 import os
 import sys
@@ -20,6 +23,9 @@ from monza_sprites import shrink, paint_mask, rowfill  # noqa: E402
 
 WIDTH = {'side': 300, 'rear': 200, 'front': 200}
 ID = 'br-monzasedan'
+COUPE = sys.argv[4] if len(sys.argv) > 4 and sys.argv[3] == 'coupe' else None
+TXT_SIDE = (722, 466, 814, 502) if COUPE else (714, 460, 794, 496)      # "Monza" da saia
+MIRROR = (778, 236, 880, 312) if COUPE else (722, 216, 806, 290)        # retrovisor externo
 SIDE_WHEELS, SIDE_R = ((499, 551), (1629, 551)), 133
 # linha a partir da qual o contorno é fechado de ponta a ponta; abaixo de CUT só ficam as faixas dos pneus
 HULL = {'front': 100, 'rear': 100, 'side': 335}
@@ -78,7 +84,9 @@ def debrand(a, k):
         rowfill(a, 998, 446, 1214, 488)
         a[517:604, 640:900] = (18, 18, 24)
     else:
-        rowfill(a, 714, 460, 794, 496)  # "Monza" (fica "Classic SE")
+        x0, y0, x1, y1 = TXT_SIDE  # "Monza" (fica "Classic SE"): cada linha recebe a cor da saia lisa mais atrás
+        for y in range(y0, y1):
+            a[y, x0 - 4:x1] = np.median(a[y, 950:990], axis=0).astype(np.uint8)
 
 
 def gray_mask(a, car):
@@ -87,7 +95,7 @@ def gray_mask(a, car):
     lum, sat = rgb.mean(axis=2), rgb.max(axis=2) - rgb.min(axis=2)
     yy, xx = np.mgrid[0:a.shape[0], 0:a.shape[1]]
     m = car & (sat < 34) & (lum > 36) & (lum < 236) & (yy < 460)
-    m &= ~((xx > 722) & (xx < 806) & (yy > 216) & (yy < 290))  # retrovisor (preto na frente): fica como está
+    m &= ~((xx > MIRROR[0]) & (xx < MIRROR[2]) & (yy > MIRROR[1]) & (yy < MIRROR[3]))  # retrovisor (preto na frente): fica como está
     for cx, cy in SIDE_WHEELS:
         m &= np.hypot(xx - cx, yy - cy) > SIDE_R + 4
     return m
@@ -98,7 +106,10 @@ def main():
     dbg = os.environ.get('DBG')
     S, M = {}, {}
     for k in ('front', 'rear', 'side'):
-        a = np.array(Image.open(os.path.join(src, f'src-{k}.png')).convert('RGB'))
+        im = Image.open(os.path.join(COUPE if COUPE and k == 'side' else src, f'src-{k}.png')).convert('RGB')
+        if COUPE and k == 'side':
+            im = im.resize((2172, 724), Image.LANCZOS)
+        a = np.array(im)
         car = segment(a, k)
         debrand(a, k)
         gm = gray_mask(a, car) if k == 'side' else None
@@ -129,7 +140,13 @@ def main():
     hi = np.minimum(lo + 1, 47)
     t = (rk - lo)[:, None]
     s[..., :3][m] = np.clip(bins[lo] * (1 - t) + bins[hi] * t, 0, 255).astype(np.uint8)
-    for k in S:
+    if COUPE:
+        import shutil
+        for v in ('front', 'rear'):
+            for suf in ('', '-mask'):
+                shutil.copy(os.path.join(out, f'br-monzasedan-{v}{suf}.png'), os.path.join(out, f'br-monzacoupe-{v}{suf}.png'))
+    for k in (['side'] if COUPE else list(S)):
+        ID = 'br-monzacoupe' if COUPE else 'br-monzasedan'
         Image.fromarray(S[k], 'RGBA').save(os.path.join(out, f'{ID}-{k}.png'), optimize=True)
         Image.fromarray((M[k] * 255).astype(np.uint8), 'L').convert('RGBA').save(os.path.join(out, f'{ID}-{k}-mask.png'), optimize=True)
         if dbg:

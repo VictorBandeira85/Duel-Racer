@@ -6,7 +6,7 @@
 
 ## Escopo
 - **Só mexer nos carros que o Victor já mandou atualizados**: Toro V12 (Diablo) e a viatura SV,
-  Fúria TR, Fúria F4, Kaze NX, Serpe V10, Gaúcho GTI, Ímola S/R (hatch) e Ímola Classic SE (sedã).
+  Fúria TR, Fúria F4, Kaze NX, Serpe V10, Gaúcho GTI, Ímola S/R (hatch), Ímola Classic SE (sedã) e Ímola Classic Coupé.
   Os demais (Toro LP5, 959, ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Passat, Pumas) ficam como estão
   até a arte nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
   O LP5 tem fotos de revista, mas o carro ainda não foi atualizado. Na dúvida, perguntar.

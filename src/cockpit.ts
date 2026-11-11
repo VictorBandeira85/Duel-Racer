@@ -53,6 +53,9 @@ interface CockpitArt {
   dy?: number; // desce a cabine inteira (painel alto demais tapando a pista)
   wheelDx?: number; // desloca o volante para a direita (alinha com o quadro de instrumentos)
   wheelTop?: number; // linhas do PNG do volante acima do topo da arte (aro inteiro sobre o para-brisa)
+  /** manômetro auxiliar (turbo/supercharger da preparação), num copo sobre o painel: centro e raio na
+   * arte; `face` e `bezel` variam de carro para carro (estilo dos relógios de 52 mm de época) */
+  pod?: { x: number; y: number; r: number; face: 'black' | 'silver' | 'white'; bezel: 'black' | 'chrome'; needle?: string };
   wheelDy?: number; // desce o volante (posição do banco: o aro não tapa a estrada)
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
   tach?: Dial;
@@ -254,7 +257,7 @@ COCKPIT_ART['br-golgti'] = {
   tells: null,
   dash: cp('br-golgti-dash'), top: cp('br-golgti-top'), wheel: cp('br-golgti-wheel'), dashMask: cp('br-golgti-dash-mask'), topMask: cp('br-golgti-top-mask'),
   glass: { at: [86, 110], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, wheelDy: 8, radar: [206, 20], speedMax: 240, needle: '#f2eee2', needleW: 1.8, needleTail: 2.6, needleFine: true, needleTip: 0.3, hubUnder: true, tachReal: true, speedRest: 14, hub: '#3c3c3f', hubR: 2.8,
+  pivot: [128, 112], wheelTop: 8, wheelDy: 8, pod: { x: 253, y: 12.5, r: 12, face: 'black', bezel: 'black' }, radar: [206, 20], speedMax: 240, needle: '#f2eee2', needleW: 1.8, needleTail: 2.6, needleFine: true, needleTip: 0.3, hubUnder: true, tachReal: true, speedRest: 14, hub: '#3c3c3f', hubR: 2.8,
   faces: [{ src: cp('br-golgti-cluster'), x: 69.5, y: 31.5, w: 118, h: 47 }],
   glow: '255,120,40', glowK: 0.6,
   facesLit: '255,190,130', litMin: 150, litByMax: true, litNeedles: true, // à noite os números laranja e os textos brancos acendem
@@ -1106,11 +1109,96 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     const t = art.tells ?? defaultTells(art);
     if (t) turnTells(c, ox + t[0], ART_TOP + t[1], r.signal);
   }
+  if (art.pod && r.car.forced) boostPod(c, r, dt, ox, art.pod, dk);
   const wdx = art.wheelDx ?? 0;
   const wdy = art.wheelDy ?? 0;
   const px = ox + wdx + art.pivot[0], py = ART_TOP + art.pivot[1] + wdy;
   withRotation(c, px, py, steerAngle(r, dt), () => c.drawImage(wheelImg, ox + wdx, ART_TOP - (art.wheelTop ?? 0) + wdy));
   return true;
+}
+
+// ---------- manômetro auxiliar de pressão (turbo / supercharger instalados na preparação) ----------
+// Relógio de 52 mm num copo preto sobre o painel: escala 0 a 3 kgf/cm² (turbo) ou 0 a 1,5 (compressor),
+// 270 graus a partir das 7h30. O fundo é desenhado uma vez em alta resolução; o ponteiro, ao vivo.
+const POD_PX = 14; // pixels do fundo por unidade da arte
+const podFaces = new Map<string, HTMLCanvasElement>();
+function podFace(pod: NonNullable<CockpitArt['pod']>, sup: boolean): HTMLCanvasElement {
+  const key = `${pod.face}|${pod.bezel}|${pod.r}|${sup}`;
+  let cv = podFaces.get(key);
+  if (cv) return cv;
+  const R = pod.r * POD_PX, S = Math.ceil(R * 2 + 4);
+  cv = document.createElement('canvas');
+  cv.width = S; cv.height = S;
+  const g = cv.getContext('2d')!, m = S / 2;
+  const disc = (rad: number, fill: string | CanvasGradient) => { g.fillStyle = fill; g.beginPath(); g.arc(m, m, rad, 0, Math.PI * 2); g.fill(); };
+  // aro
+  if (pod.bezel === 'chrome') {
+    const gr = g.createLinearGradient(0, 0, S, S);
+    gr.addColorStop(0, '#f4f4f2'); gr.addColorStop(0.45, '#9a9c9e'); gr.addColorStop(0.6, '#dcdcda'); gr.addColorStop(1, '#6c6e72');
+    disc(R, gr);
+  } else {
+    disc(R, '#0a0a0b');
+    g.strokeStyle = '#3a3a3e'; g.lineWidth = R * 0.05; g.beginPath(); g.arc(m, m, R * 0.95, Math.PI * 1.05, Math.PI * 1.75); g.stroke();
+  }
+  const ink = pod.face === 'black' ? '#f2f0ea' : '#151517';
+  disc(R * 0.86, pod.face === 'black' ? '#121213' : pod.face === 'silver' ? '#b9bbbd' : '#eeece6');
+  // escala
+  const max = sup ? 1.5 : 3, big = sup ? 0.5 : 1, mid = big / 2, small = mid / 5;
+  const ang = (v: number) => Math.PI * 0.75 + (v / max) * Math.PI * 1.5;
+  g.strokeStyle = ink; g.lineCap = 'butt';
+  for (let i = 0; i <= Math.round(max / small); i++) {
+    const v = i * small, a = ang(v);
+    const isBig = Math.abs(v / big - Math.round(v / big)) < 1e-6, isMid = Math.abs(v / mid - Math.round(v / mid)) < 1e-6;
+    g.lineWidth = R * (isBig ? 0.06 : isMid ? 0.04 : 0.02);
+    const r0 = R * (isBig ? 0.64 : isMid ? 0.68 : 0.74);
+    g.beginPath(); g.moveTo(m + Math.cos(a) * r0, m + Math.sin(a) * r0); g.lineTo(m + Math.cos(a) * R * 0.82, m + Math.sin(a) * R * 0.82); g.stroke();
+  }
+  g.fillStyle = ink; g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (let v = sup ? 0 : mid; v <= max + 1e-6; v += mid) {
+    const isBig = Math.abs(v / big - Math.round(v / big)) < 1e-6, a = ang(v);
+    g.font = `900 ${R * (isBig ? 0.25 : 0.15)}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
+    const rr = R * (isBig ? 0.46 : 0.52);
+    g.fillText(String(v).replace('.', ','), m + Math.cos(a) * rr, m + Math.sin(a) * rr);
+  }
+  g.font = `italic 900 ${R * 0.135}px "Arial Black", Arial, sans-serif`;
+  g.fillText(sup ? 'BLOWER' : 'TURBO', m - R * 0.04, m + R * 0.4);
+  g.font = `700 ${R * 0.1}px Arial, sans-serif`;
+  g.fillText('PRESS', m, m + R * 0.55);
+  g.fillText('kgf/cm²', m, m + R * 0.66);
+  podFaces.set(key, cv);
+  return cv;
+}
+let podVal = 0;
+function boostPod(c: CanvasRenderingContext2D, r: Race, dt: number, ox: number, pod: NonNullable<CockpitArt['pod']>, dk: number) {
+  const sup = r.car.forced === 'super';
+  // turbo: a pressão do motor (enche com atraso, cai ao aliviar); compressor: acompanha o giro na hora
+  const want = (r.car.boostMax ?? 0.8) * (sup ? (r.throttle ? 0.25 + 0.75 * Math.min(1, r.rpm) : 0.04) : r.throttle ? Math.max(0, Math.min(1, r.pt.boost)) ** 1.5 : 0);
+  podVal += (want - podVal) * Math.min(1, dt * (sup ? 14 : 9));
+  const x = ox + pod.x, y = ART_TOP + pod.y, R = pod.r, RY = R * PIX_Y;
+  // copo: corpo preto atrás (em perspectiva, para trás e para cima) e o pé
+  c.fillStyle = '#060607';
+  c.beginPath(); c.ellipse(x + R * 0.28, y - RY * 0.2, R * 1.0, RY * 1.0, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#0d0d0f';
+  c.beginPath(); c.ellipse(x + R * 0.12, y - RY * 0.08, R * 1.04, RY * 1.04, 0, 0, Math.PI * 2); c.fill();
+  c.fillRect(x - R * 0.45, y + RY * 0.85, R * 1.2, RY * 0.4);
+  const sm = c.imageSmoothingEnabled;
+  c.imageSmoothingEnabled = true;
+  const face = podFace(pod, sup), fw = (face.width / POD_PX);
+  c.drawImage(nightImg(face, dk * 0.75), x - fw / 2, y - (fw * PIX_Y) / 2, fw, fw * PIX_Y);
+  c.imageSmoothingEnabled = sm;
+  const max = sup ? 1.5 : 3;
+  const a = Math.PI * 0.75 + (Math.min(max, podVal) / max) * Math.PI * 1.5;
+  const col = shade(pod.needle ?? '#e8231c', -0.35 * Math.min(1, dk / 0.6));
+  const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y, nx = -Math.sin(a), ny = Math.cos(a) * PIX_Y, w = R * 0.07;
+  c.fillStyle = col;
+  c.beginPath();
+  c.moveTo(x - ca * R * 0.22 + nx * w, y - sa * R * 0.22 + ny * w);
+  c.lineTo(x + ca * R * 0.74 + nx * w * 0.35, y + sa * R * 0.74 + ny * w * 0.35);
+  c.lineTo(x + ca * R * 0.74 - nx * w * 0.35, y + sa * R * 0.74 - ny * w * 0.35);
+  c.lineTo(x - ca * R * 0.22 - nx * w, y - sa * R * 0.22 - ny * w);
+  c.closePath(); c.fill();
+  c.fillStyle = '#0b0b0c'; // capa preta grande do eixo, como nos relógios de época
+  c.beginPath(); c.ellipse(x, y, R * 0.17, RY * 0.17, 0, 0, Math.PI * 2); c.fill();
 }
 
 interface Box { x: number; y: number; w: number; h: number }

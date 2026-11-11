@@ -105,6 +105,10 @@
   supercharger libera polia e intercooler. Só instalam com o turbo/supercharger já instalado.
   A tela de preparação mostra só a lateral, grande; a ilustração da peça fica na barra da vaga.
 - Roda com vão cinzento na arte: `python3 tools/ref/wheel_dark_windows.py <roda> x,y ...` (pinta de preto).
+- Manômetro auxiliar (turbo/supercharger da preparação): `pod` em COCKPIT_ART (centro, raio, cor do
+  fundo e do aro, variando de carro para carro), desenhado por `boostPod` (cockpit.ts). Só aparece com
+  `car.forced`. Conferir com `FORCED=turbo node tools/qa/cockpit_shots.cjs <pasta> <id>`: copo apoiado no
+  painel, sem tapar radar, retrovisor nem quadro. Sem marca real no mostrador.
 - Rodas aftermarket: `tools/ref/wheels_sheet.py <folha> src/assets/wheels` recorta a folha (lista KEEP: uma
   de cada desenho, as repetidas ficam de fora); o catálogo é `WHEEL_LIST` em tuning.ts e o desenho no
   carro é `drawRims` (cars.ts), no centro e raio de `WHEELS`.

@@ -13,13 +13,14 @@ const only = process.argv.slice(3);
   for (const [vw, vh] of sizes) {
     const p = await b.newPage({ viewport: { width: vw, height: vh }, deviceScaleFactor: 3 });
     await p.goto('http://localhost:5173/'); await p.waitForTimeout(2500);
+    if (process.env.FORCED) await p.evaluate((f) => { window.__forced = f; }, process.env.FORCED); // FORCED=turbo|super: mostra o manômetro auxiliar
     const ids = await p.evaluate(() => window.app.cars.map((c) => c.id));
     for (const id of ids) {
       if (only.length && !only.includes(id)) continue;
       for (const [t, steer] of (process.env.DAYONLY ? [['day', 0]] : [['day', 0], ['night', 0], ['day', -1]])) {
         await p.evaluate(([id, t]) => { const a = window.app; const ci = a.cars.findIndex((c) => c.id === id); Object.assign(a.state, { carIdx: ci, oppIdx: ci ? 0 : 1, courseIdx: 0, arcadeTime: t, results: [] }); a.actions.startCourse(); }, [id, t]);
         await p.waitForTimeout(5200);
-        await p.evaluate((s) => { const r = window.app.race; r.state = 'drive'; r.rival.z = r.playerZ + 6 * 200; r.rival.x = r.x; window.input.gas = true; window.input.left = s < 0; }, steer);
+        await p.evaluate((s) => { const r = window.app.race; r.state = 'drive'; if (window.__forced) { r.car.forced = window.__forced; r.car.boostMax = window.__forced === 'super' ? 0.85 : 1.2; } r.rival.z = r.playerZ + 6 * 200; r.rival.x = r.x; window.input.gas = true; window.input.left = s < 0; }, steer);
         await p.waitForTimeout(1300);
         await p.screenshot({ path: `${out}/${id}_${vw}_${t}${steer ? '_turn' : ''}.png` });
         await p.evaluate(() => { window.input.gas = false; window.input.left = false; });

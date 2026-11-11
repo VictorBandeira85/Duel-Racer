@@ -73,6 +73,8 @@ export interface CarSpec {
   rims?: string; // acabamento das rodas escolhido na oficina (RIMS)
   wheelArt?: string; // roda aftermarket (tuning.ts): desenhada no lugar do aro na vista lateral
   rideDrop?: number; // suspensão rebaixada (tuning.ts): fração da altura livre que a carroceria desce na vista lateral
+  forced?: 'turbo' | 'super'; // turbo/supercharger instalado na preparação: a cabine ganha o manômetro auxiliar
+  boostMax?: number; // pressão máxima (kgf/cm²) do manômetro
   soundMods?: import('./tuning').SoundMods; // mudanças no ronco pelas peças instaladas
   id: string;
   name: string;

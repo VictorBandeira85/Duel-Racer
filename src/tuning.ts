@@ -16,6 +16,7 @@ export interface Part {
   mass?: number; // multiplicador do peso (bancos concha tiram peso)
   drop?: number; // quanto a carroceria desce (fração da altura livre): 0,2 esportiva, 0,35 corrida
   forced?: 'turbo' | 'super';
+  boost?: number; // pressão máxima (kgf/cm²) mostrada no manômetro auxiliar
   wheel?: string; // roda aftermarket: arquivo em src/assets/wheels (rNN)
   sound?: SoundMods;
 }
@@ -97,11 +98,11 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
   const turbo = ind === 'turbo' || ind === 'all', sup = ind === 'super' || ind === 'all';
   const extra: Slot[] = [];
   if (turbo && !ft) extra.push({ id: 'turbina', name: 'Turbina', parts: [ORIGINAL('.32 (do kit)'),
-    { id: 't40', name: '.40', note: '+8% cv', cost: 0.05, power: 1.08, sound: { low: 0.94, pops: 0.1 } },
-    { id: 't50', name: '.50', note: '+15% cv', cost: 0.09, power: 1.15, sound: { low: 0.88, pops: 0.2 } }] });
+    { id: 't40', name: '.40', note: '+8% cv', cost: 0.05, power: 1.08, boost: 1.2, sound: { low: 0.94, pops: 0.1 } },
+    { id: 't50', name: '.50', note: '+15% cv', cost: 0.09, power: 1.15, boost: 1.6, sound: { low: 0.88, pops: 0.2 } }] });
   if (sup && !ft) extra.push({ id: 'polia', name: 'Polia', parts: [ORIGINAL('60 mm (do kit)'),
-    { id: 'p40', name: '40 mm', note: '+8% cv', cost: 0.03, power: 1.08, sound: { whine: 0.15 } },
-    { id: 'p30', name: '30 mm', note: '+14% cv', cost: 0.05, power: 1.14, sound: { whine: 0.3, drive: 1.05 } }] });
+    { id: 'p40', name: '40 mm', note: '+8% cv', cost: 0.03, power: 1.08, boost: 0.65, sound: { whine: 0.15 } },
+    { id: 'p30', name: '30 mm', note: '+14% cv', cost: 0.05, power: 1.14, boost: 0.85, sound: { whine: 0.3, drive: 1.05 } }] });
   if (turbo || sup) extra.push({ id: 'intercooler', name: 'Intercooler', parts: [ORIGINAL(ft ? 'Original' : 'Sem'),
     { id: 'esportivo', name: 'Esportivo', note: '+4% cv', cost: 0.04, power: 1.04 },
     { id: 'corrida', name: 'De corrida', note: '+7% cv', cost: 0.07, power: 1.07 }] });
@@ -125,8 +126,8 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
     ft
       ? { id: 'inducao', name: 'Turbina', parts: [ORIGINAL('De fábrica'), { id: 'turbomaior', name: 'Turbina maior', note: '+18% cv', cost: 0.12, power: 1.18, sound: { low: 0.92, pops: 0.2 } }] }
       : { id: 'inducao', name: 'Indução', parts: [ORIGINAL('Aspirado'),
-        { id: 'turbo', name: 'Turbo', note: '+42% cv', cost: 0.22, power: 1.42, forced: 'turbo', sound: { turbo: true, low: 0.82, pops: 0.25 } },
-        { id: 'super', name: 'Supercharger', note: '+30% cv', cost: 0.2, power: 1.3, forced: 'super', sound: { whine: 0.55, drive: 1.1 } }] },
+        { id: 'turbo', name: 'Turbo', note: '+42% cv', cost: 0.22, power: 1.42, forced: 'turbo', boost: 0.8, sound: { turbo: true, low: 0.82, pops: 0.25 } },
+        { id: 'super', name: 'Supercharger', note: '+30% cv', cost: 0.2, power: 1.3, forced: 'super', boost: 0.45, sound: { whine: 0.55, drive: 1.1 } }] },
     ...extra,
     { id: 'escape', name: 'Escapamento', parts: [ORIGINAL(),
       { id: 'esportivo', name: 'Esportivo', note: '+4,5% cv', cost: 0.03, power: 1.045, sound: { drive: 1.25, vol: 1.15, rasp: 0.04, low: 1.15 } },
@@ -166,7 +167,7 @@ export const buildKey = (b: Build | undefined) => (b ? Object.entries(b).filter(
 /** aplica as peças à ficha (antes de prepareCar): potência, máxima, aderência, ronco e altura */
 export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
   if (!build || !buildKey(build)) return car;
-  let power = 1, grip = 1, brake = 1, handling = 1, traction = 1, drop = 0, mass = 1;
+  let power = 1, grip = 1, brake = 1, handling = 1, traction = 1, drop = 0, mass = 1, boost = 0;
   let forced: 'turbo' | 'super' | undefined;
   let wheel: string | undefined;
   const snd: SoundMods = {};
@@ -180,6 +181,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     mass *= p.mass ?? 1;
     drop = Math.max(drop, p.drop ?? 0);
     forced = p.forced ?? forced;
+    boost = Math.max(boost, p.boost ?? 0);
     wheel = p.wheel ?? wheel;
     const m = p.sound;
     if (m) {
@@ -203,6 +205,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     curve: forced === 'turbo' ? 'turbo' : car.curve,
     engine: forced === 'turbo' ? `${car.engine} turbo` : forced === 'super' ? `${car.engine} compressor` : car.engine,
     rideDrop: drop || undefined,
+    forced, boostMax: forced ? boost : undefined,
     wheelArt: wheel,
     soundMods: snd,
   };

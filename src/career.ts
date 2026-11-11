@@ -1,5 +1,6 @@
 // Modo Carreira: regiões com eventos contra pilotos com nome, dinheiro, concessionária,
 // garagem (pintura e melhorias) e progresso salvo no aparelho.
+import { applyBuild, type Build } from './tuning';
 import { CARS, prepareCar, type CarSpec } from './cars';
 import type { Course, StageDef } from './courses';
 import type { RivalStyle } from './race';
@@ -110,8 +111,10 @@ export const DEFAULT_SETUP: Setup = { ratio: 0, susp: 0, rims: '' };
 export const RATIO_LABEL = ['CURTA', 'ORIGINAL', 'LONGA'];
 export const SUSP_LABEL = ['ORIGINAL', 'ESPORTIVA', 'REBAIXADA'];
 export const setupOf = (cs: CareerSave, id: string): Setup => ({ ...DEFAULT_SETUP, ...(cs.setup?.[id] ?? {}) });
+export const buildOf = (cs: CareerSave, id: string): Build => cs.builds?.[id] ?? {};
 
-export function tunedCar(car: CarSpec, lv: Record<Upgrade, number>, st: Setup = DEFAULT_SETUP): CarSpec {
+export function tunedCar(car0: CarSpec, lv: Record<Upgrade, number>, st: Setup = DEFAULT_SETUP, build?: Build): CarSpec {
+  const car = applyBuild(car0, build); // peças da preparação (tuning.ts)
   // motor: mais potência e máxima; câmbio: mais força nas retomadas; pneus: aderência
   // relação curta: arranca mais e perde máxima; longa: o contrário. Suspensão firme/rebaixada:
   // mais aderência em curva (rebaixada pega mais, mas trepida e perde um pouco de tração na terra)
@@ -136,6 +139,8 @@ export interface CareerSave {
   car: string; // carro ativo
   upgrades: Record<string, Record<Upgrade, number>>;
   setup?: Record<string, Setup>; // ajustes da oficina por carro
+  builds?: Record<string, Build>; // peças instaladas (preparação) por carro
+  parts?: Record<string, string[]>; // peças já compradas por carro ("vaga:peça"): trocar de volta não cobra de novo
   done: string[]; // eventos vencidos
   wins: number;
   races: number;

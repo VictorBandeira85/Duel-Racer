@@ -81,6 +81,15 @@
   `shrink` de `tools/ref/monza_sprites.py`: cor do miolo de cada bloco + paleta curta, em tamanho maior
   (lateral 400, frente/traseira 260). Comparar lado a lado com o Viper antes de publicar.
 
+## Rodas, troca de carro e preparação
+- Rodas da lateral (`WHEELS` em cars.ts): sempre medir com `python3 tools/qa/wheel_fit.py <arte>` e
+  conferir com `--sheet` (roda girada em 4 ângulos); o raio é o do aro, não o do pneu.
+- Troca de carro animada: `src/carswap.ts` (`carSwap(slot, carro, t)` dentro da foto). Tela nova com
+  foto de carro trocável deve usar.
+- Preparação (peças): catálogo em `src/tuning.ts` (vagas, peças, custo, efeito na ficha, no ronco via
+  `soundMods` e na altura via `rideDrop`). Peça nova = uma linha no catálogo; a tela (drawPrep em
+  careerScreens.ts), o save (`builds`/`parts`) e a física já leem de lá.
+
 ## Trânsito
 - Cada modelo do trânsito (`tools/art/traffic.py`, `src/assets/traffic`) segue um carro real dos anos 90
   (formas e luzes, sem marca): sedan = Monza, hatch = Gol quadrado, pickup = F-1000, van = Econoline,

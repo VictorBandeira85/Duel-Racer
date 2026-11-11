@@ -9,7 +9,7 @@ import { CRES, RES, setCanvasRes, setRes, view } from './config';
 import { CARS, TRAFFIC_IMAGES } from './cars';
 import { COURSES, completeCourse, unlockedCourses, withTimeOfDay, type ArcadeTime, type Course } from './courses';
 import { ui as careerUi } from './careerScreens';
-import { setupOf, REGIONS, carById, eventCourse, levels, loadCareer, saveCareer, settleEvent, tunedCar } from './career';
+import { setupOf, buildOf, REGIONS, carById, eventCourse, levels, loadCareer, saveCareer, settleEvent, tunedCar } from './career';
 import type { CarSpec } from './cars';
 import { Race } from './race';
 import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
@@ -126,7 +126,7 @@ const actions: Actions = {
     state.mode = 'career';
     state.carIdx = CARS.findIndex((c) => c.id === cs.car);
     run = {
-      course: eventCourse(ev, cs.races), car: tunedCar(carById(cs.car), levels(cs, cs.car), setupOf(cs, cs.car)), rival: carById(ev.driver.car),
+      course: eventCourse(ev, cs.races), car: tunedCar(carById(cs.car), levels(cs, cs.car), setupOf(cs, cs.car), buildOf(cs, cs.car)), rival: carById(ev.driver.car),
       opts: { rivalStyle: ev.driver.style, rivalPaint: ev.driver.paint }, event: { region, event },
     };
     begin(4);

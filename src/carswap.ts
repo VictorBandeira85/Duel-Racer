@@ -14,9 +14,10 @@ const slots = new Map<string, Slot>();
 let active: Slot | null = null;
 
 const profile = (sl: Slot, car: CarSpec) => {
-  if (sl.prof === car.id) return;
-  sl.prof = car.id;
-  setEngineProfile(car.engine, car.id);
+  const key = car.id + JSON.stringify(car.soundMods ?? 0);
+  if (sl.prof === key) return;
+  sl.prof = key;
+  setEngineProfile(car.engine, car.id, car.soundMods);
 };
 
 /** Carro a desenhar agora neste quadro (slot = uma foto da tela) e o deslocamento dele, em frações da

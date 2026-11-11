@@ -262,7 +262,7 @@ export class Race {
     this.rivalPaint = opts.rivalPaint;
     this.pt = new Powertrain(car);
     this.rivalStyleOverride = opts.rivalStyle;
-    setEngineProfile(car.engine, car.id);
+    setEngineProfile(car.engine, car.id, car.soundMods);
     // cópia: o pôr do sol acende a noite no meio do trecho sem mexer na definição do percurso
     this.def = { ...course.stages[stageIdx] };
     const base = THEMES[this.def.theme];

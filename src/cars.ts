@@ -71,6 +71,8 @@ export interface LampDef {
 
 export interface CarSpec {
   rims?: string; // acabamento das rodas escolhido na oficina (RIMS)
+  rideDrop?: number; // suspensão rebaixada (tuning.ts): fração da altura livre que a carroceria desce na vista lateral
+  soundMods?: import('./tuning').SoundMods; // mudanças no ronco pelas peças instaladas
   id: string;
   name: string;
   basedOn: string; // referência interna, não aparece no jogo
@@ -1285,7 +1287,48 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
       c.ellipse(x + len / 2, y, len * 0.5, len * 0.022, 0, 0, Math.PI * 2);
       c.fill();
       const L = Math.round(x), T = Math.round(y - len * aspect), W = Math.round(len), H = Math.round(len * aspect);
-      c.drawImage(spr, L, T, W, H);
+      // suspensão rebaixada: a carroceria desce (as rodas ficam no chão). A altura livre (chão até a
+      // soleira mais a folga do para-lama) é cerca de 16% da altura do carro
+      const drop = car.rideDrop && car.wheels ? Math.max(1, Math.round(H * 0.16 * car.rideDrop * 2) / 2) : 0;
+      if (drop) {
+        c.save();
+        c.beginPath();
+        c.rect(L - 2, T - 2, W + 4, H + 2); // nada passa do chão
+        c.clip();
+        // a carroceria descida, menos a metade de baixo de cada roda (senão o pneu descido sobra
+        // embaixo do pneu que fica no chão)
+        c.save();
+        c.beginPath();
+        c.rect(L - 2, T - 2, W + 4, H + 4);
+        for (const [u, v] of car.wheels!) {
+          const R = H - v * H + 0.5; // só o pneu (ao lado dele, abaixo do centro, é ar)
+          c.rect(L + u * W - R, T + v * H + drop, R * 2, H);
+        }
+        c.clip('evenodd');
+        c.drawImage(spr, L, T + drop, W, H);
+        c.restore();
+        const sw = spr.width / W, sh = spr.height / H;
+        for (const [u, v] of car.wheels!) { // rodas (pneu inteiro) de volta ao lugar, por cima
+          const cx = L + u * W, cy = T + v * H, R = H - v * H;
+          c.save();
+          c.beginPath();
+          c.arc(cx, cy, R, 0, Math.PI * 2);
+          c.clip();
+          c.drawImage(spr, (cx - L - R) * sw, (cy - T - R) * sh, 2 * R * sw, 2 * R * sh, cx - R, cy - R, 2 * R, 2 * R);
+          c.restore();
+        }
+        // o arco do para-lama desce por cima do alto do pneu
+        for (const [u, v] of car.wheels!) {
+          const cx = L + u * W, cy = T + v * H, R = H - v * H;
+          c.save();
+          c.beginPath();
+          c.rect(cx - R * 1.25, cy - R * 1.2 + drop, R * 2.5, R * 0.42);
+          c.clip();
+          c.drawImage(spr, L, T + drop, W, H);
+          c.restore();
+        }
+        c.restore();
+      } else c.drawImage(spr, L, T, W, H);
       if (spin !== undefined && car.wheels) {
         const sw = spr.width / W, sh = spr.height / H;
         for (const [u, v, rr] of car.wheels) {

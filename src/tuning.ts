@@ -84,7 +84,7 @@ export const WHEEL_LIST: [string, string][] = [
   ['c25', 'Cinco raios larga'],
 ];
 
-const ORIGINAL = (name = 'Original'): Part => ({ id: '', name, note: 'de fábrica', cost: 0 });
+const ORIGINAL = (name = 'Original'): Part => ({ id: '', name, note: 'original', cost: 0 });
 
 /** vagas e peças que servem neste carro (alimentação conforme carburador/injeção; indução conforme
  * o carro já ser turbo de fábrica) */
@@ -119,7 +119,7 @@ export function slotsFor(car: CarSpec): Slot[] {
     { id: 'freios', name: 'Freios', parts: [ORIGINAL(),
       { id: 'esportivo', name: 'Discos ventilados', note: '+7% freio', cost: 0.04, brake: 1.07 },
       { id: 'corrida', name: 'Pinça de corrida', note: '+14% freio', cost: 0.08, brake: 1.14 }] },
-    { id: 'bancos', name: 'Bancos', parts: [ORIGINAL(), { id: 'concha', name: 'Concha', note: '-3% peso', cost: 0.03, mass: 0.97 }] },
+    { id: 'bancos', name: 'Alívio de peso', parts: [ORIGINAL(), { id: 'concha', name: 'Bancos concha', note: '-3% peso', cost: 0.03, mass: 0.97 }] }, // (id 'bancos' mantido por causa dos saves)
     { id: 'rodas', name: 'Rodas', parts: [ORIGINAL('Originais'), ...WHEEL_LIST.map(([id, name]): Part => ({ id, name, note: id[0] === 'c' ? 'clássica' : 'liga leve', cost: 0.03, wheel: id }))] },
   ];
 }

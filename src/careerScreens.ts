@@ -287,7 +287,7 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   slotsFor(car).forEach((sl, i) => {
     const pt = partOf(car, sl.id, buildOf(cs, car.id)[sl.id]);
     const cx = pb.x + 5 + (i % 2) * 156, cy = pb.y + 11 + Math.floor(i / 2) * 8.6;
-    ink(c, `${sl.name}:`, cx, cy, 5, GREY);
+    ink(c, `${sl.id === 'bancos' ? 'Peso' : sl.name}:`, cx, cy, 5, GREY); // "Alívio de peso" não cabe na coluna
     ink(c, pt.name, cx + 62, cy, 5, pt.id ? RED : INK);
   });
   const nParts = Object.values(buildOf(cs, car.id)).filter(Boolean).length;

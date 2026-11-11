@@ -91,7 +91,7 @@ export const PC_PHOTOS: Photo[] = [
   { src: ph('pc-escape'), kicker: 'PREPARAÇÃO', kc: '#1a1614', title: 'QUATRO EM UM', sub: 'Coletor dimensionado e ponteira de titânio', inside: ['Esportivo ou de corrida', 'O ronco muda mesmo', 'Abafador: perde quanto?'], box: [10, 20, 550, 295] },
   { src: ph('pc-suspensao'), kicker: 'OFICINA', kc: '#1a6a2a', title: 'MAIS BAIXO, MAIS FIRME', sub: 'Molas esportivas e amortecedores a gás', inside: ['20% ou 35% mais baixo', 'Curva com mais g', 'Cuidado com a lombada'], box: [50, 5, 510, 310] },
   { src: ph('pc-freio'), kicker: 'TESTE', kc: '#1e4fb8', title: 'FREIA MAIS TARDE', sub: 'Disco ventilado e pinça de corrida', inside: ['Pastilha: qual usar', 'Fluido de alta temperatura', 'Metros a menos de 100 a 0'], box: [138, 14, 421, 278] },
-  { src: ph('pc-bancos'), kicker: 'ACESSÓRIOS', kc: '#d01f26', title: 'BANCO CONCHA', sub: 'Segura o corpo e tira peso do carro', inside: ['Fibra ou tubular', 'Cinto de quatro pontos', 'Trilho regulável'], box: [50, 5, 510, 310] },
+  { src: ph('pc-bancos'), kicker: 'ALÍVIO DE PESO', kc: '#d01f26', title: 'BANCO CONCHA', sub: 'Segura o corpo e tira peso do carro', inside: ['Fibra ou tubular', 'Cinto de quatro pontos', 'Trilho regulável'], box: [50, 5, 510, 310] },
 ].filter((p) => !!p.src);
 export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...MZS_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
 

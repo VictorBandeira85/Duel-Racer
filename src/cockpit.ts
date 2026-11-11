@@ -128,7 +128,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
   // de verdade (foto do Victor, tools/ref/f40_gauges.py): velocímetro 0-360 com hodômetros,
   // conta-giros 0-100 x100 com marcas vermelhas, água e turbo embaixo, luzes vermelhas; ponteiros brancos
   f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, pivot: [128, 105], wheelTop: 12, tells: null,
-    glass: { at: [20, 105], thr: 256 }, radar: [222, 6] /* por fora: a coluna e a porta ficam na frente dele (tools/ref/f40_mirror_fix.py) */, glow: '110,230,140', glowK: 0.5, // retrovisor desenhado (tools/qa/add_mirror.py)
+    glass: { at: [20, 105], thr: 256 }, pod: { x: 235, y: 23, r: 10, face: 'black', bezel: 'black', lit: 'green' }, radar: [222, 6] /* por fora: a coluna e a porta ficam na frente dele (tools/ref/f40_mirror_fix.py) */, glow: '110,230,140', glowK: 0.5, // retrovisor desenhado (tools/qa/add_mirror.py)
     // à noite números e marcações acendem em verde (o fundo preto continua preto), ponteiros também
     facesLit: '110,236,140', litNeedles: true,
     faces: [{ src: cp('f40-cluster'), src2: cp('f40-cluster-2x'), x: 44.5, y: 7.5, w: 169, h: 84 },
@@ -208,7 +208,7 @@ const DIA_SMALL: [number, number, Gauge][] = [[72.4, 49.5, 'oil'], [61.4, 67.5, 
 COCKPIT_ART.diablo = {
   glass: { at: [36, 93], thr: 256 }, tells: [130, 30], // retrovisor esquerdo desenhado em diablo_cockpit.py (side_mirror)
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'), dashMask: cp('diablo-dash-mask'), topMask: cp('diablo-top-mask'),
-  pivot: [128, 112], wheelTop: 8, radar: [196, 6], tachReal: true, speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 5, needleTailCol: '#141416', needleFine: true, needleTip: 0.32, hub: '#151517', hubR: 3.4,
+  pivot: [128, 112], wheelTop: 8, pod: { x: 246, y: 4, r: 10, face: 'black', bezel: 'chrome', lit: 'white' }, radar: [196, 6], tachReal: true, speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 5, needleTailCol: '#141416', needleFine: true, needleTip: 0.32, hub: '#151517', hubR: 3.4,
   faces: [{ src: cp('diablo-cluster'), x: 26.5, y: 12.5, w: 188, h: 70 }],
   // à noite os fundos brancos acendem (luz por trás) e os ponteiros laranja também
   facesLit: '255,240,215', litNeedles: true, glow: '255,230,190', glowK: 0.3,
@@ -292,7 +292,7 @@ COCKPIT_ART['br-monza'] = {
   tells: null,
   dash: cp('br-monza-dash'), top: cp('br-monza-top'), wheel: cp('br-monza-wheel'), dashMask: cp('br-monza-dash-mask'), topMask: cp('br-monza-top-mask'),
   glass: { at: [56, 108], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, radar: [222, 12], speedMax: 220, needle: '#f47c2c', needleW: 1.9, needleTail: 3.0, needleFine: true, needleTip: 0.35, hubUnder: true, tachReal: true, speedRest: 14, hub: '#2c2c2f', hubR: 3.4,
+  pivot: [128, 112], wheelTop: 8, pod: { x: 274, y: 27, r: 10, face: 'silver', bezel: 'chrome', lit: 'white' }, radar: [222, 12], speedMax: 220, needle: '#f47c2c', needleW: 1.9, needleTail: 3.0, needleFine: true, needleTip: 0.35, hubUnder: true, tachReal: true, speedRest: 14, hub: '#2c2c2f', hubR: 3.4,
   faces: [{ src: cp('br-monza-cluster'), x: 64.5, y: 37.5, w: 153, h: 54 }],
   glow: '255,120,40', glowK: 0.6,
   facesLit: '255,190,130', litMin: 150, litByMax: true, litNeedles: true,
@@ -319,7 +319,7 @@ COCKPIT_ART['br-monzasedan'] = {
   tells: null,
   dash: cp('br-monzasedan-dash'), top: cp('br-monzasedan-top'), wheel: cp('br-monzasedan-wheel'),
   glass: { at: [52, 111], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, radar: [222, 16], speedMax: 220, needle: '#f0a024', needleW: 1.7, needleTail: 2.6, needleFine: true, needleTip: 0.35, hubUnder: true, tachReal: true, speedRest: 14, hub: '#2c2c2f', hubR: 3.0,
+  pivot: [128, 112], wheelTop: 8, pod: { x: 241, y: 25, r: 10, face: 'silver', bezel: 'chrome', lit: 'yellow' }, radar: [222, 16], speedMax: 220, needle: '#f0a024', needleW: 1.7, needleTail: 2.6, needleFine: true, needleTip: 0.35, hubUnder: true, tachReal: true, speedRest: 14, hub: '#2c2c2f', hubR: 3.0,
   faces: [{ src: cp('br-monzasedan-cluster'), x: 66.71, y: 42.57, w: 132.3, h: 49.98 }],
   glow: '255,150,60', glowK: 0.5,
   facesLit: '255,220,170', litMin: 150, litByMax: true, litNeedles: true,
@@ -741,7 +741,7 @@ function c4Cluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
 // 0-320 e conta-giros 0-100 (x 100) com faixa vermelha, óleo e água no meio; tudo aceso em laranja
 COCKPIT_ART.testarossa = {
   dash: cp('testarossa-dash'), top: cp('testarossa-top'), wheel: cp('testarossa-wheel'),
-  pivot: [128, 105], wheelTop: 12, speedMax: 320, needle: '#ff8a1c', needleW: 2.0, needleTail: 6.5, needleFine: true, needleTip: 0.45, hubUnder: true, tachReal: true, hub: '#101011', hubR: 0,
+  pivot: [128, 105], wheelTop: 12, pod: { x: 271, y: 23, r: 10, face: 'black', bezel: 'black', needle: '#ff8a1c', lit: 'yellow' }, speedMax: 320, needle: '#ff8a1c', needleW: 2.0, needleTail: 6.5, needleFine: true, needleTip: 0.45, hubUnder: true, tachReal: true, hub: '#101011', hubR: 0,
   glass: { at: [12, 96], thr: 256, x0: 3, toEdge: true }, glow: '255,140,40', tells: null,
   faces: [{ src: cp('tr-cluster'), src2: cp('tr-cluster-2x'), x: 63.5, y: 29.5, w: 137, h: 54 }],
   speed: { x: 95.4, y: 53.7, r: 21, max: 320, labels: [], tick: 20, red: 999, face: false, a0: 135 * (Math.PI / 180), sweep: 270 * (Math.PI / 180) },
@@ -799,7 +799,7 @@ COCKPIT_ART.countach = {
 // velocímetro 0-280 grandes, água e pressão do óleo à esquerda, combustível e bateria à direita
 COCKPIT_ART.nsx = {
   dash: cp('nsx-dash'), top: cp('nsx-top'), wheel: cp('nsx-wheel'),
-  pivot: [128, 104], wheelTop: 14, tachReal: true, speedMax: 280, needle: '#f2361c', needleW: 2.1, needleTail: 3.0, needleTip: 0.14, hubUnder: true, hub: '#2c2c2f', radar: [30, 4],
+  pivot: [128, 104], wheelTop: 14, tachReal: true, speedMax: 280, needle: '#f2361c', needleW: 2.1, needleTail: 3.0, needleTip: 0.14, hubUnder: true, hub: '#2c2c2f', pod: { x: -45, y: 17, r: 10, face: 'white', bezel: 'black', lit: 'blue' }, radar: [30, 4],
   // retrovisor externo à direita (mão inglesa): o espelho da arte é transparente e mostra a vista de trás
   glass: { at: [436, 71], thr: 256 },
   // o quadro inteiro é uma imagem em alta resolução desenhada a partir da foto (tools/ref/nx_gauges.py):
@@ -839,7 +839,7 @@ COCKPIT_ART.nsx = {
 const VP_INK = '#16161a', VP_BG = '#ecebe2';
 COCKPIT_ART.viper = {
   dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
-  pivot: [131, 105], wheelDx: -14.4, wheelTop: 14, tachReal: true, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 0, needleFine: true, hub: '#151517', hubR: 3.4, radar: [102, 22],
+  pivot: [131, 105], wheelDx: -14.4, wheelTop: 14, tachReal: true, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 0, needleFine: true, hub: '#151517', hubR: 3.4, pod: { x: 221, y: 9, r: 10, face: 'white', bezel: 'chrome', lit: 'green' }, radar: [102, 22],
   glass: { at: [32, 95], thr: 256 }, tells: null, // retrovisor esquerdo completado (tools/qa/mirror_complete.py)
   // à noite os fundos brancos acendem em bege claro (luz por trás, como no carro); os ponteiros
   // vermelhos não têm luz e ficam escuros contra o fundo aceso

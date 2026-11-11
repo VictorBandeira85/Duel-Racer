@@ -5,11 +5,11 @@ import { touch } from './input';
 import { drawShowroom, keyShowroom, openShowroom, tapShowroom } from './showroom';
 // Telas do modo Carreira: central (regiões e eventos), evento, garagem, concessionária e resultado.
 import { SAFE_W, view, KMH } from './config';
-import { CARS, DEALER_CARS, RIMS, accelCurve, drawCarSide, gearbox, layout, type CarSpec } from './cars';
+import { CARS, DEALER_CARS, RIMS, accelCurve, drawCar, drawCarSide, gearbox, layout, type CarSpec } from './cars';
 import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import {
-  DEFAULT_SETUP, MAX_LEVEL, RATIO_LABEL, REGIONS, SUSP_LABEL, setupOf, buildOf, type Setup, UPGRADES, carById, eventUnlocked, levels, newCareer, priceOf, regionUnlocked, regionsAfter, saveCareer,
-  sellValue, tunedCar, upgradeCost, type CareerSave, type EventResult, type Upgrade,
+  DEFAULT_SETUP, RATIO_LABEL, REGIONS, SUSP_LABEL, setupOf, buildOf, type Setup, carById, eventUnlocked, levels, newCareer, priceOf, regionUnlocked, regionsAfter, saveCareer,
+  sellValue, tunedCar, type CareerSave, type EventResult, type Upgrade,
 } from './career';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import type { AppState, Actions, MenuKey } from './screens';
@@ -190,8 +190,8 @@ export function drawEvent(c: CanvasRenderingContext2D, s: AppState) {
   ev.stages.forEach((st, k) => stageChip(c, x + 44 + k * 42, 169, st));
   const done = cs.done.includes(ev.id);
   burst(c, x + 290, 182, 22, ['PRÊMIO', money(done ? ev.prize / 2 : ev.prize)], YELLOW, '#1a6a2a', s.t);
-  const lv = levels(cs, cs.car);
-  ink(c, `Seu carro: ${carById(cs.car).name} (motor ${lv.motor}, câmbio ${lv.cambio}, pneus ${lv.pneus})`, x + 4, 197, 5, INK);
+  const np = Object.values(buildOf(cs, cs.car)).filter(Boolean).length;
+  ink(c, `Seu carro: ${carById(cs.car).name} (${np ? `${np} peça${np > 1 ? 's' : ''} de preparação` : 'original'})`, x + 4, 197, 5, INK);
   const b = eventButtons();
   tag(c, b.back, '◀ VOLTAR');
   tag(c, b.go, 'CORRER ▶', Math.floor(s.t * 2) % 2 === 0);
@@ -206,7 +206,7 @@ function tapEvent(s: AppState, a: Actions, x: number, y: number) {
 
 // ---------- garagem ----------
 const swatchRects = (): Rect[] => PAINTS.map((_, i) => ({ x: ox() + 44 + i * 12, y: 128, w: 10, h: 7 }));
-const upgradeRows = () => [0, 1, 2].map((i): Rect => ({ x: ox() + 4, y: 139 + i * 19, w: SAFE_W - 8, h: 17 }));
+const prepBox = (): Rect => ({ x: ox() + 4, y: 139, w: SAFE_W - 8, h: 54 });
 // ajustes de graça: relação de marchas, suspensão e rodas (toque para trocar)
 const setupTags = () => [0, 1, 2].map((i): Rect => ({ x: ox() + 4 + i * 105, y: 196, w: 102, h: 12 }));
 const garageButtons = () => {
@@ -216,11 +216,11 @@ const garageButtons = () => {
     use: { x: x + 110, y: 211, w: 100, h: 15 }, back: { x: x + 4, y: 211, w: 100, h: 15 }, dealer: { x: x + 216, y: 211, w: 100, h: 15 },
   };
 };
-// itens da oficina que o teclado percorre (cima/baixo): as 3 melhorias, os 3 ajustes, cor, usar,
+// itens da oficina que o teclado percorre (cima/baixo): a preparação, os 3 ajustes, usar,
 // classificados e voltar
 const garageFocusRects = (): Rect[] => {
   const b = garageButtons();
-  return [...upgradeRows(), ...setupTags(), b.use, b.dealer, b.back];
+  return [prepBox(), ...setupTags(), b.use, b.dealer, b.back];
 };
 const ownedCars = (cs: CareerSave) => CARS.filter((c) => cs.owned.includes(c.id));
 
@@ -262,7 +262,7 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
     arrow(c, b.next, 'right');
   }
   const fr: Rect = { x: x + 208, y: 43, w: 108, h: 80 };
-  box(c, fr, 'COM AS MELHORIAS');
+  box(c, fr, 'COM AS PEÇAS');
   specRows(c, fr, [['Potência', `${Math.round((parseInt(car.power) * tunedFor(car, levels(cs, car.id), DEFAULT_SETUP, buildOf(cs, car.id)).accel) / car.accel)} cv`] /* a relação de marchas não muda a potência */, ['0-100', `${(accelCurve(tuned, 30).t100 || tuned.zeroTo100).toFixed(1).replace('.', ',')} s`], ['Máxima', `${Math.round(tuned.maxSpeed * KMH)} km/h`], ['Curva', `${tuned.lateralG.toFixed(2).replace('.', ',')} g`], ['Revenda', money(sellValue(car))]], 12, 15);
   ink(c, 'PINTURA', x + 4, 129, 5, GREY);
   const cur = paintIdx(car.id) ?? nearestPaint(car.color);
@@ -272,28 +272,20 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
     c.fillStyle = PAINTS[i].hex;
     c.fillRect(r.x, r.y, r.w, r.h);
   });
-  // peças à venda, como num catálogo
-  const lv = levels(cs, car.id);
-  upgradeRows().forEach((r, i) => {
-    const u = UPGRADES[i];
-    const l = lv[u.id];
-    c.fillStyle = '#f6efdd';
-    c.fillRect(r.x, r.y, r.w, r.h);
-    c.strokeStyle = 'rgba(26,22,20,0.35)';
-    c.lineWidth = 1;
-    c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
-    ink(c, u.name.toUpperCase(), r.x + 5, r.y + 2, 5, INK);
-    ink(c, u.desc, r.x + 5, r.y + 10, 5, GREY);
-    for (let k = 0; k < MAX_LEVEL; k++) {
-      c.fillStyle = INK;
-      c.fillRect(r.x + 150 + k * 11, r.y + 3, 9, 10);
-      c.fillStyle = k < l ? RED : '#f8f2e4';
-      c.fillRect(r.x + 151 + k * 11, r.y + 4, 7, 8);
-    }
-    const cost = upgradeCost(car, l + 1);
-    const can = l < MAX_LEVEL;
-    const afford = cs.money >= cost;
-    tag(c, { x: r.x + r.w - 84, y: r.y + 2, w: 80, h: 13 }, can ? `INSTALAR ${money(cost)}` : 'NO MÁXIMO', can && afford, 5);
+  // peças instaladas (preparação): resumo; tocar abre o catálogo
+  const pb = prepBox();
+  c.fillStyle = '#f6efdd';
+  c.fillRect(pb.x, pb.y, pb.w, pb.h);
+  c.strokeStyle = 'rgba(26,22,20,0.35)';
+  c.lineWidth = 1;
+  c.strokeRect(pb.x + 0.5, pb.y + 0.5, pb.w - 1, pb.h - 1);
+  ink(c, 'PREPARAÇÃO', pb.x + 5, pb.y + 3, 5, RED);
+  ink(c, 'toque para abrir o catálogo de peças', pb.x + pb.w - 5, pb.y + 3, 4, GREY, 'right');
+  slotsFor(car).forEach((sl, i) => {
+    const pt = partOf(car, sl.id, buildOf(cs, car.id)[sl.id]);
+    const cx = pb.x + 5 + (i % 2) * 156, cy = pb.y + 12 + Math.floor(i / 2) * 10;
+    ink(c, `${sl.name}:`, cx, cy, 5, GREY);
+    ink(c, pt.name, cx + 62, cy, 5, pt.id ? RED : INK);
   });
   const nParts = Object.values(buildOf(cs, car.id)).filter(Boolean).length;
   const lab = [`MARCHAS ${RATIO_LABEL[st.ratio + 1]}`, nParts ? `PREPARAÇÃO (${nParts}) ▶` : 'PREPARAÇÃO ▶', `RODAS ${st.rims ? RIMS[st.rims].label : 'ORIGINAIS'}`];
@@ -346,19 +338,7 @@ function tapGarage(s: AppState, a: Actions, x: number, y: number) {
       saveCareer(cs);
       flash(s, i === 0 ? `Relação ${RATIO_LABEL[st.ratio + 1].toLowerCase()}` : i === 1 ? `Suspensão ${SUSP_LABEL[st.susp].toLowerCase()}` : `Rodas ${st.rims ? RIMS[st.rims].label.toLowerCase() : 'originais'}`);
     });
-    upgradeRows().forEach((r, i) => {
-      if (!inside(x, y, r)) return;
-      const u = UPGRADES[i];
-      const lv = { ...levels(cs, car.id) };
-      if (lv[u.id] >= MAX_LEVEL) return flash(s, 'Já está no máximo');
-      const cost = upgradeCost(car, lv[u.id] + 1);
-      if (cs.money < cost) return flash(s, `Falta ${money(cost - cs.money)}`);
-      cs.money -= cost;
-      lv[u.id]++;
-      cs.upgrades[car.id] = lv;
-      saveCareer(cs);
-      flash(s, `${u.name} nível ${lv[u.id]} instalado!`);
-    });
+    if (inside(x, y, prepBox())) openPrep(cs, car);
   }
 }
 
@@ -396,7 +376,13 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   headline(c, car.name.toUpperCase(), x + 4, 33, 8, INK);
   classBadge(c, x + 150, 32, view, true, 9);
   const ph: Rect = { x: x + 4, y: 46, w: 198, h: 58 };
-  photo(c, ph, () => drawCarSide(c, ph.x + 14, ph.y + 55, 170, view, paintHex(car.id)), ['#4a4238', '#a89a86']);
+  photo(c, ph, () => {
+    // lateral, traseira e frente: o rebaixamento aparece nas três
+    drawCarSide(c, ph.x + 2, ph.y + 54, 124, view, paintHex(car.id));
+    const look = { color: car.color, rear: car.rear, paint: paintHex(car.id), drop: view.rideDrop };
+    drawCar(c, ph.x + 145, ph.y + 54, 30, look);
+    drawCar(c, ph.x + 180, ph.y + 54, 30, { ...look, front: true });
+  }, ['#4a4238', '#a89a86']);
   const fr: Rect = { x: x + 208, y: 43, w: 108, h: 62 };
   box(c, fr, 'COMO FICA');
   // potência pela razão com a ficha (o 'accel' de alguns carros já vem ajustado); 0-100 medido na física

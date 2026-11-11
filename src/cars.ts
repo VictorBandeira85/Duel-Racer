@@ -642,6 +642,50 @@ export interface CarLook {
   tilt?: number; // batido: o desenho fica inclinado (rad), girando em torno da base
   lamps?: { up: number; on: boolean; high?: boolean }; // faróis: quanto subiram (escamoteáveis), acesos, farol alto
   plate?: Plate; // placa (desenhada por cima da traseira)
+  drop?: number; // suspensão rebaixada (CarSpec.rideDrop): a carroceria desce sobre os pneus
+}
+
+// Rebaixamento na traseira/frente: a faixa de baixo do sprite (só os pneus, abaixo da linha de baixo
+// da carroceria) fica no chão e o resto desce por cima dela. A linha de baixo da carroceria é medida no
+// próprio sprite (a linha opaca mais baixa na faixa do meio, entre os pneus). Devolve quanto desceu.
+const bodyBottoms = new WeakMap<HTMLCanvasElement, number>();
+function bodyBottom(spr: HTMLCanvasElement) {
+  let f = bodyBottoms.get(spr);
+  if (f === undefined) {
+    f = 1;
+    try {
+      const W = spr.width, H = spr.height;
+      const px = spr.getContext('2d')!.getImageData(0, 0, W, H).data;
+      const ys: number[] = [];
+      for (let x = Math.round(W * 0.38); x < W * 0.62; x += 2) {
+        let y = H - 1;
+        while (y > 0 && px[(y * W + x) * 4 + 3] < 128) y--;
+        ys.push(y + 1);
+      }
+      ys.sort((a, b) => a - b);
+      f = ys[ys.length >> 1] / H;
+      if (f < 0.6) f = 1; // medida estranha: não rebaixa
+    } catch { /* sem leitura do canvas */ }
+    bodyBottoms.set(spr, f);
+  }
+  return f;
+}
+function drawEndSprite(c: CanvasRenderingContext2D, spr: HTMLCanvasElement, L: number, T: number, W: number, H: number, drop = 0) {
+  const fb = drop ? bodyBottom(spr) : 1;
+  const d = Math.min((1 - fb) * H * 0.8, (1 - fb) * H * drop * 1.6);
+  if (d < 0.35) {
+    c.drawImage(spr, L, T, W, H);
+    return 0;
+  }
+  const sy = Math.round(fb * spr.height);
+  c.drawImage(spr, 0, sy, spr.width, spr.height - sy, L, T + (sy / spr.height) * H, W, H - (sy / spr.height) * H); // pneus no chão
+  c.save();
+  c.beginPath();
+  c.rect(L - 1, T - 1, W + 2, H + 1); // nada passa do chão
+  c.clip();
+  c.drawImage(spr, 0, 0, spr.width, sy, L, T + d, W, (sy / spr.height) * H);
+  c.restore();
+  return d;
 }
 
 const GENERIC: RearDef = { h: 0.5, roof: 0.56, lights: 'rect', wing: 0 };
@@ -791,8 +835,8 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
     const spr = svgSprite(fimg, w * hiRes(w), h * hiRes(w), tint(upArt ? look.rear.frontUpMask : look.rear.frontMask));
     if (spr) {
       groundShadow(c, x, y, w);
-      c.drawImage(spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
-      if (look.rear.lamps) drawLamps(c, x - w / 2, y - h, w, h, look, look.rear.lamps, true);
+      const d = drawEndSprite(c, spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h), look.drop);
+      if (look.rear.lamps) drawLamps(c, x - w / 2, y - h + d, w, h, look, look.rear.lamps, true);
       return;
     }
   }
@@ -803,7 +847,7 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
     const spr = svgSprite(art, w * q, h * q, tint(look.rear.img ? look.rear.imgMask : undefined)) ?? (look.rear.svg ? svgSprite(look.rear.svg, w, h) : null);
     if (spr) {
       groundShadow(c, x, y, w);
-      c.drawImage(spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h));
+      y += drawEndSprite(c, spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h), look.drop); // placa e luzes descem junto
       if (look.plate && look.rear.plate) drawPlate(c, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h), look.rear.plate, look.plate);
       const gl = look.rear.glow;
       if ((look.brake || look.night) && gl) {

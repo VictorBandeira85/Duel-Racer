@@ -113,21 +113,15 @@ export const SUSP_LABEL = ['ORIGINAL', 'ESPORTIVA', 'REBAIXADA'];
 export const setupOf = (cs: CareerSave, id: string): Setup => ({ ...DEFAULT_SETUP, ...(cs.setup?.[id] ?? {}) });
 export const buildOf = (cs: CareerSave, id: string): Build => cs.builds?.[id] ?? {};
 
-export function tunedCar(car0: CarSpec, lv: Record<Upgrade, number>, st: Setup = DEFAULT_SETUP, build?: Build): CarSpec {
-  const car = applyBuild(car0, build); // peças da preparação (tuning.ts)
-  // motor: mais potência e máxima; câmbio: mais força nas retomadas; pneus: aderência
-  // relação curta: arranca mais e perde máxima; longa: o contrário. Suspensão firme/rebaixada:
-  // mais aderência em curva (rebaixada pega mais, mas trepida e perde um pouco de tração na terra)
-  const sg = [1, 1.04, 1.07][st.susp] ?? 1;
+export function tunedCar(car0: CarSpec, _lv?: unknown, st: Setup = DEFAULT_SETUP, build?: Build): CarSpec {
+  // as peças da preparação (tuning.ts) são o único caminho de melhoria; aqui entram os ajustes de graça:
+  // relação curta arranca mais e perde máxima, longa o contrário
+  const car = applyBuild(car0, build);
   const tuned: CarSpec = {
     ...car,
     rims: st.rims || undefined,
-    maxSpeed: car.maxSpeed * (1 + 0.03 * lv.motor) * (1 + 0.04 * st.ratio),
-    accel: car.accel * (1 + 0.06 * lv.motor + 0.05 * lv.cambio) * (1 - 0.055 * st.ratio),
-    handling: car.handling * (1 + 0.04 * lv.pneus) * (1 + (sg - 1) * 0.7),
-    lateralG: car.lateralG * (1 + 0.05 * lv.pneus) * sg,
-    brakeG: car.brakeG * (1 + 0.03 * lv.pneus),
-    traction: (car.traction ?? 1) * (1 + 0.04 * lv.pneus),
+    maxSpeed: car.maxSpeed * (1 + 0.04 * st.ratio),
+    accel: car.accel * (1 - 0.055 * st.ratio),
   };
   return prepareCar(tuned);
 }
@@ -151,7 +145,14 @@ const KEY = 'duel-racer:career';
 export function loadCareer(): CareerSave | null {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) || 'null');
-    return s && typeof s.money === 'number' ? s : null;
+    if (!s || typeof s.money !== 'number') return null;
+    // melhorias genéricas antigas (motor/câmbio/pneus por nível) saíram: o que foi gasto volta em dinheiro
+    for (const [id, lv] of Object.entries((s.upgrades ?? {}) as Record<string, Record<string, number>>)) {
+      const car = CARS.find((c) => c.id === id);
+      if (car) for (const l of Object.values(lv)) for (let k = 1; k <= l; k++) s.money += upgradeCost(car, k);
+    }
+    s.upgrades = {};
+    return s;
   } catch {
     return null;
   }

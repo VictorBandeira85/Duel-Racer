@@ -27,6 +27,8 @@
   `<iframe sandbox="allow-scripts">` com `<base>` apontando para `af/files` (servidor com CORS). Servir
   na mesma origem NÃO pega canvas "sujo" (getImageData falhando = carros em desenho de reserva); por
   isso o to-artifact entrega toda imagem de arquivo como data: (fetch), nunca direto no `src`.
+- Fase de testes: `TEST_MONEY` (career.ts) dá saldo mínimo de $1.000.000 em toda carreira. Manter nas
+  builds até o Victor mandar tirar (pôr 0).
 - Versão de PC (`npm run desktop`, instalador e zip) **só com autorização explícita do Victor**.
 - Versão Android (APK): `ANDROID_HOME=<sdk> bash android/build.sh` (WebView com o jogo dentro;
   a chave android/key.jks fica fora do git). Só quando o Victor pedir.

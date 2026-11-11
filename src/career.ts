@@ -142,6 +142,9 @@ export interface CareerSave {
 }
 
 const KEY = 'duel-racer:career';
+// FASE DE TESTES (pedido do Victor): toda carreira, nova ou salva, tem pelo menos este saldo para
+// experimentar carros e peças. Pôr 0 para desligar quando os testes acabarem.
+export const TEST_MONEY = 1_000_000;
 export function loadCareer(): CareerSave | null {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -152,6 +155,7 @@ export function loadCareer(): CareerSave | null {
       if (car) for (const l of Object.values(lv)) for (let k = 1; k <= l; k++) s.money += upgradeCost(car, k);
     }
     s.upgrades = {};
+    if (s.money < TEST_MONEY) s.money = TEST_MONEY;
     return s;
   } catch {
     return null;
@@ -165,7 +169,7 @@ export function saveCareer(s: CareerSave) {
   }
 }
 export function newCareer(): CareerSave {
-  return { money: START_MONEY, owned: [], car: '', upgrades: {}, done: [], wins: 0, races: 0, earned: 0 };
+  return { money: Math.max(START_MONEY, TEST_MONEY), owned: [], car: '', upgrades: {}, done: [], wins: 0, races: 0, earned: 0 };
 }
 
 export const levels = (s: CareerSave, id: string): Record<Upgrade, number> => s.upgrades[id] ?? { motor: 0, cambio: 0, pneus: 0 };

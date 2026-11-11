@@ -49,7 +49,9 @@
   Quadros só ficam parecidos entre carros que usam o mesmo quadro de verdade (Ímola hatch/sedã/cupê).
 - Ponteiros: conferir parado e acelerando (print dos dois). O conta-giros mostra o giro de verdade na
   escala do mostrador (`tachReal`), o velocímetro descansa onde o real descansa (`speedRest`), e o
-  formato vem da foto (barra grossa sem rabicho na Fúria TR, branco afinado no GTI).
+  formato vem da foto. **Olhar o centro do ponteiro na foto ampliada**: na Fúria TR a barra atravessa o
+  eixo (rabicho comprido, sem miolo); no GTI e no Ímola há um disco chapado EMBAIXO e a barra passa por
+  cima dele (`hubUnder`); só usar miolo em cima (bola com brilho) quando a foto mostrar uma capa.
 - Luzes-espia nunca ficam acesas na arte: desenhar apagadas e acender no jogo na hora certa (óleo,
   freio de mão, pisca). Faixas de cor seguem a lógica do ponteiro (econômetro: verde onde ele fica com
   o pé leve).

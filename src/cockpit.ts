@@ -70,6 +70,7 @@ interface CockpitArt {
   hubR?: number; // raio do miolo redondo dos ponteiros grandes
   speedRest?: number; // km/h onde o ponteiro descansa parado (escalas que começam em 20: o pino fica pouco abaixo do 20)
   tachReal?: boolean; // conta-giros na escala de verdade: giro real (do motor do carro) sobre o máximo do mostrador
+  hubUnder?: boolean; // com needleFine: o miolo é um disco chapado EMBAIXO do ponteiro, que passa por cima do eixo (VDO do GTI, Ímola)
   needleTip?: number; // com needleFine: largura da ponta em fração da base (padrão 0,12; 0,5 = ponteiro em barra, quase reto)
   needleFine?: boolean; // ponteiro afinando até a ponta, com suavização (como o desenho da arte)
   faces?: { src: string; src2?: string; x: number; y: number; w: number; h: number }[]; // fundos dos mostradores em alta resolução (src2: versão feita para RES 2)
@@ -253,7 +254,7 @@ COCKPIT_ART['br-golgti'] = {
   tells: null,
   dash: cp('br-golgti-dash'), top: cp('br-golgti-top'), wheel: cp('br-golgti-wheel'), dashMask: cp('br-golgti-dash-mask'), topMask: cp('br-golgti-top-mask'),
   glass: { at: [86, 110], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, radar: [206, 20], speedMax: 240, needle: '#f2eee2', needleW: 2.2, needleTail: 0, needleFine: true, needleTip: 0.22, tachReal: true, speedRest: 14, hub: '#141416', hubR: 2.3,
+  pivot: [128, 112], wheelTop: 8, radar: [206, 20], speedMax: 240, needle: '#f2eee2', needleW: 1.8, needleTail: 2.6, needleFine: true, needleTip: 0.3, hubUnder: true, tachReal: true, speedRest: 14, hub: '#3c3c3f', hubR: 2.8,
   faces: [{ src: cp('br-golgti-cluster'), x: 69.5, y: 31.5, w: 118, h: 47 }],
   glow: '255,120,40', glowK: 0.6,
   facesLit: '255,190,130', litMin: 150, litByMax: true, litNeedles: true, // à noite os números laranja e os textos brancos acendem
@@ -288,7 +289,7 @@ COCKPIT_ART['br-monza'] = {
   tells: null,
   dash: cp('br-monza-dash'), top: cp('br-monza-top'), wheel: cp('br-monza-wheel'), dashMask: cp('br-monza-dash-mask'), topMask: cp('br-monza-top-mask'),
   glass: { at: [56, 108], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, radar: [222, 12], speedMax: 220, needle: '#f47c2c', needleW: 2.0, needleTail: 1, needleFine: true, needleTip: 0.4, tachReal: true, speedRest: 14, hub: '#0e0e10', hubR: 3.0,
+  pivot: [128, 112], wheelTop: 8, radar: [222, 12], speedMax: 220, needle: '#f47c2c', needleW: 1.9, needleTail: 3.0, needleFine: true, needleTip: 0.35, hubUnder: true, tachReal: true, speedRest: 14, hub: '#2c2c2f', hubR: 3.4,
   faces: [{ src: cp('br-monza-cluster'), x: 64.5, y: 37.5, w: 153, h: 54 }],
   glow: '255,120,40', glowK: 0.6,
   facesLit: '255,190,130', litMin: 150, litByMax: true, litNeedles: true,
@@ -315,7 +316,7 @@ COCKPIT_ART['br-monzasedan'] = {
   tells: null,
   dash: cp('br-monzasedan-dash'), top: cp('br-monzasedan-top'), wheel: cp('br-monzasedan-wheel'),
   glass: { at: [52, 111], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, radar: [222, 16], speedMax: 220, needle: '#f0a024', needleW: 1.8, needleTail: 1, needleFine: true, needleTip: 0.4, tachReal: true, speedRest: 14, hub: '#0e0e10', hubR: 2.6,
+  pivot: [128, 112], wheelTop: 8, radar: [222, 16], speedMax: 220, needle: '#f0a024', needleW: 1.7, needleTail: 2.6, needleFine: true, needleTip: 0.35, hubUnder: true, tachReal: true, speedRest: 14, hub: '#2c2c2f', hubR: 3.0,
   faces: [{ src: cp('br-monzasedan-cluster'), x: 66.71, y: 42.57, w: 132.3, h: 49.98 }],
   glow: '255,150,60', glowK: 0.5,
   facesLit: '255,220,170', litMin: 150, litByMax: true, litNeedles: true,
@@ -737,7 +738,7 @@ function c4Cluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
 // 0-320 e conta-giros 0-100 (x 100) com faixa vermelha, óleo e água no meio; tudo aceso em laranja
 COCKPIT_ART.testarossa = {
   dash: cp('testarossa-dash'), top: cp('testarossa-top'), wheel: cp('testarossa-wheel'),
-  pivot: [128, 105], wheelTop: 12, speedMax: 320, needle: '#ff8a1c', needleW: 2.3, needleTail: 0, needleFine: true, needleTip: 0.42, tachReal: true, hub: '#101011', hubR: 1.6,
+  pivot: [128, 105], wheelTop: 12, speedMax: 320, needle: '#ff8a1c', needleW: 2.0, needleTail: 6.5, needleFine: true, needleTip: 0.45, hubUnder: true, tachReal: true, hub: '#101011', hubR: 0,
   glass: { at: [12, 96], thr: 256, x0: 3, toEdge: true }, glow: '255,140,40', tells: null,
   faces: [{ src: cp('tr-cluster'), src2: cp('tr-cluster-2x'), x: 63.5, y: 29.5, w: 137, h: 54 }],
   speed: { x: 95.4, y: 53.7, r: 21, max: 320, labels: [], tick: 20, red: 999, face: false, a0: 135 * (Math.PI / 180), sweep: 270 * (Math.PI / 180) },
@@ -1255,6 +1256,7 @@ function dialNeedle(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: numb
 // ponteiro: do centro exato, traçado em meio pixel (1 px de espessura)
 // ponteiro fino e afinado (arte com mostradores em alta resolução): polígono suavizado, com a
 // sombra leve no fundo, rabicho e miolo redondo com brilho
+let hubUnder = false; // art.hubUnder, acertado a cada quadro
 let needleTip = 0.12; // ponta do ponteiro afinado (art.needleTip), acertada a cada quadro
 function fineNeedle(c: CanvasRenderingContext2D, x: number, y: number, len: number, a: number, w: number, color: string, hub: string, hubR: number, tail: number, tailCol?: string) {
   const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y, px = -Math.sin(a), py = Math.cos(a) * PIX_Y;
@@ -1268,8 +1270,15 @@ function fineNeedle(c: CanvasRenderingContext2D, x: number, y: number, len: numb
     c.closePath();
     c.fill();
   };
+  if (hubUnder && hubR > 0) { // disco chapado do eixo, por baixo do ponteiro
+    c.fillStyle = 'rgba(0,0,0,0.5)';
+    c.beginPath(); c.ellipse(x, y, hubR + 0.35, (hubR + 0.35) * PIX_Y, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = hub;
+    c.beginPath(); c.ellipse(x, y, hubR, hubR * PIX_Y, 0, 0, Math.PI * 2); c.fill();
+  }
   poly(0.6, 0.8, 'rgba(0,0,0,0.22)');
   poly(0, 0, color);
+  if (hubUnder) return;
   if (tailCol && tail > 0) {
     // contrapeso de outra cor (o Diablo tem o rabicho preto)
     c.fillStyle = tailCol;
@@ -2028,6 +2037,7 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   const art = COCKPIT_ART[r.car.dash];
   ART_TOP = 100 + (art?.dy ?? 0);
   needleTip = art?.needleTip ?? 0.12;
+  hubUnder = !!art?.hubUnder;
   // nas cabines desenhadas, os vidros laterais vão abaixo do painel: a estrada desce até o fim
   // a cabeça do motorista: só a vista pelo para-brisa gira (a cabine não se mexe nem é cortada)
   const yaw0 = r.yaw;

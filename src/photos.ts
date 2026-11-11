@@ -76,6 +76,10 @@ export const MZ_PHOTOS: Photo[] = [
 ].filter((p) => !!p.src);
 // Jornada LS (Voyage LS 1986): tools/ref/voyage_photos.py
 export const VG_PHOTOS: Photo[] = ([
+  { src: ph('vg-anuncio'), kicker: 'LANÇAMENTO', kc: '#1e4fb8', title: 'JORNADA LS', sub: 'O sedã de duas portas da Ipê chega às lojas', inside: ['1.6 a álcool de 90 cv', 'Faróis de neblina de série', 'Derivado do hatch Gaúcho'], box: [30, 60, 532, 280] },
+  { src: ph('vg-vermelho'), kicker: 'TESTE', kc: '#d01f26', title: 'LEVE E VALENTE', sub: '900 kg, carburador e quatro marchas bem escalonadas', inside: ['0 a 100 e retomadas', 'Consumo com álcool', 'Porta-malas de carro grande'], box: [6, 50, 544, 290] },
+  { src: ph('vg-pista'), kicker: 'NA ESTRADA', kc: '#1a1614', title: 'SEDÃ PARA VIAJAR', sub: 'Mil quilômetros com o Jornada LS e a família', inside: ['Porta-malas para as férias', 'Silêncio em quarta marcha', 'Quanto custa o quilômetro'], box: [12, 22, 548, 313] },
+  { src: ph('vg-motor'), kicker: 'TÉCNICA', kc: '#1a6a2a', title: 'ÁLCOOL 1.6', sub: 'Por dentro do motor de 90 cv do Jornada', inside: ['Regulagem do carburador', 'Partida a frio sem susto', 'Manutenção fácil e barata'], box: [40, 20, 520, 300] },
 ] as Photo[]).filter((p) => !!p.src);
 // Peças de preparação (tools/ref/parts_photos.py): capas e páginas de carregamento
 export const PC_PHOTOS: Photo[] = [

@@ -183,9 +183,10 @@ def small(d, x0, y0, x1, y1, kind):
         c = at(g, ang(f), g['r'] + out)
         d.rectangle([c[0] - 0.95 * K, c[1] - 0.95 * K, c[0] + 0.95 * K, c[1] + 0.95 * K], fill=col)
 
-    if kind == 'vac':  # econômetro: arco verde largo (zona econômica) e o alto âmbar
-        d.line(arc[:15], fill=GREEN, width=int(1.3 * K), joint='curve')
-        d.line(arc[14:], fill=AMBER, width=int(1.3 * K), joint='curve')
+    if kind == 'vac':  # econômetro
+        # verde em cima (pé leve, ponteiro alto) e âmbar embaixo (acelerando fundo o ponteiro desce: gasta mais)
+        d.line(arc[:8], fill=AMBER, width=int(1.3 * K), joint='curve')
+        d.line(arc[7:], fill=GREEN, width=int(1.3 * K), joint='curve')
         d.line([at(g, ang(i / n), g['r'] - 1.1) for i in range(n + 1)], fill=INK, width=int(0.35 * K), joint='curve')
         ico_pump(d, ix, iy, u)
     else:
@@ -207,12 +208,12 @@ def small(d, x0, y0, x1, y1, kind):
 
 
 def lamps(d):
-    """luzes-espia: fileira de janelas retangulares embaixo dos dois mostradores (duas vermelhas acesas)"""
+    """luzes-espia: fileira de janelas retangulares embaixo dos dois mostradores (o jogo acende as vermelhas: extra em COCKPIT_ART)"""
     for cx, reds in ((SPEED['x'], ()), (TACH['x'], (2, 3))):
         for i in range(5):
             x = cx - 23.0 + i * 9.4
             a, b = P(x, 87.3), P(x + 8.2, 91.0)
-            d.rectangle([a[0], a[1], b[0], b[1]], fill=(214, 52, 52) if i in reds else (38, 37, 37))
+            d.rectangle([a[0], a[1], b[0], b[1]], fill=(38, 37, 37))  # apagadas: o jogo acende óleo e freio de mão na hora certa
 
 
 def main():

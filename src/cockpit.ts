@@ -17,6 +17,7 @@ import { drawWipers, type DashTop } from './wipers';
 import { drawSideMirror, findGlass } from './sidemirror';
 import { drawSmoke } from './smoke';
 import { blinkOn } from './cars';
+import { engineSpec } from './enginesynth';
 // cabines em pixel art (tools/ref/import_cockpit.py)
 import dashF40Png from './assets/cockpit/f40-dash.png';
 import wheelF40Png from './assets/cockpit/f40-wheel.png';
@@ -67,6 +68,8 @@ interface CockpitArt {
   hub: string;
   aux: Aux[];
   hubR?: number; // raio do miolo redondo dos ponteiros grandes
+  speedRest?: number; // km/h onde o ponteiro descansa parado (escalas que começam em 20: o pino fica pouco abaixo do 20)
+  tachReal?: boolean; // conta-giros na escala de verdade: giro real (do motor do carro) sobre o máximo do mostrador
   needleTip?: number; // com needleFine: largura da ponta em fração da base (padrão 0,12; 0,5 = ponteiro em barra, quase reto)
   needleFine?: boolean; // ponteiro afinando até a ponta, com suavização (como o desenho da arte)
   faces?: { src: string; src2?: string; x: number; y: number; w: number; h: number }[]; // fundos dos mostradores em alta resolução (src2: versão feita para RES 2)
@@ -250,7 +253,7 @@ COCKPIT_ART['br-golgti'] = {
   tells: null,
   dash: cp('br-golgti-dash'), top: cp('br-golgti-top'), wheel: cp('br-golgti-wheel'), dashMask: cp('br-golgti-dash-mask'), topMask: cp('br-golgti-top-mask'),
   glass: { at: [86, 110], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, radar: [206, 20], speedMax: 240, needle: '#f2eee2', needleW: 1.5, needleTail: 3.0, needleFine: true, hub: '#141416', hubR: 1.7,
+  pivot: [128, 112], wheelTop: 8, radar: [206, 20], speedMax: 240, needle: '#f2eee2', needleW: 2.2, needleTail: 0, needleFine: true, needleTip: 0.22, tachReal: true, speedRest: 14, hub: '#141416', hubR: 2.3,
   faces: [{ src: cp('br-golgti-cluster'), x: 69.5, y: 31.5, w: 118, h: 47 }],
   glow: '255,120,40', glowK: 0.6,
   facesLit: '255,190,130', litMin: 150, litByMax: true, litNeedles: true, // à noite os números laranja e os textos brancos acendem
@@ -274,11 +277,18 @@ COCKPIT_ART['br-golgti'] = {
 // 20-220 com hodômetro e parcial, conta-giros 10-70 com faixa vermelha vazada e, no meio, quatro
 // mostradores de arco em pé (voltímetro, econômetro, temperatura e combustível); ponteiros laranja
 const MZ_DEG = Math.PI / 180;
+// luzes-espia vermelhas do Ímola (janelas 3 e 4 embaixo do conta-giros): pressão do óleo (motor
+// ainda pegando ou quebrado) e freio de mão (parado, sem acelerar); k = escala do quadro
+function monzaLamps(c: CanvasRenderingContext2D, r: Race, x: (v: number) => number, y: number, k: number) {
+  const on = [r.rpm < 0.05 || r.damage > 0.6 || r.state === 'crash', r.speed < 1 && !r.throttle];
+  c.fillStyle = '#e8322c';
+  on.forEach((lit, i) => { if (lit) c.fillRect(x(175.8 - 23 + (i + 2) * 9.4), y, 8.2 * k, 3.7 * k); });
+}
 COCKPIT_ART['br-monza'] = {
   tells: null,
   dash: cp('br-monza-dash'), top: cp('br-monza-top'), wheel: cp('br-monza-wheel'), dashMask: cp('br-monza-dash-mask'), topMask: cp('br-monza-top-mask'),
   glass: { at: [56, 108], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, radar: [222, 12], speedMax: 220, needle: '#f47c2c', needleW: 2.0, needleTail: 1, needleFine: true, needleTip: 0.4, hub: '#0e0e10', hubR: 3.0,
+  pivot: [128, 112], wheelTop: 8, radar: [222, 12], speedMax: 220, needle: '#f47c2c', needleW: 2.0, needleTail: 1, needleFine: true, needleTip: 0.4, tachReal: true, speedRest: 14, hub: '#0e0e10', hubR: 3.0,
   faces: [{ src: cp('br-monza-cluster'), x: 64.5, y: 37.5, w: 153, h: 54 }],
   glow: '255,120,40', glowK: 0.6,
   facesLit: '255,190,130', litMin: 150, litByMax: true, litNeedles: true,
@@ -293,6 +303,7 @@ COCKPIT_ART['br-monza'] = {
   extra: (c, ox, r) => {
     odometer(c, ox, r, { x: 90.3, y: 56.1, w: 14.4, h: 3.6 }, 16803, 6, 0.5);
     odometer(c, ox, r, { x: 92.7, y: 70.8, w: 9.6, h: 3.4 }, 481.3, 4, 0.5, true);
+    monzaLamps(c, r, (v) => ox + v, ART_TOP + 87.3, 1);
   },
 };
 
@@ -304,7 +315,7 @@ COCKPIT_ART['br-monzasedan'] = {
   tells: null,
   dash: cp('br-monzasedan-dash'), top: cp('br-monzasedan-top'), wheel: cp('br-monzasedan-wheel'),
   glass: { at: [52, 111], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, radar: [222, 16], speedMax: 220, needle: '#f0a024', needleW: 1.8, needleTail: 1, needleFine: true, needleTip: 0.4, hub: '#0e0e10', hubR: 2.6,
+  pivot: [128, 112], wheelTop: 8, radar: [222, 16], speedMax: 220, needle: '#f0a024', needleW: 1.8, needleTail: 1, needleFine: true, needleTip: 0.4, tachReal: true, speedRest: 14, hub: '#0e0e10', hubR: 2.6,
   faces: [{ src: cp('br-monzasedan-cluster'), x: 66.71, y: 42.57, w: 132.3, h: 49.98 }],
   glow: '255,150,60', glowK: 0.5,
   facesLit: '255,220,170', litMin: 150, litByMax: true, litNeedles: true,
@@ -319,6 +330,7 @@ COCKPIT_ART['br-monzasedan'] = {
   extra: (c, ox, r) => {
     odometer(c, ox, r, { x: 89.0, y: 60.3, w: 12.5, h: 3.2 }, 63985, 6, 0.43);
     odometer(c, ox, r, { x: 91.1, y: 73.0, w: 8.3, h: 3.0 }, 215.4, 4, 0.43, true);
+    monzaLamps(c, r, (v) => ox + MS_X(v) + 0.5, ART_TOP + MS_Y(87.3) + 0.5, MS_K);
   },
 };
 
@@ -725,7 +737,7 @@ function c4Cluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
 // 0-320 e conta-giros 0-100 (x 100) com faixa vermelha, óleo e água no meio; tudo aceso em laranja
 COCKPIT_ART.testarossa = {
   dash: cp('testarossa-dash'), top: cp('testarossa-top'), wheel: cp('testarossa-wheel'),
-  pivot: [128, 105], wheelTop: 12, speedMax: 320, needle: '#ff8a1c', needleW: 1.5, needleTail: 3, needleFine: true, hub: '#141415', hubR: 2.2,
+  pivot: [128, 105], wheelTop: 12, speedMax: 320, needle: '#ff8a1c', needleW: 2.3, needleTail: 0, needleFine: true, needleTip: 0.42, tachReal: true, hub: '#101011', hubR: 1.6,
   glass: { at: [12, 96], thr: 256, x0: 3, toEdge: true }, glow: '255,140,40', tells: null,
   faces: [{ src: cp('tr-cluster'), src2: cp('tr-cluster-2x'), x: 63.5, y: 29.5, w: 137, h: 54 }],
   speed: { x: 95.4, y: 53.7, r: 21, max: 320, labels: [], tick: 20, red: 999, face: false, a0: 135 * (Math.PI / 180), sweep: 270 * (Math.PI / 180) },
@@ -1072,15 +1084,15 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   }
   // fundo aceso por trás: os ponteiros (sem luz própria) ficam escuros contra ele
   const artN = art.facesLit && !art.litNeedles && dk > 0.02 ? { ...art, needle: shade(art.needle, -0.55 * Math.min(1, dk / 0.6)) } : art;
-  if (art.tach) artDial(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, artN);
-  if (art.speed) artDial(c, art.speed, ox, (r.speed * KMH) / art.speedMax, artN);
+  if (art.tach) artDial(c, art.tach, ox, tachFrac(art, r), artN);
+  if (art.speed) artDial(c, art.speed, ox, Math.max(art.speedRest ?? 0, r.speed * KMH) / art.speedMax, artN);
   updateGauges(r, dt);
   for (const g of art.aux) auxDial(c, g, ox, artN);
   if (art.extra) {
     art.extra(c, ox, r);
     // hodômetros e submostradores ficam no fundo do mostrador: o ponteiro passa por cima
-    if (art.tach) dialNeedle(c, art.tach, ox, 0.06 + Math.min(1, r.rpm) * 0.82, artN);
-    if (art.speed) dialNeedle(c, art.speed, ox, (r.speed * KMH) / art.speedMax, artN);
+    if (art.tach) dialNeedle(c, art.tach, ox, tachFrac(art, r), artN);
+    if (art.speed) dialNeedle(c, art.speed, ox, Math.max(art.speedRest ?? 0, r.speed * KMH) / art.speedMax, artN);
   }
   instrumentGlow(c, ox, art, dk / 0.6);
   // detector de radar (com as luzes do pisca dos lados); cada cabine pode pô-lo num lugar livre
@@ -1222,6 +1234,17 @@ function artDial(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number,
   }
   c.restore();
   needle(c, cx, cy, r, a0 + sweep * Math.max(0, Math.min(1.02, frac)), art);
+}
+
+// fração do conta-giros: padrão genérico (6% a 88% da escala); com tachReal, o giro de verdade
+// (marcha lenta até o corte do motor daquele carro) na escala desenhada no mostrador
+const redlines = new Map<string, number>();
+function tachFrac(art: CockpitArt, r: Race): number {
+  const rpm = Math.min(1, r.rpm);
+  if (!art.tachReal || !art.tach) return 0.06 + rpm * 0.82;
+  let red = redlines.get(r.car.id);
+  if (!red) redlines.set(r.car.id, red = engineSpec(r.car.engine, r.car.id).redline);
+  return (rpm * red) / (art.tach.max * 1000);
 }
 
 function dialNeedle(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number, art: CockpitArt) {

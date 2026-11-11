@@ -47,6 +47,12 @@
   cortados, em painel), o lado do pivô e do arco de cada mostrador pequeno, a posição dos números em
   relação às marcações, o formato do ponteiro (barra ou afinado: `needleTip`) e as luzes-espia.
   Quadros só ficam parecidos entre carros que usam o mesmo quadro de verdade (Ímola hatch/sedã/cupê).
+- Ponteiros: conferir parado e acelerando (print dos dois). O conta-giros mostra o giro de verdade na
+  escala do mostrador (`tachReal`), o velocímetro descansa onde o real descansa (`speedRest`), e o
+  formato vem da foto (barra grossa sem rabicho na Fúria TR, branco afinado no GTI).
+- Luzes-espia nunca ficam acesas na arte: desenhar apagadas e acender no jogo na hora certa (óleo,
+  freio de mão, pisca). Faixas de cor seguem a lógica do ponteiro (econômetro: verde onde ele fica com
+  o pé leve).
 
 ## Capas da revista (fotos)
 - Toda foto de capa (`src/photos.ts`) leva `box: [x0, y0, x1, y1]` em pixels da foto de 560 x 315:

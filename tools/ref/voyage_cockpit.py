@@ -16,7 +16,7 @@ cenário pelos vidros):
 - chaveiro com a marca: argola e medalha saem (fica a chave); o emblema do miolo do volante vira o da
   Ipê (brand_badges.py); o letreiro do painel do passageiro fica fora do enquadramento
 - o quadro é refeito por tools/ref/voyage_gauges.py (cobre a janela inteira dos mostradores)
-Escala 0,34 (pixel 8:7), pivô do volante em (128, 104).
+Escala 0,34 (pixel 8:7), volante ampliado 1,08x, pivô do volante em (128, 104).
 Uso: python3 tools/ref/voyage_cockpit.py <pasta com cab-wheel.png e cab-nowheel.png> <src/assets/cockpit>
      (DBG=<pasta> grava as máscaras para conferência)
 """
@@ -32,11 +32,13 @@ import brand_badges  # noqa: E402
 
 S = 0.34
 PXW, PXH = 1 / S, (1 / S) / (8 / 7)
-PIV = (540.0, 587.0)            # centro do aro levado para a arte sem volante (painel 13 px mais alto)
+PIV = (566.0, 592.0)            # onde o centro do aro fica na arte sem volante: centrado no quadro (x) e 5 px
+                                # abaixo do lugar da arte com volante (lá o painel está 13 px mais baixo)
 PIV_W = (540.0, 600.0)          # centro do aro na arte com volante
 PIV_N = (128.0, 104.0)
 ROWS, EXT, PAD = 124, 76, 102
-WTOP, WROWS = 8, 240
+WTOP, WROWS = 16, 240
+F = 1.08                        # volante ampliado (como no Gaúcho GTI): o aro da arte tapava o conta-giros e o relógio
 RIM_OUT = (540.0, 600.0, 269.5, 278.5)   # elipse de fora do aro (com o contorno): cx, cy, rx, ry
 RIM_IN = (539.0, 599.0, 222.0, 229.5)
 HUB = [(495, 552), (605, 552), (626, 563), (634, 588), (634, 652), (624, 673), (602, 682), (498, 682),
@@ -44,8 +46,8 @@ HUB = [(495, 552), (605, 552), (626, 563), (634, 588), (634, 652), (624, 673), (
 SPOKES = [
     [(300, 530), (360, 541), (398, 550), (474, 574), (474, 606), (400, 576), (360, 562), (300, 554)],
     [(800, 530), (742, 543), (702, 552), (626, 577), (626, 607), (700, 577), (742, 564), (800, 554)],
-    [(470, 650), (508, 683), (503, 702), (436, 770), (420, 800), (350, 765), (372, 745), (397, 722), (455, 660)],
-    [(630, 650), (592, 683), (597, 702), (664, 770), (680, 800), (750, 765), (728, 745), (703, 722), (645, 660)],
+    [(470, 650), (500, 683), (486, 698), (414, 766), (412, 800), (350, 765), (376, 746), (392, 736), (448, 680), (466, 660)],
+    [(630, 650), (600, 683), (607, 694), (680, 768), (682, 800), (750, 765), (722, 746), (636, 688), (634, 660)],
 ]
 # sementes de cada vidro na arte sem volante (x, y)
 SEEDS = [(840, 300), (30, 200), (125, 300), (40, 400), (110, 400), (100, 472)]
@@ -82,6 +84,14 @@ def glass_mask(nw):
     box = np.zeros_like(g)
     box[y0:y1, x0:x1] = True
     g |= box & (rows | (np.arange(H)[:, None] < 70))
+    # faixa amarela da pista presa entre as palhetas
+    r_, g_, b_ = nw[..., 0].astype(int), nw[..., 1].astype(int), nw[..., 2].astype(int)
+    yy, xx = np.mgrid[0:H, 0:W]
+    g |= (r_ > 150) & (g_ > 100) & (b_ < 100) & (yy > 300) & (yy < 372) & (xx > 380) & (xx < 1300)
+    # restos escuros do cenário grudados no contorno (verde/azul-petróleo; o carro é cinza-arroxeado)
+    for _ in range(3):
+        near = cv2.dilate(g.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+        g |= near & ~g & (g_ > r_ + 10) & (g_ + b_ > 30)
     # ilhas escuras do cenário dentro dos vidros (o que não se liga ao carro)
     n, lab, st, _ = cv2.connectedComponentsWithStats((~g).astype(np.uint8), connectivity=4)
     for i in range(1, n):
@@ -174,7 +184,18 @@ def main():
         b += 1
     slit = [(int(c), [int(v) for v in st_rgb[row, c]]) for c in range(a, b)]
     st_al[row, a:b] = False
+    # furinhos de até 12 px (sobras entre as palhetas e nas quinas): fecham com a cor do vizinho
+    n, lab, stt, _ = cv2.connectedComponentsWithStats((~st_al).astype(np.uint8), connectivity=4)
+    for i in range(1, n):
+        if stt[i, cv2.CC_STAT_AREA] <= 12:
+            for y, x in zip(*np.nonzero(lab == i)):
+                nb = [(yy_, xx_) for yy_ in range(y - 1, y + 2) for xx_ in range(x - 1, x + 2)
+                      if 0 <= yy_ < st_al.shape[0] and 0 <= xx_ < st_al.shape[1] and st_al[yy_, xx_]]
+                if nb:
+                    st_rgb[y, x] = np.median([st_rgb[q] for q in nb], axis=0)
+            st_al[lab == i] = True
     t_al, d_al = st_al[:EXT], st_al[EXT:]
+    t_rgb, d_rgb = st_rgb[:EXT], st_rgb[EXT:]
     for name, rgb, a_ in (('dash', d_rgb, d_al), ('top', t_rgb, t_al)):
         Image.fromarray(np.dstack([rgb, a_.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, f'br-voyage-{name}.png'), optimize=True)
 
@@ -191,14 +212,14 @@ def main():
     wart = ww.copy()
     # emblema do miolo: sai (vira a textura do miolo ao lado); o da Ipê entra depois, já em pixels do jogo
     ex, ey = EMB
-    em = (np.abs(x4 - ex) < 30) & (np.abs(y4 - ey) < 32)
-    src = ww[:, ::-1][:, :]  # a textura do miolo é simétrica: usa o lado esquerdo deslocado
-    wart[em] = ww[y4[em], x4[em] - 62]
-    xs, ys = grid(y0d - WTOP * PXH + (PIV_W[1] - PIV[1]), WROWS, 0, 256, PIV_W)
+    for x in range(int(ex) - 28, int(ex) + 29):  # cada metade recebe a textura do miolo ao lado dela (refletida)
+        sx = 2 * (int(ex) - 29) - x if x < ex else 2 * (int(ex) + 29) - x
+        wart[int(ey) - 26:int(ey) + 27, x] = ww[int(ey) - 26:int(ey) + 27, sx]
+    xs = PIV_W[0] + (np.arange(256) + 0.5 - PIV_N[0]) * PXW / F
+    ys = PIV_W[1] + (np.arange(WROWS) + 0.5 - (PIV_N[1] + WTOP)) * PXH / F
     w_rgb, w_al = sample(wart, xs, ys), sample(wheel, xs, ys) & (ys < Hh)[:, None]
     wimg = np.dstack([w_rgb, w_al.astype(np.uint8) * 255])
-    y0w = y0d - WTOP * PXH + (PIV_W[1] - PIV[1])
-    hub = (PIV_N[0] + (ex - PIV_W[0]) * S, (ey - y0w) / PXH)
+    hub = (PIV_N[0] + (ex - PIV_W[0]) * S * F, PIV_N[1] + WTOP + (ey - PIV_W[1]) * F / PXH)
     brand_badges.stamp(wimg, None, 'ipe', (round(hub[0]), round(hub[1]), 13, 0))
     Image.fromarray(wimg, 'RGBA').save(os.path.join(out, 'br-voyage-wheel.png'), optimize=True)
 

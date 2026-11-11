@@ -338,6 +338,114 @@ COCKPIT_ART['br-monzasedan'] = {
   },
 };
 
+// Jornada LS (Voyage LS 1986): interior do Victor (tools/ref/voyage_cockpit.py: painel da arte sem volante,
+// volante da arte com volante ampliado e centrado no quadro, cenário dos vidros recortado, porta
+// construída até a borda) e o quadro da foto do carro real (tools/ref/voyage_gauges.py), em cinco
+// blocos: relógio de ponteiros (hora de verdade), combustível e temperatura (eixo escondido abaixo
+// da janela), velocímetro 20-190 com hodômetro e parcial, luzes-espia e conta-giros 0-8. Ponteiros
+// laranja-avermelhados em barra, atravessando o eixo (sem capa; só o relógio tem a capa preta).
+// As escalas não são lineares como no carro (160-190 no espaço de um passo, 0-1 do conta-giros
+// apertado): por isso os ponteiros são desenhados aqui e não por `speed`/`tach`.
+// À noite e no túnel o fundo inteiro acende em verde (luz por trás, foto do Victor): o fundo aceso
+// (br-voyage-cluster-lit) entra por cima do apagado, na medida do escuro da cabine.
+// O jogo desenha o painel um pouco esticado (svgSprite arredonda 460 x 124 para 464 x 128): VG_X e
+// VG_Y levam as medidas da arte para onde elas caem na tela.
+const VG_X = (x: number) => ((x + DASH_PAD) * 464) / 460 - DASH_PAD, VG_Y = (y: number) => (y * 128) / 124;
+const VG = { x: VG_X(56), y: VG_Y(33.6), w: (144 * 464) / 460, h: (42.5 * 128) / 124 }; // janela dos mostradores (voyage_gauges.py: 56, 33,6, 144 x 42,5)
+const VG_FACE = cp('br-voyage-cluster'), VG_LIT = cp('br-voyage-cluster-lit'), VG_LAMPS = cp('br-voyage-lamps');
+const VG_DEG = Math.PI / 180;
+// fenda de uma linha na coluna do quebra-vento (liga os dois lados do vidro do retrovisor, para o
+// jogo achar um vidro só): depois da vista de trás, a coluna é repintada ali (cores da arte;
+// colunas 60 a 67 da linha 16 do painel, que na tela caem uma adiante)
+const VG_SLIT: [number, number, number][] = [[0, 0, 0], [20, 14, 25], [91, 61, 101], [148, 121, 159], [2, 2, 4], [10, 7, 10], [6, 10, 14], [0, 0, 0]];
+function voyageUnder(c: CanvasRenderingContext2D, ox: number, r: Race) {
+  if (!r.def) { // foto da revista (sem corrida): o fundo do quadro entra aqui
+    const im = faceImg(VG_FACE);
+    if (im) c.drawImage(im, ox + VG.x, ART_TOP + VG.y, VG.w, VG.h);
+    return;
+  }
+  const q = Math.round(cabinDark(r) * 20) / 20; // o mesmo escurecimento da cabine (nightImg)
+  VG_SLIT.forEach(([cr, cg, cb], i) => {
+    c.fillStyle = `rgb(${Math.round(cr * (1 - q) + 4 * q)},${Math.round(cg * (1 - q) + 4 * q)},${Math.round(cb * (1 - q) + 14 * q)})`;
+    c.fillRect(ox - DASH_PAD + 61 + i, ART_TOP + 17, 1, 1);
+  });
+}
+// ângulo de cada escala (graus), como no mostrador desenhado
+const vgSpeedA = (kmh: number) => (kmh <= 160 ? 143 + (kmh - 20) * 1.595 : 366.3 + (Math.min(194, kmh) - 160) * (34.7 / 30));
+const vgTachA = (k: number) => (k <= 1 ? 140 + 18 * Math.max(0, k) : 158 + (Math.min(8.1, k) - 1) * 35.3);
+function voyageCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
+  const art = COCKPIT_ART['br-voyage'];
+  const X = (x: number) => ox + VG_X(x), Y = (y: number) => ART_TOP + VG_Y(y); // medidas da arte -> tela
+  const k = r.def ? Math.min(1, cabinDark(r) / 0.6) : 0;
+  const sm = c.imageSmoothingEnabled;
+  c.imageSmoothingEnabled = true;
+  if (k > 0.02) {
+    const im = faceImg(VG_LIT);
+    if (im) {
+      c.globalAlpha = k;
+      c.drawImage(im, ox + VG.x, ART_TOP + VG.y, VG.w, VG.h);
+      c.globalAlpha = 1;
+    }
+  }
+  // luzes-espia (apagadas na arte): farol alto à noite, setas com o relé, pisca-alerta na batida,
+  // freio de mão parado sem acelerar, bateria e óleo com o motor parado (óleo também no motor batido)
+  const off = r.rpm < 0.05, crash = r.state === 'crash';
+  const on = [!!r.def?.night, r.signal !== 0 && blinkOn(), crash && blinkOn(), r.speed < 1 && !r.throttle, off, off || r.damage > 0.6 || crash];
+  const lamps = on.some(Boolean) ? faceImg(VG_LAMPS) : null;
+  if (lamps) {
+    const kx = lamps.naturalWidth / 23.6, ky = lamps.naturalHeight / 42.5;
+    on.forEach((lit, i) => {
+      if (!lit) return;
+      const x = (i % 2 ? 167.7 : 155.9) - 5.2, y = [41.5, 54.85, 68.2][i >> 1] - 5.6; // casa de cada luz
+      c.drawImage(lamps, (x - 150) * kx, (y - 33.6) * ky, 10.4 * kx, 11.2 * ky, X(x), Y(y), X(x + 10.4) - X(x), Y(y + 11.2) - Y(y));
+    });
+  }
+  c.imageSmoothingEnabled = sm;
+  odometer(c, ox, r, { x: VG_X(119.9), y: VG_Y(49.7), w: 14.5, h: 3.9 }, 95803, 6, 0.5);
+  odometer(c, ox, r, { x: VG_X(122.7), y: VG_Y(63.2), w: 9.7, h: 3.7 }, 145.8, 4, 0.5, true);
+  // combustível e temperatura: o eixo fica abaixo da janela, só a ponta do ponteiro aparece
+  for (const [py, y0, y1, v] of [[51.5, 34.8, 47.8, gauges.fuel], [78.6, 62, 74.9, gauges.water]]) {
+    c.save();
+    c.beginPath();
+    c.rect(X(82.9), Y(y0 + 0.6), X(103.5) - X(82.9), Y(y1 - 0.6) - Y(y0 + 0.6));
+    c.clip();
+    fineNeedle(c, X(93.2), Y(py), 10.4, (238 + 64 * clamp(v, -0.12, 1.1)) * VG_DEG, 1.15, art.needle, art.hub, 0, 0);
+    c.restore();
+  }
+  // relógio: hora de verdade, ponteiros em barra e a capa preta do eixo
+  const now = new Date();
+  const m = now.getMinutes() + now.getSeconds() / 60, h = (now.getHours() % 12) + m / 60;
+  const cx = X(69.6), cy = Y(54.85);
+  fineNeedle(c, cx, cy, 5.2, (-90 + h * 30) * VG_DEG, 1.3, art.needle, art.hub, 0, 1.2);
+  fineNeedle(c, cx, cy, 7.6, (-90 + m * 6) * VG_DEG, 1.1, art.needle, art.hub, 0, 1.2);
+  c.fillStyle = '#0c0c0e';
+  c.beginPath(); c.ellipse(cx, cy, 1.5, 1.5 * PIX_Y, 0, 0, Math.PI * 2); c.fill();
+  // velocímetro (descansa pouco abaixo do 20) e conta-giros (giro de verdade do motor do carro)
+  needle(c, X(127.1) - 0.5, Y(58) - 0.5, 14.2, vgSpeedA(Math.max(14, r.speed * KMH)) * VG_DEG, art);
+  let red = redlines.get(r.car.id);
+  if (!red) redlines.set(r.car.id, red = r.car.engine ? engineSpec(r.car.engine, r.car.id).redline : 6200);
+  needle(c, X(186.2) - 0.5, Y(58) - 0.5, 9.6, vgTachA((Math.min(1, r.rpm) * red * (r.car.soundMods?.rev ?? 1)) / 1000) * VG_DEG, art);
+  // clarão verde do quadro aceso
+  if (k > 0.02) {
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (const gx of [80, 128, 176]) drawGlow(c, X(gx), Y(55), 44, 30, '90,235,140', 0.1 * k, GLOW_STOPS);
+    c.restore();
+  }
+}
+COCKPIT_ART['br-voyage'] = {
+  tells: null,
+  dash: cp('br-voyage-dash'), top: cp('br-voyage-top'), wheel: cp('br-voyage-wheel'),
+  glass: { at: [75, 105], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte, dos dois lados da coluna do quebra-vento)
+  pivot: [128, 104], wheelTop: 16, wheelDx: 2, // o volante acompanha o quadro (o painel esticado cai 2 colunas à direita)
+  pod: { x: 4, y: -54, r: 9, dx: 5.7, dy: 22.8, pillar: '#211f29', face: 'black', bezel: 'black', lit: 'green' }, radar: [212, 21],
+  speedMax: 190, needle: '#f0582a', needleW: 1.2, needleTail: 3.0, needleFine: true, needleTip: 0.42, hubUnder: true, hub: '#0e0e10', hubR: 1.7,
+  faces: [{ src: VG_FACE, x: VG.x, y: VG.y, w: VG.w, h: VG.h }],
+  glow: '90,235,140', glowK: 0.5,
+  aux: [],
+  under: voyageUnder, extra: voyageCluster,
+};
+
 // Onça GTB: mostradores pretos com números âmbar e ponteiros laranja — velocímetro 20-220 com
 // hodômetro e parcial, conta-giros 0-7 (faixa vermelha a partir de 5, do seis-cilindros 4.1),
 // combustível no pequeno da esquerda (o da direita, atrás do aro, é o da arte) e, no console (tela larga), pressão

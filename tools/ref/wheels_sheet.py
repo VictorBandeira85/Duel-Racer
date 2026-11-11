@@ -95,7 +95,8 @@ def main():
             al2 = t.getchannel('A')
             cap(t, CAPS[(r, c)])
             t.putalpha(al2)
-        t.save(os.path.join(out, f'{pre}{n:02d}.png'), optimize=True)
+        # paleta curta (40 cores): pixel art chapada e arquivo pequeno (o jogo inteiro tem de caber em 16 MB)
+        t.quantize(40, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(os.path.join(out, f'{pre}{n:02d}.png'), optimize=True)
         tiles.append((n, name, t))
     print(len(tiles), 'rodas')
     for n, name, _ in tiles:

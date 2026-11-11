@@ -12,6 +12,8 @@
   O LP5 tem fotos de revista, mas o carro ainda não foi atualizado. Na dúvida, perguntar.
 
 ## Publicação
+- O artifact tem limite de 16 MB (a página está em ~15,9 MB): imagem nova entra em paleta curta
+  (quantizada) e, se o `to-artifact` passar de 16.000 KB, compactar antes de publicar.
 - A cada rodada: só a versão web/mobile (artifact). `npm run build:single`,
   `node tools/to-artifact.mjs <scratchpad>/artifact/duel-racer.html`, publicar no mesmo artifact,
   commit e push em `main`. Subir a versão em `package.json` (e `desktop/package.json`).

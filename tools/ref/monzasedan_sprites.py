@@ -25,7 +25,7 @@ WIDTH = {'side': 300, 'rear': 200, 'front': 200}
 ID = 'br-monzasedan'
 COUPE = sys.argv[4] if len(sys.argv) > 4 and sys.argv[3] == 'coupe' else None
 TXT_SIDE = (722, 466, 814, 502) if COUPE else (714, 460, 794, 496)      # "Monza" da saia
-MIRROR = (778, 236, 880, 312) if COUPE else (722, 216, 806, 290)        # retrovisor externo
+MIRROR = (772, 232, 880, 314)  # retrovisor externo: sempre cinza, fora da máscara de pintura (não muda com a cor)
 SIDE_WHEELS, SIDE_R = ((499, 551), (1629, 551)), 133
 # linha a partir da qual o contorno é fechado de ponta a ponta; abaixo de CUT só ficam as faixas dos pneus
 HULL = {'front': 100, 'rear': 100, 'side': 335}
@@ -94,7 +94,8 @@ def gray_mask(a, car):
     rgb = a.astype(int)
     lum, sat = rgb.mean(axis=2), rgb.max(axis=2) - rgb.min(axis=2)
     yy, xx = np.mgrid[0:a.shape[0], 0:a.shape[1]]
-    m = car & (sat < 34) & (lum > 36) & (lum < 236) & (yy < 460)
+    # na altura dos vidros (acima da linha de cintura) só a lataria clara: colunas, molduras e palhetas escuras ficam
+    m = car & (sat < 34) & (lum > np.where(yy < 292, 84, 36)) & (lum < 236) & (yy < 460)
     m &= ~((xx > MIRROR[0]) & (xx < MIRROR[2]) & (yy > MIRROR[1]) & (yy < MIRROR[3]))  # retrovisor (preto na frente): fica como está
     for cx, cy in SIDE_WHEELS:
         m &= np.hypot(xx - cx, yy - cy) > SIDE_R + 4

@@ -121,13 +121,13 @@ def big_dial(im, d, g, labels, minor, major, red_from=None, texts=()):
     v = 0.0
     while v <= g['max'] + 1e-6:
         if abs(v / major - round(v / major)) < 1e-6:
-            tick(d, g, fr(v), g['r'] - 2.6, g['r'] - 0.9, 0.5)
+            tick(d, g, fr(v), g['r'] - 4.4, g['r'] - 0.9, 0.75)  # marcações compridas e grossas, como na foto
         else:
-            tick(d, g, fr(v), g['r'] - 1.8, g['r'] - 0.9, 0.34)
+            tick(d, g, fr(v), g['r'] - 3.2, g['r'] - 0.9, 0.45)
         v += minor
     for L in labels:
-        x, y = at(g, fr(L), g['r'] - (6.0 if L >= 100 else 5.6))
-        label(str(L), x, y, 4.0 if L >= 100 else 4.5, squeeze=0.6 if L >= 100 else 0.76, small_ok=L < 100 or L % 40 == 0 or g is TACH)
+        x, y = at(g, fr(L), g['r'] - (8.4 if L >= 100 else 7.6))
+        label(str(L), x, y, 3.5 if L >= 100 else 4.0, squeeze=0.6 if L >= 100 else 0.76, small_ok=L < 100 or L % 40 == 0 or g is TACH)
     # lente das luzes-espia embaixo (crescente escuro)
     x, y = P(g['x'], g['y'])
     rr = g['r'] * K

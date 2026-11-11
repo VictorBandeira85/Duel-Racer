@@ -262,9 +262,9 @@ def middle(d):
         for i, col in enumerate(cc):
             x = x0 + 2.6 + i * (x1 - x0 - 5.2) / 4
             c0 = P(x, row)
-            d.ellipse([c0[0] - K * 1.25, c0[1] - K * 1.25 * PY, c0[0] + K * 1.25, c0[1] + K * 1.25 * PY], fill=(12, 12, 14))
-            d.ellipse([c0[0] - K * 0.9, c0[1] - K * 0.9 * PY, c0[0] + K * 0.9, c0[1] + K * 0.9 * PY], fill=col)
-            d.ellipse([c0[0] - K * 0.5, c0[1] - K * 0.6, c0[0] - K * 0.1, c0[1] - K * 0.2], fill=tuple(min(255, c + 70) for c in col))
+            # janelinhas quadradas (como na foto), não redondas
+            d.rectangle([c0[0] - K * 1.3, c0[1] - K * 1.3 * PY, c0[0] + K * 1.3, c0[1] + K * 1.3 * PY], fill=(12, 12, 14))
+            d.rectangle([c0[0] - K * 1.0, c0[1] - K * 1.0 * PY, c0[0] + K * 1.0, c0[1] + K * 1.0 * PY], fill=col)
     q0, q1 = P(x0 + 2.0, 60.2), P(x1 - 2.0, 66.4)  # relógio de cristal líquido
     d.rectangle([q0[0] - K * 0.5, q0[1] - K * 0.5, q1[0] + K * 0.5, q1[1] + K * 0.5], fill=(14, 14, 16))
     d.rectangle([q0[0], q0[1], q1[0], q1[1]], fill=(150, 154, 132))

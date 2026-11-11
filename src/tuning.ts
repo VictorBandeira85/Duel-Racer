@@ -7,7 +7,7 @@ import type { CarSpec } from './cars';
 
 export type SlotId = 'pistoes' | 'comando' | 'alimentacao' | 'inducao' | 'escape' | 'pneus' | 'suspensao' | 'freios' | 'bancos' | 'rodas' | 'turbina' | 'intercooler' | 'downpipe' | 'polia';
 // mudanças no ronco: multiplicadores (drive, vol, low) e somas (rasp, pops, cam, intake, whine)
-export interface SoundMods { drive?: number; vol?: number; low?: number; rasp?: number; pops?: number; cam?: number; intake?: number; whine?: number; turbo?: boolean }
+export interface SoundMods { drive?: number; vol?: number; low?: number; rasp?: number; pops?: number; cam?: number; intake?: number; whine?: number; turbo?: boolean; rev?: number /* multiplicador do giro máximo (corte) */ }
 export interface Part {
   id: string; name: string; note: string;
   cost: number; // fração do preço do carro (0 = original)
@@ -106,22 +106,22 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
     { id: 'esportivo', name: 'Esportivo', note: '+4% cv', cost: 0.04, power: 1.04 },
     { id: 'corrida', name: 'De corrida', note: '+7% cv', cost: 0.07, power: 1.07 }] });
   if (turbo) extra.push({ id: 'downpipe', name: 'Downpipe', parts: [ORIGINAL(),
-    { id: 'd3', name: '3 pol', note: '+3% cv', cost: 0.03, power: 1.03, sound: { drive: 1.1, vol: 1.05, low: 1.05 } },
-    { id: 'd5', name: '5 pol', note: '+5% cv', cost: 0.05, power: 1.05, sound: { drive: 1.2, vol: 1.1, low: 1.12, pops: 0.15 } }] });
+    { id: 'd3', name: '2,5 pol', note: '+3% cv', cost: 0.03, power: 1.03, sound: { drive: 1.1, vol: 1.05, low: 1.05 } },
+    { id: 'd5', name: '3,5 pol', note: '+5% cv', cost: 0.05, power: 1.05, sound: { drive: 1.2, vol: 1.1, low: 1.12, pops: 0.15 } }] });
   return [
     { id: 'pistoes', name: 'Pistões e bielas', parts: [ORIGINAL(),
       { id: 'aliviados', name: 'Aliviados', note: '+4% cv', cost: 0.04, power: 1.04, sound: { drive: 1.03 } },
       { id: 'forjados', name: 'Forjados', note: '+6% cv', cost: 0.06, power: 1.06, sound: { drive: 1.05 } }] },
     { id: 'comando', name: 'Comando', parts: [ORIGINAL(),
-      { id: 'esportivo', name: 'Esportivo', note: '+7,5% cv', cost: 0.05, power: 1.075, sound: { cam: 0.25, drive: 1.08 } },
-      { id: 'corrida', name: 'De corrida', note: '+13,5% cv', cost: 0.09, power: 1.135, sound: { cam: 0.6, drive: 1.15, pops: 0.15 } }] },
+      { id: 'esportivo', name: 'Esportivo', note: '+7,5% cv, +5% giro', cost: 0.05, power: 1.075, sound: { cam: 0.25, drive: 1.08, rev: 1.05 } },
+      { id: 'corrida', name: 'De corrida', note: '+13,5% cv, +10% giro', cost: 0.09, power: 1.135, sound: { cam: 0.6, drive: 1.15, pops: 0.15, rev: 1.1 } }] },
     carb
       ? { id: 'alimentacao', name: 'Carburador', parts: [ORIGINAL(),
         { id: 'duplo', name: 'Corpo duplo', note: '+7,5% cv', cost: 0.04, power: 1.075, sound: { intake: 0.3 } },
         { id: 'weber', name: 'Dupla de corrida', note: '+13,5% cv', cost: 0.08, power: 1.135, sound: { intake: 0.55, rasp: 0.03 } }] }
       : { id: 'alimentacao', name: 'Injeção', parts: [ORIGINAL(),
         { id: 'chip', name: 'Chip e bicos', note: '+7,5% cv', cost: 0.04, power: 1.075, sound: { drive: 1.05 } },
-        { id: 'programavel', name: 'Programável', note: '+13,5% cv', cost: 0.09, power: 1.135, sound: { drive: 1.1, pops: 0.2 } }] },
+        { id: 'programavel', name: 'Programável', note: '+13,5% cv, +5% giro', cost: 0.09, power: 1.135, sound: { drive: 1.1, pops: 0.2, rev: 1.05 } }] },
     ft
       ? { id: 'inducao', name: 'Turbina', parts: [ORIGINAL('De fábrica'), { id: 'turbomaior', name: 'Turbina maior', note: '+18% cv', cost: 0.12, power: 1.18, sound: { low: 0.92, pops: 0.2 } }] }
       : { id: 'inducao', name: 'Indução', parts: [ORIGINAL('Aspirado'),
@@ -179,6 +179,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
       snd.drive = (snd.drive ?? 1) * (m.drive ?? 1);
       snd.vol = (snd.vol ?? 1) * (m.vol ?? 1);
       snd.low = (snd.low ?? 1) * (m.low ?? 1);
+      if (m.rev) snd.rev = (snd.rev ?? 1) * m.rev;
       for (const k of ['rasp', 'pops', 'cam', 'intake', 'whine'] as const) if (m[k]) snd[k] = (snd[k] ?? 0) + m[k]!;
       if (m.turbo) snd.turbo = true;
     }

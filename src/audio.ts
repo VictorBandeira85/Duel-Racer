@@ -192,6 +192,7 @@ export function setEngineProfile(desc: string, carId = '', mods?: import('./tuni
     // admissão, supercharger (zunido) e turbo (assobio e alívio)
     spec = {
       ...spec, name: spec.name + '+prep',
+      redline: spec.redline * (mods.rev ?? 1),
       drive: spec.drive * (mods.drive ?? 1), vol: spec.vol * (mods.vol ?? 1), low: spec.low * (mods.low ?? 1),
       rasp: spec.rasp + (mods.rasp ?? 0), pops: spec.pops + (mods.pops ?? 0),
       cam: Math.min(1, (spec.cam ?? 0) + (mods.cam ?? 0)), intake: (spec.intake ?? 0) + (mods.intake ?? 0), whine: (spec.whine ?? 0) + (mods.whine ?? 0),

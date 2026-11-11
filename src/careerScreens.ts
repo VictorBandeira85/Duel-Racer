@@ -449,7 +449,7 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
       c.drawImage(ai, pb.name.x + 1, pb.name.y + 1, 19, 19);
     }
     const tx = art ? pb.name.x + 20 + (pb.name.w - 20) / 2 : pb.name.x + pb.name.w / 2;
-    ink(c, `${sl.name.toUpperCase()} ${n + 1}/${sl.parts.length}${vp.id && sl.id !== 'rodas' ? ` · ${vp.note}` : ''}`, tx, pb.name.y + 3, 4, GREY, 'center');
+    ink(c, vp.id && sl.id !== 'rodas' ? `${n + 1}/${sl.parts.length} · ${vp.note}` : `${sl.name.toUpperCase()} ${n + 1}/${sl.parts.length}`, tx, pb.name.y + 3, 4, GREY, 'center');
     ink(c, vp.name, tx, pb.name.y + 10, vp.name.length > 18 ? 5 : 6, vp.id ? RED : INK, 'center');
     const own = ownsPart(cs, car, sl.id, vp.id), cost = partCost(car, vp);
     tag(c, pb.buy, installed ? 'INSTALADA' : own ? 'INSTALAR' : `COMPRAR ${money(cost)}`, !installed && (own || cs.money >= cost));

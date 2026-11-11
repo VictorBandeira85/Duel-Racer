@@ -1245,7 +1245,8 @@ function tachFrac(art: CockpitArt, r: Race): number {
   if (!art.tachReal || !art.tach) return 0.06 + rpm * 0.82;
   let red = redlines.get(r.car.id);
   if (!red) redlines.set(r.car.id, red = engineSpec(r.car.engine, r.car.id).redline);
-  return (rpm * red) / (art.tach.max * 1000);
+  // comando/injeção preparados sobem o corte (soundMods.rev), até o fim da escala do mostrador
+  return Math.min(1, (rpm * red * (r.car.soundMods?.rev ?? 1)) / (art.tach.max * 1000));
 }
 
 function dialNeedle(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: number, art: CockpitArt) {

@@ -254,7 +254,7 @@ COCKPIT_ART['br-golgti'] = {
   tells: null,
   dash: cp('br-golgti-dash'), top: cp('br-golgti-top'), wheel: cp('br-golgti-wheel'), dashMask: cp('br-golgti-dash-mask'), topMask: cp('br-golgti-top-mask'),
   glass: { at: [86, 110], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, radar: [206, 20], speedMax: 240, needle: '#f2eee2', needleW: 1.8, needleTail: 2.6, needleFine: true, needleTip: 0.3, hubUnder: true, tachReal: true, speedRest: 14, hub: '#3c3c3f', hubR: 2.8,
+  pivot: [128, 112], wheelTop: 8, wheelDy: 8, radar: [206, 20], speedMax: 240, needle: '#f2eee2', needleW: 1.8, needleTail: 2.6, needleFine: true, needleTip: 0.3, hubUnder: true, tachReal: true, speedRest: 14, hub: '#3c3c3f', hubR: 2.8,
   faces: [{ src: cp('br-golgti-cluster'), x: 69.5, y: 31.5, w: 118, h: 47 }],
   glow: '255,120,40', glowK: 0.6,
   facesLit: '255,190,130', litMin: 150, litByMax: true, litNeedles: true, // à noite os números laranja e os textos brancos acendem

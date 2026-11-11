@@ -362,9 +362,8 @@ function voyageUnder(c: CanvasRenderingContext2D, ox: number, r: Race) {
   if (!r.def) { // foto da revista (sem corrida): o fundo do quadro entra aqui
     const im = faceImg(VG_FACE);
     if (im) c.drawImage(im, ox + VG.x, ART_TOP + VG.y, VG.w, VG.h);
-    return;
   }
-  const q = Math.round(cabinDark(r) * 20) / 20; // o mesmo escurecimento da cabine (nightImg)
+  const q = r.def ? Math.round(cabinDark(r) * 20) / 20 : 0; // o mesmo escurecimento da cabine (nightImg)
   VG_SLIT.forEach(([cr, cg, cb], i) => {
     c.fillStyle = `rgb(${Math.round(cr * (1 - q) + 4 * q)},${Math.round(cg * (1 - q) + 4 * q)},${Math.round(cb * (1 - q) + 14 * q)})`;
     c.fillRect(ox - DASH_PAD + 61 + i, ART_TOP + 17, 1, 1);
@@ -445,6 +444,7 @@ COCKPIT_ART['br-voyage'] = {
   aux: [],
   under: voyageUnder, extra: voyageCluster,
 };
+queueMicrotask(() => faceImg(VG_FACE)); // a foto da revista (interiorPhoto) precisa do fundo do quadro já carregado
 
 // Onça GTB: mostradores pretos com números âmbar e ponteiros laranja — velocímetro 20-220 com
 // hodômetro e parcial, conta-giros 0-7 (faixa vermelha a partir de 5, do seis-cilindros 4.1),

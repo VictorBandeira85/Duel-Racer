@@ -72,14 +72,11 @@ export const MZ_PHOTOS: Photo[] = [
   { src: ph('mz-aviao'), kicker: 'TESTE', kc: '#d01f26', title: 'ÍMOLA S/R', sub: 'O hatch esportivo decola na pista', inside: ['2.0 a álcool de 110 cv', 'Contra o treinador da base', 'Câmbio curto de 5 marchas'], box: [104, 100, 506, 302] },
   { src: ph('mz-preto'), kicker: 'ENSAIO', kc: '#1a1614', title: 'HATCH DE RESPEITO', sub: 'Aerofólio, filetes vermelhos e escape esportivo', inside: ['Rodas de liga de série', 'Bancos de tecido exclusivo', 'Porta-malas com tampão'], box: [65, 85, 517, 300] },
   { src: ph('mz-casal'), kicker: 'COMPARATIVO', kc: '#1e4fb8', title: 'DOIS ÍMOLAS', sub: 'Prata ou cobre: qual levar para casa?', inside: ['Consumo na estrada', 'Econômetro no painel', 'O preço de cada versão'], box: [189, 105, 553, 286] },
-  { src: ph('mz-garagem'), kicker: 'FAMÍLIA', kc: '#1a6a2a', title: 'SEDÃ OU HATCH?', sub: 'A linha Ímola inteira na garagem', inside: ['Sedã de quatro portas', 'Hatch para quem dirige', 'Câmbio automático: vale?'], box: [15, 57, 533, 290] },
   { src: ph('mz-motor'), kicker: 'TÉCNICA', kc: '#1e4fb8', title: 'ÁLCOOL 2.0', sub: 'Comando no cabeçote e torque em baixa', inside: ['Partida a frio sem susto', 'Regulagem do carburador', 'Velas e ponto certos'], box: [40, 20, 520, 300] },
 ].filter((p) => !!p.src);
-// Ímola Classic SE (Monza Classic sedã): tools/ref/monza_photos.py
-export const MZS_PHOTOS: Photo[] = [
-  { src: ph('mzs-palacio'), kicker: 'ENSAIO', kc: '#1a1614', title: 'ÍMOLA CLASSIC SE', sub: 'O sedã de luxo vai ao baile', inside: ['2.0 e câmbio de 5 marchas', 'Vidros e travas elétricos', 'Rodas raiadas de liga'], box: [25, 145, 522, 312] },
-  { src: ph('mzs-lago'), kicker: 'LINHA 89', kc: '#d01f26', title: 'LUXO EM ASCENSÃO', sub: 'O mais caro da família chega à linha 89', inside: ['Quadro com econômetro', 'Porta-malas de 510 litros', 'Sedã ou hatch S/R?'], box: [8, 135, 552, 312] },
-].filter((p) => !!p.src);
+// Jornada LS (Voyage LS 1986): tools/ref/voyage_photos.py
+export const VG_PHOTOS: Photo[] = ([
+] as Photo[]).filter((p) => !!p.src);
 // Peças de preparação (tools/ref/parts_photos.py): capas e páginas de carregamento
 export const PC_PHOTOS: Photo[] = [
   { src: ph('pc-motor'), kicker: 'RAIO-X', kc: '#1a1614', title: 'DOZE EM V', sub: 'Por dentro do coração do Toro', inside: ['48 válvulas, 12 borboletas', 'Coletores 6 em 1', 'Quanto custa abrir um'], box: [95, 14, 464, 278] },
@@ -93,7 +90,7 @@ export const PC_PHOTOS: Photo[] = [
   { src: ph('pc-freio'), kicker: 'TESTE', kc: '#1e4fb8', title: 'FREIA MAIS TARDE', sub: 'Disco ventilado e pinça de corrida', inside: ['Pastilha: qual usar', 'Fluido de alta temperatura', 'Metros a menos de 100 a 0'], box: [138, 14, 421, 278] },
   { src: ph('pc-bancos'), kicker: 'ALÍVIO DE PESO', kc: '#d01f26', title: 'BANCO CONCHA', sub: 'Segura o corpo e tira peso do carro', inside: ['Fibra ou tubular', 'Cinto de quatro pontos', 'Trilho regulável'], box: [50, 5, 510, 310] },
 ].filter((p) => !!p.src);
-export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...MZS_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
+export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...VG_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
 
 // Enquadramento: a foto cobre o quadro e a caixa do carro (p.box) fica inteira e centrada na área
 // livre (sem a faixa vermelha de baixo, 'bottom' px), com uma aproximação lenta (u: 0..1) que nunca

@@ -155,6 +155,17 @@ export function loadCareer(): CareerSave | null {
       if (car) for (const l of Object.values(lv)) for (let k = 1; k <= l; k++) s.money += upgradeCost(car, k);
     }
     s.upgrades = {};
+    // o Ímola de quatro portas saiu do jogo: quem tinha fica com o cupê (mesma ficha), peças e cor juntas
+    const OLD = 'br-monzasedan', NEW = 'br-monzacoupe';
+    if (Array.isArray(s.owned) && s.owned.includes(OLD)) {
+      s.owned = s.owned.filter((id: string) => id !== OLD);
+      if (!s.owned.includes(NEW)) {
+        s.owned.push(NEW);
+        for (const k of ['builds', 'parts', 'setup', 'paint'] as const) if (s[k]?.[OLD] !== undefined && s[k][NEW] === undefined) s[k][NEW] = s[k][OLD];
+      }
+      for (const k of ['builds', 'parts', 'setup', 'paint'] as const) if (s[k]) delete s[k][OLD];
+    }
+    if (s.car === OLD) s.car = NEW;
     if (s.money < TEST_MONEY) s.money = TEST_MONEY;
     return s;
   } catch {

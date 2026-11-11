@@ -422,8 +422,8 @@ function voyageCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   c.beginPath(); c.ellipse(cx, cy, 1.5, 1.5 * PIX_Y, 0, 0, Math.PI * 2); c.fill();
   // velocímetro (descansa pouco abaixo do 20) e conta-giros (giro de verdade do motor do carro)
   needle(c, X(127.1) - 0.5, Y(58) - 0.5, 14.2, vgSpeedA(Math.max(14, r.speed * KMH)) * VG_DEG, art);
-  let red = redlines.get(r.car.id);
-  if (!red) redlines.set(r.car.id, red = r.car.engine ? engineSpec(r.car.engine, r.car.id).redline : 6200);
+  let red = r.car.engine ? redlines.get(r.car.id) : 6200; // foto da revista: carro sem ficha
+  if (!red) redlines.set(r.car.id, red = engineSpec(r.car.engine, r.car.id).redline);
   needle(c, X(186.2) - 0.5, Y(58) - 0.5, 9.6, vgTachA((Math.min(1, r.rpm) * red * (r.car.soundMods?.rev ?? 1)) / 1000) * VG_DEG, art);
   // clarão verde do quadro aceso
   if (k > 0.02) {

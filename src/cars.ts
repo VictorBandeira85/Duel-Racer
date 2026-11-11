@@ -347,6 +347,7 @@ const LAMPS: Record<string, LampDef> = {
   'br-vectra': { head: [0.21, 0.56, 0.05], sigRear: [0.06, 0.44, 0.135, 0.49], sigFront: [0.075, 0.515, 0.13, 0.6] },
   'br-monza': { head: [0.196, 0.583, 0.06], sigRear: [0.122, 0.558, 0.199, 0.625], sigFront: [0.035, 0.498, 0.09, 0.647] }, // Monza S/R 1987 (monza_sprites.py)
   'br-monzacoupe': { head: [0.186, 0.565, 0.06], sigRear: [0.034, 0.487, 0.12, 0.551], sigFront: [0.04, 0.502, 0.086, 0.623] }, // Monza Classic SE (monzasedan_sprites.py)
+  'br-voyage': { head: [0.16, 0.556, 0.06], sigRear: [0.035, 0.5, 0.108, 0.625], sigFront: [0.035, 0.492, 0.069, 0.614] }, // Voyage LS 1986 (voyage_sprites.py)
   patrol: { head: [0.145, 0.53, 0.07], sigRear: [0.035, 0.503, 0.26, 0.568], sigRed: true, sigFront: [0.05, 0.6, 0.24, 0.645] },
 };
 
@@ -365,6 +366,7 @@ const WHEELS: Record<string, number[][]> = {
   'br-vectra': [[0.178, 0.777, 0.07], [0.778, 0.779, 0.07]],
   'br-monza': [[0.1775, 0.7779, 0.0502], [0.7859, 0.7771, 0.0502]],
   'br-monzacoupe': [[0.1868, 0.7791, 0.048], [0.7874, 0.7823, 0.048]],
+  'br-voyage': [[0.191, 0.7891, 0.0442], [0.7612, 0.7924, 0.0435]],
   'countach': [[0.225, 0.732, 0.054], [0.809, 0.735, 0.054]],
   'diablo': [[0.2389, 0.7114, 0.0582], [0.827, 0.6918, 0.0582]], // lateral com a frente à esquerda
   'f40': [[0.2438, 0.7212, 0.0611], [0.8122, 0.7189, 0.0611]],
@@ -379,7 +381,7 @@ const WHEELS: Record<string, number[][]> = {
 // Onde fica a placa na traseira de cada carro: [x0, y0, x1, y1] em pixels do sprite e o
 // tamanho dele (largura, altura); vira frações ao carregar
 const PLATE_BOX: Record<string, number[]> = {
-  'br-monza': [100, 104, 160, 124, 260, 182], 'br-monzacoupe': [101, 97, 161, 117, 260, 196], 'br-golgti': [76, 111, 124, 124, 200, 188], 'br-kadett': [31, 30, 62, 40, 93, 70], 'br-pumagte': [35, 34, 64, 46, 102, 65],
+  'br-monza': [100, 104, 160, 124, 260, 182], 'br-monzacoupe': [101, 97, 161, 117, 260, 196], 'br-voyage': [98, 101, 162, 120, 260, 192], 'br-golgti': [76, 111, 124, 124, 200, 188], 'br-kadett': [31, 30, 62, 40, 93, 70], 'br-pumagte': [35, 34, 64, 46, 102, 65],
   'br-corsa': [88, 108, 150, 127, 239, 212], 'br-uno': [70, 81, 118, 100, 189, 157], 'br-passat': [63, 58, 109, 72, 173, 124],
   'br-vectra': [40, 52, 73, 62, 113, 79], 'br-pumagtb': [38, 31, 57, 37, 95, 59],
   '959': [77, 74, 124, 87, 200, 118], countach: [90, 82, 132, 94, 224, 124], diablo: [185, 136, 245, 156, 430, 220],

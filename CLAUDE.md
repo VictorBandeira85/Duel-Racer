@@ -5,10 +5,11 @@
   vidros dos carros sempre cor de vidro. Só marcas e logos fictícias (src/assets/brands.json).
 
 ## Escopo
-- **Só mexer nos carros que o Victor já mandou atualizados** (arte nova com fotos de revista): Toro LP5,
-  Toro V12 (Diablo) e a viatura SV, Fúria TR, Fúria F4, Kaze NX, Serpe V10, Gaúcho GTI e Ímola S/R.
-  Os demais (959, ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Passat, Pumas) ficam como estão até a arte
-  nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
+- **Só mexer nos carros que o Victor já mandou atualizados**: Toro V12 (Diablo) e a viatura SV,
+  Fúria TR, Fúria F4, Kaze NX, Serpe V10, Gaúcho GTI e Ímola S/R.
+  Os demais (Toro LP5, 959, ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Passat, Pumas) ficam como estão
+  até a arte nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
+  O LP5 tem fotos de revista, mas o carro ainda não foi atualizado. Na dúvida, perguntar.
 
 ## Publicação
 - A cada rodada: só a versão web/mobile (artifact). `npm run build:single`,

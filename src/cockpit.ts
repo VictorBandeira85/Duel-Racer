@@ -293,8 +293,8 @@ COCKPIT_ART['br-monza'] = {
   faces: [{ src: cp('br-monza-cluster'), x: 64.5, y: 37.5, w: 153, h: 54 }],
   glow: '255,120,40', glowK: 0.6,
   facesLit: '255,190,130', litMin: 150, litByMax: true, litNeedles: true,
-  speed: { x: 97, y: 64.7, r: 19, max: 220, labels: [], tick: 20, red: 999, face: false, a0: 124 * MZ_DEG, sweep: 220 * 1.21 * MZ_DEG },
-  tach: { x: 175.3, y: 64.7, r: 19, max: 7, labels: [], tick: 1, red: 999, face: false, a0: 133.5 * MZ_DEG, sweep: 7 * 38.2 * MZ_DEG },
+  speed: { x: 97, y: 64.7, r: 23.4, max: 220, labels: [], tick: 20, red: 999, face: false, a0: 124 * MZ_DEG, sweep: 220 * 1.21 * MZ_DEG },
+  tach: { x: 175.3, y: 64.7, r: 23.4, max: 7, labels: [], tick: 1, red: 999, face: false, a0: 133.5 * MZ_DEG, sweep: 7 * 38.2 * MZ_DEG },
   aux: [
     { x: 125.2, y: 52.3, r: 8.4, kind: 'single', show: ['volt'], arc: [37 * MZ_DEG, -37 * MZ_DEG], needleOnly: true, hubR: 0 },
     { x: 149.9, y: 52.3, r: 8.4, kind: 'single', show: ['vac'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
@@ -320,8 +320,8 @@ COCKPIT_ART['br-monzasedan'] = {
   faces: [{ src: cp('br-monzasedan-cluster'), x: 66.71, y: 42.57, w: 132.3, h: 49.98 }],
   glow: '255,150,60', glowK: 0.5,
   facesLit: '255,220,170', litMin: 150, litByMax: true, litNeedles: true,
-  speed: { x: MS_X(97.5), y: MS_Y(65.2), r: 19 * MS_K, max: 220, labels: [], tick: 20, red: 999, face: false, a0: 124 * MZ_DEG, sweep: 220 * 1.21 * MZ_DEG },
-  tach: { x: MS_X(175.8), y: MS_Y(65.2), r: 19 * MS_K, max: 7, labels: [], tick: 1, red: 999, face: false, a0: 133.5 * MZ_DEG, sweep: 7 * 38.2 * MZ_DEG },
+  speed: { x: MS_X(97.5), y: MS_Y(65.2), r: 23.4 * MS_K, max: 220, labels: [], tick: 20, red: 999, face: false, a0: 124 * MZ_DEG, sweep: 220 * 1.21 * MZ_DEG },
+  tach: { x: MS_X(175.8), y: MS_Y(65.2), r: 23.4 * MS_K, max: 7, labels: [], tick: 1, red: 999, face: false, a0: 133.5 * MZ_DEG, sweep: 7 * 38.2 * MZ_DEG },
   aux: [
     { x: MS_X(125.7), y: MS_Y(52.8), r: 8.4 * MS_K, kind: 'single', show: ['volt'], arc: [37 * MZ_DEG, -37 * MZ_DEG], needleOnly: true, hubR: 0 },
     { x: MS_X(150.4), y: MS_Y(52.8), r: 8.4 * MS_K, kind: 'single', show: ['vac'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },

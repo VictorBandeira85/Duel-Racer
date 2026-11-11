@@ -134,7 +134,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
     turnDot: { x: 98.3, y: 68.6, others: [[103.7, 68.6], [109.1, 68.6]] },
     speed: { x: 104.2, y: 45.9, r: 24.5, max: 360, labels: [], tick: 20, red: 999, face: false, a0: 128 * (Math.PI / 180), sweep: 284 * (Math.PI / 180) },
     tach: { x: 155.2, y: 45.9, r: 24.5, max: 10, labels: [], tick: 1, red: 999, face: false, a0: 128 * (Math.PI / 180), sweep: 284 * (Math.PI / 180) },
-    tachReal: true, speedMax: 360, needle: '#f4f4f0', needleW: 1.6, needleTail: 3.5, needleFine: true, hub: '#0e0e0f', hubR: 2.6,
+    tachReal: true, speedMax: 360, needle: '#f4f4f0', needleW: 1.2, needleTail: 0.6, needleFine: true, needleTip: 0.4, hubUnder: true, hub: '#0e0e0f', hubR: 0,
     aux: [
       { x: 68.5, y: 66.1, r: 11, kind: 'single', show: ['water'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
       { x: 189.2, y: 67.3, r: 11, kind: 'single', show: ['boost'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
@@ -205,7 +205,7 @@ const DIA_SMALL: [number, number, Gauge][] = [[72.4, 49.5, 'oil'], [61.4, 67.5, 
 COCKPIT_ART.diablo = {
   glass: { at: [36, 93], thr: 256 }, tells: [130, 30], // retrovisor esquerdo desenhado em diablo_cockpit.py (side_mirror)
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'), dashMask: cp('diablo-dash-mask'), topMask: cp('diablo-top-mask'),
-  pivot: [128, 112], wheelTop: 8, radar: [196, 6], tachReal: true, speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 5, needleTailCol: '#141416', needleFine: true, hub: '#151517', hubR: 3.4,
+  pivot: [128, 112], wheelTop: 8, radar: [196, 6], tachReal: true, speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 5, needleTailCol: '#141416', needleFine: true, needleTip: 0.32, hub: '#151517', hubR: 3.4,
   faces: [{ src: cp('diablo-cluster'), x: 26.5, y: 12.5, w: 188, h: 70 }],
   // à noite os fundos brancos acendem (luz por trás) e os ponteiros laranja também
   facesLit: '255,240,215', litNeedles: true, glow: '255,230,190', glowK: 0.3,
@@ -796,7 +796,7 @@ COCKPIT_ART.countach = {
 // velocímetro 0-280 grandes, água e pressão do óleo à esquerda, combustível e bateria à direita
 COCKPIT_ART.nsx = {
   dash: cp('nsx-dash'), top: cp('nsx-top'), wheel: cp('nsx-wheel'),
-  pivot: [128, 104], wheelTop: 14, tachReal: true, speedMax: 280, needle: '#ff3a1a', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [30, 4],
+  pivot: [128, 104], wheelTop: 14, tachReal: true, speedMax: 280, needle: '#ff3a1a', needleW: 2.3, needleTail: 0, needleTip: 0.18, hub: '#1a1a1c', radar: [30, 4],
   // retrovisor externo à direita (mão inglesa): o espelho da arte é transparente e mostra a vista de trás
   glass: { at: [436, 71], thr: 256 },
   // o quadro inteiro é uma imagem em alta resolução desenhada a partir da foto (tools/ref/nx_gauges.py):
@@ -836,7 +836,7 @@ COCKPIT_ART.nsx = {
 const VP_INK = '#16161a', VP_BG = '#ecebe2';
 COCKPIT_ART.viper = {
   dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
-  pivot: [131, 105], wheelDx: -14.4, wheelTop: 14, tachReal: true, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 4, needleFine: true, hub: '#151517', hubR: 3.4, radar: [102, 22],
+  pivot: [131, 105], wheelDx: -14.4, wheelTop: 14, tachReal: true, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 0, needleFine: true, hub: '#151517', hubR: 3.4, radar: [102, 22],
   glass: { at: [32, 95], thr: 256 }, tells: null, // retrovisor esquerdo completado (tools/qa/mirror_complete.py)
   // à noite os fundos brancos acendem em bege claro (luz por trás, como no carro); os ponteiros
   // vermelhos não têm luz e ficam escuros contra o fundo aceso

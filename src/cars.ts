@@ -1268,6 +1268,50 @@ const LENGTH_M: Record<string, number> = {
   'br-monza': 4.37, 'br-monzasedan': 4.49, 'br-monzacoupe': 4.49, 'br-opala': 4.78, 'br-pumagtb': 4.29, 'br-passat': 4.19, 'br-pumagte': 3.98, 'br-chevette': 4.17,
   'br-147': 3.63, 'br-sp2': 4.21,
 };
+// Rebaixamento: a carroceria sem os pneus (furo redondo do centro da roda até o chão, com folga na
+// metade de baixo para o contorno do pneu não sobrar como um arco fantasma) e, à parte, a sombra da
+// caixa de roda (escura, até onde a carroceria desce de cada lado do pneu), que preenche o vão entre o
+// pneu que fica no chão e a carroceria que desceu
+const bodyLayers = new WeakMap<HTMLCanvasElement, { body: HTMLCanvasElement; well: HTMLCanvasElement }>();
+function bodyLayer(spr: HTMLCanvasElement, wheels: number[][]) {
+  let b = bodyLayers.get(spr);
+  if (!b) {
+    const mk = () => Object.assign(document.createElement('canvas'), { width: spr.width, height: spr.height });
+    const body = mk(), well = mk();
+    const g = body.getContext('2d')!, w = well.getContext('2d')!;
+    g.drawImage(spr, 0, 0);
+    let px: Uint8ClampedArray | null = null;
+    try { px = g.getImageData(0, 0, spr.width, spr.height).data; } catch { /* sem leitura: sem sombra */ }
+    g.globalCompositeOperation = 'destination-out';
+    w.fillStyle = '#0c0c0e';
+    for (const [u, v] of wheels) {
+      const cx = u * spr.width, cy = v * spr.height, R = (1 - v) * spr.height, R2 = R * 1.12 + 1;
+      g.beginPath();
+      g.arc(cx, cy, R + 0.5, 0, Math.PI * 2);
+      g.fill();
+      g.beginPath();
+      g.arc(cx, cy, R2, 0, Math.PI);
+      g.fill();
+      if (!px) continue;
+      for (const side of [-1, 1]) {
+        // até onde a carroceria desce logo ao lado do pneu (abaixo disso é ar)
+        const x = Math.round(cx + side * (R2 + 2));
+        let yb = cy;
+        if (x >= 0 && x < spr.width) for (let y = spr.height - 1; y > cy; y--) if (px[(y * spr.width + x) * 4 + 3] > 128) { yb = y; break; }
+        w.save();
+        w.beginPath();
+        w.rect(side < 0 ? cx - R2 - 1 : cx, cy - R, R2 + 1, yb - (cy - R));
+        w.clip();
+        w.beginPath();
+        w.arc(cx, cy, R2, 0, Math.PI * 2);
+        w.fill();
+        w.restore();
+      }
+    }
+    bodyLayers.set(spr, (b = { body, well }));
+  }
+  return b;
+}
 export const sideScale = (car: CarSpec) => Math.min(1.06, (LENGTH_M[car.id] ?? 4.5) / 4.5);
 export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string, spin?: number) {
   // mesma escala para todos, centrado no espaço reservado
@@ -1291,24 +1335,17 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
       // soleira mais a folga do para-lama) é cerca de 16% da altura do carro
       const drop = car.rideDrop && car.wheels ? Math.max(1, Math.round(H * 0.16 * car.rideDrop * 2) / 2) : 0;
       if (drop) {
+        // rodas no lugar (o pneu inteiro, do centro até o chão) e, por cima, a carroceria descida com
+        // um furo redondo onde ficava cada pneu: o para-lama cobre o alto do pneu e nada do pneu
+        // descido sobra embaixo (ele não parece murcho)
+        const { body, well } = bodyLayer(spr, car.wheels!);
+        const sw = spr.width / W, sh = spr.height / H;
         c.save();
         c.beginPath();
         c.rect(L - 2, T - 2, W + 4, H + 2); // nada passa do chão
         c.clip();
-        // a carroceria descida, menos a metade de baixo de cada roda (senão o pneu descido sobra
-        // embaixo do pneu que fica no chão)
-        c.save();
-        c.beginPath();
-        c.rect(L - 2, T - 2, W + 4, H + 4);
+        c.drawImage(well, L, T + drop, W, H); // sombra da caixa de roda, atrás do pneu
         for (const [u, v] of car.wheels!) {
-          const R = H - v * H + 0.5; // só o pneu (ao lado dele, abaixo do centro, é ar)
-          c.rect(L + u * W - R, T + v * H + drop, R * 2, H);
-        }
-        c.clip('evenodd');
-        c.drawImage(spr, L, T + drop, W, H);
-        c.restore();
-        const sw = spr.width / W, sh = spr.height / H;
-        for (const [u, v] of car.wheels!) { // rodas (pneu inteiro) de volta ao lugar, por cima
           const cx = L + u * W, cy = T + v * H, R = H - v * H;
           c.save();
           c.beginPath();
@@ -1317,16 +1354,7 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
           c.drawImage(spr, (cx - L - R) * sw, (cy - T - R) * sh, 2 * R * sw, 2 * R * sh, cx - R, cy - R, 2 * R, 2 * R);
           c.restore();
         }
-        // o arco do para-lama desce por cima do alto do pneu
-        for (const [u, v] of car.wheels!) {
-          const cx = L + u * W, cy = T + v * H, R = H - v * H;
-          c.save();
-          c.beginPath();
-          c.rect(cx - R * 1.25, cy - R * 1.2 + drop, R * 2.5, R * 0.42);
-          c.clip();
-          c.drawImage(spr, L, T + drop, W, H);
-          c.restore();
-        }
+        c.drawImage(body, L, T + drop, W, H);
         c.restore();
       } else c.drawImage(spr, L, T, W, H);
       if (spin !== undefined && car.wheels) {

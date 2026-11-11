@@ -10,7 +10,7 @@ Cobre a janela inteira dos mostradores da arte (os números errados e os ícones
 O jogo desenha ponteiros, hodômetros e as luzes acesas (voyageCluster em cockpit.ts).
 Saídas (4 px por pixel do jogo):
   br-voyage-cluster.png      de dia
-  br-voyage-cluster-lit.png  aceso (noite e túnel): fundo verde iluminado por trás, números claros
+  br-voyage-cluster-lit.png  aceso (noite e túnel): fundo verde-garrafa iluminado por trás, números verde-claros quase brancos
   br-voyage-lamps.png        o bloco das luzes-espia com todas acesas (o jogo copia a casa de cada uma)
 Uso: python3 tools/ref/voyage_gauges.py <src/assets/cockpit>
 """
@@ -39,8 +39,10 @@ TEMP = dict(x=37.2, y=45.0, win=(28.4, 41.3))
 LAMP_X, LAMP_Y = (99.9, 111.7), (7.9, 21.25, 34.6)                   # centros das casas das luzes
 DAY = dict(gap=(11, 11, 13), face=(33, 34, 36), face2=(26, 27, 29), ink=(228, 228, 218), red=(232, 72, 52), band=(214, 52, 40),
            dark=(9, 9, 11), cell=(40, 41, 43), hot=(226, 190, 70), knob=(14, 14, 16), text=(196, 196, 188))
-LIT = dict(gap=(20, 92, 50), face=(50, 178, 98), face2=(34, 146, 76), ink=(214, 255, 222), red=(255, 196, 176), band=(244, 96, 56),
-           dark=(8, 40, 22), cell=(62, 196, 112), hot=(240, 244, 150), knob=(8, 30, 18), text=(200, 250, 210))
+# aceso: verde-garrafa profundo, mais claro no centro de cada mostrador (luz por trás de um difusor);
+# o que brilha são os números, as marcações e os letreiros (verde-claro quase branco)
+LIT = dict(gap=(6, 26, 17), face=(18, 70, 45), face2=(14, 56, 36), core=(30, 95, 62), ink=(190, 245, 205), red=(255, 150, 120),
+           band=(236, 84, 46), dark=(3, 12, 8), cell=(17, 66, 43), icon=(112, 176, 134), hot=(232, 236, 140), knob=(4, 16, 10), text=(190, 245, 205))
 
 
 def P(x, y):
@@ -91,6 +93,15 @@ def block(d, pal, xr, y0=TOP, y1=BOT, col=None):
     a, b = P(xr[0], y0), P(xr[1], y1)
     d.rounded_rectangle([a[0], a[1], b[0], b[1]], radius=K * 1.3, fill=pal['dark'])
     d.rounded_rectangle([a[0] + K * 0.35, a[1] + K * 0.35, b[0] - K * 0.35, b[1] - K * 0.35], radius=K * 1.1, fill=col or pal['face'])
+    if 'core' in pal and col is None:   # aceso: clarão suave no meio do bloco
+        cx, cy, rx, ry = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (b[0] - a[0]) / 2 - K * 0.6, (b[1] - a[1]) / 2 - K * 0.6
+        n = 16
+        for i in range(n):
+            t = (i + 1) / n
+            c = tuple(int(round(pal['face'][k] + (pal['core'][k] - pal['face'][k]) * t ** 1.5)) for k in range(3))
+            f = 1 - 0.8 * t
+            d.ellipse([cx - rx * f, cy - ry * f, cx + rx * f, cy + ry * f], fill=c)
+        return
     f2 = pal['face2']
     hgt = b[1] - a[1]
     for i in range(int(hgt * 0.45)):
@@ -260,7 +271,7 @@ def lamps(d, pal):
         for cx in LAMP_X:
             a, b = P(cx - 5.2, cy - 5.6), P(cx + 5.2, cy + 5.6)
             d.rounded_rectangle([a[0], a[1], b[0], b[1]], radius=K * 0.8, fill=pal['cell'])
-    lamp_icons(d, [pal['ink']] * 6, K * 0.72, max(1, int(K * 0.34)))
+    lamp_icons(d, [pal.get('icon', pal['ink'])] * 6, K * 0.72, max(1, int(K * 0.34)))
 
 
 def render(pal):

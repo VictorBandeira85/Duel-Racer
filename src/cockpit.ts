@@ -346,7 +346,8 @@ COCKPIT_ART['br-monzasedan'] = {
 // laranja-avermelhados em barra, atravessando o eixo (sem capa; só o relógio tem a capa preta).
 // As escalas não são lineares como no carro (160-190 no espaço de um passo, 0-1 do conta-giros
 // apertado): por isso os ponteiros são desenhados aqui e não por `speed`/`tach`.
-// À noite e no túnel o fundo inteiro acende em verde (luz por trás, foto do Victor): o fundo aceso
+// À noite e no túnel o fundo inteiro acende em verde-garrafa (luz por trás, foto do Victor), com números
+// e marcações verde-claros bem mais fortes que o fundo: o fundo aceso
 // (br-voyage-cluster-lit) entra por cima do apagado, na medida do escuro da cabine.
 // O jogo desenha o painel um pouco esticado (svgSprite arredonda 460 x 124 para 464 x 128): VG_X e
 // VG_Y levam as medidas da arte para onde elas caem na tela.
@@ -428,7 +429,7 @@ function voyageCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   if (k > 0.02) {
     c.save();
     c.globalCompositeOperation = 'lighter';
-    for (const gx of [80, 128, 176]) drawGlow(c, X(gx), Y(55), 44, 30, '90,235,140', 0.1 * k, GLOW_STOPS);
+    for (const gx of [80, 128, 176]) drawGlow(c, X(gx), Y(55), 44, 30, '60,170,110', 0.05 * k, GLOW_STOPS);
     c.restore();
   }
 }
@@ -440,7 +441,7 @@ COCKPIT_ART['br-voyage'] = {
   pod: { x: 4, y: -54, r: 9, dx: 5.7, dy: 22.8, pillar: '#211f29', face: 'black', bezel: 'black', lit: 'green' }, radar: [212, 21],
   speedMax: 190, needle: '#f0582a', needleW: 1.2, needleTail: 3.0, needleFine: true, needleTip: 0.42, hubUnder: true, hub: '#0e0e10', hubR: 1.7,
   faces: [{ src: VG_FACE, x: VG.x, y: VG.y, w: VG.w, h: VG.h }],
-  glow: '90,235,140', glowK: 0.5,
+  glow: '60,170,110', glowK: 0.5,
   aux: [],
   under: voyageUnder, extra: voyageCluster,
 };

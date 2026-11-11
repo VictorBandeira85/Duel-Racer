@@ -1,6 +1,6 @@
 {
   "name": "duel-racer",
-  "version": "0.29.10",
+  "version": "0.30.0",
   "scripts": {
     "dev": "vite --host",
     "build": "tsc && vite build",

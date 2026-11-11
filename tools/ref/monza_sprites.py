@@ -16,7 +16,9 @@ from PIL import Image
 
 WIDTH = {'side': 400, 'rear': 260, 'front': 260}
 # caixa do carro na arte (folga em volta), para a inundação não gastar tempo com o cenário
-BOX = {'front': (330, 170, 1330, 880), 'rear': (320, 160, 1350, 880), 'side': (30, 280, 1650, 850)}
+BOX = {'front': (330, 170, 1330, 880), 'rear': (320, 160, 1350, 880), 'side': (40, 215, 1745, 800)}
+# lateral (arte nova, 1774 x 887): centros das rodas, raio do pneu, linha de baixo da carroceria e o "MONZA" da saia
+SW, SR, SBOT, STXT = ((412, 670), (1430, 670)), 124, 702, (1058, 584, 1174, 609)
 
 
 def segment(a, k):
@@ -62,9 +64,19 @@ def debrand(a, k):
         rowfill(a, 420, 502, 596, 540)
         rowfill(a, 1042, 500, 1252, 542)
     else:
-        rowfill(a, 1008, 632, 1112, 668)  # "MONZA" (fica o S/R)
+        # "MONZA" some e o "S/R" fino da arte (viraria borrão no sprite) é refeito em letra cheia; como a
+        # lateral é espelhada depois, o texto é escrito espelhado aqui para sair legível no sprite
+        from PIL import ImageDraw, ImageFont
+        x0, y0, x1, y1 = STXT
+        for y in range(y0, y1):
+            a[y, x0:1234] = np.median(a[y, 940:1040], axis=0).astype(np.uint8)
+        t = Image.new('L', (70, 30), 0)
+        ImageDraw.Draw(t).text((35, 15), 'S/R', font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 30), fill=255, anchor='mm')
+        im = Image.fromarray(a)
+        im.paste((238, 28, 28), (1160, 582), t.transpose(Image.FLIP_LEFT_RIGHT))
+        a[:] = np.array(im)
         yy, xx = np.mgrid[0:a.shape[0], 0:a.shape[1]]
-        for cx, cy in ((383, 717), (1343, 717)):
+        for cx, cy in SW:
             d = np.hypot(xx - cx, yy - cy)
             ring = (d > 30) & (d < 36)
             lum = a[ring].mean(axis=1)
@@ -80,9 +92,11 @@ def ground(car, a, k):
     car &= ~green
     if k == 'side':
         wheels = np.zeros_like(car)
-        for cx, cy in ((383, 717), (1343, 717)):
-            wheels |= np.hypot(xx - cx, yy - cy) <= 116
-        car &= (yy <= 748) | wheels
+        for cx, cy in SW:
+            wheels |= np.hypot(xx - cx, yy - cy) <= SR
+        car &= (yy <= SBOT) | wheels
+        # arbustos escuros encostados no carro: acima da linha do capô (à direita) e atrás do aerofólio
+        car &= ~((xx > 1300) & (yy < 397 + (xx - 1290) * 0.2)) & ~((xx < 88) & (yy < 440))
     elif k == 'front':
         car &= (yy <= 803) | ((xx >= 378) & (xx <= 526)) | ((xx >= 1130) & (xx <= 1278))
     else:
@@ -164,9 +178,9 @@ def main():
         elif k == 'rear':
             m[sy(556):] = False  # lanternas e filete
         else:
-            m[sy(618):] = False  # filete da saia
-            m[sy(480):, :int(round(90 / f))] = False  # pisca dianteiro
-            m[sy(480):, -int(round(75 / f)):] = False  # lanterna traseira
+            m[sy(566):] = False  # filete da saia
+            m[sy(480):, :int(round(95 / f))] = False  # pisca dianteiro
+            m[sy(450):, -int(round(80 / f)):] = False  # lanterna traseira
         Image.fromarray(s, 'RGBA').save(os.path.join(out, f'br-monza-{k}.png'), optimize=True)
         Image.fromarray((m * 255).astype(np.uint8), 'L').convert('RGBA').save(os.path.join(out, f'br-monza-{k}-mask.png'), optimize=True)
         print(k, s.shape[1], s.shape[0], 'origem', ox, oy, 'fator', round(f, 3), 'máscara', int(m.sum()))

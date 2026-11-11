@@ -1,11 +1,13 @@
 import { carSwap } from './carswap';
-import { buildKey, partCost, partOf, slotsFor, type Build, type SlotId } from './tuning';
+import { buildKey, partCost, partOf, slotArt, slotsFor, type Build, type SlotId } from './tuning';
 import { setEngine, setEngineProfile, starterSound } from './audio';
 import { touch } from './input';
 import { drawShowroom, keyShowroom, openShowroom, tapShowroom } from './showroom';
 // Telas do modo Carreira: central (regiões e eventos), evento, garagem, concessionária e resultado.
 import { SAFE_W, view, KMH, RES } from './config';
 import { svgSprite } from './svgsprites';
+const PARTPNG = import.meta.glob('./assets/parts/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+const partPng = (n: string) => PARTPNG[`./assets/parts/${n}.png`];
 import { CARS, DEALER_CARS, RIMS, accelCurve, drawCar, drawCarSide, wheelPng, gearbox, layout, type CarSpec } from './cars';
 import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import {
@@ -207,7 +209,7 @@ function tapEvent(s: AppState, a: Actions, x: number, y: number) {
 
 // ---------- garagem ----------
 const swatchRects = (): Rect[] => PAINTS.map((_, i) => ({ x: ox() + 44 + i * 12, y: 128, w: 10, h: 7 }));
-const prepBox = (): Rect => ({ x: ox() + 4, y: 139, w: SAFE_W - 8, h: 54 });
+const prepBox = (): Rect => ({ x: ox() + 4, y: 139, w: SAFE_W - 8, h: 55 });
 // ajustes de graça: relação de marchas, suspensão e rodas (toque para trocar)
 const setupTags = () => [0, 1, 2].map((i): Rect => ({ x: ox() + 4 + i * 105, y: 196, w: 102, h: 12 }));
 const garageButtons = () => {
@@ -284,7 +286,7 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   ink(c, 'toque para abrir o catálogo de peças', pb.x + pb.w - 5, pb.y + 3, 4, GREY, 'right');
   slotsFor(car).forEach((sl, i) => {
     const pt = partOf(car, sl.id, buildOf(cs, car.id)[sl.id]);
-    const cx = pb.x + 5 + (i % 2) * 156, cy = pb.y + 12 + Math.floor(i / 2) * 10;
+    const cx = pb.x + 5 + (i % 2) * 156, cy = pb.y + 11 + Math.floor(i / 2) * 8.6;
     ink(c, `${sl.name}:`, cx, cy, 5, GREY);
     ink(c, pt.name, cx + 62, cy, 5, pt.id ? RED : INK);
   });
@@ -346,7 +348,7 @@ function tapGarage(s: AppState, a: Actions, x: number, y: number) {
 // ---------- preparação: peças aftermarket (tuning.ts) ----------
 // Cada linha é uma vaga (pistões, comando, alimentação, indução, escapamento, pneus, suspensão); as
 // setas trocam a peça em vista (a foto, a ficha e o ronco já mostram como fica) e o botão compra/instala.
-const prepRows = (n: number) => Array.from({ length: n }, (_, i): Rect => ({ x: ox() + 4, y: 108 + i * 12.7, w: SAFE_W - 8, h: 12 }));
+const prepRows = (n: number) => Array.from({ length: n }, (_, i): Rect => ({ x: ox() + 4, y: 107 + i * 10.3, w: SAFE_W - 8, h: 9.6 }));
 const prepButtons = () => {
   const x = ox();
   return { back: { x: x + 4, y: 211, w: 100, h: 15 }, rev: { x: x + 110, y: 211, w: 100, h: 15 }, stock: { x: x + 216, y: 211, w: 100, h: 15 } };
@@ -379,10 +381,19 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const ph: Rect = { x: x + 4, y: 46, w: 198, h: 58 };
   photo(c, ph, () => {
     // lateral, traseira e frente: o rebaixamento aparece nas três
-    drawCarSide(c, ph.x + 2, ph.y + 54, 124, view, paintHex(car.id));
+    drawCarSide(c, ph.x + 1, ph.y + 54, 104, view, paintHex(car.id));
     const look = { color: car.color, rear: car.rear, paint: paintHex(car.id), drop: view.rideDrop };
-    drawCar(c, ph.x + 145, ph.y + 54, 30, look);
-    drawCar(c, ph.x + 180, ph.y + 54, 30, { ...look, front: true });
+    drawCar(c, ph.x + 120, ph.y + 54, 25, look);
+    drawCar(c, ph.x + 147, ph.y + 54, 25, { ...look, front: true });
+    // a peça da linha escolhida: ilustração (ou a roda), nome e efeito
+    const sl = slotsFor(car)[ui.prepRow], pt = partOf(car, sl.id, ui.prepView[sl.id]);
+    const art = pt.wheel ? wheelPng(pt.wheel) : partPng(slotArt(car, sl.id) ?? '');
+    c.fillStyle = '#14110f';
+    c.fillRect(ph.x + 162, ph.y + 2, 34, 34);
+    const ai = art && svgSprite(art, 32 * RES, 32 * RES);
+    if (ai) c.drawImage(ai, ph.x + 163, ph.y + 3, 32, 32);
+    const n = sl.parts.findIndex((q) => q.id === pt.id);
+    ink(c, sl.id === 'rodas' ? (n ? `${n} de ${sl.parts.length - 1}` : 'originais') : pt.note, ph.x + 179, ph.y + 40, 4, YELLOW, 'center');
   }, ['#4a4238', '#a89a86']);
   const fr: Rect = { x: x + 208, y: 43, w: 108, h: 62 };
   box(c, fr, 'COMO FICA');
@@ -402,23 +413,18 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   prepRows(slots.length).forEach((r, i) => {
     const sl = slots[i];
     const vp = partOf(car, sl.id, ui.prepView[sl.id]), installed = (cur[sl.id] ?? '') === vp.id;
-    const hot = !touch.ui && ui.prepRow === i;
+    const hot = ui.prepRow === i;
     c.fillStyle = installed ? '#f6efdd' : '#fff1c8';
     c.fillRect(r.x, r.y, r.w, r.h);
     c.strokeStyle = hot ? RED : 'rgba(26,22,20,0.35)';
-    c.lineWidth = hot ? 2 : 1;
+    c.lineWidth = hot ? 1.5 : 1;
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
-    ink(c, sl.name.toUpperCase(), r.x + 4, r.y + 4, 5, INK);
-    arrow(c, { x: r.x + 76, y: r.y + 1, w: 9, h: 10 }, 'left');
-    arrow(c, { x: r.x + 188, y: r.y + 1, w: 9, h: 10 }, 'right');
-    ink(c, vp.name, r.x + 137, r.y + 1, 5, vp.id ? RED : INK, 'center');
-    ink(c, sl.id === 'rodas' ? `${sl.parts.findIndex((q) => q.id === vp.id)} de ${sl.parts.length - 1}` : vp.note, r.x + 137, r.y + 7, 4, GREY, 'center');
-    if (vp.wheel) { // miniatura da roda em vista
-      const wi = svgSprite(wheelPng(vp.wheel), 11 * RES, 11 * RES);
-      if (wi) c.drawImage(wi, r.x + 62, r.y + 0.5, 11, 11);
-    }
+    ink(c, sl.name.toUpperCase(), r.x + 4, r.y + 2.5, 5, INK);
+    arrow(c, { x: r.x + 76, y: r.y + 0.5, w: 9, h: 8.6 }, 'left');
+    arrow(c, { x: r.x + 188, y: r.y + 0.5, w: 9, h: 8.6 }, 'right');
+    ink(c, vp.name, r.x + 137, r.y + 2.5, 5, vp.id ? RED : INK, 'center');
     const own = ownsPart(cs, car, sl.id, vp.id), cost = partCost(car, vp);
-    tag(c, { x: r.x + r.w - 104, y: r.y + 1, w: 102, h: 10 }, installed ? 'INSTALADA' : own ? 'INSTALAR (JÁ É SUA)' : `COMPRAR ${money(cost)}`, !installed && (own || cs.money >= cost), 5);
+    tag(c, { x: r.x + r.w - 104, y: r.y + 0.5, w: 102, h: 8.6 }, installed ? 'INSTALADA' : own ? 'INSTALAR (JÁ É SUA)' : `COMPRAR ${money(cost)}`, !installed && (own || cs.money >= cost), 5);
   });
   const b = prepButtons();
   tag(c, b.back, '◀ OFICINA');

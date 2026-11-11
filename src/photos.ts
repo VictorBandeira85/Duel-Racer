@@ -80,7 +80,20 @@ export const MZS_PHOTOS: Photo[] = [
   { src: ph('mzs-palacio'), kicker: 'ENSAIO', kc: '#1a1614', title: 'ÍMOLA CLASSIC SE', sub: 'O sedã de luxo vai ao baile', inside: ['2.0 e câmbio de 5 marchas', 'Vidros e travas elétricos', 'Rodas raiadas de liga'], box: [25, 145, 522, 312] },
   { src: ph('mzs-lago'), kicker: 'LINHA 89', kc: '#d01f26', title: 'LUXO EM ASCENSÃO', sub: 'O mais caro da família chega à linha 89', inside: ['Quadro com econômetro', 'Porta-malas de 510 litros', 'Sedã ou hatch S/R?'], box: [8, 135, 552, 312] },
 ].filter((p) => !!p.src);
-export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...MZS_PHOTOS].forEach((p) => img(p.src));
+// Peças de preparação (tools/ref/parts_photos.py): capas e páginas de carregamento
+export const PC_PHOTOS: Photo[] = [
+  { src: ph('pc-motor'), kicker: 'RAIO-X', kc: '#1a1614', title: 'DOZE EM V', sub: 'Por dentro do coração do Toro', inside: ['48 válvulas, 12 borboletas', 'Coletores 6 em 1', 'Quanto custa abrir um'], box: [95, 14, 464, 278] },
+  { src: ph('pc-pistao'), kicker: 'PREPARAÇÃO', kc: '#d01f26', title: 'PISTÃO FORJADO', sub: 'Aguenta mais giro e mais pressão', inside: ['Forjado ou fundido?', 'Bielas reforçadas', 'Taxa certa para o turbo'], box: [213, 14, 346, 278] },
+  { src: ph('pc-comando'), kicker: 'PREPARAÇÃO', kc: '#d01f26', title: 'COMANDO BRAVO', sub: 'Mais cavalos lá em cima, lenta embolada', inside: ['Esportivo ou de corrida', 'Molas duplas', 'Polia regulável'], box: [14, 52, 546, 240] },
+  { src: ph('pc-carburador'), kicker: 'OFICINA', kc: '#1a6a2a', title: 'CORPO DUPLO', sub: 'Acerto fino de giclê e ronco de admissão', inside: ['Dupla de corrida: vale?', 'Regulagem da lenta', 'Álcool pede mais giclê'], box: [134, 14, 425, 278] },
+  { src: ph('pc-injecao'), kicker: 'TÉCNICA', kc: '#1e4fb8', title: 'INJEÇÃO PROGRAMÁVEL', sub: 'Bicos maiores e mapa sob medida', inside: ['Chip ou programável', 'Corpo de borboleta maior', 'Sonda: leia a mistura'], box: [91, 14, 468, 278] },
+  { src: ph('pc-turbo'), kicker: 'TESTE', kc: '#d01f26', title: 'TURBO NELE!', sub: 'Mais 28% de potência e o assobio de brinde', inside: ['Turbo ou supercharger?', 'Válvula de alívio', 'Pressão: até onde ir'], box: [123, 14, 437, 278] },
+  { src: ph('pc-escape'), kicker: 'PREPARAÇÃO', kc: '#1a1614', title: 'QUATRO EM UM', sub: 'Coletor dimensionado e ponteira de titânio', inside: ['Esportivo ou de corrida', 'O ronco muda mesmo', 'Abafador: perde quanto?'], box: [10, 20, 550, 295] },
+  { src: ph('pc-suspensao'), kicker: 'OFICINA', kc: '#1a6a2a', title: 'MAIS BAIXO, MAIS FIRME', sub: 'Molas esportivas e amortecedores a gás', inside: ['20% ou 35% mais baixo', 'Curva com mais g', 'Cuidado com a lombada'], box: [50, 5, 510, 310] },
+  { src: ph('pc-freio'), kicker: 'TESTE', kc: '#1e4fb8', title: 'FREIA MAIS TARDE', sub: 'Disco ventilado e pinça de corrida', inside: ['Pastilha: qual usar', 'Fluido de alta temperatura', 'Metros a menos de 100 a 0'], box: [138, 14, 421, 278] },
+  { src: ph('pc-bancos'), kicker: 'ACESSÓRIOS', kc: '#d01f26', title: 'BANCO CONCHA', sub: 'Segura o corpo e tira peso do carro', inside: ['Fibra ou tubular', 'Cinto de quatro pontos', 'Trilho regulável'], box: [50, 5, 510, 310] },
+].filter((p) => !!p.src);
+export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...MZS_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
 
 // Enquadramento: a foto cobre o quadro e a caixa do carro (p.box) fica inteira e centrada na área
 // livre (sem a faixa vermelha de baixo, 'bottom' px), com uma aproximação lenta (u: 0..1) que nunca

@@ -5,7 +5,7 @@
 // basta incluir aqui: a tela da oficina, o save e a física leem este catálogo.
 import type { CarSpec } from './cars';
 
-export type SlotId = 'pistoes' | 'comando' | 'alimentacao' | 'inducao' | 'escape' | 'pneus' | 'suspensao' | 'rodas';
+export type SlotId = 'pistoes' | 'comando' | 'alimentacao' | 'inducao' | 'escape' | 'pneus' | 'suspensao' | 'freios' | 'bancos' | 'rodas';
 // mudanças no ronco: multiplicadores (drive, vol, low) e somas (rasp, pops, cam, intake, whine)
 export interface SoundMods { drive?: number; vol?: number; low?: number; rasp?: number; pops?: number; cam?: number; intake?: number; whine?: number; turbo?: boolean }
 export interface Part {
@@ -13,6 +13,7 @@ export interface Part {
   cost: number; // fração do preço do carro (0 = original)
   power?: number; // multiplicador de potência
   grip?: number; brake?: number; handling?: number; traction?: number; // multiplicadores
+  mass?: number; // multiplicador do peso (bancos concha tiram peso)
   drop?: number; // quanto a carroceria desce (fração da altura livre): 0,2 esportiva, 0,35 corrida
   forced?: 'turbo' | 'super';
   wheel?: string; // roda aftermarket: arquivo em src/assets/wheels (rNN)
@@ -115,9 +116,17 @@ export function slotsFor(car: CarSpec): Slot[] {
     { id: 'suspensao', name: 'Suspensão', parts: [ORIGINAL(),
       { id: 'esportiva', name: 'Esportiva', note: '-20% altura', cost: 0.04, drop: 0.2, grip: 1.04, handling: 1.05 },
       { id: 'corrida', name: 'De corrida', note: '-35% altura', cost: 0.08, drop: 0.35, grip: 1.07, handling: 1.09 }] },
+    { id: 'freios', name: 'Freios', parts: [ORIGINAL(),
+      { id: 'esportivo', name: 'Discos ventilados', note: '+7% freio', cost: 0.04, brake: 1.07 },
+      { id: 'corrida', name: 'Pinça de corrida', note: '+14% freio', cost: 0.08, brake: 1.14 }] },
+    { id: 'bancos', name: 'Bancos', parts: [ORIGINAL(), { id: 'concha', name: 'Concha', note: '-3% peso', cost: 0.03, mass: 0.97 }] },
     { id: 'rodas', name: 'Rodas', parts: [ORIGINAL('Originais'), ...WHEEL_LIST.map(([id, name]): Part => ({ id, name, note: id[0] === 'c' ? 'clássica' : 'liga leve', cost: 0.03, wheel: id }))] },
   ];
 }
+
+// ilustração de cada vaga (src/assets/parts, tools/ref/parts_photos.py)
+export const slotArt = (car: CarSpec, slot: SlotId): string | undefined =>
+  ({ pistoes: 'pistao', comando: 'comando', alimentacao: isCarb(car) ? 'carburador' : 'injecao', inducao: 'turbo', escape: 'escape', suspensao: 'suspensao', freios: 'freio', bancos: 'bancos' } as Partial<Record<SlotId, string>>)[slot];
 
 export const partOf = (car: CarSpec, slot: SlotId, id: string | undefined): Part => {
   const sl = slotsFor(car).find((s) => s.id === slot)!;
@@ -129,7 +138,7 @@ export const buildKey = (b: Build | undefined) => (b ? Object.entries(b).filter(
 /** aplica as peças à ficha (antes de prepareCar): potência, máxima, aderência, ronco e altura */
 export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
   if (!build || !buildKey(build)) return car;
-  let power = 1, grip = 1, brake = 1, handling = 1, traction = 1, drop = 0;
+  let power = 1, grip = 1, brake = 1, handling = 1, traction = 1, drop = 0, mass = 1;
   let forced: 'turbo' | 'super' | undefined;
   let wheel: string | undefined;
   const snd: SoundMods = {};
@@ -140,6 +149,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     brake *= p.brake ?? 1;
     handling *= p.handling ?? 1;
     traction *= p.traction ?? 1;
+    mass *= p.mass ?? 1;
     drop = Math.max(drop, p.drop ?? 0);
     forced = p.forced ?? forced;
     wheel = p.wheel ?? wheel;
@@ -158,6 +168,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     maxSpeed: car.maxSpeed * Math.cbrt(power), // a máxima cresce com a raiz cúbica da potência (arrasto)
     lateralG: car.lateralG * grip,
     brakeG: car.brakeG * brake,
+    mass: car.mass * mass,
     handling: car.handling * handling,
     traction: (car.traction ?? 1) * traction,
     curve: forced === 'turbo' ? 'turbo' : car.curve,

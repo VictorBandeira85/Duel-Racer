@@ -4,7 +4,7 @@ linha a linha (para-choques, saias e pneus são quase pretos) e, embaixo do carr
 escapamento) ficam: a sombra sai por geometria. A lateral já vem com a frente para a esquerda, mas
 cinza: passa para o bordô da frente/traseira copiando o brilho (mesma posição na escala de tons).
 Marcas reais somem: gravata da grade, "CHEVROLET" da tampa, "Monza" da saia e da placa da frente; a
-placa de trás fica lisa (o jogo escreve a dele). Reduz por área (lateral 300, frente/traseira 200).
+placa de trás fica lisa (o jogo escreve a dele). Vira pixel art nítida (lateral 400, frente/traseira 260: shrink de monza_sprites.py).
 Emblemas da marca: brand_badges.py.
 Cupê (Ímola Classic Coupé): mesma frente e traseira; só a lateral muda. Com "coupe <pasta do cupê>" no
 fim, a lateral vem de <pasta do cupê>/src-side.png (ampliada para o tamanho da do sedã, as medidas são
@@ -21,7 +21,7 @@ from PIL import Image, ImageDraw, ImageFont
 sys.path.insert(0, os.path.dirname(__file__))
 from monza_sprites import shrink, paint_mask, rowfill  # noqa: E402
 
-WIDTH = {'side': 300, 'rear': 200, 'front': 200}
+WIDTH = {'side': 400, 'rear': 260, 'front': 260}
 ID = 'br-monzasedan'
 COUPE = sys.argv[4] if len(sys.argv) > 4 and sys.argv[3] == 'coupe' else None
 TXT_SIDE = (722, 466, 814, 502) if COUPE else (714, 460, 794, 496)      # "Monza" da saia
@@ -117,7 +117,7 @@ def main():
         s, (ox, oy, f) = shrink(a, car, WIDTH[k])
         sy = lambda y: int(round((y - oy) / f))
         if k == 'side':
-            g8, _ = shrink(np.dstack([gm * 255] * 3).astype(np.uint8), car, WIDTH[k])
+            g8, _ = shrink(np.dstack([gm * 255] * 3).astype(np.uint8), car, WIDTH[k], colors=0)
             m = (g8[..., 0] > 127) & (s[..., 3] > 0)
         else:
             m = paint_mask(s)
@@ -126,7 +126,8 @@ def main():
             else:
                 m[sy(504):sy(766)] = False  # lanternas e para-choque (a saia de baixo é da cor do carro)
             if k == 'front':
-                for sl in (slice(0, 16), slice(184, 200)):  # piscas
+                w16 = int(round(s.shape[1] * 0.08))
+                for sl in (slice(0, w16), slice(s.shape[1] - w16, s.shape[1])):  # piscas
                     m[sy(515):, sl] = False
         S[k], M[k] = s, m
         print(k, s.shape[1], s.shape[0], 'origem', ox, oy, 'fator', round(f, 3), 'máscara', int(m.sum()))
@@ -141,6 +142,14 @@ def main():
     hi = np.minimum(lo + 1, 47)
     t = (rk - lo)[:, None]
     s[..., :3][m] = np.clip(bins[lo] * (1 - t) + bins[hi] * t, 0, 255).astype(np.uint8)
+    # tons chapados na lataria (a conversão pixel a pixel deixava chuvisco): 14 tons de bordô
+    lab = cv2.cvtColor(np.ascontiguousarray(s[..., :3]), cv2.COLOR_RGB2LAB).astype(np.float32)
+    lab = cv2.medianBlur(lab, 3)
+    cv2.setRNGSeed(7)
+    _, lbl, cen = cv2.kmeans(lab[m], 14, None, (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 60, 0.2), 3, cv2.KMEANS_PP_CENTERS)
+    q = lab.copy()
+    q[m] = cen[lbl.ravel()]
+    s[..., :3][m] = cv2.cvtColor(np.clip(q, 0, 255).astype(np.uint8), cv2.COLOR_LAB2RGB)[m]
     if COUPE:
         import shutil
         for v in ('front', 'rear'):

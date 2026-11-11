@@ -68,6 +68,11 @@
   sombra de baixo sai por geometria, lateral de outra cor convertida pelo brilho) e
   `tools/ref/monzasedan_cockpit.py` (vidros pela cor do céu).
 
+- **Sprites com cara de 16 bits (referência: Viper e NSX)**: nunca reduzir a arte por área (borra e
+  mistura tons). Se a arte tem grade nativa, `tools/ref/regrid.py`; se não tem (grade irregular),
+  `shrink` de `tools/ref/monza_sprites.py`: cor do miolo de cada bloco + paleta curta, em tamanho maior
+  (lateral 400, frente/traseira 260). Comparar lado a lado com o Viper antes de publicar.
+
 ## Trânsito
 - Cada modelo do trânsito (`tools/art/traffic.py`, `src/assets/traffic`) segue um carro real dos anos 90
   (formas e luzes, sem marca): sedan = Monza, hatch = Gol quadrado, pickup = F-1000, van = Econoline,

@@ -2,7 +2,7 @@
 é recortado por inundação do fundo a partir das bordas (o contorno preto do carro segura), fica só a
 maior mancha e a sombra azulada do chão sai. A lateral vem com a frente para a direita: é espelhada.
 Marcas reais somem: gravata na grade e nas rodas, "CHEVROLET" na tampa e a placa "MONZA" da frente;
-o letreiro da lateral fica só "S/R". Reduz por área (lateral 300, traseira e frente 200), alfa binário.
+o letreiro da lateral fica só "S/R". Vira pixel art nítida (lateral 400, traseira e frente 260: shrink).
 Máscara de pintura: o vermelho da lataria (sem lanternas, piscas e filetes do para-choque).
 Emblemas da marca: brand_badges.py.
 Uso: python3 tools/ref/monza_sprites.py <pasta com src-*.png> <src/assets/cars>   (DBG=<pasta> grava o recorte)
@@ -14,7 +14,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-WIDTH = {'side': 300, 'rear': 200, 'front': 200}
+WIDTH = {'side': 400, 'rear': 260, 'front': 260}
 # caixa do carro na arte (folga em volta), para a inundação não gastar tempo com o cenário
 BOX = {'front': (330, 170, 1330, 880), 'rear': (320, 160, 1350, 880), 'side': (30, 280, 1650, 850)}
 
@@ -98,16 +98,37 @@ def ground(car, a, k):
     return car | hole
 
 
-def shrink(a, car, tw):
+def shrink(a, car, tw, colors=64):
+    """pixel art nítida (cara de 16 bits, como o Viper e o NSX): a arte não tem grade exata, então o
+    carro é dividido numa grade de tw colunas e cada pixel do sprite recebe a cor do MIOLO do bloco
+    (mediana, sem misturar com os vizinhos: nada de borrão de redução por área); depois a paleta é
+    reduzida (k-médias em Lab) para as cores ficarem chapadas. Alfa = maioria do miolo."""
     ys, xs = np.nonzero(car)
-    rgb = a[ys.min():ys.max() + 1, xs.min():xs.max() + 1].astype(np.float32)
-    al = car[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
-    th = round(rgb.shape[0] * tw / rgb.shape[1])
-    pm = np.dstack([rgb * al[..., None], al * 255.0]).astype(np.float32)
-    sm = cv2.resize(pm, (tw, th), interpolation=cv2.INTER_AREA)
-    a8 = sm[..., 3]
-    col = np.clip(sm[..., :3] / np.maximum(a8[..., None] / 255, 1e-3), 0, 255)
-    return np.dstack([col, np.where(a8 >= 128, 255, 0)]).astype(np.uint8), (xs.min(), ys.min(), rgb.shape[1] / tw)
+    x0, y0, x1, y1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
+    f = (x1 - x0) / tw
+    th = int(round((y1 - y0) / f))
+    r = max(1, int(f * 0.3))
+    out = np.zeros((th, tw, 4), np.uint8)
+    for j in range(th):
+        cy = int(y0 + (j + 0.5) * f)
+        for i in range(tw):
+            cx = int(x0 + (i + 0.5) * f)
+            ya, yb, xa, xb = max(y0, cy - r), min(y1, cy + r + 1), max(x0, cx - r), min(x1, cx + r + 1)
+            cell = car[ya:yb, xa:xb]
+            if cell.size == 0 or cell.mean() < 0.5:
+                continue
+            out[j, i, :3] = np.median(a[ya:yb, xa:xb][cell], axis=0)
+            out[j, i, 3] = 255
+    al = out[..., 3] > 0
+    if colors and al.sum() > colors:
+        lab = cv2.cvtColor(np.ascontiguousarray(out[..., :3]), cv2.COLOR_RGB2LAB).astype(np.float32)
+        crit = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 60, 0.2)
+        cv2.setRNGSeed(7)
+        _, lbl, cen = cv2.kmeans(lab[al], colors, None, crit, 3, cv2.KMEANS_PP_CENTERS)
+        q = np.zeros_like(lab)
+        q[al] = cen[lbl.ravel()]
+        out[..., :3][al] = cv2.cvtColor(np.clip(q, 0, 255).astype(np.uint8), cv2.COLOR_LAB2RGB)[al]
+    return out, (x0, y0, f)
 
 
 def paint_mask(s):
@@ -137,13 +158,14 @@ def main():
         sy = lambda y: int(round((y - oy) / f))
         if k == 'front':
             m[sy(640):] = False  # filete vermelho do para-choque
-            for sl in (slice(0, 21), slice(179, 200)):  # piscas âmbar
+            w21 = int(round(s.shape[1] * 0.105))
+            for sl in (slice(0, w21), slice(s.shape[1] - w21, s.shape[1])):  # piscas âmbar
                 m[sy(515):, sl] = False
         elif k == 'rear':
             m[sy(556):] = False  # lanternas e filete
         else:
             m[sy(618):] = False  # filete da saia
-            m[sy(480):, :int(round(40 / f))] = m[sy(480):, :int(round(40 / f))] & False  # pisca dianteiro
+            m[sy(480):, :int(round(90 / f))] = False  # pisca dianteiro
             m[sy(480):, -int(round(75 / f)):] = False  # lanterna traseira
         Image.fromarray(s, 'RGBA').save(os.path.join(out, f'br-monza-{k}.png'), optimize=True)
         Image.fromarray((m * 255).astype(np.uint8), 'L').convert('RGBA').save(os.path.join(out, f'br-monza-{k}-mask.png'), optimize=True)

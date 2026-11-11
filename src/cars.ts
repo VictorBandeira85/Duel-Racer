@@ -372,7 +372,7 @@ const WHEELS: Record<string, number[][]> = {
 // Onde fica a placa na traseira de cada carro: [x0, y0, x1, y1] em pixels do sprite e o
 // tamanho dele (largura, altura); vira frações ao carregar
 const PLATE_BOX: Record<string, number[]> = {
-  'br-monza': [77, 80, 123, 95, 200, 140], 'br-monzasedan': [78, 75, 124, 90, 200, 151], 'br-monzacoupe': [78, 75, 124, 90, 200, 151], 'br-golgti': [76, 111, 124, 124, 200, 188], 'br-kadett': [31, 30, 62, 40, 93, 70], 'br-pumagte': [35, 34, 64, 46, 102, 65],
+  'br-monza': [100, 104, 160, 124, 260, 182], 'br-monzasedan': [101, 97, 161, 117, 260, 196], 'br-monzacoupe': [101, 97, 161, 117, 260, 196], 'br-golgti': [76, 111, 124, 124, 200, 188], 'br-kadett': [31, 30, 62, 40, 93, 70], 'br-pumagte': [35, 34, 64, 46, 102, 65],
   'br-corsa': [88, 108, 150, 127, 239, 212], 'br-uno': [70, 81, 118, 100, 189, 157], 'br-passat': [63, 58, 109, 72, 173, 124],
   'br-vectra': [40, 52, 73, 62, 113, 79], 'br-pumagtb': [38, 31, 57, 37, 95, 59],
   '959': [77, 74, 124, 87, 200, 118], countach: [90, 82, 132, 94, 224, 124], diablo: [86, 63, 114, 72, 200, 102],

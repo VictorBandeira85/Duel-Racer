@@ -112,8 +112,10 @@
   `car.pods` (applyBuild): pressão do turbo/compressor, de óleo (pistões e bielas preparados) e de
   combustível (alimentação preparada), lado a lado. Conferir com `FORCED=turbo node tools/qa/cockpit_shots.cjs <pasta> <id>`: copo apoiado no
   painel, sem tapar radar, retrovisor nem quadro. Sem marca real no mostrador.
-  Se o painel do carro não tiver um lugar bom, os relógios vão na coluna da porta (um acima do outro,
-  `dx: 0` e `dy` no `pod`).
+  Se o painel do carro não tiver um lugar bom, os relógios vão na coluna da porta: `pillar: '<cor>'` no
+  `pod` desenha um suporte moldado preso à coluna (sem copo nem pé), com `dx`/`dy` seguindo a inclinação.
+  **Medir a coluna na arte** (colunas opacas do friso interno em cada linha do topo; x do pod = coluna
+  - 102, y = linha - 76): rente ao friso escuro, nunca na moldura da porta nem flutuando no vidro.
 - Som do turbo/supercharger da preparação (audio.ts): `spool` (assobio + sopro + alívio, mais grave e
   forte com turbina maior) e `blower` (zunido preso ao giro) em `soundMods`; valem para qualquer carro
   e têm de aparecer por cima de motor alto (V12).

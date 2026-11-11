@@ -627,10 +627,14 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   reflectors(g, vp.x, top, 'rgba(0,0,0,', 1);
   // postes acesos e faróis de quem vai à frente: luz só no chão, numa camada à parte da qual as
   // silhuetas dos carros são apagadas (a mancha de luz não passa por cima de nenhum carro)
-  const sec = secondary(W, H, vp.x, top, (s) => {
-    for (const st of streets) streetPool(s, rd, st, 'rgba(0,0,0,', 0.7);
-  }, (t, b) => drawCarBeams(t, vp.x, top, 0.85, [b])); // farol de quem vai à frente (15% mais fraco)
-  if (sec) g.drawImage(sec, 0, 0);
+  // UMA camada só para as duas coisas: a luz quente (sódio dos postes e farol de quem vai à frente,
+  // já recortada pelos objetos e sem os carros) é feita aqui e serve também para abrir a escuridão:
+  // quatro passadas dela apagando o escuro dão o mesmo clarão de antes (postes ~0,6, faróis ~1) sem
+  // montar uma segunda camada igual, que era o que mais pesava à noite
+  const secW = secondary(W, H, vp.x, top, (s) => {
+    maskedPools(s, W, top, vp.x, rd, 0.2 * strength);
+  }, (t, b) => drawCarBeamsWarm(t, vp.x, top, 0.935 * strength, [b]));
+  if (secW) for (let i = 0; i < 4; i++) g.drawImage(secW, 0, 0);
   // cada carro com uma luz só no corpo inteiro (o facho ou a luz do poste não cortam a
   // carroceria ao meio): conforme a distância no nosso farol e a proximidade de um poste
   // clarão da lua no céu: antes dos carros (um carro na frente da lua tapa o clarão)
@@ -690,9 +694,6 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   wg.globalCompositeOperation = 'source-over';
   reflectors(wg, vp.x, top, 'rgba(255,230,170,', 0.12 * strength); // tom quente do farol
   // luz de sódio dos postes e farol de quem vai à frente, sem pintar os carros
-  const secW = secondary(W, H, vp.x, top, (s) => {
-    maskedPools(s, W, top, vp.x, rd, 0.2 * strength);
-  }, (t, b) => drawCarBeamsWarm(t, vp.x, top, 0.935 * strength, [b]));
   if (secW) wg.drawImage(secW, 0, 0);
   // apaga o facho e a luz do poste pintados no chão por baixo de cada carro (no baú alto do
   // caminhão eles apareciam em degraus) e dá ao carro inteiro uma luz só

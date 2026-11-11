@@ -55,7 +55,7 @@ interface CockpitArt {
   wheelTop?: number; // linhas do PNG do volante acima do topo da arte (aro inteiro sobre o para-brisa)
   /** manômetro auxiliar (turbo/supercharger da preparação), num copo sobre o painel: centro e raio na
    * arte; `face` e `bezel` variam de carro para carro (estilo dos relógios de 52 mm de época) */
-  pod?: { x: number; y: number; r: number; dx?: number; dy?: number; /* passo até o relógio seguinte (padrão: lado a lado) */ face: 'black' | 'silver' | 'white'; bezel: 'black' | 'chrome'; needle?: string; lit?: 'white' | 'green' | 'blue' | 'yellow' /* cor da iluminação noturna */ };
+  pod?: { x: number; y: number; r: number; dx?: number; dy?: number; /* passo até o relógio seguinte (padrão: lado a lado) */ face: 'black' | 'silver' | 'white'; bezel: 'black' | 'chrome'; needle?: string; pillar?: string /* relógios na coluna: cor do suporte moldado que os prende a ela (sem copo nem pé) */; lit?: 'white' | 'green' | 'blue' | 'yellow' /* cor da iluminação noturna */ };
   wheelDy?: number; // desce o volante (posição do banco: o aro não tapa a estrada)
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
   tach?: Dial;
@@ -208,7 +208,7 @@ const DIA_SMALL: [number, number, Gauge][] = [[72.4, 49.5, 'oil'], [61.4, 67.5, 
 COCKPIT_ART.diablo = {
   glass: { at: [36, 93], thr: 256 }, tells: [130, 30], // retrovisor esquerdo desenhado em diablo_cockpit.py (side_mirror)
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'), dashMask: cp('diablo-dash-mask'), topMask: cp('diablo-top-mask'),
-  pivot: [128, 112], wheelTop: 8, pod: { x: -7, y: -55, r: 9, dx: 5.1, dy: 22.8, face: 'black', bezel: 'chrome', lit: 'white' }, radar: [196, 6], tachReal: true, speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 5, needleTailCol: '#141416', needleFine: true, needleTip: 0.32, hub: '#151517', hubR: 3.4,
+  pivot: [128, 112], wheelTop: 8, pod: { x: -16, y: -52, r: 7.5, dx: 0.4, dy: 17, pillar: '#1d1b26', face: 'black', bezel: 'chrome', lit: 'white' }, radar: [196, 6], tachReal: true, speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 5, needleTailCol: '#141416', needleFine: true, needleTip: 0.32, hub: '#151517', hubR: 3.4,
   faces: [{ src: cp('diablo-cluster'), x: 26.5, y: 12.5, w: 188, h: 70 }],
   // à noite os fundos brancos acendem (luz por trás) e os ponteiros laranja também
   facesLit: '255,240,215', litNeedles: true, glow: '255,230,190', glowK: 0.3,
@@ -292,7 +292,7 @@ COCKPIT_ART['br-monza'] = {
   tells: null,
   dash: cp('br-monza-dash'), top: cp('br-monza-top'), wheel: cp('br-monza-wheel'), dashMask: cp('br-monza-dash-mask'), topMask: cp('br-monza-top-mask'),
   glass: { at: [56, 108], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, pod: { x: 7, y: -43, r: 9, dx: 9.3, dy: 22.8, face: 'silver', bezel: 'chrome', lit: 'white' }, radar: [222, 12], speedMax: 220, needle: '#f47c2c', needleW: 1.9, needleTail: 3.0, needleFine: true, needleTip: 0.35, hubUnder: true, tachReal: true, speedRest: 14, hub: '#2c2c2f', hubR: 3.4,
+  pivot: [128, 112], wheelTop: 8, pod: { x: 7, y: -43, r: 9, dx: 9.3, dy: 22.8, pillar: '#1f1e27', face: 'silver', bezel: 'chrome', lit: 'white' }, radar: [222, 12], speedMax: 220, needle: '#f47c2c', needleW: 1.9, needleTail: 3.0, needleFine: true, needleTip: 0.35, hubUnder: true, tachReal: true, speedRest: 14, hub: '#2c2c2f', hubR: 3.4,
   faces: [{ src: cp('br-monza-cluster'), x: 64.5, y: 37.5, w: 153, h: 54 }],
   glow: '255,120,40', glowK: 0.6,
   facesLit: '255,190,130', litMin: 150, litByMax: true, litNeedles: true,
@@ -319,7 +319,7 @@ COCKPIT_ART['br-monzasedan'] = {
   tells: null,
   dash: cp('br-monzasedan-dash'), top: cp('br-monzasedan-top'), wheel: cp('br-monzasedan-wheel'),
   glass: { at: [52, 111], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, pod: { x: -23, y: -51, r: 9, dx: 13.2, dy: 22.8, face: 'silver', bezel: 'chrome', lit: 'yellow' }, radar: [222, 16], speedMax: 220, needle: '#f0a024', needleW: 1.7, needleTail: 2.6, needleFine: true, needleTip: 0.35, hubUnder: true, tachReal: true, speedRest: 14, hub: '#2c2c2f', hubR: 3.0,
+  pivot: [128, 112], wheelTop: 8, pod: { x: -23, y: -51, r: 9, dx: 13.2, dy: 22.8, pillar: '#26252d', face: 'silver', bezel: 'chrome', lit: 'yellow' }, radar: [222, 16], speedMax: 220, needle: '#f0a024', needleW: 1.7, needleTail: 2.6, needleFine: true, needleTip: 0.35, hubUnder: true, tachReal: true, speedRest: 14, hub: '#2c2c2f', hubR: 3.0,
   faces: [{ src: cp('br-monzasedan-cluster'), x: 66.71, y: 42.57, w: 132.3, h: 49.98 }],
   glow: '255,150,60', glowK: 0.5,
   facesLit: '255,220,170', litMin: 150, litByMax: true, litNeedles: true,
@@ -839,7 +839,7 @@ COCKPIT_ART.nsx = {
 const VP_INK = '#16161a', VP_BG = '#ecebe2';
 COCKPIT_ART.viper = {
   dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
-  pivot: [131, 105], wheelDx: -14.4, wheelTop: 14, tachReal: true, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 0, needleFine: true, hub: '#151517', hubR: 3.4, pod: { x: -14, y: -51, r: 9, dx: -4.8, dy: 22.8, face: 'white', bezel: 'chrome', lit: 'green' }, radar: [102, 22],
+  pivot: [131, 105], wheelDx: -14.4, wheelTop: 14, tachReal: true, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 0, needleFine: true, hub: '#151517', hubR: 3.4, pod: { x: -14, y: -51, r: 9, dx: -4.8, dy: 22.8, pillar: '#22212b', face: 'white', bezel: 'chrome', lit: 'green' }, radar: [102, 22],
   glass: { at: [32, 95], thr: 256 }, tells: null, // retrovisor esquerdo completado (tools/qa/mirror_complete.py)
   // à noite os fundos brancos acendem em bege claro (luz por trás, como no carro); os ponteiros
   // vermelhos não têm luz e ficam escuros contra o fundo aceso
@@ -1190,6 +1190,35 @@ function auxPods(c: CanvasRenderingContext2D, r: Race, dt: number, ox: number, p
   const boostNow = car.forced === 'super' ? (r.throttle ? 0.25 + 0.75 * rpm : 0.04) : car.forced ? (r.throttle ? Math.max(0, Math.min(1, r.pt.boost)) ** 1.5 : 0) : 0;
   const bar = (car.boostMax ?? 0.8) * boostNow;
   let i = 0;
+  const n = car.pods?.length ?? 0, sx = pod.dx ?? pod.r * 2.25, sy = pod.dy ?? 0;
+  if (pod.pillar && n) {
+    // suporte de coluna: uma peça só, moldada, que acompanha a coluna e leva os relógios embutidos
+    const x0 = ox + pod.x, y0 = ART_TOP + pod.y, x1 = x0 + sx * (n - 1), y1 = y0 + sy * (n - 1);
+    const hw = pod.r + 1.2, len = Math.hypot(x1 - x0, y1 - y0) || 1, ux = (x1 - x0) / len, uy = (y1 - y0) / len;
+    const body = (grow: number, col: string) => {
+      c.strokeStyle = col;
+      c.lineCap = 'round';
+      c.lineWidth = (hw + grow) * 2;
+      c.beginPath();
+      c.moveTo(x0 - ux * 1.5, y0 - uy * 1.5);
+      c.lineTo(x1 + ux * 1.5, y1 + uy * 1.5);
+      c.stroke();
+    };
+    const dim = (hex: string, k: number) => shade(hex, k - 0.75 * Math.min(1, dk / 0.6));
+    body(0.7, dim('#050506', 0));
+    body(0, dim(pod.pillar, 0));
+    c.save(); // filete de luz no lado de dentro (direita), como o friso da coluna
+    c.translate(0.8, -0.3);
+    c.globalAlpha = 0.35;
+    c.beginPath(); c.rect(Math.min(x0, x1) - hw * 2, Math.min(y0, y1) - hw * 2, Math.abs(x1 - x0) + hw * 4, Math.abs(y1 - y0) + hw * 4); c.clip();
+    c.strokeStyle = dim(pod.pillar, 0.25);
+    c.lineWidth = 0.6;
+    c.beginPath();
+    c.moveTo(x0 - uy * (hw - 0.6), y0 + ux * (hw - 0.6) * PIX_Y);
+    c.lineTo(x1 - uy * (hw - 0.6), y1 + ux * (hw - 0.6) * PIX_Y);
+    c.stroke();
+    c.restore();
+  }
   for (const kind of car.pods ?? []) {
     const k: PodKind = kind === 'boost' ? (car.forced === 'super' ? 'super' : 'turbo') : kind === 'fuel' && car.carb ? 'fuelcarb' : kind;
     // turbo: enche com atraso e cai ao aliviar; compressor: acompanha o giro. Óleo: sobe com o giro
@@ -1197,18 +1226,20 @@ function auxPods(c: CanvasRenderingContext2D, r: Race, dt: number, ox: number, p
     const want = kind === 'boost' ? bar : kind === 'oil' ? (r.state === 'drive' || rpm > 0.05 ? 1.5 + 3.6 * rpm ** 0.7 : 0) : k === 'fuelcarb' ? 0.3 + (r.throttle ? -0.03 : 0.02) : 3 + bar + (r.throttle ? -0.12 : 0.08);
     const key = kind, rate = kind === 'boost' ? (car.forced === 'super' ? 14 : 9) : 6;
     podVals[key] = (podVals[key] ?? 0) + (want - (podVals[key] ?? 0)) * Math.min(1, dt * rate);
-    podDraw(c, ox + pod.x + (pod.dx ?? pod.r * 2.25) * i, ART_TOP + pod.y + (pod.dy ?? 0) * i, pod, k, podVals[key], dk);
+    podDraw(c, ox + pod.x + sx * i, ART_TOP + pod.y + sy * i, pod, k, podVals[key], dk);
     i++;
   }
 }
 function podDraw(c: CanvasRenderingContext2D, x: number, y: number, pod: NonNullable<CockpitArt['pod']>, kind: PodKind, val: number, dk: number) {
   const R = pod.r, RY = R * PIX_Y;
   // copo: corpo preto atrás (em perspectiva, para trás e para cima) e o pé
-  c.fillStyle = '#060607';
-  c.beginPath(); c.ellipse(x + R * 0.28, y - RY * 0.2, R * 1.0, RY * 1.0, 0, 0, Math.PI * 2); c.fill();
-  c.fillStyle = '#0d0d0f';
-  c.beginPath(); c.ellipse(x + R * 0.12, y - RY * 0.08, R * 1.04, RY * 1.04, 0, 0, Math.PI * 2); c.fill();
-  c.fillRect(x - R * 0.45, y + RY * 0.85, R * 1.2, RY * 0.4);
+  if (!pod.pillar) {
+    c.fillStyle = '#060607';
+    c.beginPath(); c.ellipse(x + R * 0.28, y - RY * 0.2, R * 1.0, RY * 1.0, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#0d0d0f';
+    c.beginPath(); c.ellipse(x + R * 0.12, y - RY * 0.08, R * 1.04, RY * 1.04, 0, 0, Math.PI * 2); c.fill();
+    c.fillRect(x - R * 0.45, y + RY * 0.85, R * 1.2, RY * 0.4);
+  }
   const sm = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = true;
   const face = podFace(pod, kind), fw = (face.width / POD_PX);

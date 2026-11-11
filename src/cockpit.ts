@@ -55,7 +55,7 @@ interface CockpitArt {
   wheelTop?: number; // linhas do PNG do volante acima do topo da arte (aro inteiro sobre o para-brisa)
   /** manômetro auxiliar (turbo/supercharger da preparação), num copo sobre o painel: centro e raio na
    * arte; `face` e `bezel` variam de carro para carro (estilo dos relógios de 52 mm de época) */
-  pod?: { x: number; y: number; r: number; face: 'black' | 'silver' | 'white'; bezel: 'black' | 'chrome'; needle?: string; lit?: 'white' | 'green' | 'blue' /* cor da iluminação noturna */ };
+  pod?: { x: number; y: number; r: number; face: 'black' | 'silver' | 'white'; bezel: 'black' | 'chrome'; needle?: string; lit?: 'white' | 'green' | 'blue' | 'yellow' /* cor da iluminação noturna */ };
   wheelDy?: number; // desce o volante (posição do banco: o aro não tapa a estrada)
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
   tach?: Dial;
@@ -1122,7 +1122,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
 // 270 graus a partir das 7h30. O fundo é desenhado uma vez em alta resolução; o ponteiro, ao vivo.
 const POD_PX = 14; // pixels do fundo por unidade da arte
 const podFaces = new Map<string, HTMLCanvasElement>();
-const POD_LIT = { white: ['#f4f6ff', '#1b1c22'], green: ['#6dffa0', '#0c1a12'], blue: ['#7fc0ff', '#0b1220'] } as const;
+const POD_LIT = { white: ['#f4f6ff', '#1b1c22'], green: ['#6dffa0', '#0c1a12'], blue: ['#7fc0ff', '#0b1220'], yellow: ['#ffd84a', '#1c1708'] } as const;
 // `lit`: versão acesa (noite): fundo escuro com um leve tom da luz e a escala/números na cor da iluminação
 function podFace(pod: NonNullable<CockpitArt['pod']>, sup: boolean, lit = false): HTMLCanvasElement {
   const key = `${pod.face}|${pod.bezel}|${pod.r}|${sup}|${lit ? pod.lit ?? 'white' : ''}`;

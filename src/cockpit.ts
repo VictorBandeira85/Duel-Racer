@@ -295,6 +295,32 @@ COCKPIT_ART['br-monza'] = {
   },
 };
 
+// Ímola Classic SE (Monza Classic sedã): interior do Victor (tools/ref/monzasedan_cockpit.py) e o quadro
+// da foto do carro real (tools/ref/monza_gauges.py classic): a mesma disposição do S/R, com números e
+// marcações brancos, faixa do conta-giros laranja e ponteiros laranja
+const MS_K = 132.3 / 153, MS_X = (x: number) => 66.71 + (x - 64.5) * MS_K - 0.5, MS_Y = (y: number) => 42.57 + (y - 35.6) * MS_K - 0.5;
+COCKPIT_ART['br-monzasedan'] = {
+  tells: null,
+  dash: cp('br-monzasedan-dash'), top: cp('br-monzasedan-top'), wheel: cp('br-monzasedan-wheel'),
+  glass: { at: [52, 111], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
+  pivot: [128, 112], wheelTop: 8, radar: [222, 16], speedMax: 220, needle: '#f08a1c', needleW: 1.5, needleTail: 2.2, needleFine: true, hub: '#26262a', hubR: 2.1,
+  faces: [{ src: cp('br-monzasedan-cluster'), x: 66.71, y: 42.57, w: 132.3, h: 49.98 }],
+  glow: '255,150,60', glowK: 0.5,
+  facesLit: '255,220,170', litMin: 150, litByMax: true, litNeedles: true,
+  speed: { x: MS_X(97.5), y: MS_Y(65.2), r: 19 * MS_K, max: 220, labels: [], tick: 20, red: 999, face: false, a0: 124 * MZ_DEG, sweep: 220 * 1.21 * MZ_DEG },
+  tach: { x: MS_X(175.8), y: MS_Y(65.2), r: 19 * MS_K, max: 7, labels: [], tick: 1, red: 999, face: false, a0: 133.5 * MZ_DEG, sweep: 7 * 38.2 * MZ_DEG },
+  aux: [
+    { x: MS_X(135.1), y: MS_Y(53.8), r: 8.6 * MS_K, kind: 'single', show: ['volt'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
+    { x: MS_X(150.4), y: MS_Y(53.8), r: 8.6 * MS_K, kind: 'single', show: ['vac'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
+    { x: MS_X(135.1), y: MS_Y(77.6), r: 8.6 * MS_K, kind: 'single', show: ['water'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
+    { x: MS_X(150.4), y: MS_Y(77.6), r: 8.6 * MS_K, kind: 'single', show: ['fuel'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
+  ],
+  extra: (c, ox, r) => {
+    odometer(c, ox, r, { x: 89.0, y: 60.3, w: 12.5, h: 3.2 }, 63985, 6, 0.43);
+    odometer(c, ox, r, { x: 91.1, y: 73.0, w: 8.3, h: 3.0 }, 215.4, 4, 0.43, true);
+  },
+};
+
 // Onça GTB: mostradores pretos com números âmbar e ponteiros laranja — velocímetro 20-220 com
 // hodômetro e parcial, conta-giros 0-7 (faixa vermelha a partir de 5, do seis-cilindros 4.1),
 // combustível no pequeno da esquerda (o da direita, atrás do aro, é o da arte) e, no console (tela larga), pressão

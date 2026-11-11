@@ -6,7 +6,7 @@
 
 ## Escopo
 - **Só mexer nos carros que o Victor já mandou atualizados**: Toro V12 (Diablo) e a viatura SV,
-  Fúria TR, Fúria F4, Kaze NX, Serpe V10, Gaúcho GTI e Ímola S/R.
+  Fúria TR, Fúria F4, Kaze NX, Serpe V10, Gaúcho GTI, Ímola S/R (hatch) e Ímola Classic SE (sedã).
   Os demais (Toro LP5, 959, ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Passat, Pumas) ficam como estão
   até a arte nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
   O LP5 tem fotos de revista, mas o carro ainda não foi atualizado. Na dúvida, perguntar.
@@ -59,6 +59,9 @@
   das bordas, o contorno preto do carro segura; sombra e asfalto de baixo saem por geometria) e
   `tools/ref/monza_cockpit.py` (vidros por geometria medida, retrovisor completado, porta construída,
   forro no alto). Paisagem vista pelos vidros do sprite vira cor de vidro.
+- Arte em fundo preto ou céu liso: `tools/ref/monzasedan_sprites.py` (contorno fechado linha a linha,
+  sombra de baixo sai por geometria, lateral de outra cor convertida pelo brilho) e
+  `tools/ref/monzasedan_cockpit.py` (vidros pela cor do céu).
 
 ## Trânsito
 - Cada modelo do trânsito (`tools/art/traffic.py`, `src/assets/traffic`) segue um carro real dos anos 90

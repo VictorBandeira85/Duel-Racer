@@ -338,6 +338,7 @@ const LAMPS: Record<string, LampDef> = {
   'br-golgti': { head: [0.18, 0.57, 0.06], sigRear: [0.03, 0.585, 0.09, 0.665], sigFront: [0.025, 0.515, 0.085, 0.62] }, // Gol GTI 1993 (golgti_sprites.py)
   'br-vectra': { head: [0.21, 0.56, 0.05], sigRear: [0.06, 0.44, 0.135, 0.49], sigFront: [0.075, 0.515, 0.13, 0.6] },
   'br-monza': { head: [0.196, 0.583, 0.06], sigRear: [0.122, 0.558, 0.199, 0.625], sigFront: [0.035, 0.498, 0.09, 0.647] }, // Monza S/R 1987 (monza_sprites.py)
+  'br-monzasedan': { head: [0.186, 0.565, 0.06], sigRear: [0.034, 0.487, 0.12, 0.551], sigFront: [0.04, 0.502, 0.086, 0.623] }, // Monza Classic SE (monzasedan_sprites.py)
   patrol: { head: [0.145, 0.53, 0.07], sigRear: [0.035, 0.503, 0.26, 0.568], sigRed: true, sigFront: [0.05, 0.6, 0.24, 0.645] },
 };
 
@@ -354,6 +355,7 @@ const WHEELS: Record<string, number[][]> = {
   'br-golgti': [[0.193, 0.815, 0.078], [0.823, 0.815, 0.078]],
   'br-vectra': [[0.178, 0.777, 0.07], [0.778, 0.779, 0.07]],
   'br-monza': [[0.176, 0.784, 0.072], [0.787, 0.784, 0.072]],
+  'br-monzasedan': [[0.189, 0.778, 0.0705], [0.788, 0.778, 0.0705]],
   'countach': [[0.225, 0.732, 0.054], [0.809, 0.735, 0.054]],
   'diablo': [[0.237, 0.688, 0.072], [0.827, 0.688, 0.072]], // lateral com a frente à esquerda
   'f40': [[0.244, 0.741, 0.08], [0.812, 0.735, 0.08]],
@@ -368,7 +370,7 @@ const WHEELS: Record<string, number[][]> = {
 // Onde fica a placa na traseira de cada carro: [x0, y0, x1, y1] em pixels do sprite e o
 // tamanho dele (largura, altura); vira frações ao carregar
 const PLATE_BOX: Record<string, number[]> = {
-  'br-monza': [77, 80, 123, 95, 200, 140], 'br-golgti': [76, 111, 124, 124, 200, 188], 'br-kadett': [31, 30, 62, 40, 93, 70], 'br-pumagte': [35, 34, 64, 46, 102, 65],
+  'br-monza': [77, 80, 123, 95, 200, 140], 'br-monzasedan': [78, 75, 124, 90, 200, 151], 'br-golgti': [76, 111, 124, 124, 200, 188], 'br-kadett': [31, 30, 62, 40, 93, 70], 'br-pumagte': [35, 34, 64, 46, 102, 65],
   'br-corsa': [88, 108, 150, 127, 239, 212], 'br-uno': [70, 81, 118, 100, 189, 157], 'br-passat': [63, 58, 109, 72, 173, 124],
   'br-vectra': [40, 52, 73, 62, 113, 79], 'br-pumagtb': [38, 31, 57, 37, 95, 59],
   '959': [77, 74, 124, 87, 200, 118], countach: [90, 82, 132, 94, 224, 124], diablo: [86, 63, 114, 72, 200, 102],
@@ -1258,7 +1260,7 @@ const LENGTH_M: Record<string, number> = {
   'kaze-nx': 4.4, 'serpe-v10': 4.45, patrol: 5.42, 'patrol-sv': 4.47,
   'br-vectra': 4.43, 'br-tempra': 4.36, 'br-gol16v': 3.81, 'br-tipo16v': 3.96, 'br-omega': 4.74, 'br-uno': 3.69,
   'br-charger': 5.1, 'br-maverick': 4.9, 'br-golgti': 3.81, 'br-kadett': 4.0, 'br-xr3': 4.05, 'br-corsa': 3.73,
-  'br-monza': 4.37, 'br-opala': 4.78, 'br-pumagtb': 4.29, 'br-passat': 4.19, 'br-pumagte': 3.98, 'br-chevette': 4.17,
+  'br-monza': 4.37, 'br-monzasedan': 4.49, 'br-opala': 4.78, 'br-pumagtb': 4.29, 'br-passat': 4.19, 'br-pumagte': 3.98, 'br-chevette': 4.17,
   'br-147': 3.63, 'br-sp2': 4.21,
 };
 export const sideScale = (car: CarSpec) => Math.min(1.06, (LENGTH_M[car.id] ?? 4.5) / 4.5);

@@ -6,7 +6,9 @@ o ponteiro saindo da direita: voltímetro e econômetro (arco verde) em cima, te
 embaixo, cada um com o seu pictograma; luzes-espia numa fileira embaixo. Cobre o quadro inteiro da
 arte (os números e ícones errados somem). O jogo desenha os ponteiros laranja e os hodômetros.
 Saída em 4 px por pixel do jogo.
-Uso: python3 tools/ref/monza_gauges.py <src/assets/cockpit>
+Com "classic" no fim: o quadro do Ímola Classic SE (sedã), igual na disposição mas com números e
+marcações brancos e a faixa do conta-giros laranja, numa tela um pouco mais alta (a da arte do sedã).
+Uso: python3 tools/ref/monza_gauges.py <src/assets/cockpit> [classic]
 """
 import math
 import os
@@ -26,6 +28,13 @@ SPEED = dict(x=97.5, y=65.2, r=21.6, a0=124.0, per=1.21)
 TACH = dict(x=175.8, y=65.2, r=21.6, a0=133.5, per=38.2)
 MID = (123.3, 152.8, 40.0, 86.2)           # x0, x1, y0, y1 dos quatro pequenos
 A_LO, A_HI = 143.0, 217.0                  # arco dos pequenos (ponteiro para a esquerda): mínimo embaixo
+CLASSIC = len(sys.argv) > 2 and sys.argv[2] == 'classic'
+OUT = 'br-monza-cluster.png'
+if CLASSIC:
+    INK, RED_ZONE, OUT = (234, 234, 228), (240, 130, 40), 'br-monzasedan-cluster.png'
+    Y0, Y1 = Y0 - 1.9, Y1 + 1.9
+else:
+    RED_ZONE = RED
 W, H = int(round((X1 - X0) * K)), int(round((Y1 - Y0) * K))
 LABELS = []
 
@@ -40,11 +49,13 @@ def at(g, ang, rr):
     return (x + math.cos(a) * rr * K, y + math.sin(a) * rr * K * PY)
 
 
-def tick(d, g, ang, r0, r1, w, col=INK):
+def tick(d, g, ang, r0, r1, w, col=None):
+    col = col or INK
     d.line([at(g, ang, r0), at(g, ang, r1)], fill=col, width=max(1, int(round(w * K))))
 
 
-def label(s, x, y, size, col=INK, font=FN):
+def label(s, x, y, size, col=None, font=FN):
+    col = col or INK
     LABELS.append((s, x / K * KO, y / K * KO, size, col, font))
 
 
@@ -106,7 +117,7 @@ def tach(d):
     n = 24
     outer = [at(g, a0 + (a1 - a0) * i / n, g['r'] + 0.6) for i in range(n + 1)]
     inner = [at(g, a0 + (a1 - a0) * i / n, g['r'] - 2.2) for i in range(n + 1)]
-    d.line(outer + inner[::-1] + [outer[0]], fill=RED, width=int(0.55 * K), joint='curve')
+    d.line(outer + inner[::-1] + [outer[0]], fill=RED_ZONE, width=int(0.55 * K), joint='curve')
     x, y = P(g['x'], g['y'] + 13.4)
     label('x100', x, y, 2.1)
     x, y = P(g['x'], g['y'] + 16.4)
@@ -115,7 +126,8 @@ def tach(d):
     d.ellipse([c[0] - 2.6 * K, c[1] - 2.6 * K * PY, c[0] + 2.6 * K, c[1] + 2.6 * K * PY], fill=(34, 34, 37))
 
 
-def ico_batt(d, cx, cy, u, col=INK):
+def ico_batt(d, cx, cy, u, col=None):
+    col = col or INK
     lw = max(1, int(0.5 * u))
     d.rectangle([cx - 2.6 * u, cy - 1.2 * u, cx + 2.6 * u, cy + 1.8 * u], outline=col, width=lw)
     d.rectangle([cx - 1.9 * u, cy - 2.0 * u, cx - 0.9 * u, cy - 1.2 * u], fill=col)
@@ -125,7 +137,8 @@ def ico_batt(d, cx, cy, u, col=INK):
     d.line([(cx + 1.4 * u, cy - 0.2 * u), (cx + 1.4 * u, cy + 0.8 * u)], fill=col, width=lw)
 
 
-def ico_pump(d, cx, cy, u, col=INK):
+def ico_pump(d, cx, cy, u, col=None):
+    col = col or INK
     lw = max(1, int(0.5 * u))
     d.rectangle([cx - 2.0 * u, cy - 2.2 * u, cx + 0.8 * u, cy + 2.2 * u], fill=col)
     d.rectangle([cx - 1.3 * u, cy - 1.5 * u, cx + 0.1 * u, cy - 0.2 * u], fill=PANEL)
@@ -134,7 +147,8 @@ def ico_pump(d, cx, cy, u, col=INK):
     d.line([(cx + 1.2 * u, cy - 2.2 * u), (cx + 2.2 * u, cy - 1.2 * u), (cx + 2.2 * u, cy - 0.2 * u)], fill=col, width=lw)
 
 
-def ico_temp(d, cx, cy, u, col=INK):
+def ico_temp(d, cx, cy, u, col=None):
+    col = col or INK
     lw = max(1, int(0.5 * u))
     d.rectangle([cx - 0.4 * u, cy - 2.4 * u, cx + 0.4 * u, cy + 0.8 * u], fill=col)
     d.ellipse([cx - 1.0 * u, cy + 0.2 * u, cx + 1.0 * u, cy + 2.0 * u], fill=col)
@@ -194,7 +208,7 @@ def main():
     lamps(d)
     fin = im.resize((W * KO // K, H * KO // K), Image.LANCZOS)
     draw_labels(fin)
-    fin.save(os.path.join(out, 'br-monza-cluster.png'), optimize=True)
+    fin.save(os.path.join(out, OUT), optimize=True)
     print('quadro', (X0, Y0), (X1 - X0, Y1 - Y0), 'pivôs', piv)
 
 

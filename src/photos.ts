@@ -75,7 +75,12 @@ export const MZ_PHOTOS: Photo[] = [
   { src: ph('mz-garagem'), kicker: 'FAMÍLIA', kc: '#1a6a2a', title: 'SEDÃ OU HATCH?', sub: 'A linha Ímola inteira na garagem', inside: ['Sedã de quatro portas', 'Hatch para quem dirige', 'Câmbio automático: vale?'], box: [15, 57, 533, 290] },
   { src: ph('mz-motor'), kicker: 'TÉCNICA', kc: '#1e4fb8', title: 'ÁLCOOL 2.0', sub: 'Comando no cabeçote e torque em baixa', inside: ['Partida a frio sem susto', 'Regulagem do carburador', 'Velas e ponto certos'], box: [40, 20, 520, 300] },
 ].filter((p) => !!p.src);
-export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS].forEach((p) => img(p.src));
+// Ímola Classic SE (Monza Classic sedã): tools/ref/monza_photos.py
+export const MZS_PHOTOS: Photo[] = [
+  { src: ph('mzs-palacio'), kicker: 'ENSAIO', kc: '#1a1614', title: 'ÍMOLA CLASSIC SE', sub: 'O sedã de luxo vai ao baile', inside: ['2.0 e câmbio de 5 marchas', 'Vidros e travas elétricos', 'Rodas raiadas de liga'], box: [25, 145, 522, 312] },
+  { src: ph('mzs-lago'), kicker: 'LINHA 89', kc: '#d01f26', title: 'LUXO EM ASCENSÃO', sub: 'O mais caro da família chega à linha 89', inside: ['Quadro com econômetro', 'Porta-malas de 510 litros', 'Sedã ou hatch S/R?'], box: [8, 135, 552, 312] },
+].filter((p) => !!p.src);
+export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...MZS_PHOTOS].forEach((p) => img(p.src));
 
 // Enquadramento: a foto cobre o quadro e a caixa do carro (p.box) fica inteira e centrada na área
 // livre (sem a faixa vermelha de baixo, 'bottom' px), com uma aproximação lenta (u: 0..1) que nunca

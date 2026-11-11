@@ -23,7 +23,7 @@ ART_BRAND = {
   'f40': 'furia', 'testarossa': 'furia', 'diablo': 'toro', 'countach': 'toro', 'patrolsv': 'toro',
   '959': 'silber', 'zr1': 'vanguarda', 'patrol': 'vanguarda', 'nsx': 'kaze', 'viper': 'serpe',
   'br-vectra': 'vanguarda', 'br-kadett': 'vanguarda', 'br-corsa': 'vanguarda', 'br-uno': 'fiore',
-  'br-golgti': 'ipe', 'br-passat': 'ipe', 'br-monza': 'vanguarda', 'br-pumagtb': 'onca', 'br-pumagte': 'onca',
+  'br-golgti': 'ipe', 'br-passat': 'ipe', 'br-monza': 'vanguarda', 'br-monzasedan': 'vanguarda', 'br-pumagtb': 'onca', 'br-pumagte': 'onca',
 }
 
 SPOTS = {
@@ -42,6 +42,7 @@ SPOTS = {
   'br-golgti':  {'rear': (27, 97, 9, 6), 'front': (100, 94, 11, 7), 'side': [(58, 110, 5, 3.5), (247, 110, 5, 3.5)]},  # Gol GTI 1993 (golgti_sprites.py)
   'br-kadett':  {'rear': (46, 26, 5, 0),   'front': (64, 48, 6, 0)},
   'br-monza':   {'rear': (21, 70, 7, 0),   'front': (100, 83, 9, 0)},  # Monza S/R 1987 (monza_sprites.py)
+  'br-monzasedan': {'rear': (161, 66, 7, 0), 'front': (100, 86, 9, 0)},  # Monza Classic SE (monzasedan_sprites.py)
   'br-corsa':   {'rear': (115, 88, 9, 6),  'front': (96, 88, 9, 6)},
   'br-pumagtb': {'rear': (47, 18, 5, 3),   'front': (47, 26, 5, 0)},
   'br-passat':  {'rear': (85, 50, 7, 3),   'front': (83, 64, 11, 7)},

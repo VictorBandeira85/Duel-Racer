@@ -7,3 +7,4 @@ __pycache__/
 vite.log
 android/out/
 android/key.jks
+dist-artifact

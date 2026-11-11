@@ -12,11 +12,18 @@
   O LP5 tem fotos de revista, mas o carro ainda não foi atualizado. Na dúvida, perguntar.
 
 ## Publicação
-- O artifact tem limite de 16 MB (a página está em ~15,9 MB): imagem nova entra em paleta curta
-  (quantizada) e, se o `to-artifact` passar de 16.000 KB, compactar antes de publicar.
-- A cada rodada: só a versão web/mobile (artifact). `npm run build:single`,
-  `node tools/to-artifact.mjs <scratchpad>/artifact/duel-racer.html`, publicar no mesmo artifact,
-  commit e push em `main`. Subir a versão em `package.json` (e `desktop/package.json`).
+- A cada rodada: só a versão web/mobile (artifact), commit e push em `main`. Subir a versão em
+  `package.json` (e `desktop/package.json`) ANTES do build.
+- Publicação (desde a v0.34.1): a página leva só o código e as imagens pequenas; as imagens acima de
+  32 KB vão como arquivos de apoio do artifact (limite de 16 MB por arquivo, 256 MB no total).
+  1. `npm run build:artifact`
+  2. `node tools/to-artifact.mjs <scratchpad>/af/duel-racer.html --files` (copia para `af/files/` e grava
+     `af/changed.json` com os arquivos que mudaram desde a última publicação)
+  3. publicar `af/duel-racer.html` no mesmo artifact com `root: af/files` e `files` = só os de
+     `changed.json` (os outros continuam lá; `gone` vai com `null`); no máximo 255 por publicação
+  4. `node tools/to-artifact.mjs <scratchpad>/af/duel-racer.html --done` (registra o que foi publicado)
+  Se `af/published.json` não existir (sessão nova), `changed.json` lista tudo: publicar todos.
+  Antes de publicar mudança no build, testar servindo `af/files` + a página por http local.
 - Versão de PC (`npm run desktop`, instalador e zip) **só com autorização explícita do Victor**.
 - Versão Android (APK): `ANDROID_HOME=<sdk> bash android/build.sh` (WebView com o jogo dentro;
   a chave android/key.jks fica fora do git). Só quando o Victor pedir.

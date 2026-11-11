@@ -1,12 +1,13 @@
 {
   "name": "duel-racer",
-  "version": "0.34.0",
+  "version": "0.34.1",
   "scripts": {
     "dev": "vite --host",
     "build": "tsc && vite build",
     "preview": "vite preview --host",
     "typecheck": "tsc",
     "build:single": "tsc && vite build --mode single",
+    "build:artifact": "tsc && vite build --mode artifact",
     "artifact": "npm run build:single && node tools/to-artifact.mjs",
     "desktop": "npm run build && rm -rf desktop/app && cp -r dist desktop/app && cd desktop && npx electron-builder --win --x64"
   },

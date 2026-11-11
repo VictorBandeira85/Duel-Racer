@@ -112,6 +112,11 @@
   `car.pods` (applyBuild): pressão do turbo/compressor, de óleo (pistões e bielas preparados) e de
   combustível (alimentação preparada), lado a lado. Conferir com `FORCED=turbo node tools/qa/cockpit_shots.cjs <pasta> <id>`: copo apoiado no
   painel, sem tapar radar, retrovisor nem quadro. Sem marca real no mostrador.
+  Se o painel do carro não tiver um lugar bom, os relógios vão na coluna da porta (um acima do outro,
+  `dx: 0` e `dy` no `pod`).
+- Som do turbo/supercharger da preparação (audio.ts): `spool` (assobio + sopro + alívio, mais grave e
+  forte com turbina maior) e `blower` (zunido preso ao giro) em `soundMods`; valem para qualquer carro
+  e têm de aparecer por cima de motor alto (V12).
 - Rodas aftermarket: `tools/ref/wheels_sheet.py <folha> src/assets/wheels` recorta a folha (lista KEEP: uma
   de cada desenho, as repetidas ficam de fora); o catálogo é `WHEEL_LIST` em tuning.ts e o desenho no
   carro é `drawRims` (cars.ts), no centro e raio de `WHEELS`.

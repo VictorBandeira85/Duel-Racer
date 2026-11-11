@@ -7,7 +7,7 @@ import type { CarSpec } from './cars';
 
 export type SlotId = 'pistoes' | 'comando' | 'alimentacao' | 'inducao' | 'escape' | 'pneus' | 'suspensao' | 'freios' | 'bancos' | 'rodas' | 'turbina' | 'intercooler' | 'downpipe' | 'polia';
 // mudanças no ronco: multiplicadores (drive, vol, low) e somas (rasp, pops, cam, intake, whine)
-export interface SoundMods { drive?: number; vol?: number; low?: number; rasp?: number; pops?: number; cam?: number; intake?: number; whine?: number; turbo?: boolean; rev?: number /* multiplicador do giro máximo (corte) */ }
+export interface SoundMods { drive?: number; vol?: number; low?: number; rasp?: number; pops?: number; cam?: number; intake?: number; whine?: number; turbo?: boolean; spool?: number /* turbo aftermarket: força do assobio, do sopro e do alívio */; blower?: number /* supercharger: força do zunido */; rev?: number /* multiplicador do giro máximo (corte) */ }
 export interface Part {
   id: string; name: string; note: string;
   cost: number; // fração do preço do carro (0 = original)
@@ -98,13 +98,13 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
   const turbo = ind === 'turbo' || ind === 'all', sup = ind === 'super' || ind === 'all';
   const extra: Slot[] = [];
   if (turbo && !ft) extra.push({ id: 'turbina', name: 'Turbina', parts: [ORIGINAL('.32 (do kit)'),
-    { id: 't40', name: '.40', note: '+8% cv', cost: 0.05, power: 1.08, boost: 1.2, sound: { low: 0.94, pops: 0.1 } },
-    { id: 't50', name: '.50', note: '+15% cv', cost: 0.09, power: 1.15, boost: 1.6, sound: { low: 0.88, pops: 0.2 } },
-    { id: 't60', name: '.60', note: '+22% cv', cost: 0.13, power: 1.22, boost: 2.0, sound: { low: 0.83, pops: 0.28 } },
-    { id: 't70', name: '.70', note: '+30% cv', cost: 0.18, power: 1.3, boost: 2.4, sound: { low: 0.78, pops: 0.35 } }] });
+    { id: 't40', name: '.40', note: '+8% cv', cost: 0.05, power: 1.08, boost: 1.2, sound: { spool: 0.2, low: 0.94, pops: 0.1 } },
+    { id: 't50', name: '.50', note: '+15% cv', cost: 0.09, power: 1.15, boost: 1.6, sound: { spool: 0.4, low: 0.88, pops: 0.2 } },
+    { id: 't60', name: '.60', note: '+22% cv', cost: 0.13, power: 1.22, boost: 2.0, sound: { spool: 0.6, low: 0.83, pops: 0.28 } },
+    { id: 't70', name: '.70', note: '+30% cv', cost: 0.18, power: 1.3, boost: 2.4, sound: { spool: 0.8, low: 0.78, pops: 0.35 } }] });
   if (sup && !ft) extra.push({ id: 'polia', name: 'Polia', parts: [ORIGINAL('60 mm (do kit)'),
-    { id: 'p40', name: '40 mm', note: '+8% cv', cost: 0.03, power: 1.08, boost: 0.65, sound: { whine: 0.15 } },
-    { id: 'p30', name: '30 mm', note: '+14% cv', cost: 0.05, power: 1.14, boost: 0.85, sound: { whine: 0.3, drive: 1.05 } }] });
+    { id: 'p40', name: '40 mm', note: '+8% cv', cost: 0.03, power: 1.08, boost: 0.65, sound: { whine: 0.15, blower: 0.25 } },
+    { id: 'p30', name: '30 mm', note: '+14% cv', cost: 0.05, power: 1.14, boost: 0.85, sound: { whine: 0.3, blower: 0.5, drive: 1.05 } }] });
   if (turbo || sup) extra.push({ id: 'intercooler', name: 'Intercooler', parts: [ORIGINAL(ft ? 'Original' : 'Sem'),
     { id: 'esportivo', name: 'Esportivo', note: '+4% cv', cost: 0.04, power: 1.04 },
     { id: 'corrida', name: 'De corrida', note: '+7% cv', cost: 0.07, power: 1.07 }] });
@@ -128,8 +128,8 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
     ft
       ? { id: 'inducao', name: 'Turbina', parts: [ORIGINAL('De fábrica'), { id: 'turbomaior', name: 'Turbina maior', note: '+18% cv', cost: 0.12, power: 1.18, sound: { low: 0.92, pops: 0.2 } }] }
       : { id: 'inducao', name: 'Indução', parts: [ORIGINAL('Aspirado'),
-        { id: 'turbo', name: 'Turbo', note: '+42% cv', cost: 0.22, power: 1.42, forced: 'turbo', boost: 0.8, sound: { turbo: true, low: 0.82, pops: 0.25 } },
-        { id: 'super', name: 'Supercharger', note: '+30% cv', cost: 0.2, power: 1.3, forced: 'super', boost: 0.45, sound: { whine: 0.55, drive: 1.1 } }] },
+        { id: 'turbo', name: 'Turbo', note: '+42% cv', cost: 0.22, power: 1.42, forced: 'turbo', boost: 0.8, sound: { turbo: true, spool: 1, low: 0.82, pops: 0.25 } },
+        { id: 'super', name: 'Supercharger', note: '+30% cv', cost: 0.2, power: 1.3, forced: 'super', boost: 0.45, sound: { whine: 0.55, blower: 1, drive: 1.1 } }] },
     ...extra,
     { id: 'escape', name: 'Escapamento', parts: [ORIGINAL(),
       { id: 'esportivo', name: 'Esportivo', note: '+4,5% cv', cost: 0.03, power: 1.045, sound: { drive: 1.25, vol: 1.15, rasp: 0.04, low: 1.15 } },
@@ -191,7 +191,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
       snd.vol = (snd.vol ?? 1) * (m.vol ?? 1);
       snd.low = (snd.low ?? 1) * (m.low ?? 1);
       if (m.rev) snd.rev = (snd.rev ?? 1) * m.rev;
-      for (const k of ['rasp', 'pops', 'cam', 'intake', 'whine'] as const) if (m[k]) snd[k] = (snd[k] ?? 0) + m[k]!;
+      for (const k of ['rasp', 'pops', 'cam', 'intake', 'whine', 'spool', 'blower'] as const) if (m[k]) snd[k] = (snd[k] ?? 0) + m[k]!;
       if (m.turbo) snd.turbo = true;
     }
   }

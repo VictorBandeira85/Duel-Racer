@@ -58,6 +58,9 @@ let prof = PROFILES.v8;
 let osc1: OscillatorNode, osc2: OscillatorNode, subGain: GainNode, filter: BiquadFilterNode, gain: GainNode;
 let raspGain: GainNode, raspFilter: BiquadFilterNode;
 let turbo: OscillatorNode, turboGain: GainNode;
+// preparação: sopro de ar do turbo (ruído filtrado) e zunido do supercharger (dois osciladores)
+let rushFilter: BiquadFilterNode, rushGain: GainNode, blowA: OscillatorNode, blowB: OscillatorNode, blowGain: GainNode;
+let spoolLvl = 0, blowerLvl = 0; // 0 = carro sem a peça (turbo de fábrica continua só com o assobio)
 let rumbleGain: GainNode;
 // pneus: seco = guincho alto e definido (borracha vibrando em frequências bem marcadas, com
 // trepidação); molhado = chiado largo de água sendo espirrada, sem tom; neve = esmagado granulado
@@ -136,6 +139,22 @@ export function initAudio() {
   turboGain = ctx.createGain();
   turboGain.gain.value = 0;
   turbo.connect(turboGain).connect(sfx);
+  rushFilter = ctx.createBiquadFilter();
+  rushFilter.type = 'bandpass';
+  rushFilter.Q.value = 1.4;
+  rushGain = ctx.createGain();
+  rushGain.gain.value = 0;
+  loopNoise().connect(rushFilter).connect(rushGain).connect(sfx);
+  // zunido do supercharger: fundamental e uma quinta acima, triangulares (cheio, sem estridência)
+  blowA = ctx.createOscillator(); blowA.type = 'triangle';
+  blowB = ctx.createOscillator(); blowB.type = 'triangle';
+  blowGain = ctx.createGain();
+  blowGain.gain.value = 0;
+  const blowLp = ctx.createBiquadFilter();
+  blowLp.type = 'lowpass'; blowLp.frequency.value = 2600;
+  blowA.connect(blowGain); blowB.connect(blowGain);
+  blowGain.connect(blowLp).connect(sfx);
+  blowA.start(); blowB.start();
   osc1.start();
   osc2.start();
   turbo.start();
@@ -187,6 +206,8 @@ export function initAudio() {
 export function setEngineProfile(desc: string, carId = '', mods?: import('./tuning').SoundMods) {
   prof = PROFILES[engineKind(desc)] ?? PROFILES.v8;
   spec = engineSpec(desc, carId);
+  spoolLvl = mods?.spool ?? 0;
+  blowerLvl = mods?.blower ?? 0;
   if (mods) {
     // peças da preparação: escapamento (mais aberto, alto e áspero), comando (lenta irregular),
     // admissão, supercharger (zunido) e turbo (assobio e alívio)
@@ -213,9 +234,20 @@ export function setEngine(rpm: number, throttle: boolean, on: boolean, boost = 0
     // turbo: assobio que acompanha a pressão; ao tirar o pé com pressão alta, a válvula de alívio chia
     const tb = spec.turbo && on ? boost * (throttle ? 1 : 0.25) : 0;
     // assobio mais baixo e discreto (antes chegava a ~5,7 kHz e deixava o som estridente)
-    turbo.frequency.setTargetAtTime(1500 + boost * 1700 + r * 600, t, 0.08);
-    turboGain.gain.setTargetAtTime(tb * 0.011, t, 0.1);
-    if (spec.turbo && on && lastThrottle && !throttle && lastBoost > 0.45) blowOff(lastBoost);
+    // turbo da preparação: assobio mais forte e mais grave quanto maior a turbina, com o sopro do ar
+    // enchendo por baixo, para aparecer mesmo com motor alto (V12); o de fábrica fica discreto
+    const big = Math.max(0, spoolLvl - 1); // 0 (.32) a 0,8 (.70)
+    turbo.frequency.setTargetAtTime((spoolLvl ? 1150 + boost * 1250 + r * 450 : 1500 + boost * 1700 + r * 600) * (1 - 0.22 * big), t, 0.08);
+    turboGain.gain.setTargetAtTime(tb * (spoolLvl ? 0.03 + 0.012 * big : 0.011), t, 0.1);
+    rushFilter.frequency.setTargetAtTime(700 + boost * 900, t, 0.1);
+    rushGain.gain.setTargetAtTime(spoolLvl && on ? tb * (0.05 + 0.03 * big) : 0, t, 0.12);
+    if (spec.turbo && on && lastThrottle && !throttle && lastBoost > (spoolLvl ? 0.3 : 0.45)) blowOff(lastBoost * (spoolLvl ? 1.7 + 0.6 * big : 1));
+    // supercharger: zunido preso ao giro (sem atraso), mais forte acelerando e com polia menor
+    const bw = blowerLvl && on ? (0.35 + 0.65 * r) * (throttle ? 1 : 0.35) : 0;
+    const bf = (420 + r * 1250) * (1 + 0.12 * Math.max(0, blowerLvl - 1));
+    blowA.frequency.setTargetAtTime(bf, t, 0.04);
+    blowB.frequency.setTargetAtTime(bf * 1.5, t, 0.04);
+    blowGain.gain.setTargetAtTime(bw * (0.022 + 0.01 * Math.max(0, blowerLvl - 1)), t, 0.06);
     lastBoost = boost;
     lastThrottle = throttle;
     return;

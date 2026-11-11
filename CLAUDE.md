@@ -23,7 +23,10 @@
      `changed.json` (os outros continuam lá; `gone` vai com `null`); no máximo 255 por publicação
   4. `node tools/to-artifact.mjs <scratchpad>/af/duel-racer.html --done` (registra o que foi publicado)
   Se `af/published.json` não existir (sessão nova), `changed.json` lista tudo: publicar todos.
-  Antes de publicar mudança no build, testar servindo `af/files` + a página por http local.
+  Antes de publicar mudança no build, testar como o artifact roda de verdade: página dentro de um
+  `<iframe sandbox="allow-scripts">` com `<base>` apontando para `af/files` (servidor com CORS). Servir
+  na mesma origem NÃO pega canvas "sujo" (getImageData falhando = carros em desenho de reserva); por
+  isso o to-artifact entrega toda imagem de arquivo como data: (fetch), nunca direto no `src`.
 - Versão de PC (`npm run desktop`, instalador e zip) **só com autorização explícita do Victor**.
 - Versão Android (APK): `ANDROID_HOME=<sdk> bash android/build.sh` (WebView com o jogo dentro;
   a chave android/key.jks fica fora do git). Só quando o Victor pedir.

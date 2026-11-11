@@ -22,9 +22,23 @@ const html = readFileSync(new URL(files ? '../dist-artifact/index.html' : '../di
 
 const head = html.match(/<head>([\s\S]*?)<\/head>/)[1];
 const body = html.match(/<body>([\s\S]*?)<\/body>/)[1];
+// arquivos de apoio: o Vite resolve cada imagem com `new URL(nome, import.meta.url)`; dentro do artifact
+// vale o endereço-base do documento (como as músicas, `music/...`).
+const fix = (t) => (files ? t.replaceAll(',import.meta.url).href', ',document.baseURI).href') : t);
+// A página do artifact roda isolada (origem própria): imagem carregada direto de arquivo "suja" o canvas
+// e o getImageData (pintura, máscaras, sombras) falha -> o jogo caía no desenho de reserva. Por isso toda
+// imagem de arquivo é baixada com fetch e entregue como data: (nunca suja o canvas). Se o fetch falhar,
+// carrega direto, como antes.
+const shim = files ? `<script>(function(){
+var d=Object.getOwnPropertyDescriptor(HTMLImageElement.prototype,'src');
+Object.defineProperty(HTMLImageElement.prototype,'src',{configurable:true,enumerable:true,get:function(){return d.get.call(this)},
+set:function(v){var im=this;v=String(v);if(/^(data|blob):/i.test(v)){d.set.call(im,v);return}
+im.__w=v;fetch(v).then(function(r){if(!r.ok)throw 0;return r.blob()}).then(function(b){return new Promise(function(ok,no){var f=new FileReader();f.onload=function(){ok(f.result)};f.onerror=no;f.readAsDataURL(b)})})
+.then(function(u){if(im.__w===v)d.set.call(im,u)},function(){if(im.__w===v)d.set.call(im,v)})}});
+})();</script>\n` : '';
 const title = head.match(/<title>[\s\S]*?<\/title>/)[0];
 const styles = [...head.matchAll(/<style[^>]*>[\s\S]*?<\/style>/g)].map((m) => m[0]).join('\n');
-const scripts = [...head.matchAll(/<script[^>]*>[\s\S]*?<\/script>/g)].map((m) => m[0]).join('\n');
+const scripts = shim + fix([...head.matchAll(/<script[^>]*>[\s\S]*?<\/script>/g)].map((m) => m[0]).join('\n'));
 
 // visual único escuro (tela de jogo), com fundo explícito
 const theme = `<style>

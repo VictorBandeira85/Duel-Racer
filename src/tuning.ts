@@ -1,11 +1,11 @@
 // Preparação: peças aftermarket por carro (carreira). Cada vaga (pistões, comando, alimentação,
-// indução, escapamento, pneus, suspensão) tem a peça original e as opções à venda; a peça muda a
+// indução, escapamento, pneus, suspensão, rodas) tem a peça original e as opções à venda; a peça muda a
 // ficha (potência, máxima, aderência, freio), o ronco (soundMods, aplicado ao motor daquele carro) e,
 // na suspensão, a altura da carroceria na vista lateral (rideDrop). Para acrescentar peças ou vagas,
 // basta incluir aqui: a tela da oficina, o save e a física leem este catálogo.
 import type { CarSpec } from './cars';
 
-export type SlotId = 'pistoes' | 'comando' | 'alimentacao' | 'inducao' | 'escape' | 'pneus' | 'suspensao';
+export type SlotId = 'pistoes' | 'comando' | 'alimentacao' | 'inducao' | 'escape' | 'pneus' | 'suspensao' | 'rodas';
 // mudanças no ronco: multiplicadores (drive, vol, low) e somas (rasp, pops, cam, intake, whine)
 export interface SoundMods { drive?: number; vol?: number; low?: number; rasp?: number; pops?: number; cam?: number; intake?: number; whine?: number; turbo?: boolean }
 export interface Part {
@@ -15,6 +15,7 @@ export interface Part {
   grip?: number; brake?: number; handling?: number; traction?: number; // multiplicadores
   drop?: number; // quanto a carroceria desce (fração da altura livre): 0,2 esportiva, 0,35 corrida
   forced?: 'turbo' | 'super';
+  wheel?: string; // roda aftermarket: arquivo em src/assets/wheels (rNN)
   sound?: SoundMods;
 }
 export interface Slot { id: SlotId; name: string; parts: Part[] }
@@ -24,6 +25,37 @@ export type Build = Partial<Record<SlotId, string>>;
 const CARB = new Set(['br-monza', 'br-passat', 'br-opala', 'br-pumagtb', 'br-pumagte', 'br-chevette', 'br-147', 'br-sp2', 'br-charger', 'br-maverick', 'toro-lp5']);
 export const isCarb = (car: CarSpec) => CARB.has(car.id);
 const factoryTurbo = (car: CarSpec) => car.curve === 'turbo' || car.curve === 'seqturbo';
+
+// rodas aftermarket (tools/ref/wheels_sheet.py recorta a folha do Victor em src/assets/wheels/rNN.png)
+export const WHEEL_LIST: [string, string][] = [
+  ['r01', 'Cinco raios'],
+  ['r02', 'Raios duplos'],
+  ['r03', 'Seis raios'],
+  ['r04', 'Raios em Y'],
+  ['r05', 'Doze raios'],
+  ['r06', 'Preta aro vermelho'],
+  ['r07', 'Tela fina'],
+  ['r08', 'Dourada 5 raios'],
+  ['r09', 'Grafite em Y'],
+  ['r10', 'Oito raios'],
+  ['r11', 'Três peças'],
+  ['r12', 'Raiada'],
+  ['r13', 'Grafite raiada'],
+  ['r14', 'Turbina'],
+  ['r15', 'Furos'],
+  ['r16', 'Tela dourada'],
+  ['r17', 'Preta e vermelha'],
+  ['r18', 'Dez raios'],
+  ['r19', 'Pás largas'],
+  ['r20', 'Colmeia'],
+  ['r21', 'Estrela'],
+  ['r22', 'Grafite 6 raios'],
+  ['r23', 'Garras'],
+  ['r24', 'Dourada 10 raios'],
+  ['r25', 'Cinco furos'],
+  ['r26', 'Raios curvos'],
+  ['r27', 'Preta aro azul'],
+];
 
 const ORIGINAL = (name = 'Original'): Part => ({ id: '', name, note: 'de fábrica', cost: 0 });
 
@@ -57,6 +89,7 @@ export function slotsFor(car: CarSpec): Slot[] {
     { id: 'suspensao', name: 'Suspensão', parts: [ORIGINAL(),
       { id: 'esportiva', name: 'Esportiva', note: '-20% altura', cost: 0.04, drop: 0.2, grip: 1.04, handling: 1.05 },
       { id: 'corrida', name: 'De corrida', note: '-35% altura', cost: 0.08, drop: 0.35, grip: 1.07, handling: 1.09 }] },
+    { id: 'rodas', name: 'Rodas', parts: [ORIGINAL('Originais'), ...WHEEL_LIST.map(([id, name]): Part => ({ id, name, note: 'liga leve', cost: 0.03, wheel: id }))] },
   ];
 }
 
@@ -72,6 +105,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
   if (!build || !buildKey(build)) return car;
   let power = 1, grip = 1, brake = 1, handling = 1, traction = 1, drop = 0;
   let forced: 'turbo' | 'super' | undefined;
+  let wheel: string | undefined;
   const snd: SoundMods = {};
   for (const sl of slotsFor(car)) {
     const p = partOf(car, sl.id, build[sl.id]);
@@ -82,6 +116,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     traction *= p.traction ?? 1;
     drop = Math.max(drop, p.drop ?? 0);
     forced = p.forced ?? forced;
+    wheel = p.wheel ?? wheel;
     const m = p.sound;
     if (m) {
       snd.drive = (snd.drive ?? 1) * (m.drive ?? 1);
@@ -102,6 +137,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     curve: forced === 'turbo' ? 'turbo' : car.curve,
     engine: forced === 'turbo' ? `${car.engine} turbo` : forced === 'super' ? `${car.engine} compressor` : car.engine,
     rideDrop: drop || undefined,
+    wheelArt: wheel,
     soundMods: snd,
   };
 }

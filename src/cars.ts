@@ -71,6 +71,7 @@ export interface LampDef {
 
 export interface CarSpec {
   rims?: string; // acabamento das rodas escolhido na oficina (RIMS)
+  wheelArt?: string; // roda aftermarket (tuning.ts): desenhada no lugar do aro na vista lateral
   rideDrop?: number; // suspensão rebaixada (tuning.ts): fração da altura livre que a carroceria desce na vista lateral
   soundMods?: import('./tuning').SoundMods; // mudanças no ronco pelas peças instaladas
   id: string;
@@ -1312,6 +1313,26 @@ const LENGTH_M: Record<string, number> = {
   'br-monza': 4.37, 'br-monzasedan': 4.49, 'br-monzacoupe': 4.49, 'br-opala': 4.78, 'br-pumagtb': 4.29, 'br-passat': 4.19, 'br-pumagte': 3.98, 'br-chevette': 4.17,
   'br-147': 3.63, 'br-sp2': 4.21,
 };
+// rodas aftermarket: o aro escolhido por cima do aro original (mesmo centro e raio de WHEELS), girando junto
+const WPNG = import.meta.glob('./assets/wheels/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+export const wheelPng = (id: string) => WPNG[`./assets/wheels/${id}.png`];
+export const WHEEL_IMAGES = Object.values(WPNG);
+function drawRims(c: CanvasRenderingContext2D, car: CarSpec, L: number, T: number, W: number, H: number, spin?: number) {
+  const url = car.wheelArt && wheelPng(car.wheelArt);
+  if (!url || !car.wheels) return;
+  for (const [u, v, rr] of car.wheels) {
+    const R = rr * W;
+    const img = svgSprite(url, Math.ceil(2 * R * RES), Math.ceil(2 * R * RES));
+    if (!img) continue;
+    c.save();
+    c.translate(L + u * W, T + v * H);
+    if (spin) c.rotate(spin);
+    c.imageSmoothingEnabled = !!spin;
+    c.drawImage(img, -R, -R, 2 * R, 2 * R);
+    c.restore();
+  }
+}
+
 // Rebaixamento: a carroceria sem os pneus (furo redondo do centro da roda até o chão, com folga na
 // metade de baixo para o contorno do pneu não sobrar como um arco fantasma) e, à parte, a sombra da
 // caixa de roda (escura, até onde a carroceria desce de cada lado do pneu), que preenche o vão entre o
@@ -1398,6 +1419,7 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
           c.drawImage(spr, (cx - L - R) * sw, (cy - T - R) * sh, 2 * R * sw, 2 * R * sh, cx - R, cy - R, 2 * R, 2 * R);
           c.restore();
         }
+        drawRims(c, car, L, T, W, H, spin);
         c.drawImage(body, L, T + drop, W, H);
         c.restore();
       } else c.drawImage(spr, L, T, W, H);
@@ -1416,6 +1438,7 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
           c.restore();
         }
       }
+      if (!drop) drawRims(c, car, L, T, W, H, spin);
       // rodas trocadas na oficina: o aro (sem o pneu) ganha o acabamento escolhido
       const rim = car.rims ? RIMS[car.rims] : undefined;
       if (rim && car.wheels) {

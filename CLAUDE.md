@@ -89,6 +89,9 @@
 - Preparação (peças): catálogo em `src/tuning.ts` (vagas, peças, custo, efeito na ficha, no ronco via
   `soundMods` e na altura via `rideDrop`). Peça nova = uma linha no catálogo; a tela (drawPrep em
   careerScreens.ts), o save (`builds`/`parts`) e a física já leem de lá.
+- Rodas aftermarket: `tools/ref/wheels_sheet.py <folha> src/assets/wheels` recorta a folha (lista KEEP: uma
+  de cada desenho, as repetidas ficam de fora); o catálogo é `WHEEL_LIST` em tuning.ts e o desenho no
+  carro é `drawRims` (cars.ts), no centro e raio de `WHEELS`.
 - Rebaixamento (`rideDrop`, drawCarSide): rodas no lugar + carroceria descida com furo no pneu + sombra
   da caixa de roda. Depois de mexer nisso ou nas rodas, conferir todos os carros com
   `node tools/qa/lowered_shots.cjs <pasta>` (original, esportiva e de corrida): pneu redondo e no chão.

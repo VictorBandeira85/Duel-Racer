@@ -99,7 +99,9 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
   const extra: Slot[] = [];
   if (turbo && !ft) extra.push({ id: 'turbina', name: 'Turbina', parts: [ORIGINAL('.32 (do kit)'),
     { id: 't40', name: '.40', note: '+8% cv', cost: 0.05, power: 1.08, boost: 1.2, sound: { low: 0.94, pops: 0.1 } },
-    { id: 't50', name: '.50', note: '+15% cv', cost: 0.09, power: 1.15, boost: 1.6, sound: { low: 0.88, pops: 0.2 } }] });
+    { id: 't50', name: '.50', note: '+15% cv', cost: 0.09, power: 1.15, boost: 1.6, sound: { low: 0.88, pops: 0.2 } },
+    { id: 't60', name: '.60', note: '+22% cv', cost: 0.13, power: 1.22, boost: 2.0, sound: { low: 0.83, pops: 0.28 } },
+    { id: 't70', name: '.70', note: '+30% cv', cost: 0.18, power: 1.3, boost: 2.4, sound: { low: 0.78, pops: 0.35 } }] });
   if (sup && !ft) extra.push({ id: 'polia', name: 'Polia', parts: [ORIGINAL('60 mm (do kit)'),
     { id: 'p40', name: '40 mm', note: '+8% cv', cost: 0.03, power: 1.08, boost: 0.65, sound: { whine: 0.15 } },
     { id: 'p30', name: '30 mm', note: '+14% cv', cost: 0.05, power: 1.14, boost: 0.85, sound: { whine: 0.3, drive: 1.05 } }] });

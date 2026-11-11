@@ -101,6 +101,10 @@
 - Preparação (peças): catálogo em `src/tuning.ts` (vagas, peças, custo, efeito na ficha, no ronco via
   `soundMods` e na altura via `rideDrop`). Peça nova = uma linha no catálogo; a tela (drawPrep em
   careerScreens.ts), o save (`builds`/`parts`) e a física já leem de lá.
+- Vagas que dependem da indução (`slotsFor(car, build)`): turbo libera turbina, intercooler e downpipe;
+  supercharger libera polia e intercooler. Só instalam com o turbo/supercharger já instalado.
+  A tela de preparação mostra só a lateral, grande; a ilustração da peça fica na barra da vaga.
+- Roda com vão cinzento na arte: `python3 tools/ref/wheel_dark_windows.py <roda> x,y ...` (pinta de preto).
 - Rodas aftermarket: `tools/ref/wheels_sheet.py <folha> src/assets/wheels` recorta a folha (lista KEEP: uma
   de cada desenho, as repetidas ficam de fora); o catálogo é `WHEEL_LIST` em tuning.ts e o desenho no
   carro é `drawRims` (cars.ts), no centro e raio de `WHEELS`.

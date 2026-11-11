@@ -5,7 +5,7 @@
 // basta incluir aqui: a tela da oficina, o save e a física leem este catálogo.
 import type { CarSpec } from './cars';
 
-export type SlotId = 'pistoes' | 'comando' | 'alimentacao' | 'inducao' | 'escape' | 'pneus' | 'suspensao' | 'freios' | 'bancos' | 'rodas';
+export type SlotId = 'pistoes' | 'comando' | 'alimentacao' | 'inducao' | 'escape' | 'pneus' | 'suspensao' | 'freios' | 'bancos' | 'rodas' | 'turbina' | 'intercooler' | 'downpipe' | 'polia';
 // mudanças no ronco: multiplicadores (drive, vol, low) e somas (rasp, pops, cam, intake, whine)
 export interface SoundMods { drive?: number; vol?: number; low?: number; rasp?: number; pops?: number; cam?: number; intake?: number; whine?: number; turbo?: boolean }
 export interface Part {
@@ -87,46 +87,67 @@ export const WHEEL_LIST: [string, string][] = [
 const ORIGINAL = (name = 'Original'): Part => ({ id: '', name, note: 'original', cost: 0 });
 
 /** vagas e peças que servem neste carro (alimentação conforme carburador/injeção; indução conforme
- * o carro já ser turbo de fábrica) */
-export function slotsFor(car: CarSpec): Slot[] {
+ * o carro já ser turbo de fábrica). Com `build`, as vagas que dependem da indução só aparecem quando
+ * ela está lá: turbo -> turbina, intercooler e downpipe; supercharger -> polia e intercooler. Sem
+ * `build`, vêm todas (para procurar uma peça pelo nome da vaga). */
+export function slotsFor(car: CarSpec, build?: Build): Slot[] {
   const carb = isCarb(car);
+  const ft = factoryTurbo(car);
+  const ind = build ? (ft ? 'turbo' : build.inducao === 'turbo' ? 'turbo' : build.inducao === 'super' ? 'super' : '') : 'all';
+  const turbo = ind === 'turbo' || ind === 'all', sup = ind === 'super' || ind === 'all';
+  const extra: Slot[] = [];
+  if (turbo && !ft) extra.push({ id: 'turbina', name: 'Turbina', parts: [ORIGINAL('.32 (do kit)'),
+    { id: 't40', name: '.40', note: '+8% cv', cost: 0.05, power: 1.08, sound: { low: 0.94, pops: 0.1 } },
+    { id: 't50', name: '.50', note: '+15% cv', cost: 0.09, power: 1.15, sound: { low: 0.88, pops: 0.2 } }] });
+  if (sup && !ft) extra.push({ id: 'polia', name: 'Polia', parts: [ORIGINAL('60 mm (do kit)'),
+    { id: 'p40', name: '40 mm', note: '+8% cv', cost: 0.03, power: 1.08, sound: { whine: 0.15 } },
+    { id: 'p30', name: '30 mm', note: '+14% cv', cost: 0.05, power: 1.14, sound: { whine: 0.3, drive: 1.05 } }] });
+  if (turbo || sup) extra.push({ id: 'intercooler', name: 'Intercooler', parts: [ORIGINAL(ft ? 'Original' : 'Sem'),
+    { id: 'esportivo', name: 'Esportivo', note: '+4% cv', cost: 0.04, power: 1.04 },
+    { id: 'corrida', name: 'De corrida', note: '+7% cv', cost: 0.07, power: 1.07 }] });
+  if (turbo) extra.push({ id: 'downpipe', name: 'Downpipe', parts: [ORIGINAL(),
+    { id: 'd3', name: '3 pol', note: '+3% cv', cost: 0.03, power: 1.03, sound: { drive: 1.1, vol: 1.05, low: 1.05 } },
+    { id: 'd5', name: '5 pol', note: '+5% cv', cost: 0.05, power: 1.05, sound: { drive: 1.2, vol: 1.1, low: 1.12, pops: 0.15 } }] });
   return [
-    { id: 'pistoes', name: 'Pistões', parts: [ORIGINAL(), { id: 'forjados', name: 'Forjados', note: '+4% cv', cost: 0.06, power: 1.04, sound: { drive: 1.05 } }] },
+    { id: 'pistoes', name: 'Pistões e bielas', parts: [ORIGINAL(),
+      { id: 'aliviados', name: 'Aliviados', note: '+4% cv', cost: 0.04, power: 1.04, sound: { drive: 1.03 } },
+      { id: 'forjados', name: 'Forjados', note: '+6% cv', cost: 0.06, power: 1.06, sound: { drive: 1.05 } }] },
     { id: 'comando', name: 'Comando', parts: [ORIGINAL(),
-      { id: 'esportivo', name: 'Esportivo', note: '+5% cv', cost: 0.05, power: 1.05, sound: { cam: 0.25, drive: 1.08 } },
-      { id: 'corrida', name: 'De corrida', note: '+9% cv', cost: 0.09, power: 1.09, sound: { cam: 0.6, drive: 1.15, pops: 0.15 } }] },
+      { id: 'esportivo', name: 'Esportivo', note: '+7,5% cv', cost: 0.05, power: 1.075, sound: { cam: 0.25, drive: 1.08 } },
+      { id: 'corrida', name: 'De corrida', note: '+13,5% cv', cost: 0.09, power: 1.135, sound: { cam: 0.6, drive: 1.15, pops: 0.15 } }] },
     carb
       ? { id: 'alimentacao', name: 'Carburador', parts: [ORIGINAL(),
-        { id: 'duplo', name: 'Corpo duplo', note: '+5% cv', cost: 0.04, power: 1.05, sound: { intake: 0.3 } },
-        { id: 'weber', name: 'Dupla de corrida', note: '+9% cv', cost: 0.08, power: 1.09, sound: { intake: 0.55, rasp: 0.03 } }] }
+        { id: 'duplo', name: 'Corpo duplo', note: '+7,5% cv', cost: 0.04, power: 1.075, sound: { intake: 0.3 } },
+        { id: 'weber', name: 'Dupla de corrida', note: '+13,5% cv', cost: 0.08, power: 1.135, sound: { intake: 0.55, rasp: 0.03 } }] }
       : { id: 'alimentacao', name: 'Injeção', parts: [ORIGINAL(),
-        { id: 'chip', name: 'Chip e bicos', note: '+5% cv', cost: 0.04, power: 1.05, sound: { drive: 1.05 } },
-        { id: 'programavel', name: 'Programável', note: '+9% cv', cost: 0.09, power: 1.09, sound: { drive: 1.1, pops: 0.2 } }] },
-    factoryTurbo(car)
-      ? { id: 'inducao', name: 'Turbina', parts: [ORIGINAL('De fábrica'), { id: 'turbomaior', name: 'Turbina maior', note: '+12% cv', cost: 0.12, power: 1.12, sound: { low: 0.92, pops: 0.2 } }] }
+        { id: 'chip', name: 'Chip e bicos', note: '+7,5% cv', cost: 0.04, power: 1.075, sound: { drive: 1.05 } },
+        { id: 'programavel', name: 'Programável', note: '+13,5% cv', cost: 0.09, power: 1.135, sound: { drive: 1.1, pops: 0.2 } }] },
+    ft
+      ? { id: 'inducao', name: 'Turbina', parts: [ORIGINAL('De fábrica'), { id: 'turbomaior', name: 'Turbina maior', note: '+18% cv', cost: 0.12, power: 1.18, sound: { low: 0.92, pops: 0.2 } }] }
       : { id: 'inducao', name: 'Indução', parts: [ORIGINAL('Aspirado'),
-        { id: 'turbo', name: 'Turbo', note: '+28% cv', cost: 0.22, power: 1.28, forced: 'turbo', sound: { turbo: true, low: 0.82, pops: 0.25 } },
-        { id: 'super', name: 'Supercharger', note: '+20% cv', cost: 0.2, power: 1.2, forced: 'super', sound: { whine: 0.55, drive: 1.1 } }] },
+        { id: 'turbo', name: 'Turbo', note: '+42% cv', cost: 0.22, power: 1.42, forced: 'turbo', sound: { turbo: true, low: 0.82, pops: 0.25 } },
+        { id: 'super', name: 'Supercharger', note: '+30% cv', cost: 0.2, power: 1.3, forced: 'super', sound: { whine: 0.55, drive: 1.1 } }] },
+    ...extra,
     { id: 'escape', name: 'Escapamento', parts: [ORIGINAL(),
-      { id: 'esportivo', name: 'Esportivo', note: '+3% cv', cost: 0.03, power: 1.03, sound: { drive: 1.25, vol: 1.15, rasp: 0.04, low: 1.15 } },
-      { id: 'corrida', name: 'De corrida', note: '+6% cv', cost: 0.06, power: 1.06, sound: { drive: 1.6, vol: 1.3, rasp: 0.1, pops: 0.4, low: 1.35 } }] },
+      { id: 'esportivo', name: 'Esportivo', note: '+4,5% cv', cost: 0.03, power: 1.045, sound: { drive: 1.25, vol: 1.15, rasp: 0.04, low: 1.15 } },
+      { id: 'corrida', name: 'De corrida', note: '+9% cv', cost: 0.06, power: 1.09, sound: { drive: 1.6, vol: 1.3, rasp: 0.1, pops: 0.4, low: 1.35 } }] },
     { id: 'pneus', name: 'Pneus', parts: [ORIGINAL(),
-      { id: 'esportivo', name: 'Esportivo de rua', note: '+6% curva', cost: 0.03, grip: 1.06, brake: 1.04, traction: 1.04, handling: 1.03 },
-      { id: 'semislick', name: 'Semi slick', note: '+12% curva', cost: 0.07, grip: 1.12, brake: 1.08, traction: 1.08, handling: 1.05 }] },
+      { id: 'esportivo', name: 'Esportivo de rua', note: '+9% curva', cost: 0.03, grip: 1.09, brake: 1.06, traction: 1.06, handling: 1.045 },
+      { id: 'semislick', name: 'Semi slick', note: '+18% curva', cost: 0.07, grip: 1.18, brake: 1.12, traction: 1.12, handling: 1.075 }] },
     { id: 'suspensao', name: 'Suspensão', parts: [ORIGINAL(),
-      { id: 'esportiva', name: 'Esportiva', note: '-20% altura', cost: 0.04, drop: 0.2, grip: 1.04, handling: 1.05 },
-      { id: 'corrida', name: 'De corrida', note: '-35% altura', cost: 0.08, drop: 0.35, grip: 1.07, handling: 1.09 }] },
+      { id: 'esportiva', name: 'Esportiva', note: '-20% altura', cost: 0.04, drop: 0.2, grip: 1.06, handling: 1.075 },
+      { id: 'corrida', name: 'De corrida', note: '-35% altura', cost: 0.08, drop: 0.35, grip: 1.105, handling: 1.135 }] },
     { id: 'freios', name: 'Freios', parts: [ORIGINAL(),
-      { id: 'esportivo', name: 'Discos ventilados', note: '+7% freio', cost: 0.04, brake: 1.07 },
-      { id: 'corrida', name: 'Pinça de corrida', note: '+14% freio', cost: 0.08, brake: 1.14 }] },
-    { id: 'bancos', name: 'Alívio de peso', parts: [ORIGINAL(), { id: 'concha', name: 'Bancos concha', note: '-3% peso', cost: 0.03, mass: 0.97 }] }, // (id 'bancos' mantido por causa dos saves)
+      { id: 'esportivo', name: 'Discos ventilados', note: '+10,5% freio', cost: 0.04, brake: 1.105 },
+      { id: 'corrida', name: 'Discos de corrida', note: '+21% freio', cost: 0.08, brake: 1.21 }] },
+    { id: 'bancos', name: 'Alívio de peso', parts: [ORIGINAL(), { id: 'concha', name: 'Bancos concha', note: '-4,5% peso', cost: 0.03, mass: 0.955 }] }, // (id 'bancos' mantido por causa dos saves)
     { id: 'rodas', name: 'Rodas', parts: [ORIGINAL('Originais'), ...WHEEL_LIST.map(([id, name]): Part => ({ id, name, note: id[0] === 'c' ? 'clássica' : 'liga leve', cost: 0.03, wheel: id }))] },
   ];
 }
 
 // ilustração de cada vaga (src/assets/parts, tools/ref/parts_photos.py)
 export const slotArt = (car: CarSpec, slot: SlotId): string | undefined =>
-  ({ pistoes: 'pistao', comando: 'comando', alimentacao: isCarb(car) ? 'carburador' : 'injecao', inducao: 'turbo', escape: 'escape', suspensao: 'suspensao', freios: 'freio', bancos: 'bancos' } as Partial<Record<SlotId, string>>)[slot];
+  ({ pistoes: 'pistao', comando: 'comando', alimentacao: isCarb(car) ? 'carburador' : 'injecao', inducao: 'turbo', turbina: 'turbo', escape: 'escape', suspensao: 'suspensao', freios: 'freio', bancos: 'bancos' } as Partial<Record<SlotId, string>>)[slot];
 
 export const partOf = (car: CarSpec, slot: SlotId, id: string | undefined): Part => {
   const sl = slotsFor(car).find((s) => s.id === slot)!;
@@ -142,7 +163,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
   let forced: 'turbo' | 'super' | undefined;
   let wheel: string | undefined;
   const snd: SoundMods = {};
-  for (const sl of slotsFor(car)) {
+  for (const sl of slotsFor(car, build)) { // só as vagas que valem com a indução instalada
     const p = partOf(car, sl.id, build[sl.id]);
     power *= p.power ?? 1;
     grip *= p.grip ?? 1;

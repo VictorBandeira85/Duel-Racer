@@ -343,8 +343,9 @@ const LAMPS: Record<string, LampDef> = {
   patrol: { head: [0.145, 0.53, 0.07], sigRear: [0.035, 0.503, 0.26, 0.568], sigRed: true, sigFront: [0.05, 0.6, 0.24, 0.645] },
 };
 
-// Rodas na lateral (u, v do centro e raio, em frações da largura/altura e da largura do
-// sprite), medidas pelo aro claro acima do contato com o chão: giram na chegada ao posto
+// Rodas na lateral (u, v do centro e raio, em frações da largura/altura e da largura do sprite). O
+// raio é o do ARO (não o do pneu): medir com `python3 tools/qa/wheel_fit.py <arte>` (centro pelo que a
+// roda tem de redondo), senão ela gira fora do eixo e parece torta. Conferir com --sheet
 const WHEELS: Record<string, number[][]> = {
   '959': [[0.199, 0.739, 0.08], [0.754, 0.74, 0.08]],
   'br-passat': [[0.155, 0.75, 0.045], [0.78, 0.75, 0.045]],
@@ -353,19 +354,19 @@ const WHEELS: Record<string, number[][]> = {
   'br-kadett': [[0.192, 0.775, 0.081], [0.807, 0.775, 0.081]],
   'br-pumagte': [[0.218, 0.752, 0.073], [0.781, 0.753, 0.073]],
   'br-pumagtb': [[0.192, 0.741, 0.078], [0.749, 0.738, 0.079]],
-  'br-golgti': [[0.193, 0.815, 0.078], [0.823, 0.815, 0.078]],
+  'br-golgti': [[0.1921, 0.8185, 0.0574], [0.8187, 0.8149, 0.0574]],
   'br-vectra': [[0.178, 0.777, 0.07], [0.778, 0.779, 0.07]],
-  'br-monza': [[0.176, 0.782, 0.072], [0.779, 0.782, 0.072]],
-  'br-monzasedan': [[0.189, 0.778, 0.0705], [0.788, 0.778, 0.0705]],
-  'br-monzacoupe': [[0.189, 0.778, 0.0705], [0.788, 0.778, 0.0705]],
+  'br-monza': [[0.1775, 0.7779, 0.0502], [0.7859, 0.7771, 0.0502]],
+  'br-monzasedan': [[0.1866, 0.778, 0.048], [0.7874, 0.7821, 0.048]],
+  'br-monzacoupe': [[0.1868, 0.7791, 0.048], [0.7874, 0.7823, 0.048]],
   'countach': [[0.225, 0.732, 0.054], [0.809, 0.735, 0.054]],
-  'diablo': [[0.237, 0.688, 0.072], [0.827, 0.688, 0.072]], // lateral com a frente à esquerda
-  'f40': [[0.244, 0.741, 0.08], [0.812, 0.735, 0.08]],
-  'nsx': [[0.208, 0.728, 0.074], [0.777, 0.729, 0.074]],
+  'diablo': [[0.2389, 0.7114, 0.0582], [0.827, 0.6918, 0.0582]], // lateral com a frente à esquerda
+  'f40': [[0.2438, 0.7212, 0.0611], [0.8122, 0.7189, 0.0611]],
+  'nsx': [[0.2078, 0.7277, 0.0547], [0.7779, 0.726, 0.0547]],
   'patrol': [[0.188, 0.794, 0.07], [0.739, 0.798, 0.068]],
-  'patrolsv': [[0.237, 0.707, 0.072], [0.827, 0.707, 0.072]],
-  'testarossa': [[0.231, 0.692, 0.082], [0.803, 0.692, 0.082]],
-  'viper': [[0.199, 0.742, 0.077], [0.761, 0.742, 0.077]],
+  'patrolsv': [[0.2388, 0.7332, 0.0582], [0.8272, 0.7151, 0.0582]],
+  'testarossa': [[0.2295, 0.7131, 0.0556], [0.803, 0.715, 0.0556]],
+  'viper': [[0.1981, 0.7627, 0.059], [0.7611, 0.7624, 0.059]],
   'zr1': [[0.21, 0.734, 0.076], [0.766, 0.734, 0.076]],
 };
 
@@ -1295,6 +1296,7 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
           c.clip();
           c.translate(cx, cy);
           c.rotate(spin);
+          c.imageSmoothingEnabled = true; // girando sem suavizar, os pixels do aro "dançam"
           c.drawImage(spr, (cx - L - R) * sw, (cy - T - R) * sh, 2 * R * sw, 2 * R * sh, -R, -R, 2 * R, 2 * R);
           c.restore();
         }

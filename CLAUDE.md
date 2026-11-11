@@ -159,6 +159,12 @@
   `python3 tools/qa/edge_build.py <cabine> <L|R> <c0> <inclinação>` (inclinação positiva = a linha desce
   indo para a borda; medir na arte, a automática erra). Ela só refaz as linhas esticadas: retrovisor e
   janela ficam. Conferir com `WIDE=1400 DAYONLY=1 node tools/qa/cockpit_shots.cjs <pasta>` (todos os carros).
+- Faixa à esquerda da arte ESPELHADA (porta em "V" simétrico, pé do retrovisor duplicado): refazer como no
+  Serpe V10 (`tools/ref/viper_door_fix.py`): moldura do retrovisor inteira com um pé só, vão sob o pé vira
+  vidro, e a porta continua cada linha da arte descendo em curva até a borda.
+- Desempenho à noite: medir com `node tools/qa/draw_cost.cjs <carro> <pista...>` (chamadas, megapixels e
+  trocas de canvas por quadro, dia x noite). Efeito novo de luz não pode usar um rascunho por objeto:
+  desenhar em lote (atlas, varredura do longe para o perto) como em shadeCars/maskedPools.
 - Todo carro tem retrovisor do lado do motorista funcionando (vidro com a vista de trás). Se a arte
   não tem, desenhar com `python3 tools/qa/add_mirror.py <cabine> x0 y0 x1 y1 braço_x braço_y #cor` e pôr
   a semente em `glass.at`. Mão inglesa (NSX): o do motorista é o da direita.

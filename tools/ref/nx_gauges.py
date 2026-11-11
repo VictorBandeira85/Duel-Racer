@@ -71,9 +71,75 @@ PIXFONT = {
 }
 
 
+# algarismos do quadro do NSX (conferidos na foto ampliada): largos e quadrados, de cantos bem
+# arredondados e traço médio (família Microgramma/Eurostile), desenhados à mão numa caixa 5 x 6
+NXD = {
+    '0': [[(0, 0), (5, 0), (5, 6), (0, 6), (0, 0), (5, 0)]],
+    '1': [[(1.2, 1.3), (2.8, 0), (2.8, 6)]],
+    '2': [[(0, 0), (5, 0), (5, 3), (0, 3), (0, 6), (5, 6)]],
+    '3': [[(0, 0), (5, 0), (5, 6), (0, 6)], [(1.6, 3), (5, 3)]],
+    '4': [[(3.6, 6), (3.6, 0), (0, 4.2), (5, 4.2)]],
+    '5': [[(5, 0), (0, 0), (0, 2.8), (5, 2.8), (5, 6), (0, 6)]],
+    '6': [[(5, 0), (0, 0), (0, 6), (5, 6), (5, 2.8), (0, 2.8)]],
+    '7': [[(0, 0), (5, 0), (2, 6)]],
+    '8': [[(0, 0), (5, 0), (5, 6), (0, 6), (0, 0), (5, 0)], [(0, 2.9), (5, 2.9)]],
+    '9': [[(5, 3.2), (0, 3.2), (0, 0), (5, 0), (5, 6), (0, 6)]],
+}
+NXW = {'1': 3.4}
+
+
+def fillet(path, r=1.25, n=5):
+    """arredonda os cantos de 90° do traçado (raio r)"""
+    out = [path[0]]
+    for a, b, c in zip(path, path[1:], path[2:]):
+        v1 = np.array(a, float) - b
+        v2 = np.array(c, float) - b
+        l1, l2 = np.hypot(*v1), np.hypot(*v2)
+        if l1 < 1e-6 or l2 < 1e-6 or abs(np.dot(v1, v2)) > 0.2 * l1 * l2:
+            out.append(b)
+            continue
+        rr = min(r, l1 / 2, l2 / 2)
+        p1, p2 = b + v1 / l1 * rr, b + v2 / l2 * rr
+        for t in np.linspace(0, 1, n):
+            out.append(tuple((1 - t) ** 2 * p1 + 2 * t * (1 - t) * np.array(b, float) + t * t * p2))
+    out.append(path[-1])
+    return out
+
+
+def nx_number(s, h, col=(246, 246, 246), bold=1.0):
+    S = 8
+    u = h * S / 6.9
+    t = u * 0.95 * bold
+    gap = u * 1.5
+    ws = [NXW.get(ch, 5) * u for ch in s]
+    w = int(sum(ws) + gap * (len(s) - 1) + t * 2)
+    lay = Image.new('L', (w, int(u * 6 + t * 2)), 0)
+    dd = ImageDraw.Draw(lay)
+    ox = t
+    for ch, cw in zip(s, ws):
+        for path in NXD[ch]:
+            pts = [(ox + x * u - (0.8 * u if ch == '1' else 0), t + y * u) for x, y in fillet(path)]
+            dd.line(pts, fill=255, width=int(t), joint='curve')
+            for x, y in (pts[0], pts[-1]):
+                dd.ellipse([x - t / 2, y - t / 2, x + t / 2, y + t / 2], fill=255)
+        ox += cw + gap
+    lay = lay.resize((max(1, w // S), max(1, lay.height // S)), Image.LANCZOS)
+    img = Image.new('RGBA', lay.size, col + (0,))
+    img.putalpha(lay)
+    return img
+
+
 def draw_labels(im):
     d = ImageDraw.Draw(im)
     for s, cx, cy, size, track in LABELS:
+        if KO == 4 and track > 50 and all(ch in NXD for ch in s):  # track > 50: número no estilo do NSX, size = altura
+            g = nx_number(s, size, bold=1.45 if size > 11 else 1.5)
+            if len(s) > 2:
+                g = g.resize((max(1, int(g.width * 0.8)), g.height), Image.LANCZOS)
+            im.alpha_composite(g, (int(round(cx - g.width / 2)), int(round(cy - g.height / 2))))
+            continue
+        if track > 50:
+            track = -0.5
         if KO == 2 and size < 9:
             if not all(ch in PIXFONT for ch in s):
                 continue  # textos pequenos (km/h, x1000r/min) não cabem em 2 px por pixel
@@ -143,24 +209,27 @@ def build(out):
     for g, labels, minor, red in [(TACH, list(range(10)), 0.25, 8), (SPEED, list(range(0, 281, 20)), 5, None)]:
         ell(d, g['x'], g['y'], g['r'] + 0.9, fill=(170, 172, 178))
         ell(d, g['x'], g['y'], g['r'] + 0.3, fill=(40, 40, 44))
-        ell(d, g['x'], g['y'], g['r'], fill=(14, 14, 16))
+        ell(d, g['x'], g['y'], g['r'], fill=(27, 26, 27))
         fr = lambda v: g['a0'] + g['sweep'] * v / g['max']
         if red is not None:  # bloco vermelho de 8 a 9 por dentro das marcações
             for k in range(60):
                 v = red + (g['max'] - red) * k / 59
-                tick(d, g, fr(v), g['r'] - 4.6, g['r'] - 2.2, int(K * 0.9), (226, 34, 24))
-        v = 0.0
-        while v <= g['max'] + 1e-6:
+                tick(d, g, fr(v), g['r'] - 4.4, g['r'] - 2.1, int(K * 0.9), (226, 34, 24))
+        # marcações finas e cheias em toda a volta (como na foto): conta-giros de 100 em 100 rpm,
+        # velocímetro de 2 em 2 km/h; as do meio mais compridas e as dos números compridas e grossas
+        minor, mid = (0.1, 0.5) if g is TACH else (2, 10)
+        n = int(round(g['max'] / minor))
+        for i in range(n + 1):
+            v = i * minor
             if any(abs(v - L) < 1e-6 for L in labels):
-                tick(d, g, fr(v), g['r'] - 3.2, g['r'] - 0.8, int(K * 0.55))
-            elif g is SPEED and abs(v / 10 - round(v / 10)) < 1e-6:
-                tick(d, g, fr(v), g['r'] - 2.2, g['r'] - 0.8, int(K * 0.4))
+                tick(d, g, fr(v), g['r'] - 3.6, g['r'] - 0.7, int(K * 0.5))
+            elif abs(v / mid - round(v / mid)) < 1e-6:
+                tick(d, g, fr(v), g['r'] - 2.7, g['r'] - 0.7, int(K * 0.3))
             else:
-                tick(d, g, fr(v), g['r'] - 1.6, g['r'] - 0.8, int(K * 0.3))
-            v += minor
+                tick(d, g, fr(v), g['r'] - 1.9, g['r'] - 0.7, int(K * 0.2))
         for L in labels:
-            x, y = at(g['x'], g['y'], fr(L), g['r'] - (6.6 if g is TACH else 6.3))
-            label(str(L), x, y, K * (5.6 if g is TACH else 3.4), track=-0.5 if g is TACH else -1.3)
+            x, y = at(g['x'], g['y'], fr(L), g['r'] - (7.2 if g is TACH else 6.4 + (1.3 if L >= 100 else 0)))
+            label(str(L), x, y, K * (4.0 if g is TACH else 2.5), track=99)
         x, y = P(g['x'], g['y'] + g['r'] * 0.62 * PY)
         label('x1000r/min' if g is TACH else 'km/h', x + (K * 3 if g is TACH else 0), y, K * 1.9, track=0)
     # pequenos
@@ -191,6 +260,11 @@ def build(out):
             d.line([ix - s * 1.2, iy + s, ix + s * 1.2, iy + s], fill=(235, 235, 235), width=max(1, K // 4))
         else:
             d.polygon([(ix - s * 1.4, iy), (ix + s * 0.6, iy - s * 0.6), (ix + s * 1.4, iy), (ix + s * 0.6, iy + s * 0.6)], fill=(235, 235, 235))
+    # hodômetros de cristal líquido no alumínio, embaixo (total à esquerda, parcial à direita): no carro
+    # de verdade ficam fora dos mostradores
+    for (x, y, w_, h_) in [(73.5, 78, 15, 4.5), (169.5, 78, 10, 4.5)]:
+        a, b = P(x, y)
+        d.rounded_rectangle([a, b, a + w_ * K, b + h_ * K], radius=K * 0.6, fill=(20, 21, 22))
     # moldura escura do quadro do desenho do carro (porta aberta), embaixo no meio
     a, b = P(124.5, 66)
     d.rounded_rectangle([a, b, a + 8 * K, b + 9.5 * K * PY], radius=K, fill=(22, 22, 26))

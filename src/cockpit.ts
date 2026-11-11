@@ -796,7 +796,7 @@ COCKPIT_ART.countach = {
 // velocímetro 0-280 grandes, água e pressão do óleo à esquerda, combustível e bateria à direita
 COCKPIT_ART.nsx = {
   dash: cp('nsx-dash'), top: cp('nsx-top'), wheel: cp('nsx-wheel'),
-  pivot: [128, 104], wheelTop: 14, tachReal: true, speedMax: 280, needle: '#ff3a1a', needleW: 2.3, needleTail: 0, needleTip: 0.18, hub: '#1a1a1c', radar: [30, 4],
+  pivot: [128, 104], wheelTop: 14, tachReal: true, speedMax: 280, needle: '#f2361c', needleW: 1.8, needleTail: 3.0, needleTip: 0.5, hubUnder: true, hub: '#2c2c2f', radar: [30, 4],
   // retrovisor externo à direita (mão inglesa): o espelho da arte é transparente e mostra a vista de trás
   glass: { at: [436, 71], thr: 256 },
   // o quadro inteiro é uma imagem em alta resolução desenhada a partir da foto (tools/ref/nx_gauges.py):
@@ -805,7 +805,7 @@ COCKPIT_ART.nsx = {
   faces: [{ src: cp('nsx-cluster'), src2: cp('nsx-cluster-2x'), x: 38.5, y: 14.5, w: 182, h: 80 }],
   // à noite só números e marcações brancas acendem (o alumínio e os fundos pretos escurecem); ponteiros acesos
   facesLit: '236,244,255', litMin: 185, litNeedles: true,
-  needleFine: true, hubR: 3, tells: [129, 24], glow: '235,240,255', // setas na janelinha do alto; à noite números brancos
+  needleFine: true, hubR: 3.3, tells: [129, 24], glow: '235,240,255', // setas na janelinha do alto; à noite números brancos
   tach: { x: 100, y: 50, r: 22.5, max: 9, labels: [], tick: 1, red: 999, face: false, a0: 125 * (Math.PI / 180), sweep: 265 * (Math.PI / 180) },
   speed: { x: 157, y: 50, r: 22.5, max: 280, labels: [], tick: 20, red: 999, face: false, a0: 112 * (Math.PI / 180), sweep: 268 * (Math.PI / 180) },
   aux: [
@@ -815,9 +815,9 @@ COCKPIT_ART.nsx = {
     { x: 195, y: 64, r: 8, kind: 'single', show: ['volt'], arc: [104 * (Math.PI / 180), 256 * (Math.PI / 180)], needleOnly: true },
   ],
   extra: (c, ox, r) => {
-    // hodômetro total no velocímetro e o parcial no conta-giros, embaixo do miolo
-    odometer(c, ox, r, { x: 151.5, y: 58.5, w: 12, h: 3.5 }, 63373, 6, 0.5);
-    odometer(c, ox, r, { x: 96.5, y: 58.5, w: 8, h: 3.5 }, 34.3, 4, 0.5, true);
+    // hodômetros no alumínio, embaixo dos mostradores (como no carro)
+    odometer(c, ox, r, { x: 75, y: 78.5, w: 12, h: 3.5 }, 63373, 6, 0.5);
+    odometer(c, ox, r, { x: 170.5, y: 78.5, w: 8, h: 3.5 }, 34.3, 4, 0.5, true);
     // luz-espia vermelha entre os mostradores (acende na pressão do óleo baixa) e o desenho do carro
     const T = ART_TOP;
     c.fillStyle = gauges.oil < 0.36 ? '#ff3020' : '#7a1410';

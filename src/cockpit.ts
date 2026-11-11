@@ -67,6 +67,7 @@ interface CockpitArt {
   hub: string;
   aux: Aux[];
   hubR?: number; // raio do miolo redondo dos ponteiros grandes
+  needleTip?: number; // com needleFine: largura da ponta em fração da base (padrão 0,12; 0,5 = ponteiro em barra, quase reto)
   needleFine?: boolean; // ponteiro afinando até a ponta, com suavização (como o desenho da arte)
   faces?: { src: string; src2?: string; x: number; y: number; w: number; h: number }[]; // fundos dos mostradores em alta resolução (src2: versão feita para RES 2)
   glow?: string; // cor (r,g,b) da iluminação noturna do quadro
@@ -277,17 +278,17 @@ COCKPIT_ART['br-monza'] = {
   tells: null,
   dash: cp('br-monza-dash'), top: cp('br-monza-top'), wheel: cp('br-monza-wheel'), dashMask: cp('br-monza-dash-mask'), topMask: cp('br-monza-top-mask'),
   glass: { at: [56, 108], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, radar: [222, 12], speedMax: 220, needle: '#f47c2c', needleW: 1.6, needleTail: 2.5, needleFine: true, hub: '#26262a', hubR: 2.4,
+  pivot: [128, 112], wheelTop: 8, radar: [222, 12], speedMax: 220, needle: '#f47c2c', needleW: 2.0, needleTail: 1, needleFine: true, needleTip: 0.4, hub: '#0e0e10', hubR: 3.0,
   faces: [{ src: cp('br-monza-cluster'), x: 64.5, y: 37.5, w: 153, h: 54 }],
   glow: '255,120,40', glowK: 0.6,
   facesLit: '255,190,130', litMin: 150, litByMax: true, litNeedles: true,
   speed: { x: 97, y: 64.7, r: 19, max: 220, labels: [], tick: 20, red: 999, face: false, a0: 124 * MZ_DEG, sweep: 220 * 1.21 * MZ_DEG },
   tach: { x: 175.3, y: 64.7, r: 19, max: 7, labels: [], tick: 1, red: 999, face: false, a0: 133.5 * MZ_DEG, sweep: 7 * 38.2 * MZ_DEG },
   aux: [
-    { x: 134.6, y: 53.3, r: 8.6, kind: 'single', show: ['volt'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
-    { x: 149.9, y: 53.3, r: 8.6, kind: 'single', show: ['vac'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
-    { x: 134.6, y: 77.1, r: 8.6, kind: 'single', show: ['water'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
-    { x: 149.9, y: 77.1, r: 8.6, kind: 'single', show: ['fuel'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
+    { x: 125.2, y: 52.3, r: 8.4, kind: 'single', show: ['volt'], arc: [37 * MZ_DEG, -37 * MZ_DEG], needleOnly: true, hubR: 0 },
+    { x: 149.9, y: 52.3, r: 8.4, kind: 'single', show: ['vac'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
+    { x: 125.2, y: 76.1, r: 8.4, kind: 'single', show: ['water'], arc: [37 * MZ_DEG, -37 * MZ_DEG], needleOnly: true, hubR: 0 },
+    { x: 149.9, y: 76.1, r: 8.4, kind: 'single', show: ['fuel'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
   ],
   extra: (c, ox, r) => {
     odometer(c, ox, r, { x: 90.3, y: 56.1, w: 14.4, h: 3.6 }, 16803, 6, 0.5);
@@ -303,17 +304,17 @@ COCKPIT_ART['br-monzasedan'] = {
   tells: null,
   dash: cp('br-monzasedan-dash'), top: cp('br-monzasedan-top'), wheel: cp('br-monzasedan-wheel'),
   glass: { at: [52, 111], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, radar: [222, 16], speedMax: 220, needle: '#f08a1c', needleW: 1.5, needleTail: 2.2, needleFine: true, hub: '#26262a', hubR: 2.1,
+  pivot: [128, 112], wheelTop: 8, radar: [222, 16], speedMax: 220, needle: '#f0a024', needleW: 1.8, needleTail: 1, needleFine: true, needleTip: 0.4, hub: '#0e0e10', hubR: 2.6,
   faces: [{ src: cp('br-monzasedan-cluster'), x: 66.71, y: 42.57, w: 132.3, h: 49.98 }],
   glow: '255,150,60', glowK: 0.5,
   facesLit: '255,220,170', litMin: 150, litByMax: true, litNeedles: true,
   speed: { x: MS_X(97.5), y: MS_Y(65.2), r: 19 * MS_K, max: 220, labels: [], tick: 20, red: 999, face: false, a0: 124 * MZ_DEG, sweep: 220 * 1.21 * MZ_DEG },
   tach: { x: MS_X(175.8), y: MS_Y(65.2), r: 19 * MS_K, max: 7, labels: [], tick: 1, red: 999, face: false, a0: 133.5 * MZ_DEG, sweep: 7 * 38.2 * MZ_DEG },
   aux: [
-    { x: MS_X(135.1), y: MS_Y(53.8), r: 8.6 * MS_K, kind: 'single', show: ['volt'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
-    { x: MS_X(150.4), y: MS_Y(53.8), r: 8.6 * MS_K, kind: 'single', show: ['vac'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
-    { x: MS_X(135.1), y: MS_Y(77.6), r: 8.6 * MS_K, kind: 'single', show: ['water'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
-    { x: MS_X(150.4), y: MS_Y(77.6), r: 8.6 * MS_K, kind: 'single', show: ['fuel'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
+    { x: MS_X(125.7), y: MS_Y(52.8), r: 8.4 * MS_K, kind: 'single', show: ['volt'], arc: [37 * MZ_DEG, -37 * MZ_DEG], needleOnly: true, hubR: 0 },
+    { x: MS_X(150.4), y: MS_Y(52.8), r: 8.4 * MS_K, kind: 'single', show: ['vac'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
+    { x: MS_X(125.7), y: MS_Y(76.6), r: 8.4 * MS_K, kind: 'single', show: ['water'], arc: [37 * MZ_DEG, -37 * MZ_DEG], needleOnly: true, hubR: 0 },
+    { x: MS_X(150.4), y: MS_Y(76.6), r: 8.4 * MS_K, kind: 'single', show: ['fuel'], arc: [143 * MZ_DEG, 217 * MZ_DEG], needleOnly: true, hubR: 0 },
   ],
   extra: (c, ox, r) => {
     odometer(c, ox, r, { x: 89.0, y: 60.3, w: 12.5, h: 3.2 }, 63985, 6, 0.43);
@@ -1231,14 +1232,15 @@ function dialNeedle(c: CanvasRenderingContext2D, d: Dial, ox: number, frac: numb
 // ponteiro: do centro exato, traçado em meio pixel (1 px de espessura)
 // ponteiro fino e afinado (arte com mostradores em alta resolução): polígono suavizado, com a
 // sombra leve no fundo, rabicho e miolo redondo com brilho
+let needleTip = 0.12; // ponta do ponteiro afinado (art.needleTip), acertada a cada quadro
 function fineNeedle(c: CanvasRenderingContext2D, x: number, y: number, len: number, a: number, w: number, color: string, hub: string, hubR: number, tail: number, tailCol?: string) {
   const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y, px = -Math.sin(a), py = Math.cos(a) * PIX_Y;
   const poly = (ox: number, oy: number, col: string) => {
     c.fillStyle = col;
     c.beginPath();
     c.moveTo(x + ox - ca * tail + px * w * 0.5, y + oy - sa * tail + py * w * 0.5);
-    c.lineTo(x + ox + ca * len + px * w * 0.12, y + oy + sa * len + py * w * 0.12);
-    c.lineTo(x + ox + ca * len - px * w * 0.12, y + oy + sa * len - py * w * 0.12);
+    c.lineTo(x + ox + ca * len + px * w * needleTip, y + oy + sa * len + py * w * needleTip);
+    c.lineTo(x + ox + ca * len - px * w * needleTip, y + oy + sa * len - py * w * needleTip);
     c.lineTo(x + ox - ca * tail - px * w * 0.5, y + oy - sa * tail - py * w * 0.5);
     c.closePath();
     c.fill();
@@ -2002,6 +2004,7 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   const vp = windshield();
   const art = COCKPIT_ART[r.car.dash];
   ART_TOP = 100 + (art?.dy ?? 0);
+  needleTip = art?.needleTip ?? 0.12;
   // nas cabines desenhadas, os vidros laterais vão abaixo do painel: a estrada desce até o fim
   // a cabeça do motorista: só a vista pelo para-brisa gira (a cabine não se mexe nem é cortada)
   const yaw0 = r.yaw;

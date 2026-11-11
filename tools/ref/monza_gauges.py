@@ -19,7 +19,8 @@ from PIL import Image, ImageDraw, ImageFont
 K, KO, PY = 12, 4, 8 / 7
 X0, Y0, X1, Y1 = 64.5, 37.5, 217.5, 91.5   # tela do quadro na arte (monza_cockpit.py: 64,8..217,1 x 37,6..91,3)
 FN = '/usr/share/fonts/opentype/inter/Inter-Medium.otf'
-BG, PANEL = (20, 20, 22), (43, 43, 46)
+BG, PANEL = (52, 50, 49), (17, 17, 19)   # painel cinza-castanho e os mostradores pretos (como na foto)
+AMBER = (236, 160, 60)
 INK = (240, 120, 44)
 RED, GREEN, BLUE = (222, 52, 38), (70, 178, 84), (70, 130, 230)
 # medido na foto: 20 km/h a 148° e 220 a 30° (1,21° por km/h, 120 no alto); conta-giros 10 a 172° e
@@ -70,6 +71,12 @@ def draw_labels(im):
         im.paste(Image.new('RGB', t.size, col), (int(round(x - t.width / 2)), int(round(y - t.height / 2))), t)
 
 
+def face(d, g, rr=23.8):
+    """mostrador preto redondo, com o pé cortado reto (como no quadro real)"""
+    c = P(g['x'], g['y'])
+    d.chord([c[0] - rr * K, c[1] - rr * K * PY, c[0] + rr * K, c[1] + rr * K * PY], 130, 50, fill=PANEL)
+
+
 def panel(d, x0, y0, x1, y1, rad=3.0):
     a, b = P(x0, y0), P(x1, y1)
     d.rounded_rectangle([a[0], a[1], b[0], b[1]], radius=rad * K, fill=PANEL)
@@ -77,53 +84,53 @@ def panel(d, x0, y0, x1, y1, rad=3.0):
 
 def speed(d):
     g = SPEED
-    panel(d, 71.6, 40.0, 122.2, 86.2, 5)
+    face(d, g)
     for v in range(10, 221, 10):
         a = g['a0'] + v * g['per']
         if v % 20 == 0:
-            tick(d, g, a, g['r'] - 2.6, g['r'], 0.62)
-            x, y = at(g, a, g['r'] - (7.4 if v >= 100 else 6.6))
-            label(str(v), x, y, 3.5)
+            tick(d, g, a, g['r'] - 0.6, g['r'] + 1.2, 0.5)
+            x, y = at(g, a, g['r'] - (5.6 if v >= 100 else 4.6))
+            label(str(v), x, y, 4.0)
         else:
-            tick(d, g, a, g['r'] - 1.5, g['r'], 0.45)
+            tick(d, g, a, g['r'] + 0.2, g['r'] + 1.2, 0.4)
     # janelas do hodômetro (em cima do eixo) e do parcial (embaixo)
     for (bx, by, bw, bh) in ((g['x'] - 7.4, g['y'] - 9.4, 14.8, 4.2), (g['x'] - 5.0, g['y'] + 5.4, 10.0, 4.0)):
         a, b = P(bx, by), P(bx + bw, by + bh)
         d.rectangle([a[0], a[1], b[0], b[1]], fill=(10, 10, 12))
     x, y = P(g['x'], g['y'] + 14.6)
-    label('km/h', x, y, 2.5)
-    c = P(g['x'], g['y'])  # eixo
-    d.ellipse([c[0] - 2.6 * K, c[1] - 2.6 * K * PY, c[0] + 2.6 * K, c[1] + 2.6 * K * PY], fill=(34, 34, 37))
+    label('km/h', x, y, 2.2)
 
 
 def tach(d):
     g = TACH
-    panel(d, 153.9, 40.0, 201.6, 86.2, 5)
+    face(d, g)
     for i in range(1, 15):  # 500 em 500 rpm até 7000
         v = i / 2
         a = g['a0'] + v * g['per']
         if v >= 6.4:
             continue
         if i % 2 == 0:
-            tick(d, g, a, g['r'] - 2.6, g['r'], 0.62)
+            tick(d, g, a, g['r'] - 0.6, g['r'] + 1.2, 0.5)
         else:
-            tick(d, g, a, g['r'] - 1.5, g['r'], 0.45)
+            tick(d, g, a, g['r'] + 0.2, g['r'] + 1.2, 0.4)
     for v in range(1, 8):
         a = g['a0'] + v * g['per']
-        x, y = at(g, a, g['r'] - (6.8 if v < 7 else 7.6))
-        label(str(v * 10), x, y, 3.5)
+        x, y = at(g, a, g['r'] - (4.8 if v < 7 else 6.4))
+        label(str(v * 10), x, y, 4.0)
     # faixa vermelha vazada (só o contorno), de 6300 a 7200 rpm
-    a0, a1 = g['a0'] + 6.3 * g['per'], g['a0'] + 7.2 * g['per']
-    n = 24
-    outer = [at(g, a0 + (a1 - a0) * i / n, g['r'] + 0.6) for i in range(n + 1)]
-    inner = [at(g, a0 + (a1 - a0) * i / n, g['r'] - 2.2) for i in range(n + 1)]
-    d.line(outer + inner[::-1] + [outer[0]], fill=RED_ZONE, width=int(0.55 * K), joint='curve')
+    # faixa do limite: um trecho vazado (só o contorno) e depois cheio, curto, rente à borda (6300-7000)
+    n = 16
+    for a0, a1, full in ((g['a0'] + 6.3 * g['per'], g['a0'] + 6.55 * g['per'], False), (g['a0'] + 6.55 * g['per'], g['a0'] + 7.0 * g['per'], True)):
+        outer = [at(g, a0 + (a1 - a0) * i / n, g['r'] + 1.3) for i in range(n + 1)]
+        inner = [at(g, a0 + (a1 - a0) * i / n, g['r'] - 0.5) for i in range(n + 1)]
+        if full:
+            d.polygon(outer + inner[::-1], fill=RED_ZONE)
+        else:
+            d.line(outer + inner[::-1] + [outer[0]], fill=RED_ZONE, width=int(0.4 * K), joint='curve')
     x, y = P(g['x'], g['y'] + 13.4)
     label('x100', x, y, 2.1)
     x, y = P(g['x'], g['y'] + 16.4)
     label('min-1', x, y, 2.1)
-    c = P(g['x'], g['y'])
-    d.ellipse([c[0] - 2.6 * K, c[1] - 2.6 * K * PY, c[0] + 2.6 * K, c[1] + 2.6 * K * PY], fill=(34, 34, 37))
 
 
 def ico_batt(d, cx, cy, u, col=None):
@@ -139,9 +146,10 @@ def ico_batt(d, cx, cy, u, col=None):
 
 def ico_pump(d, cx, cy, u, col=None):
     col = col or INK
+    hole = PANEL
     lw = max(1, int(0.5 * u))
     d.rectangle([cx - 2.0 * u, cy - 2.2 * u, cx + 0.8 * u, cy + 2.2 * u], fill=col)
-    d.rectangle([cx - 1.3 * u, cy - 1.5 * u, cx + 0.1 * u, cy - 0.2 * u], fill=PANEL)
+    d.rectangle([cx - 1.3 * u, cy - 1.5 * u, cx + 0.1 * u, cy - 0.2 * u], fill=hole)
     d.rectangle([cx - 2.5 * u, cy + 1.8 * u, cx + 1.3 * u, cy + 2.4 * u], fill=col)
     d.line([(cx + 0.8 * u, cy - 0.6 * u), (cx + 2.1 * u, cy - 0.6 * u), (cx + 2.1 * u, cy + 1.4 * u)], fill=col, width=lw)
     d.line([(cx + 1.2 * u, cy - 2.2 * u), (cx + 2.2 * u, cy - 1.2 * u), (cx + 2.2 * u, cy - 0.2 * u)], fill=col, width=lw)
@@ -159,37 +167,52 @@ def ico_temp(d, cx, cy, u, col=None):
 
 
 def small(d, x0, y0, x1, y1, kind):
-    panel(d, x0, y0, x1, y1, 1.6)
-    g = dict(x=x1 - 2.4, y=(y0 + y1) / 2 + 2.6, r=9.4)
+    """mostrador pequeno: na coluna da esquerda (voltímetro, temperatura) o ponteiro sai da esquerda e o
+    arco fica à direita; na da direita (econômetro, combustível) é o contrário. Mínimo embaixo."""
+    panel(d, x0, y0, x1, y1, 1.2)
+    left = kind in ('volt', 'water')
+    g = dict(x=(x0 + 2.4) if left else (x1 - 2.4), y=(y0 + y1) / 2 + 1.6, r=9.0)
+    lo, hi = (37.0, -37.0) if left else (A_LO, A_HI)
     n = 20
-    arc = [at(g, A_LO + (A_HI - A_LO) * i / n, g['r']) for i in range(n + 1)]
-    u = K * 0.6
-    ix, iy = P(x0 + 5.0, y0 + 3.6)
-    if kind == 'vac':  # econômetro: arco verde grosso (zona econômica) e o resto laranja fino
-        d.line(arc[:9], fill=INK, width=int(0.55 * K), joint='curve')
-        d.line(arc[8:], fill=GREEN, width=int(1.25 * K), joint='curve')
-        ico_pump(d, ix + 4.6 * K, iy + 0.2 * K, u)
+    ang = lambda f: lo + (hi - lo) * f
+    arc = [at(g, ang(i / n), g['r']) for i in range(n + 1)]
+    u = K * 0.55
+    ix, iy = P((x0 + 4.6) if left else (x1 - 4.6), y0 + 3.4)
+
+    def block(f, col, out=1.5):
+        c = at(g, ang(f), g['r'] + out)
+        d.rectangle([c[0] - 0.95 * K, c[1] - 0.95 * K, c[0] + 0.95 * K, c[1] + 0.95 * K], fill=col)
+
+    if kind == 'vac':  # econômetro: arco verde largo (zona econômica) e o alto âmbar
+        d.line(arc[:15], fill=GREEN, width=int(1.3 * K), joint='curve')
+        d.line(arc[14:], fill=AMBER, width=int(1.3 * K), joint='curve')
+        d.line([at(g, ang(i / n), g['r'] - 1.1) for i in range(n + 1)], fill=INK, width=int(0.35 * K), joint='curve')
+        ico_pump(d, ix, iy, u)
     else:
-        d.line(arc, fill=INK, width=int(0.55 * K), joint='curve')
-        for f in (0, 0.5, 1):
-            a = A_LO + (A_HI - A_LO) * f
-            col = INK
-            if f == 0 and kind in ('volt', 'fuel'):
-                col = RED
-            if kind == 'water':
-                col = BLUE if f == 0 else RED if f == 1 else INK
-            tick(d, g, a, g['r'] - 0.2, g['r'] + 1.9, 0.7, col)
+        d.line(arc, fill=INK, width=int(0.5 * K), joint='curve')
+        tick(d, g, ang(0.5), g['r'], g['r'] + 1.6, 0.5)
+        if kind == 'volt':
+            block(1, AMBER)
+            block(0.12, RED, 2.4)
+            for f in (0.2, 0.26, 0.32, 0.38):
+                tick(d, g, ang(f), g['r'], g['r'] + 1.3, 0.35)
+        elif kind == 'water':
+            block(1, AMBER)
+            block(0, BLUE)
+        else:
+            block(0, AMBER)
+            tick(d, g, ang(1), g['r'], g['r'] + 1.6, 0.5)
         {'volt': ico_batt, 'water': ico_temp, 'fuel': ico_pump}[kind](d, ix, iy, u)
     return (round(g['x'], 1), round(g['y'], 1))
 
 
 def lamps(d):
-    """luzes-espia: fileira de janelinhas embaixo dos dois mostradores (bateria e óleo em vermelho)"""
+    """luzes-espia: fileira de janelas retangulares embaixo dos dois mostradores (duas vermelhas acesas)"""
     for cx, reds in ((SPEED['x'], ()), (TACH['x'], (2, 3))):
         for i in range(5):
-            x = cx - 15.5 + i * 6.6
-            a, b = P(x, 87.2), P(x + 4.6, 90.2)
-            d.rounded_rectangle([a[0], a[1], b[0], b[1]], radius=0.6 * K, fill=(150, 30, 26) if i in reds else (34, 34, 37))
+            x = cx - 23.0 + i * 9.4
+            a, b = P(x, 87.3), P(x + 8.2, 91.0)
+            d.rectangle([a[0], a[1], b[0], b[1]], fill=(214, 52, 52) if i in reds else (38, 37, 37))
 
 
 def main():

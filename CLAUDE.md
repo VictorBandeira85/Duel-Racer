@@ -42,6 +42,11 @@
   posição e de quanto em quanto), marcações (grossura, comprimento, intervalos), faixas de cor,
   textos (MPH, km/h, x1000, marca), fundo (cor, textura, aro) e a iluminação noturna (cor da luz
   dos números/ponteiros e do fundo). Na dúvida, perguntar ou pedir foto do quadro real.
+- Quando o Victor manda a **foto do quadro real**, ela manda: montar a comparação foto x print do jogo
+  (um em cima do outro, mesmo tamanho) e só publicar quando baterem a forma dos mostradores (redondos,
+  cortados, em painel), o lado do pivô e do arco de cada mostrador pequeno, a posição dos números em
+  relação às marcações, o formato do ponteiro (barra ou afinado: `needleTip`) e as luzes-espia.
+  Quadros só ficam parecidos entre carros que usam o mesmo quadro de verdade (Ímola hatch/sedã/cupê).
 
 ## Capas da revista (fotos)
 - Toda foto de capa (`src/photos.ts`) leva `box: [x0, y0, x1, y1]` em pixels da foto de 560 x 315:

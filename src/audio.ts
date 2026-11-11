@@ -355,6 +355,34 @@ export function beep(freq: number, dur = 0.15) {
   o.stop(ctx.currentTime + dur);
 }
 
+// motor de arranque: "nhé-nhé-nhé" curto e grave antes de o motor pegar (troca de carro na garagem)
+export function starterSound(dur = 0.42) {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const o = ctx.createOscillator();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(78, t);
+  o.frequency.linearRampToValueAtTime(96, t + dur);
+  const lfo = ctx.createOscillator(); // o motor girando devagar: pulsos de compressão
+  lfo.type = 'square';
+  lfo.frequency.setValueAtTime(9, t);
+  lfo.frequency.linearRampToValueAtTime(12, t + dur);
+  const lg = ctx.createGain();
+  lg.gain.value = 0.045;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.06, t + 0.03);
+  g.gain.setValueAtTime(0.06, t + dur - 0.05);
+  g.gain.linearRampToValueAtTime(0.0001, t + dur);
+  const f = ctx.createBiquadFilter();
+  f.type = 'lowpass';
+  f.frequency.value = 700;
+  lfo.connect(lg).connect(g.gain);
+  o.connect(f).connect(g).connect(sfx);
+  o.start(t); lfo.start(t);
+  o.stop(t + dur + 0.02); lfo.stop(t + dur + 0.02);
+}
+
 // bip do detector de radar: curto e grave o bastante para não irritar (triangular, baixo volume)
 export function radarBeep(freq: number) {
   if (!ctx) return;

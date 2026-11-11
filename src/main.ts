@@ -1,3 +1,4 @@
+import { carSwapWatch } from './carswap';
 import { newFrame } from './svgsprites';
 import { VOLS, prefs, savePrefs } from './prefs';
 import { clearArcade, loadArcade, saveArcade } from './arcadesave';
@@ -648,6 +649,7 @@ let frameErr = false;
 let lastLow = false, lastRes = false;
 const gearEl = document.getElementById('gearNum')!;
 function frameInner(now: number) {
+  carSwapWatch(state.t);
   newFrame(); // orçamento de sprites novos por quadro
   const dt = Math.max(0, Math.min(0.25, (now - last) / 1000)); // o primeiro quadro pode vir antes de `last`
   last = now;

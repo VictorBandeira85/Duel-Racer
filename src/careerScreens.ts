@@ -1,3 +1,4 @@
+import { carSwap } from './carswap';
 import { touch } from './input';
 import { drawShowroom, keyShowroom, openShowroom, tapShowroom } from './showroom';
 // Telas do modo Carreira: central (regiões e eventos), evento, garagem, concessionária e resultado.
@@ -246,7 +247,12 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   // classe com as melhorias instaladas (as melhorias podem subir o carro de classe)
   classBadge(c, x + 150, 32, tuned, true, 9);
   const ph: Rect = { x: x + 4, y: 46, w: 198, h: 74 };
-  photo(c, ph, () => drawCarSide(c, ph.x + 8, ph.y + 68, 182, tuned, paintHex(car.id)), ['#4a4238', '#a89a86']);
+  photo(c, ph, () => {
+    // troca de carro animada: o que está sai acelerando e o outro chega (cada um com o seu ronco)
+    const sw = carSwap('garage', car, s.t);
+    const shown = sw.car.id === car.id ? tuned : tunedFor(sw.car, levels(cs, sw.car.id), setupOf(cs, sw.car.id));
+    drawCarSide(c, ph.x + 8 + sw.dx * ph.w, ph.y + 68, 182, shown, paintHex(sw.car.id), sw.roll ? (sw.roll * ph.w) / (0.058 * 182) : undefined);
+  }, ['#4a4238', '#a89a86']);
   const b = garageButtons();
   if (cars.length > 1) {
     arrow(c, b.prev, 'left');

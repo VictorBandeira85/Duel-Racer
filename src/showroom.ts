@@ -1,6 +1,7 @@
 // Showroom: os carros à venda como página de classificados da revista. Filtros por classe,
 // marca e potência; cada anúncio abre o anúncio completo (foto, ficha, gráfico e preço) com
 // o botão de compra. A compra vai para a garagem da carreira (o saldo é o da carreira).
+import { carSwap } from './carswap';
 import { SAFE_W, KMH } from './config';
 import { DEALER_CARS, drawCarSide, perfClass, type CarSpec } from './cars';
 import { classBadge, drawFilter, filterAt, filterRects, nextFilter, type ClassFilter } from './classui';
@@ -168,7 +169,10 @@ function drawDetail(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   classBadge(c, x + 150, 31, car, true, 9);
   stars(c, x + 150, 44, carStars(car), 5);
   const ph: Rect = { x: x + 4, y: 56, w: 198, h: 70 };
-  photo(c, ph, () => drawCarSide(c, ph.x + 8, ph.y + 64, 182, car, paintHex(car.id)));
+  photo(c, ph, () => {
+    const sw = carSwap('showroom', car, s.t); // o carro chega rodando (e sai acelerando ao trocar)
+    drawCarSide(c, ph.x + 8 + sw.dx * ph.w, ph.y + 64, 182, sw.car, paintHex(sw.car.id), sw.roll ? (sw.roll * ph.w) / (0.058 * 182) : undefined);
+  });
   const fr: Rect = { x: x + 208, y: 50, w: 108, h: 80 };
   box(c, fr, 'FICHA');
   specRows(c, fr, carRows(car).filter(([k]) => k !== 'Preço'), 9.4);

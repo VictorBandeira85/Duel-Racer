@@ -1,3 +1,4 @@
+import { carSwap } from './carswap';
 import { ACTIONS, binding, binds, keyName, resetBinds } from './input';
 import { drawPerson } from './people';
 import { VOLS, prefs, savePrefs } from './prefs';
@@ -649,7 +650,10 @@ function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
   ink(c, `${ids.indexOf(s.carIdx) + 1} de ${ids.length}`, x + SAFE_W - 4, 54, 5, GREY, 'right');
   // foto de estúdio
   const ph: Rect = { x: x + 4, y: 70, w: 204, h: 82 };
-  photo(c, ph, () => drawCarSide(c, x + 14, ph.y + 74, 184, car, paintHex(car.id)));
+  photo(c, ph, () => {
+    const sw = carSwap('select', car, s.t); // troca animada: sai acelerando, o outro chega
+    drawCarSide(c, x + 14 + sw.dx * ph.w, ph.y + 74, 184, sw.car, paintHex(sw.car.id), sw.roll ? (sw.roll * ph.w) / (0.058 * 184) : undefined);
+  });
   arrow(c, b.prev, 'left');
   arrow(c, b.next, 'right');
   // cores

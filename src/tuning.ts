@@ -206,6 +206,9 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     engine: forced === 'turbo' ? `${car.engine} turbo` : forced === 'super' ? `${car.engine} compressor` : car.engine,
     rideDrop: drop || undefined,
     forced, boostMax: forced ? boost : undefined,
+    // relógios auxiliares: pressão do turbo/compressor, de óleo (pistões e bielas) e de combustível (alimentação)
+    pods: [...(forced ? ['boost' as const] : []), ...(build.pistoes ? ['oil' as const] : []), ...(build.alimentacao ? ['fuel' as const] : [])],
+    carb: isCarb(car),
     wheelArt: wheel,
     soundMods: snd,
   };

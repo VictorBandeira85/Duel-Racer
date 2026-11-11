@@ -55,7 +55,7 @@ interface CockpitArt {
   wheelTop?: number; // linhas do PNG do volante acima do topo da arte (aro inteiro sobre o para-brisa)
   /** manômetro auxiliar (turbo/supercharger da preparação), num copo sobre o painel: centro e raio na
    * arte; `face` e `bezel` variam de carro para carro (estilo dos relógios de 52 mm de época) */
-  pod?: { x: number; y: number; r: number; face: 'black' | 'silver' | 'white'; bezel: 'black' | 'chrome'; needle?: string; lit?: 'white' | 'green' | 'blue' | 'yellow' /* cor da iluminação noturna */ };
+  pod?: { x: number; y: number; r: number; dx?: number; dy?: number; /* passo até o relógio seguinte (padrão: lado a lado) */ face: 'black' | 'silver' | 'white'; bezel: 'black' | 'chrome'; needle?: string; lit?: 'white' | 'green' | 'blue' | 'yellow' /* cor da iluminação noturna */ };
   wheelDy?: number; // desce o volante (posição do banco: o aro não tapa a estrada)
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
   tach?: Dial;
@@ -1109,7 +1109,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     const t = art.tells ?? defaultTells(art);
     if (t) turnTells(c, ox + t[0], ART_TOP + t[1], r.signal);
   }
-  if (art.pod && r.car.forced) boostPod(c, r, dt, ox, art.pod, dk);
+  if (art.pod && r.car.pods?.length) auxPods(c, r, dt, ox, art.pod, dk);
   const wdx = art.wheelDx ?? 0;
   const wdy = art.wheelDy ?? 0;
   const px = ox + wdx + art.pivot[0], py = ART_TOP + art.pivot[1] + wdy;
@@ -1124,8 +1124,17 @@ const POD_PX = 14; // pixels do fundo por unidade da arte
 const podFaces = new Map<string, HTMLCanvasElement>();
 const POD_LIT = { white: ['#f4f6ff', '#1b1c22'], green: ['#6dffa0', '#0c1a12'], blue: ['#7fc0ff', '#0b1220'], yellow: ['#ffd84a', '#1c1708'] } as const;
 // `lit`: versão acesa (noite): fundo escuro com um leve tom da luz e a escala/números na cor da iluminação
-function podFace(pod: NonNullable<CockpitArt['pod']>, sup: boolean, lit = false): HTMLCanvasElement {
-  const key = `${pod.face}|${pod.bezel}|${pod.r}|${sup}|${lit ? pod.lit ?? 'white' : ''}`;
+// escalas dos relógios auxiliares: pressão do turbo, do compressor, de óleo e de combustível (injeção e carburador)
+type PodKind = 'turbo' | 'super' | 'oil' | 'fuel' | 'fuelcarb';
+const POD_SCALE: Record<PodKind, { max: number; big: number; mid: number; small: number; halves: boolean; label: string }> = {
+  turbo: { max: 3, big: 1, mid: 0.5, small: 0.1, halves: true, label: 'TURBO' },
+  super: { max: 1.5, big: 0.5, mid: 0.25, small: 0.05, halves: true, label: 'BLOWER' },
+  oil: { max: 7, big: 1, mid: 0.5, small: 0.5, halves: false, label: 'OIL' },
+  fuel: { max: 7, big: 1, mid: 0.5, small: 0.5, halves: false, label: 'FUEL' },
+  fuelcarb: { max: 1, big: 0.2, mid: 0.1, small: 0.05, halves: false, label: 'FUEL' },
+};
+function podFace(pod: NonNullable<CockpitArt['pod']>, kind: PodKind, lit = false): HTMLCanvasElement {
+  const key = `${pod.face}|${pod.bezel}|${pod.r}|${kind}|${lit ? pod.lit ?? 'white' : ''}`;
   const glow = POD_LIT[pod.lit ?? 'white'];
   let cv = podFaces.get(key);
   if (cv) return cv;
@@ -1147,7 +1156,7 @@ function podFace(pod: NonNullable<CockpitArt['pod']>, sup: boolean, lit = false)
   disc(R * 0.86, lit ? glow[1] : pod.face === 'black' ? '#121213' : pod.face === 'silver' ? '#b9bbbd' : '#eeece6');
   if (lit) { g.shadowColor = glow[0]; g.shadowBlur = R * 0.06; }
   // escala
-  const max = sup ? 1.5 : 3, big = sup ? 0.5 : 1, mid = big / 2, small = mid / 5;
+  const { max, big, mid, small, halves, label } = POD_SCALE[kind];
   const ang = (v: number) => Math.PI * 0.75 + (v / max) * Math.PI * 1.5;
   g.strokeStyle = ink; g.lineCap = 'butt';
   for (let i = 0; i <= Math.round(max / small); i++) {
@@ -1158,27 +1167,42 @@ function podFace(pod: NonNullable<CockpitArt['pod']>, sup: boolean, lit = false)
     g.beginPath(); g.moveTo(m + Math.cos(a) * r0, m + Math.sin(a) * r0); g.lineTo(m + Math.cos(a) * R * 0.82, m + Math.sin(a) * R * 0.82); g.stroke();
   }
   g.fillStyle = ink; g.textAlign = 'center'; g.textBaseline = 'middle';
-  for (let v = sup ? 0 : mid; v <= max + 1e-6; v += mid) {
+  const step = halves ? mid : big, fs = max / big > 4 ? 0.2 : 0.25; // muitos números: algarismos menores
+  for (let v = step; v <= max + 1e-6; v += step) {
     const isBig = Math.abs(v / big - Math.round(v / big)) < 1e-6, a = ang(v);
-    g.font = `900 ${R * (isBig ? 0.25 : 0.15)}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
+    g.font = `900 ${R * (isBig ? fs : 0.15)}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
     const rr = R * (isBig ? 0.46 : 0.52);
-    g.fillText(String(v).replace('.', ','), m + Math.cos(a) * rr, m + Math.sin(a) * rr);
+    g.fillText(String(Math.round(v * 100) / 100).replace('.', ','), m + Math.cos(a) * rr, m + Math.sin(a) * rr);
   }
   g.font = `italic 900 ${R * 0.135}px "Arial Black", Arial, sans-serif`;
-  g.fillText(sup ? 'BLOWER' : 'TURBO', m - R * 0.04, m + R * 0.4);
+  g.fillText(label, m - R * 0.04, m + R * 0.4);
   g.font = `700 ${R * 0.1}px Arial, sans-serif`;
   g.fillText('PRESS', m, m + R * 0.55);
   g.fillText('kgf/cm²', m, m + R * 0.66);
   podFaces.set(key, cv);
   return cv;
 }
-let podVal = 0;
-function boostPod(c: CanvasRenderingContext2D, r: Race, dt: number, ox: number, pod: NonNullable<CockpitArt['pod']>, dk: number) {
-  const sup = r.car.forced === 'super';
-  // turbo: a pressão do motor (enche com atraso, cai ao aliviar); compressor: acompanha o giro na hora
-  const want = (r.car.boostMax ?? 0.8) * (sup ? (r.throttle ? 0.25 + 0.75 * Math.min(1, r.rpm) : 0.04) : r.throttle ? Math.max(0, Math.min(1, r.pt.boost)) ** 1.5 : 0);
-  podVal += (want - podVal) * Math.min(1, dt * (sup ? 14 : 9));
-  const x = ox + pod.x, y = ART_TOP + pod.y, R = pod.r, RY = R * PIX_Y;
+const podVals: Record<string, number> = {};
+/** relógios auxiliares da preparação, lado a lado a partir de `pod`: pressão do turbo/compressor,
+ * de óleo (pistões e bielas preparados) e de combustível (alimentação preparada) */
+function auxPods(c: CanvasRenderingContext2D, r: Race, dt: number, ox: number, pod: NonNullable<CockpitArt['pod']>, dk: number) {
+  const car = r.car, rpm = Math.min(1, r.rpm);
+  const boostNow = car.forced === 'super' ? (r.throttle ? 0.25 + 0.75 * rpm : 0.04) : car.forced ? (r.throttle ? Math.max(0, Math.min(1, r.pt.boost)) ** 1.5 : 0) : 0;
+  const bar = (car.boostMax ?? 0.8) * boostNow;
+  let i = 0;
+  for (const kind of car.pods ?? []) {
+    const k: PodKind = kind === 'boost' ? (car.forced === 'super' ? 'super' : 'turbo') : kind === 'fuel' && car.carb ? 'fuelcarb' : kind;
+    // turbo: enche com atraso e cai ao aliviar; compressor: acompanha o giro. Óleo: sobe com o giro
+    // (1,5 na lenta, 5 em alta). Combustível: 3 kgf/cm² na injeção, somando a pressão do turbo; 0,3 no carburador
+    const want = kind === 'boost' ? bar : kind === 'oil' ? (r.state === 'drive' || rpm > 0.05 ? 1.5 + 3.6 * rpm ** 0.7 : 0) : k === 'fuelcarb' ? 0.3 + (r.throttle ? -0.03 : 0.02) : 3 + bar + (r.throttle ? -0.12 : 0.08);
+    const key = kind, rate = kind === 'boost' ? (car.forced === 'super' ? 14 : 9) : 6;
+    podVals[key] = (podVals[key] ?? 0) + (want - (podVals[key] ?? 0)) * Math.min(1, dt * rate);
+    podDraw(c, ox + pod.x + (pod.dx ?? pod.r * 2.25) * i, ART_TOP + pod.y + (pod.dy ?? 0) * i, pod, k, podVals[key], dk);
+    i++;
+  }
+}
+function podDraw(c: CanvasRenderingContext2D, x: number, y: number, pod: NonNullable<CockpitArt['pod']>, kind: PodKind, val: number, dk: number) {
+  const R = pod.r, RY = R * PIX_Y;
   // copo: corpo preto atrás (em perspectiva, para trás e para cima) e o pé
   c.fillStyle = '#060607';
   c.beginPath(); c.ellipse(x + R * 0.28, y - RY * 0.2, R * 1.0, RY * 1.0, 0, 0, Math.PI * 2); c.fill();
@@ -1187,17 +1211,17 @@ function boostPod(c: CanvasRenderingContext2D, r: Race, dt: number, ox: number, 
   c.fillRect(x - R * 0.45, y + RY * 0.85, R * 1.2, RY * 0.4);
   const sm = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = true;
-  const face = podFace(pod, sup), fw = (face.width / POD_PX);
+  const face = podFace(pod, kind), fw = (face.width / POD_PX);
   c.drawImage(nightImg(face, dk), x - fw / 2, y - (fw * PIX_Y) / 2, fw, fw * PIX_Y);
   const on = Math.min(1, dk / 0.3); // iluminação do mostrador: acende com os faróis (noite e túnel)
   if (on > 0.02) {
     c.globalAlpha = on;
-    c.drawImage(podFace(pod, sup, true), x - fw / 2, y - (fw * PIX_Y) / 2, fw, fw * PIX_Y);
+    c.drawImage(podFace(pod, kind, true), x - fw / 2, y - (fw * PIX_Y) / 2, fw, fw * PIX_Y);
     c.globalAlpha = 1;
   }
   c.imageSmoothingEnabled = sm;
-  const max = sup ? 1.5 : 3;
-  const a = Math.PI * 0.75 + (Math.min(max, podVal) / max) * Math.PI * 1.5;
+  const max = POD_SCALE[kind].max;
+  const a = Math.PI * 0.75 + (Math.max(0, Math.min(max, val)) / max) * Math.PI * 1.5;
   const col = pod.needle ?? '#e8231c'; // ponteiro iluminado: mesma cor de noite
   const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y, nx = -Math.sin(a), ny = Math.cos(a) * PIX_Y, w = R * 0.07;
   c.fillStyle = col;

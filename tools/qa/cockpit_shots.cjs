@@ -20,7 +20,7 @@ const only = process.argv.slice(3);
       for (const [t, steer] of (process.env.DAYONLY ? [['day', 0]] : [['day', 0], ['night', 0], ['day', -1]])) {
         await p.evaluate(([id, t]) => { const a = window.app; const ci = a.cars.findIndex((c) => c.id === id); Object.assign(a.state, { carIdx: ci, oppIdx: ci ? 0 : 1, courseIdx: 0, arcadeTime: t, results: [] }); a.actions.startCourse(); }, [id, t]);
         await p.waitForTimeout(5200);
-        await p.evaluate((s) => { const r = window.app.race; r.state = 'drive'; if (window.__forced) { r.car.forced = window.__forced; r.car.boostMax = window.__forced === 'super' ? 0.85 : 1.2; } r.rival.z = r.playerZ + 6 * 200; r.rival.x = r.x; window.input.gas = true; window.input.left = s < 0; }, steer);
+        await p.evaluate((s) => { const r = window.app.race; r.state = 'drive'; if (window.__forced) { r.car.forced = window.__forced; r.car.boostMax = window.__forced === 'super' ? 0.85 : 1.2; r.car.pods = ['boost', 'oil', 'fuel']; } r.rival.z = r.playerZ + 6 * 200; r.rival.x = r.x; window.input.gas = true; window.input.left = s < 0; }, steer);
         await p.waitForTimeout(1300);
         await p.screenshot({ path: `${out}/${id}_${vw}_${t}${steer ? '_turn' : ''}.png` });
         await p.evaluate(() => { window.input.gas = false; window.input.left = false; });

@@ -208,7 +208,7 @@ const DIA_SMALL: [number, number, Gauge][] = [[72.4, 49.5, 'oil'], [61.4, 67.5, 
 COCKPIT_ART.diablo = {
   glass: { at: [36, 93], thr: 256 }, tells: [130, 30], // retrovisor esquerdo desenhado em diablo_cockpit.py (side_mirror)
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'), dashMask: cp('diablo-dash-mask'), topMask: cp('diablo-top-mask'),
-  pivot: [128, 112], wheelTop: 8, pod: { x: -17, y: -55, r: 9, dx: 5.1, dy: 22.8, face: 'black', bezel: 'chrome', lit: 'white' }, radar: [196, 6], tachReal: true, speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 5, needleTailCol: '#141416', needleFine: true, needleTip: 0.32, hub: '#151517', hubR: 3.4,
+  pivot: [128, 112], wheelTop: 8, pod: { x: -7, y: -55, r: 9, dx: 5.1, dy: 22.8, face: 'black', bezel: 'chrome', lit: 'white' }, radar: [196, 6], tachReal: true, speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 5, needleTailCol: '#141416', needleFine: true, needleTip: 0.32, hub: '#151517', hubR: 3.4,
   faces: [{ src: cp('diablo-cluster'), x: 26.5, y: 12.5, w: 188, h: 70 }],
   // à noite os fundos brancos acendem (luz por trás) e os ponteiros laranja também
   facesLit: '255,240,215', litNeedles: true, glow: '255,230,190', glowK: 0.3,
@@ -292,7 +292,7 @@ COCKPIT_ART['br-monza'] = {
   tells: null,
   dash: cp('br-monza-dash'), top: cp('br-monza-top'), wheel: cp('br-monza-wheel'), dashMask: cp('br-monza-dash-mask'), topMask: cp('br-monza-top-mask'),
   glass: { at: [56, 108], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, pod: { x: -6, y: -50, r: 9, dx: 9.3, dy: 22.8, face: 'silver', bezel: 'chrome', lit: 'white' }, radar: [222, 12], speedMax: 220, needle: '#f47c2c', needleW: 1.9, needleTail: 3.0, needleFine: true, needleTip: 0.35, hubUnder: true, tachReal: true, speedRest: 14, hub: '#2c2c2f', hubR: 3.4,
+  pivot: [128, 112], wheelTop: 8, pod: { x: 7, y: -43, r: 9, dx: 9.3, dy: 22.8, face: 'silver', bezel: 'chrome', lit: 'white' }, radar: [222, 12], speedMax: 220, needle: '#f47c2c', needleW: 1.9, needleTail: 3.0, needleFine: true, needleTip: 0.35, hubUnder: true, tachReal: true, speedRest: 14, hub: '#2c2c2f', hubR: 3.4,
   faces: [{ src: cp('br-monza-cluster'), x: 64.5, y: 37.5, w: 153, h: 54 }],
   glow: '255,120,40', glowK: 0.6,
   facesLit: '255,190,130', litMin: 150, litByMax: true, litNeedles: true,
@@ -319,7 +319,7 @@ COCKPIT_ART['br-monzasedan'] = {
   tells: null,
   dash: cp('br-monzasedan-dash'), top: cp('br-monzasedan-top'), wheel: cp('br-monzasedan-wheel'),
   glass: { at: [52, 111], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, pod: { x: -35, y: -51, r: 9, dx: 13.2, dy: 22.8, face: 'silver', bezel: 'chrome', lit: 'yellow' }, radar: [222, 16], speedMax: 220, needle: '#f0a024', needleW: 1.7, needleTail: 2.6, needleFine: true, needleTip: 0.35, hubUnder: true, tachReal: true, speedRest: 14, hub: '#2c2c2f', hubR: 3.0,
+  pivot: [128, 112], wheelTop: 8, pod: { x: -23, y: -51, r: 9, dx: 13.2, dy: 22.8, face: 'silver', bezel: 'chrome', lit: 'yellow' }, radar: [222, 16], speedMax: 220, needle: '#f0a024', needleW: 1.7, needleTail: 2.6, needleFine: true, needleTip: 0.35, hubUnder: true, tachReal: true, speedRest: 14, hub: '#2c2c2f', hubR: 3.0,
   faces: [{ src: cp('br-monzasedan-cluster'), x: 66.71, y: 42.57, w: 132.3, h: 49.98 }],
   glow: '255,150,60', glowK: 0.5,
   facesLit: '255,220,170', litMin: 150, litByMax: true, litNeedles: true,

@@ -2,7 +2,9 @@
 de cada quadro (o que não é preto dentro do quadro), recorta em círculo e grava 64 x 64 com alfa em
 src/assets/wheels/rNN.png. As muito parecidas entre si foram descartadas (fica uma de cada desenho):
 KEEP lista as que entram, por linha e coluna (1..5, 1..8). O catálogo está em src/tuning.ts (WHEELS).
-Uso: python3 tools/ref/wheels_sheet.py <folha.png> <src/assets/wheels>   (DBG=<pasta> grava a conferência)
+Segunda folha (rodas clássicas, com "classicas" no fim): mesmas regras, arquivos cNN.png; os emblemas
+de marcas reais no miolo viram uma calota cromada lisa (CAPS: raio da calota em fração da roda).
+Uso: python3 tools/ref/wheels_sheet.py <folha.png> <src/assets/wheels> [classicas]   (DBG=<pasta> grava a conferência)
 """
 import os
 import sys
@@ -26,12 +28,42 @@ KEEP = [
 ]
 
 
+# folha das clássicas. Descartadas: 2-5, 2-6 e 3-8 (5 raios como a 2-3); 4-1 e 4-2 (calota de aletas como
+# a 2-1); 4-5 (furos como a 2-8); 4-6 e 5-8 (tela como a 3-3); 4-7 (como a 3-2); 5-2 (como a 1-1); 5-4
+# (como a 1-4); 5-7 (como a 3-5); e 2-4, 5-3 e 3-7 (tela dourada e dourada de 5 raios já vêm da 1ª folha)
+KEEP2 = [
+    (1, 1, 'Calota cromada'), (1, 2, 'Aço vermelha'), (1, 3, 'Três pontas'), (1, 4, 'Pétalas'), (1, 5, 'Raiada de arame'),
+    (1, 6, 'Aço de rali'), (1, 7, 'Aço furada'), (1, 8, 'Cinco raios preta'),
+    (2, 1, 'Calota de aletas'), (2, 2, 'Calota lisa'), (2, 3, 'Cinco raios clássica'), (2, 7, 'Oito raios de corrida'), (2, 8, 'Oito furos'),
+    (3, 1, 'Grafite rebitada'), (3, 2, 'SS'), (3, 3, 'Tela prata'), (3, 4, 'Quatro raios aro vermelho'), (3, 5, 'Alumínio rebitada'),
+    (3, 6, 'Calota de rasgos'), (4, 3, 'Cruz'), (4, 4, 'Quatro raios'), (4, 8, 'Calota aero'),
+    (5, 1, 'Estrela cromada'), (5, 5, 'Furada aro vermelho'), (5, 6, 'Cinco raios larga'),
+]
+CAPS = {(1, 6): 0.3, (2, 2): 0.33, (2, 3): 0.2, (3, 6): 0.24, (5, 6): 0.24, (4, 4): 0.19, (4, 8): 0.13, (5, 1): 0.1, (5, 5): 0.1, (3, 1): 0.1}
+GRID = (47, 181.6, 42, 187)
+
+
+def cap(t, f):
+    """calota cromada lisa no miolo (no lugar de emblema de marca real)"""
+    S = t.size[0] * 4
+    lay = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(lay)
+    R = f * S / 2
+    for i in range(int(R), 0, -1):
+        k = i / R
+        d.ellipse([S / 2 - i - R * 0.25 * (1 - k), S / 2 - i - R * 0.3 * (1 - k), S / 2 + i - R * 0.25 * (1 - k), S / 2 + i - R * 0.3 * (1 - k)],
+                  fill=(int(128 + 112 * (1 - k)), int(130 + 112 * (1 - k)), int(138 + 108 * (1 - k)), 255))
+    d.ellipse([S / 2 - R, S / 2 - R, S / 2 + R, S / 2 + R], outline=(52, 52, 58, 255), width=max(2, int(S * 0.012)))
+    t.alpha_composite(lay.resize(t.size, Image.LANCZOS))
+
+
 def find(a, r, c):
     H, W = a.shape[:2]
     # quadros medidos na folha de 1536 x 1024: o primeiro começa em (47, 42), passo 181,6 x 187
     k = W / 1536
-    x0, x1 = int((47 + c * 181.6 + 9) * k), int((47 + c * 181.6 + 169) * k)
-    y0, y1 = int((42 + r * 187 + 9) * k), int((42 + r * 187 + 171) * k)
+    gx, px, gy, py = GRID
+    x0, x1 = int((gx + c * px + 9) * k), int((gx + c * px + 169) * k)
+    y0, y1 = int((gy + r * py + 9) * k), int((gy + r * py + 171) * k)
     cell = a[y0:y1, x0:x1].astype(int)
     lum = cell.mean(axis=2)
     purple = (cell[..., 2] > cell[..., 1] + 30) & (cell[..., 0] > cell[..., 1] + 10) & (cell[..., 2] > cell[..., 0])  # moldura
@@ -43,22 +75,31 @@ def find(a, r, c):
 
 
 def main():
+    global GRID
     src, out = sys.argv[1], sys.argv[2]
+    classic = len(sys.argv) > 3 and sys.argv[3] == 'classicas'
+    keep, pre = (KEEP2, 'c') if classic else (KEEP, 'r')
+    if classic:
+        GRID = (27, 185.6, 42, 187.5)
     im = Image.open(src).convert('RGB')
     a = np.array(im)
     tiles = []
-    for n, (r, c, name) in enumerate(KEEP, 1):
+    for n, (r, c, name) in enumerate(keep, 1):
         cx, cy, R = find(a, r - 1, c - 1)
         t = im.crop((int(round(cx - R)), int(round(cy - R)), int(round(cx + R)), int(round(cy + R)))).resize((SIZE, SIZE), Image.LANCZOS).convert('RGBA')
         m = Image.new('L', (SIZE * 4, SIZE * 4), 0)
         ImageDraw.Draw(m).ellipse([2, 2, SIZE * 4 - 3, SIZE * 4 - 3], fill=255)
         al = np.array(m.resize((SIZE, SIZE), Image.LANCZOS))
         t.putalpha(Image.fromarray(np.where(al > 127, 255, 0).astype(np.uint8)))
-        t.save(os.path.join(out, f'r{n:02d}.png'), optimize=True)
+        if classic and (r, c) in CAPS:
+            al2 = t.getchannel('A')
+            cap(t, CAPS[(r, c)])
+            t.putalpha(al2)
+        t.save(os.path.join(out, f'{pre}{n:02d}.png'), optimize=True)
         tiles.append((n, name, t))
     print(len(tiles), 'rodas')
     for n, name, _ in tiles:
-        print(f"  {{ id: 'r{n:02d}', name: '{name}' }},")
+        print(f"  ['{pre}{n:02d}', '{name}'],")
     if os.environ.get('DBG'):
         s = Image.new('RGB', (9 * 132, 3 * 150), (0, 150, 0))
         d = ImageDraw.Draw(s)
@@ -67,7 +108,7 @@ def main():
             bg.alpha_composite(t)
             s.paste(bg.convert('RGB').resize((128, 128), Image.NEAREST), ((i % 9) * 132, (i // 9) * 150))
             d.text(((i % 9) * 132 + 2, (i // 9) * 150 + 130), f'{n:02d} {name}', fill=(255, 255, 255))
-        s.save(os.path.join(os.environ['DBG'], 'rodas.png'))
+        s.save(os.path.join(os.environ['DBG'], f'rodas-{pre}.png'))
 
 
 if __name__ == '__main__':

@@ -55,6 +55,32 @@ export const WHEEL_LIST: [string, string][] = [
   ['r25', 'Cinco furos'],
   ['r26', 'Raios curvos'],
   ['r27', 'Preta aro azul'],
+  // clássicas (segunda folha): calotas, aço, raiadas e ligas de época
+  ['c01', 'Calota cromada'],
+  ['c02', 'Aço vermelha'],
+  ['c03', 'Três pontas'],
+  ['c04', 'Pétalas'],
+  ['c05', 'Raiada de arame'],
+  ['c06', 'Aço de rali'],
+  ['c07', 'Aço furada'],
+  ['c08', 'Cinco raios preta'],
+  ['c09', 'Calota de aletas'],
+  ['c10', 'Calota lisa'],
+  ['c11', 'Cinco raios clássica'],
+  ['c12', 'Oito raios de corrida'],
+  ['c13', 'Oito furos'],
+  ['c14', 'Grafite rebitada'],
+  ['c15', 'SS'],
+  ['c16', 'Tela prata'],
+  ['c17', 'Quatro raios aro vermelho'],
+  ['c18', 'Alumínio rebitada'],
+  ['c19', 'Calota de rasgos'],
+  ['c20', 'Cruz'],
+  ['c21', 'Quatro raios'],
+  ['c22', 'Calota aero'],
+  ['c23', 'Estrela cromada'],
+  ['c24', 'Furada aro vermelho'],
+  ['c25', 'Cinco raios larga'],
 ];
 
 const ORIGINAL = (name = 'Original'): Part => ({ id: '', name, note: 'de fábrica', cost: 0 });
@@ -89,7 +115,7 @@ export function slotsFor(car: CarSpec): Slot[] {
     { id: 'suspensao', name: 'Suspensão', parts: [ORIGINAL(),
       { id: 'esportiva', name: 'Esportiva', note: '-20% altura', cost: 0.04, drop: 0.2, grip: 1.04, handling: 1.05 },
       { id: 'corrida', name: 'De corrida', note: '-35% altura', cost: 0.08, drop: 0.35, grip: 1.07, handling: 1.09 }] },
-    { id: 'rodas', name: 'Rodas', parts: [ORIGINAL('Originais'), ...WHEEL_LIST.map(([id, name]): Part => ({ id, name, note: 'liga leve', cost: 0.03, wheel: id }))] },
+    { id: 'rodas', name: 'Rodas', parts: [ORIGINAL('Originais'), ...WHEEL_LIST.map(([id, name]): Part => ({ id, name, note: id[0] === 'c' ? 'clássica' : 'liga leve', cost: 0.03, wheel: id }))] },
   ];
 }
 

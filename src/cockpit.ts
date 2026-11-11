@@ -55,7 +55,7 @@ interface CockpitArt {
   wheelTop?: number; // linhas do PNG do volante acima do topo da arte (aro inteiro sobre o para-brisa)
   /** manômetro auxiliar (turbo/supercharger da preparação), num copo sobre o painel: centro e raio na
    * arte; `face` e `bezel` variam de carro para carro (estilo dos relógios de 52 mm de época) */
-  pod?: { x: number; y: number; r: number; face: 'black' | 'silver' | 'white'; bezel: 'black' | 'chrome'; needle?: string };
+  pod?: { x: number; y: number; r: number; face: 'black' | 'silver' | 'white'; bezel: 'black' | 'chrome'; needle?: string; lit?: 'white' | 'green' | 'blue' /* cor da iluminação noturna */ };
   wheelDy?: number; // desce o volante (posição do banco: o aro não tapa a estrada)
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
   tach?: Dial;
@@ -257,7 +257,7 @@ COCKPIT_ART['br-golgti'] = {
   tells: null,
   dash: cp('br-golgti-dash'), top: cp('br-golgti-top'), wheel: cp('br-golgti-wheel'), dashMask: cp('br-golgti-dash-mask'), topMask: cp('br-golgti-top-mask'),
   glass: { at: [86, 110], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte)
-  pivot: [128, 112], wheelTop: 8, wheelDy: 8, pod: { x: 253, y: 12.5, r: 12, face: 'black', bezel: 'black' }, radar: [206, 20], speedMax: 240, needle: '#f2eee2', needleW: 1.8, needleTail: 2.6, needleFine: true, needleTip: 0.3, hubUnder: true, tachReal: true, speedRest: 14, hub: '#3c3c3f', hubR: 2.8,
+  pivot: [128, 112], wheelTop: 8, wheelDy: 8, pod: { x: 253, y: 38, r: 12, face: 'black', bezel: 'black', lit: 'green' }, radar: [206, 20], speedMax: 240, needle: '#f2eee2', needleW: 1.8, needleTail: 2.6, needleFine: true, needleTip: 0.3, hubUnder: true, tachReal: true, speedRest: 14, hub: '#3c3c3f', hubR: 2.8,
   faces: [{ src: cp('br-golgti-cluster'), x: 69.5, y: 31.5, w: 118, h: 47 }],
   glow: '255,120,40', glowK: 0.6,
   facesLit: '255,190,130', litMin: 150, litByMax: true, litNeedles: true, // à noite os números laranja e os textos brancos acendem
@@ -1122,8 +1122,11 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
 // 270 graus a partir das 7h30. O fundo é desenhado uma vez em alta resolução; o ponteiro, ao vivo.
 const POD_PX = 14; // pixels do fundo por unidade da arte
 const podFaces = new Map<string, HTMLCanvasElement>();
-function podFace(pod: NonNullable<CockpitArt['pod']>, sup: boolean): HTMLCanvasElement {
-  const key = `${pod.face}|${pod.bezel}|${pod.r}|${sup}`;
+const POD_LIT = { white: ['#f4f6ff', '#1b1c22'], green: ['#6dffa0', '#0c1a12'], blue: ['#7fc0ff', '#0b1220'] } as const;
+// `lit`: versão acesa (noite): fundo escuro com um leve tom da luz e a escala/números na cor da iluminação
+function podFace(pod: NonNullable<CockpitArt['pod']>, sup: boolean, lit = false): HTMLCanvasElement {
+  const key = `${pod.face}|${pod.bezel}|${pod.r}|${sup}|${lit ? pod.lit ?? 'white' : ''}`;
+  const glow = POD_LIT[pod.lit ?? 'white'];
   let cv = podFaces.get(key);
   if (cv) return cv;
   const R = pod.r * POD_PX, S = Math.ceil(R * 2 + 4);
@@ -1140,8 +1143,9 @@ function podFace(pod: NonNullable<CockpitArt['pod']>, sup: boolean): HTMLCanvasE
     disc(R, '#0a0a0b');
     g.strokeStyle = '#3a3a3e'; g.lineWidth = R * 0.05; g.beginPath(); g.arc(m, m, R * 0.95, Math.PI * 1.05, Math.PI * 1.75); g.stroke();
   }
-  const ink = pod.face === 'black' ? '#f2f0ea' : '#151517';
-  disc(R * 0.86, pod.face === 'black' ? '#121213' : pod.face === 'silver' ? '#b9bbbd' : '#eeece6');
+  const ink = lit ? glow[0] : pod.face === 'black' ? '#f2f0ea' : '#151517';
+  disc(R * 0.86, lit ? glow[1] : pod.face === 'black' ? '#121213' : pod.face === 'silver' ? '#b9bbbd' : '#eeece6');
+  if (lit) { g.shadowColor = glow[0]; g.shadowBlur = R * 0.06; }
   // escala
   const max = sup ? 1.5 : 3, big = sup ? 0.5 : 1, mid = big / 2, small = mid / 5;
   const ang = (v: number) => Math.PI * 0.75 + (v / max) * Math.PI * 1.5;
@@ -1184,11 +1188,17 @@ function boostPod(c: CanvasRenderingContext2D, r: Race, dt: number, ox: number, 
   const sm = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = true;
   const face = podFace(pod, sup), fw = (face.width / POD_PX);
-  c.drawImage(nightImg(face, dk * 0.75), x - fw / 2, y - (fw * PIX_Y) / 2, fw, fw * PIX_Y);
+  c.drawImage(nightImg(face, dk), x - fw / 2, y - (fw * PIX_Y) / 2, fw, fw * PIX_Y);
+  const on = Math.min(1, dk / 0.3); // iluminação do mostrador: acende com os faróis (noite e túnel)
+  if (on > 0.02) {
+    c.globalAlpha = on;
+    c.drawImage(podFace(pod, sup, true), x - fw / 2, y - (fw * PIX_Y) / 2, fw, fw * PIX_Y);
+    c.globalAlpha = 1;
+  }
   c.imageSmoothingEnabled = sm;
   const max = sup ? 1.5 : 3;
   const a = Math.PI * 0.75 + (Math.min(max, podVal) / max) * Math.PI * 1.5;
-  const col = shade(pod.needle ?? '#e8231c', -0.35 * Math.min(1, dk / 0.6));
+  const col = pod.needle ?? '#e8231c'; // ponteiro iluminado: mesma cor de noite
   const ca = Math.cos(a), sa = Math.sin(a) * PIX_Y, nx = -Math.sin(a), ny = Math.cos(a) * PIX_Y, w = R * 0.07;
   c.fillStyle = col;
   c.beginPath();

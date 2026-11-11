@@ -796,7 +796,7 @@ COCKPIT_ART.countach = {
 // velocímetro 0-280 grandes, água e pressão do óleo à esquerda, combustível e bateria à direita
 COCKPIT_ART.nsx = {
   dash: cp('nsx-dash'), top: cp('nsx-top'), wheel: cp('nsx-wheel'),
-  pivot: [128, 104], wheelTop: 14, tachReal: true, speedMax: 280, needle: '#f2361c', needleW: 1.8, needleTail: 3.0, needleTip: 0.5, hubUnder: true, hub: '#2c2c2f', radar: [30, 4],
+  pivot: [128, 104], wheelTop: 14, tachReal: true, speedMax: 280, needle: '#f2361c', needleW: 2.1, needleTail: 3.0, needleTip: 0.14, hubUnder: true, hub: '#2c2c2f', radar: [30, 4],
   // retrovisor externo à direita (mão inglesa): o espelho da arte é transparente e mostra a vista de trás
   glass: { at: [436, 71], thr: 256 },
   // o quadro inteiro é uma imagem em alta resolução desenhada a partir da foto (tools/ref/nx_gauges.py):

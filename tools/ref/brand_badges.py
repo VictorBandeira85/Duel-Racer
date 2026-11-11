@@ -29,8 +29,8 @@ ART_BRAND = {
 SPOTS = {
   'f40':        {'rear': (100, 51, 9, 6),  'front': (100, 71, 7, 4), 'side': [(100, 42, 7, 5)]},
   'testarossa': {'rear': (136, 78, 11, 8), 'front': (91, 59, 7, 4), 'side': [(81.5, 68.5, 5, 6.6), (283.5, 68.5, 5, 6.6)]},
-  'diablo':     {'rear': (139, 46, 9, 0),  'front': (99.5, 59.5, 9, 6), 'side': [(52, 53, 5, 4), (229, 53, 5, 4.5)]},
-  'patrolsv':   {'rear': (100, 46, 9, 0),  'front': (100, 76, 9, 0)},
+  'diablo':     {'rear': (298, 101, 18, 0), 'front': (110, 67, 9, 0), 'side': [(394, 85, 7, 0), (115, 86, 7, 0)]},  # diablosv_sprites.py
+  'patrolsv':   {},  # feita a partir dos sprites do Diablo já com emblema (patrolsv_sprites.py)
   'countach':   {'rear': (112, 70, 9, 0),  'front': (92, 69, 9, 5)},
   '959':        {'rear': (100, 70, 9, 0),  'front': (100, 64, 9, 0)},
   'zr1':        {'rear': (100, 46, 9, 0),  'front': (100, 52, 9, 0)},

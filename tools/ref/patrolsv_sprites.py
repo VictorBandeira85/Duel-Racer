@@ -33,40 +33,54 @@ def badge(a, bx, by):
         a[by + yy, bx + xx] = (240, 200, 40, 255)
 
 
+def big(fn, k):
+    """desenha com a função de 1 px numa tela pequena e amplia k vezes (letreiro, brasão e giroflex
+    acompanham o tamanho do sprite)"""
+    def draw(a, x, y, w, h, *args):
+        t = np.zeros((h, w, 4), np.uint8)
+        fn(t, *args)
+        t = np.kron(t, np.ones((k, k, 1), np.uint8))
+        sel = t[..., 3] > 0
+        reg = a[y:y + h * k, x:x + w * k]
+        reg[sel[:reg.shape[0], :reg.shape[1]]] = t[:reg.shape[0], :reg.shape[1]][sel[:reg.shape[0], :reg.shape[1]]]
+    return draw
+
+
 def main():
+    """medidas originais para lateral 300x77 e frente/traseira 200 de largura: escaladas pelo tamanho real"""
     assets = sys.argv[1]
     cars = os.path.join(assets, 'cars')
     s, m = load(cars, 'side')
-    # a lateral do Diablo olha para a esquerda; as medidas abaixo são da arte espelhada (frente à
-    # direita): espelha, pinta e volta, e só então desenha brasão, letreiro e giroflex
-    s, m = s[:, ::-1].copy(), m[:, ::-1].copy()
+    s, m = s[:, ::-1].copy(), m[:, ::-1].copy()  # medidas da lateral com a frente à direita
+    H, W = s.shape[:2]
+    fx, fy = W / 300, H / 77
+    k = max(1, int(round(fx)))
     door = np.zeros(m.shape, np.uint8)
-    cv2.fillPoly(door, [np.array(DOOR, np.int32)], 1)
+    cv2.fillPoly(door, [np.array([(x * fx, y * fy) for x, y in DOOR], np.int32)], 1)
     repaint(s, m & (door == 0), 10, 70)
     repaint(s, m & (door > 0), 170, 250)
     s = s[:, ::-1].copy()
-    W = s.shape[1]
-    badge(s, W - 152 - 7, 30)
-    text(s, 'POLICE', W - 30 - 23, 21, (236, 236, 236, 255))
-    s = pad_top(s, 5)
-    lightbar(s, W - 172, W - 140, 1, 'red', 'blue')
-    Image.fromarray(s, 'RGBA').save(os.path.join(cars, 'patrolsv-side.png'))
+    big(lambda t: badge(t, 0, 0), k)(s, W - int(152 * fx) - 7 * k, int(30 * fy), 7, 7)
+    big(lambda t: text(t, 'POLICE', 0, 0, (236, 236, 236, 255)), k)(s, W - int(30 * fx) - 23 * k, int(21 * fy), 23, 5)
+    s = pad_top(s, 5 * k)
+    big(lambda t: lightbar(t, 0, 32, 0, 'red', 'blue'), k)(s, W - int(172 * fx), k, 32, 5)
+    Image.fromarray(s, 'RGBA').save(os.path.join(cars, 'patrolsv-side.png'), optimize=True)
 
-    f, m = load(cars, 'front')
-    repaint(f, m, 10, 70)
-    text(f, 'POLICE', 88, 84, (236, 236, 236, 255))
-    f = pad_top(f, 2)
-    lightbar(f, 64, 136, 6, 'red', 'blue')
-    Image.fromarray(f, 'RGBA').save(os.path.join(cars, 'patrolsv-front.png'))
-
-    r, m = load(cars, 'rear')
-    repaint(r, m, 10, 70)
-    r = pad_top(r, 5)
-    lightbar(r, 64, 136, 1, 'blue', 'red')
-    Image.fromarray(r, 'RGBA').save(os.path.join(cars, 'patrolsv-rear.png'))
-    for v, a in (('front', f), ('rear', r)):
-        Image.fromarray(a, 'RGBA').save(os.path.join(assets, 'traffic', f'policesv-{v}.png'))
-    print('viatura', s.shape[1::-1], f.shape[1::-1], r.shape[1::-1])
+    out = {}
+    for v, lb in (('front', ('red', 'blue')), ('rear', ('blue', 'red'))):
+        a, m = load(cars, v)
+        H, W = a.shape[:2]
+        fx, fy = W / 200, H / 102.5
+        k = max(1, int(round(fx)))
+        repaint(a, m, 10, 70)
+        if v == 'front':
+            big(lambda t: text(t, 'POLICE', 0, 0, (236, 236, 236, 255)), k)(a, int(100 * fx) - 23 * k // 2, int(84 * fy), 23, 5)
+        a = pad_top(a, (2 if v == 'front' else 5) * k)
+        big(lambda t: lightbar(t, 0, 72, 0, *lb), k)(a, int(100 * fx) - 36 * k, (6 if v == 'front' else 1) * k, 72, 5)
+        out[v] = a
+        Image.fromarray(a, 'RGBA').save(os.path.join(cars, f'patrolsv-{v}.png'), optimize=True)
+        Image.fromarray(a, 'RGBA').save(os.path.join(assets, 'traffic', f'policesv-{v}.png'), optimize=True)
+    print('viatura', s.shape[1::-1], out['front'].shape[1::-1], out['rear'].shape[1::-1])
 
 
 if __name__ == '__main__':

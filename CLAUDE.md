@@ -6,7 +6,9 @@
 
 ## Escopo
 - **Só mexer nos carros que o Victor já mandou atualizados**: Toro V12 (Diablo) e a viatura SV,
-  Fúria TR, Fúria F4, Kaze NX, Serpe V10, Gaúcho GTI, Ímola S/R (hatch), Ímola Classic SE (sedã) e Ímola Classic Coupé.
+  Fúria TR, Fúria F4, Kaze NX, Serpe V10, Gaúcho GTI, Ímola S/R (hatch), Ímola Classic Coupé e Jornada LS
+  (Voyage LS 1986: voyage_sprites.py, voyage_cockpit.py, voyage_gauges.py, voyage_photos.py). O Ímola de
+  quatro portas saiu do jogo (a cabine do cupê continua nos arquivos br-monzasedan-*).
   Os demais (Toro LP5, 959, ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Passat, Pumas) ficam como estão
   até a arte nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
   O LP5 tem fotos de revista, mas o carro ainda não foi atualizado. Na dúvida, perguntar.
@@ -66,6 +68,9 @@
   formato vem da foto. **Olhar o centro do ponteiro na foto ampliada**: na Fúria TR a barra atravessa o
   eixo (rabicho comprido, sem miolo); no GTI e no Ímola há um disco chapado EMBAIXO e a barra passa por
   cima dele (`hubUnder`); só usar miolo em cima (bola com brilho) quando a foto mostrar uma capa.
+- Limpadores de para-brisa desenhados na arte SAEM (para-brisa limpo): os limpadores são do jogo, na chuva.
+- Quadro aceso à noite (Jornada LS): fundo verde-garrafa escuro e pouco saturado, números e marcações
+  claros por cima; nunca verde vivo chapado (apaga os algarismos). Conferir a leitura em tamanho de celular.
 - Luzes-espia nunca ficam acesas na arte: desenhar apagadas e acender no jogo na hora certa (óleo,
   freio de mão, pisca). Faixas de cor seguem a lógica do ponteiro (econômetro: verde onde ele fica com
   o pé leve).

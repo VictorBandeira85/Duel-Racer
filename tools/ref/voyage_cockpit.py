@@ -5,7 +5,8 @@ cenário pelos vidros):
 - vidros: o cenário é inundado a partir de sementes dentro de cada vidro (para-brisa, janela da porta,
   quebra-vento e os dois lados do vidro do retrovisor); o contorno preto do carro segura. Ilhas escuras
   do cenário (troncos, cerca) são fechadas; acima das palhetas o para-brisa é fechado linha a linha
-  e coluna a coluna (bolsos de cenário presos entre a moldura e um tronco). As palhetas ficam
+  e coluna a coluna (bolsos de cenário presos entre a moldura e um tronco)
+- os limpadores da arte saem (o jogo desenha os dele na base do vidro): o vidro desce até a borda do painel
 - retrovisor interno e haste saem (o jogo desenha o dele)
 - retrovisor externo esquerdo: a arte mostra a moldura inteira; o vidro é cortado em dois pela coluna
   do quebra-vento, que passa na frente. Uma fenda de 1 linha na coluna liga os dois lados (assim o jogo
@@ -51,7 +52,11 @@ SPOKES = [
 ]
 # sementes de cada vidro na arte sem volante (x, y)
 SEEDS = [(840, 300), (30, 200), (125, 300), (40, 400), (110, 400), (100, 472)]
-WIPER_Y = 316                   # daqui para baixo ficam as palhetas: o para-brisa não é fechado por linhas
+WIPER_Y = 316                   # daqui para baixo ficam as palhetas da arte
+# borda de cima do painel (x, y), da coluna esquerda à direita, medida onde as palhetas não a cobrem
+DASH_TOP = [(250, 344), (265, 382), (280, 388), (295, 387), (310, 381), (325, 369), (340, 365), (420, 363), (700, 362), (790, 366),
+            (900, 367), (985, 379), (1200, 381), (1300, 385), (1375, 388), (1390, 384), (1405, 362)]
+WIPER_BASE = (896, 1010, 384)   # eixo da haste direita por cima da borda do painel: x0, x1, y de baixo
 IMIRROR = (690, 0, 990, 200)    # retrovisor interno e haste
 SLIT_Y = 366                    # linha da fenda na coluna do quebra-vento (alto do vidro do retrovisor)
 LP = 150                        # folga construída à esquerda (px da arte)
@@ -92,6 +97,10 @@ def glass_mask(nw):
     for _ in range(3):
         near = cv2.dilate(g.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
         g |= near & ~g & (g_ > r_ + 10) & (g_ + b_ > 30)
+    # limpadores da arte saem (o jogo desenha os dele): o vidro desce até a borda do painel, medida na arte
+    px, py = zip(*DASH_TOP)
+    top = np.interp(np.arange(W), px, py)
+    g |= (xx >= px[0]) & (xx <= px[-1]) & (yy >= WIPER_Y - 40) & (yy < top[np.clip(xx, 0, W - 1)])
     # ilhas escuras do cenário dentro dos vidros (o que não se liga ao carro)
     n, lab, st, _ = cv2.connectedComponentsWithStats((~g).astype(np.uint8), connectivity=4)
     for i in range(1, n):
@@ -116,6 +125,15 @@ def clean(nw):
     r, g, b = reg[..., 0].astype(int), reg[..., 1].astype(int), reg[..., 2].astype(int)
     ring = (r > 150) & (g > 120) & (b < 110)
     reg[ring] = (9, 8, 12)
+    # o eixo da haste direita cobria a borda do painel: a faixa clara da borda continua ali (colunas à esquerda)
+    px, py = zip(*DASH_TOP)
+    x0, x1, yb = WIPER_BASE
+    for x in range(x0, x1):
+        y0 = int(np.interp(x, px, py))
+        sx = x0 - 6 - ((x - x0) % 60)
+        sy0 = int(np.interp(sx, px, py))
+        n = yb - y0
+        out[y0:yb, x] = nw[np.clip(sy0 + np.arange(n), 0, yb - 1), sx]
     return out
 
 

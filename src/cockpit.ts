@@ -21,10 +21,7 @@ import { engineSpec } from './enginesynth';
 // cabines em pixel art (tools/ref/import_cockpit.py)
 import dashF40Png from './assets/cockpit/f40-dash.png';
 import wheelF40Png from './assets/cockpit/f40-wheel.png';
-import dash959Png from './assets/cockpit/959-dash.png';
-import top959Png from './assets/cockpit/959-top.png';
 import topF40Png from './assets/cockpit/f40-top.png';
-import wheel959Png from './assets/cockpit/959-wheel.png';
 // cabines desenhadas por código (tools/art/interiors.py)
 import { paintHex } from './paint';
 import { lowFx } from './perf';
@@ -55,7 +52,7 @@ interface CockpitArt {
   wheelTop?: number; // linhas do PNG do volante acima do topo da arte (aro inteiro sobre o para-brisa)
   /** manômetro auxiliar (turbo/supercharger da preparação), num copo sobre o painel: centro e raio na
    * arte; `face` e `bezel` variam de carro para carro (estilo dos relógios de 52 mm de época) */
-  pod?: { x: number; y: number; r: number; dx?: number; dy?: number; /* passo até o relógio seguinte (padrão: lado a lado) */ face: 'black' | 'silver' | 'white'; bezel: 'black' | 'chrome'; needle?: string; pillar?: string /* relógios na coluna: cor do suporte moldado que os prende a ela (sem copo nem pé) */; lit?: 'white' | 'green' | 'blue' | 'yellow' /* cor da iluminação noturna */ };
+  pod?: { x: number; y: number; r: number; dx?: number; dy?: number; /* passo até o relógio seguinte (padrão: lado a lado) */ face: 'black' | 'silver' | 'white'; bezel: 'black' | 'chrome'; needle?: string; pillar?: string /* relógios na coluna: cor do suporte moldado que os prende a ela (sem copo nem pé) */; lit?: 'white' | 'green' | 'blue' | 'yellow' /* cor da iluminação noturna */; noBoost?: boolean /* turbo de fábrica com manômetro no quadro: sem o relógio do turbo */ };
   wheelDy?: number; // desce o volante (posição do banco: o aro não tapa a estrada)
   pivot: [number, number]; // centro do aro (pixels nativos, a partir do topo da arte)
   tach?: Dial;
@@ -164,24 +161,6 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
       lit(198.5, 40, slow);
       lit(129.7, 20.5, gauges.oil < 0.36);
       lit(129.7, 70.5, gauges.water > 0.85);
-    } },
-  // 959: interior completo do Victor; os cinco mostradores redesenhados com números maiores
-  '959': { dash: dash959Png, top: top959Png, wheel: wheel959Png, pivot: [128.2, 84.3], tells: [129, 37],
-    glass: { at: [16, 92], thr: 256 }, // retrovisor desenhado (tools/qa/add_mirror.py)
-    // VDO: conta-giros 1-8 com faixa vermelha a partir de 7,5 e o manômetro do turbo (0-2,5 bar)
-    // embaixo; velocímetro 20-340 com hodômetro; à esquerda o combinado de óleo (temperatura,
-    // pressão e nível) e o de combustível e água
-    tach: { x: 129, y: 49, r: 24, max: 8, labels: [1, 2, 3, 4, 5, 6, 7, 8], tick: 0.25, red: 7.5, a0: 2.53, sweep: 4.45, labelScale: 1, redLabels: false },
-    speed: { x: 176, y: 53, r: 19, max: 340, labels: [20, 60, 100, 140, 220, 260, 300, 340], minor: [180], tick: 10, red: 999, a0: 2.46, sweep: 4.4, labelScale: 0.5 },
-    speedMax: 340, needle: '#ff6a1a', hub: '#1a1a1a',
-    aux: [
-      { x: 38, y: 53, r: 16, kind: 'combo', show: ['oiltemp', 'oil'] },
-      { x: 83, y: 53, r: 17.5, kind: 'twin', show: ['fuel', 'water'], icon: 'fuel' },
-      { x: 223, y: 53, r: 18, kind: 'clock' },
-    ],
-    extra: (c, ox, r) => {
-      boostSubdial(c, ox + 129.5, ART_TOP + 66, 6.5, '#ff6a1a');
-      odometer(c, ox, r, { x: 170.5, y: 45, w: 12, h: 3.5 }, 14250, 6, 0.5);
     } },
 };
 
@@ -732,6 +711,141 @@ COCKPIT_ART['br-santana'] = {
   under: santanaUnder, extra: santanaCluster,
 };
 queueMicrotask(() => faceImg(SN_FACE)); // a foto da revista (interiorPhoto) precisa do fundo do quadro já carregado
+
+// Silber 95 (Porsche 959): interior do Victor (tools/ref/silber_cockpit.py, no molde do Savana: por enquanto só
+// a arte COM volante; o painel atrás do aro, dos raios e da almofada é reconstruído até chegar a sem volante;
+// volante de quatro raios centrado no conta-giros, "SILBER 95" na almofada, vidros e limpadores recortados,
+// retrovisor esquerdo completado, porta construída até a borda) e o quadro da FOTO DO QUADRO REAL
+// (tools/ref/silber_gauges.py): no meio, o combinado do óleo (temperatura 40-170 com a faixa vermelha e
+// pressão 0-5, eixos escondidos atrás da ilha das luzes vermelhas), o conta-giros 0-8 com a faixa laranja
+// e o manômetro do turbo 0-2,5 bar embaixo, e o velocímetro 20-340 com hodômetro e parcial; nos de fora,
+// os da arte: combustível e água (esquerda) e a pressão dos pneus (direita, o monitor do 959).
+// Ponteiros laranja em barra que passam por cima do eixo (disco cinza-escuro embaixo, como na foto).
+// À noite e no túnel o fundo continua preto e acendem números, marcações e ícones em branco morno, a faixa
+// laranja e a vermelha (959-cluster-lit por cima do apagado, na medida do escuro da cabine); ponteiros acesos.
+const SB = { x: VG_X(12), y: VG_Y(34), w: (232 * 464) / 460, h: (56 * 128) / 124 }; // placa dos mostradores (silber_gauges.py: 12, 34, 232 x 56)
+const SB_FACE = cp('959-cluster'), SB_LIT = cp('959-cluster-lit'), SB_LAMPS = cp('959-lamps');
+// luzes-espia (centro e lado da casa, pixels do painel; silber_gauges.py imprime)
+const SB_LAMP = {
+  oil: [81.42, 61.53, 5.33], warn: [81.42, 69.49, 5.33], batt: [81.42, 76.95, 5.12], left: [118.62, 45.56, 5.89], right: [137.38, 45.56, 5.89],
+  beam: [128, 50.12, 5.89], tire: [220.82, 50.07, 4.55], a1: [220.82, 56.6, 4.36], a2: [220.82, 70.58, 4.36], a3: [220.82, 77.11, 4.36],
+} as const;
+// mostradores (centro e raio do aro, pixels do painel) e escalas em graus, como no fundo desenhado
+const SB_OIL = [81.42, 62.03, 21.76], SB_G1 = [33.14, 61.65, 17.68], SB_G5 = [220.82, 63.59, 19.72], SB_TACH = [128, 61.65, 23.46], SB_SPEED = [177.64, 62.03, 23.12];
+const sbOilT = (t: number) => { // °C -> graus (escala de passo igual em 40, 60, 90, 120, 150, 170)
+  const st = [40, 60, 90, 120, 150, 170];
+  let i = 0;
+  while (i < 4 && t > st[i + 1]) i++;
+  return 151 + 11.5 * (i + clamp((t - st[i]) / (st[i + 1] - st[i]), -0.3, 1.15));
+};
+function silberUnder(c: CanvasRenderingContext2D, ox: number, r: Race) {
+  if (!r.def) { // foto da revista (sem corrida): o fundo do quadro entra aqui
+    const im = faceImg(SB_FACE);
+    if (im) c.drawImage(im, ox + SB.x, ART_TOP + SB.y, SB.w, SB.h);
+  }
+}
+function silberCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
+  const art = COCKPIT_ART['959'];
+  const X = (x: number) => ox + VG_X(x), Y = (y: number) => ART_TOP + VG_Y(y); // medidas do painel -> tela
+  const k = r.def ? Math.min(1, cabinDark(r) / 0.6) : 0;
+  const sm = c.imageSmoothingEnabled;
+  c.imageSmoothingEnabled = true;
+  if (k > 0.02) {
+    const im = faceImg(SB_LIT);
+    if (im) {
+      c.globalAlpha = k;
+      c.drawImage(im, ox + SB.x, ART_TOP + SB.y, SB.w, SB.h);
+      c.globalAlpha = 1;
+    }
+  }
+  // luzes-espia (apagadas no fundo): setas no conta-giros (verdes, com o relé; pisca-alerta na batida), farol
+  // alto (azul, à noite); no combinado do óleo: óleo (motor parado, batido), alerta (batida) e bateria (motor
+  // parado); no da direita: pneus (vermelha, batida) e as âmbar (teste das lâmpadas com o motor parado)
+  const off = r.rpm < 0.05, crash = r.state === 'crash', hurt = (r.damage ?? 0) > 0.6 || crash;
+  const blink = blinkOn();
+  const on: Record<keyof typeof SB_LAMP, boolean> = {
+    oil: off || hurt, warn: hurt, batt: off, left: (r.signal < 0 || crash) && blink, right: (r.signal > 0 || crash) && blink,
+    beam: !!r.def?.night, tire: hurt, a1: off, a2: off, a3: off,
+  };
+  const lamps = Object.values(on).some(Boolean) ? faceImg(SB_LAMPS) : null;
+  if (lamps) {
+    const kx = lamps.naturalWidth / 232, ky = lamps.naturalHeight / 56;
+    for (const [n, [x, y, s]] of Object.entries(SB_LAMP)) {
+      if (!on[n as keyof typeof SB_LAMP]) continue;
+      const x0 = x - s / 2, y0 = y - (s / 2) * PIX_Y, h = s * PIX_Y;
+      c.drawImage(lamps, (x0 - 12) * kx, (y0 - 34) * ky, s * kx, h * ky, X(x0), Y(y0), X(x0 + s) - X(x0), Y(y0 + h) - Y(y0));
+    }
+    // clarão de cada luz acesa
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (const [n, [x, y, s]] of Object.entries(SB_LAMP)) {
+      if (!on[n as keyof typeof SB_LAMP]) continue;
+      const rgb = n === 'left' || n === 'right' ? '60,240,80' : n === 'beam' ? '90,150,255' : n[0] === 'a' ? '255,170,30' : '255,60,40';
+      drawGlow(c, X(x), Y(y), s * 0.9, s * 0.9, rgb, 0.35, GLOW_STOPS);
+    }
+    c.restore();
+  }
+  c.imageSmoothingEnabled = sm;
+  // tambores do hodômetro (seis) e do parcial (quatro, com décimos: o último é branco de algarismo preto)
+  const km = r.track ? Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600) : 0;
+  const drums = (v: number, n: number, cx: number, cy: number, pitch: number, last: boolean) => {
+    const s = String(Math.floor(v) % 10 ** n).padStart(n, '0');
+    for (let i = 0; i < n; i++) pix(c, s[i], X(cx + (i - (n - 1) / 2) * pitch), Y(cy), last && i === n - 1 ? '#141416' : k > 0.3 ? '#efe2c4' : '#e4e4de', 0.45);
+  };
+  const [sx, sy, sr] = SB_SPEED;
+  drums(19396 + km, 6, sx, sy - 0.24 * sr * PIX_Y, 0.112 * sr, false);
+  drums((116.4 + km) * 10, 4, sx, sy + 0.27 * sr * PIX_Y, 0.14 * sr, true);
+  // ponteiros dos pequenos: o eixo fica escondido atrás da ilha do meio, só a ponta aparece na janela
+  const tip = (g: number[], a: number) => {
+    const [gx, gy, R] = g;
+    c.save();
+    c.beginPath();
+    c.ellipse(X(gx), Y(gy), R * 0.86, R * 0.86 * PIX_Y, 0, 0, Math.PI * 2);
+    c.ellipse(X(gx), Y(gy), R * 0.62, R * 0.62 * PIX_Y, 0, 0, Math.PI * 2);
+    c.clip('evenodd');
+    fineNeedle(c, X(gx), Y(gy), R * 0.83, a * VG_DEG, 0.95, art.needle, art.hub, 0, 0);
+    c.restore();
+  };
+  const motor = !off || r.state === 'drive';
+  tip(SB_OIL, sbOilT(motor ? 60 + ((gauges.oiltemp - 0.25) / 0.35) * 30 : 40)); // temperatura do óleo (90 °C quente)
+  tip(SB_OIL, 20.2 - 10.6 * (motor ? clamp(1 + ((gauges.oil - 0.3) / 0.35) * 3.5, 0, 5.2) : 0)); // pressão do óleo
+  tip(SB_G1, 135 + 90 * clamp(gauges.fuel, -0.03, 1.03)); // combustível
+  tip(SB_G1, 45 - 90 * clamp(gauges.water, -0.03, 1.03)); // água
+  const v = r.speed * KMH;
+  tip(SB_G5, 140 + 40 * (2.4 + v / 900 - 1.5)); // pneus dianteiros (sobem um pouco com o calor da velocidade)
+  tip(SB_G5, 40 - 40 * (2.7 + v / 800 - 1.5)); // traseiros
+  // manômetro do turbo (embaixo do conta-giros): pressão dos dois turbos de fábrica, até ~1 bar
+  const [tx, ty, tr] = SB_TACH;
+  const bar = clamp(gauges.boost, 0, 1.2);
+  fineNeedle(c, X(tx), Y(ty + 0.68 * tr * PIX_Y), 0.47 * tr * 0.95, (217.5 + 42 * bar) * VG_DEG, 0.9, art.needle, art.hub, 1.5, 2.6);
+  // clarão morno do quadro aceso
+  if (k > 0.02) {
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (const [gx, , gr] of [SB_G1, SB_OIL, SB_TACH, SB_SPEED, SB_G5]) drawGlow(c, X(gx), Y(62), gr * 1.4, gr * 1.4, '255,226,180', 0.035 * k, GLOW_STOPS);
+    c.restore();
+  }
+}
+COCKPIT_ART['959'] = {
+  tells: null, // setas desenhadas no conta-giros (silberCluster)
+  dash: cp('959-dash'), top: cp('959-top'), wheel: cp('959-wheel'),
+  glass: { at: [33, 121], thr: 256 }, // retrovisor esquerdo (completado em silber_cockpit.py, vidro transparente)
+  // o volante acompanha o quadro (o painel esticado cai 2 colunas à direita e 3 linhas abaixo) e desce mais 9
+  // linhas (posição do banco): o aro emoldura os três mostradores do meio, como na foto, e tapa menos a estrada
+  pivot: [128, 104], wheelTop: 16, wheelDx: 2, wheelDy: 12,
+  // só óleo e combustível (o turbo já tem o manômetro no conta-giros): relógios no friso de dentro da coluna
+  // (medido no topo da arte: centro do friso em x 85 na linha 40 e 91 na 90)
+  pod: { x: -16.5, y: -38, r: 7.5, dx: 2.1, dy: 17.5, pillar: '#231f2e', face: 'black', bezel: 'chrome', lit: 'white', noBoost: true }, radar: [228, 21],
+  speedMax: 340, speedRest: 17, tachReal: true,
+  needle: '#ff6a1c', needleW: 1.05, needleTail: 4.0, needleFine: true, needleTip: 0.62, hubUnder: true, hub: '#2c2c30', hubR: 2.2,
+  tach: { x: VG_X(128) - 0.5, y: VG_Y(61.65) - 0.5, r: 21.6, max: 8, labels: [], tick: 1, red: 999, face: false, a0: 140.5 * VG_DEG, sweep: 232 * VG_DEG },
+  speed: { x: VG_X(177.64) - 0.5, y: VG_Y(62.03) - 0.5, r: 21.3, max: 340, labels: [], tick: 20, red: 999, face: false, a0: 135 * VG_DEG, sweep: 255 * VG_DEG },
+  faces: [{ src: SB_FACE, x: SB.x, y: SB.y, w: SB.w, h: SB.h }],
+  glow: '255,226,180', glowK: 0.35,
+  aux: [],
+  under: silberUnder, extra: silberCluster,
+};
+queueMicrotask(() => faceImg(SB_FACE)); // a foto da revista (interiorPhoto) precisa do fundo do quadro já carregado
 
 // Onça GTB: mostradores pretos com números âmbar e ponteiros laranja — velocímetro 20-220 com
 // hodômetro e parcial, conta-giros 0-7 (faixa vermelha a partir de 5, do seis-cilindros 4.1),
@@ -1585,7 +1699,8 @@ function auxPods(c: CanvasRenderingContext2D, r: Race, dt: number, ox: number, p
   const boostNow = car.forced === 'super' ? (r.throttle ? 0.25 + 0.75 * rpm : 0.04) : car.forced ? (r.throttle ? Math.max(0, Math.min(1, r.pt.boost)) ** 1.5 : 0) : 0;
   const bar = (car.boostMax ?? 0.8) * boostNow;
   let i = 0;
-  const n = car.pods?.length ?? 0, sx = pod.dx ?? pod.r * 2.25, sy = pod.dy ?? 0;
+  const pods = (car.pods ?? []).filter((p) => !(pod.noBoost && p === 'boost'));
+  const n = pods.length, sx = pod.dx ?? pod.r * 2.25, sy = pod.dy ?? 0;
   if (pod.pillar && n) {
     // suporte de coluna: uma peça só, moldada, que acompanha a coluna e leva os relógios embutidos
     const x0 = ox + pod.x, y0 = ART_TOP + pod.y, x1 = x0 + sx * (n - 1), y1 = y0 + sy * (n - 1);
@@ -1614,7 +1729,7 @@ function auxPods(c: CanvasRenderingContext2D, r: Race, dt: number, ox: number, p
     c.stroke();
     c.restore();
   }
-  for (const kind of car.pods ?? []) {
+  for (const kind of pods) {
     const k: PodKind = kind === 'boost' ? (car.forced === 'super' ? 'super' : 'turbo') : kind === 'fuel' && car.carb ? 'fuelcarb' : kind;
     // turbo: enche com atraso e cai ao aliviar; compressor: acompanha o giro. Óleo: sobe com o giro
     // (1,5 na lenta, 5 em alta). Combustível: 3 kgf/cm² na injeção, somando a pressão do turbo; 0,3 no carburador
@@ -2282,23 +2397,6 @@ function warnLamp(c: CanvasRenderingContext2D, x: number, y: number, on: boolean
   c.fillRect(x - 0.5, y - 0.5, 1, 0.5);
 }
 
-// manômetro do turbo dentro do conta-giros do 959: arco de cima, 0 / 0,5 / 1,5 / 2,5 bar
-function boostSubdial(c: CanvasRenderingContext2D, x: number, y: number, R: number, color: string) {
-  const a0 = Math.PI * 1.2, a1 = Math.PI * 1.8;
-  const at = (a: number, rr: number): [number, number] => [x + Math.cos(a) * rr, y + Math.sin(a) * rr * PIX_Y];
-  c.fillStyle = '#e8e8e8';
-  c.beginPath();
-  for (let i = 0; i <= 5; i++) {
-    const a = a0 + ((a1 - a0) * i) / 5;
-    half(c, ...at(a, R));
-    half(c, ...at(a, R - 0.5));
-  }
-  c.fill();
-  for (const [l, v] of [['0', 0], ['1,5', 0.6], ['2,5', 1]] as [string, number][])
-    pix(c, l, ...at(a0 + (a1 - a0) * v, R + 1.8), '#f2f2f2', 0.5);
-  hand(c, x, y, a0 + (a1 - a0) * clamp(gauges.boost / 1.25, 0, 1), R - 0.5, color);
-}
-
 // luzes-espia da seta no quadro: duas setinhas verdes (esquerda e direita), centradas em (x, y);
 // a do lado ligado pisca junto com o relé
 function turnDot(c: CanvasRenderingContext2D, ox: number, d: NonNullable<CockpitArt['turnDot']>, signal: number) {
@@ -2633,7 +2731,6 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
     c.fillStyle = '#0c0c0e';
     c.fillRect(0, ART_TOP, w, view.h - ART_TOP);
   } else if (dash === 'f40') drawDashF40(c, r, dt);
-  else if (dash === '959') drawDash959(c, r, dt);
   else if (dash === 'A') drawDashTD2Black(c, r, dt);
   else drawDashTD2Grey(c, r, dt);
 
@@ -2972,142 +3069,6 @@ function drawDashF40(c: CanvasRenderingContext2D, r: Race, dt: number) {
     rect(c, cx - 1, cy - 3, 2, 6, '#1a1a1a');
     rect(c, cx - 4, cy - 5, 3, 1, '#fff6a8');
     leatherRim(c, cx, cy, R, 7);
-  });
-}
-
-// ---------- 959 (fotos do carro real) ----------
-// Painel de couro escuro, capota sobre 5 mostradores redondos (conta-giros no
-// centro), ponteiros laranja, volante de aro grosso com almofada retangular,
-// difusor horizontal, botões, rádio e coifa do câmbio.
-// Painel do 959 a partir da foto convertida em pixel art: fundo (sem volante e sem
-// ponteiros), ponteiros laranja dinâmicos nos mostradores da foto e volante da foto.
-const P959 = {
-  wheel: { sx: 60.5, sy: 69.2, x: 69.1, y: 52.6 }, // centro no sprite e no painel
-  tach: [82, 25.4, 12.7], speed: [112.1, 27.2, 11.9], // x, y, raio (pixels nativos)
-};
-
-function photoNeedle(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, frac: number) {
-  const a = Math.PI * 0.75 + Math.PI * 1.5 * Math.max(0, Math.min(1.02, frac));
-  c.strokeStyle = '#ff7a1a';
-  c.lineWidth = 1.5;
-  c.beginPath();
-  c.moveTo(cx, cy);
-  c.lineTo(cx + Math.cos(a) * (r - 2), cy + Math.sin(a) * (r - 2) * (8 / 7));
-  c.stroke();
-  disc(c, cx, cy, 1.5, '#202020');
-}
-
-function drawDash959Photo(c: CanvasRenderingContext2D, r: Race, dt: number): boolean {
-  const { w } = view;
-  const ox = coreX();
-  const dash = svgSprite(dash959Png, CORE_W, 104);
-  const wheelImg = svgSprite(wheel959Png, 121, 138);
-  if (!dash || !wheelImg) return false;
-  // laterais em telas largas: estica as bordas do painel
-  if (ox > 0) {
-    c.drawImage(dash, 0, 0, 12, 104, 0, 120, ox, 104);
-    c.drawImage(dash, CORE_W - 12, 0, 12, 104, ox + CORE_W, 120, w - ox - CORE_W, 104);
-  }
-  c.drawImage(dash, ox, 120);
-  const kmh = r.speed * KMH;
-  const [tx, ty, tr] = P959.tach, [vx, vy, vr] = P959.speed;
-  photoNeedle(c, ox + tx, 120 + ty, tr, 0.08 + Math.min(1, r.rpm) * 0.8);
-  photoNeedle(c, ox + vx, 120 + vy, vr, kmh / 340);
-  pix(c, String(r.gear + 1), ox + tx + 5, 120 + ty + 8, '#ff2a1a');
-  rect(c, ox + 160, 121, 30, 6, '#0c0c0e');
-  radarLeds(c, ox + 162, 122, 26, r.radar);
-  const cx = ox + P959.wheel.x, cy = 120 + P959.wheel.y;
-  withRotation(c, cx, cy, steerAngle(r, dt), () => c.drawImage(wheelImg, Math.round(cx - P959.wheel.sx), Math.round(cy - P959.wheel.sy)));
-  return true;
-}
-
-function drawDash959(c: CanvasRenderingContext2D, r: Race, dt: number) {
-  if (drawDash959Photo(c, r, dt)) return;
-  const { w, h } = view;
-  const ox = coreX();
-  // capô prateado
-  rect(c, 0, 120, w, 1, '#e8ecf0');
-  rect(c, 0, 121, w, 2, '#a8acb4');
-  // face superior do painel refletindo o céu → couro escuro
-  const top = [['#6a6e78', '#727680'], ['#5a5e68', '#62666e'], ['#4a4d56', '#52555e'], ['#3c3f46', '#43464e']];
-  top.forEach(([a, b], i) => rect(c, 0, 123 + i * 3, w, 3, dither(c, a, b)));
-  rect(c, 0, 135, w, h - 135, speckle(c, '#2e3036', [['#34363d', 0.3], ['#26282d', 0.25]], 22));
-  rect(c, 0, 135, w, 1, '#1a1b1f');
-  // console central: difusor, botões e rádio
-  rect(c, ox + 172, 138, 56, 16, '#16171b');
-  for (let i = 0; i < 4; i++) rect(c, ox + 174, 140 + i * 3, 52, 1, '#5a5d66');
-  rect(c, ox + 198, 138, 2, 16, '#26272c');
-  rect(c, ox + 172, 138, 56, 1, '#7a7d86');
-  for (let i = 0; i < 5; i++) {
-    disc(c, ox + 176 + i * 11, 162, 3, '#202126');
-    disc(c, ox + 176 + i * 11, 162, 2, i === 3 ? '#40c050' : '#4a4c54');
-  }
-  rect(c, ox + 172, 169, 52, 14, '#141518');
-  rect(c, ox + 172, 169, 52, 1, '#8a8d96');
-  rect(c, ox + 176, 172, 18, 4, '#3a2a10');
-  rect(c, ox + 177, 173, 10, 2, '#e09030');
-  for (let i = 0; i < 5; i++) rect(c, ox + 198 + i * 5, 173, 3, 6, '#3c3e46');
-  rect(c, ox + 228, 135, w - ox - 228, 48, dither(c, '#34363c', '#3a3c42'));
-  // coifa do câmbio
-  c.fillStyle = '#1a1b1e';
-  c.beginPath();
-  c.moveTo(ox + 196, h);
-  c.lineTo(ox + 202, 202);
-  c.lineTo(ox + 218, 202);
-  c.lineTo(ox + 224, h);
-  c.closePath();
-  c.fill();
-  for (const fy of [208, 214, 220]) rect(c, ox + 200, fy, 22, 1, '#2c2d32');
-  disc(c, ox + 210, 199, 5, '#101012');
-  rect(c, ox + 208, 197, 2, 1, '#8a8a92');
-  // capota sobre os mostradores
-  c.fillStyle = dither(c, '#2a2c32', '#30323a');
-  c.beginPath();
-  c.roundRect(ox + 8, 128, 154, 42, [18, 18, 4, 4]);
-  c.fill();
-  rect(c, ox + 18, 128, 134, 1, '#5e616c');
-  c.fillStyle = '#0b0b0e';
-  c.beginPath();
-  c.roundRect(ox + 12, 136, 146, 32, [12, 12, 3, 3]);
-  c.fill();
-  shadow(c, ox + 85, 138, 76, 7, 0.85);
-  // 5 mostradores (estilo 911): conta-giros grande no centro
-  const kmh = Math.round(r.speed * KMH);
-  const o = { face: '#0e0e10', ink: '#ececec', needle: '#ff7a1a', bezel: '#5a5c62' };
-  dial(c, ox + 28, 154, 11, ['', '', '', ''], 0.5, o);
-  dial(c, ox + 55, 153, 12, ['', '', '', ''], 0.35 + r.rpm * 0.2, o);
-  dial(c, ox + 85, 152, 15, ['', '', '2', '', '4', '', '6', '', '8'], 0.08 + Math.min(1, r.rpm) * 0.8, { ...o, red: 0.85, gear: String(r.gear + 1) });
-  dial(c, ox + 116, 153, 13, ['', '', '100', '', '200', '', '300', ''], kmh / 340, { ...o, digital: String(kmh) });
-  dial(c, ox + 144, 154, 11, ['', '', '', ''], 0.6, o);
-  // detector de radar sobre o painel
-  rect(c, ox + 172, 128, 30, 7, '#0c0c0e');
-  radarLeds(c, ox + 174, 130, 26, r.radar);
-  // volante: aro grosso, almofada retangular e braços laterais
-  const cx = ox + 85, cy = 202, R = 66;
-  shadow(c, cx + 8, cy - 8, R, R * 0.8, 0.4);
-  vignette(c, 172);
-  withRotation(c, cx, cy, steerAngle(r, dt), () => {
-    // braços que ligam a almofada ao aro
-    c.fillStyle = dither(c, '#202126', '#26272c');
-    c.fillRect(cx - R + 4, cy - 14, 20, 14);
-    c.fillRect(cx + R - 24, cy - 14, 20, 14);
-    rect(c, cx - R + 4, cy - 14, 20, 1, '#5a5c66');
-    rect(c, cx + R - 24, cy - 14, 20, 1, '#5a5c66');
-    rect(c, cx + R - 22, cy - 11, 6, 4, '#0c0c0e');
-    rect(c, cx + R - 21, cy - 10, 2, 1, '#d8d8d8');
-    // almofada central
-    c.fillStyle = '#16171a';
-    c.beginPath();
-    c.roundRect(cx - 42, cy - 22, 84, 30, 5);
-    c.fill();
-    c.fillStyle = dither(c, '#50535a', '#585b62');
-    c.beginPath();
-    c.roundRect(cx - 40, cy - 21, 80, 27, 4);
-    c.fill();
-    rect(c, cx - 36, cy - 21, 72, 1, '#8a8d96');
-    rect(c, cx - 38, cy + 4, 76, 1, '#2a2b30');
-    for (let i = 0; i < 7; i++) rect(c, cx - 21 + i * 6, cy - 9, 4, 3, '#5e6168');
-    leatherRim(c, cx, cy, R, 10);
   });
 }
 

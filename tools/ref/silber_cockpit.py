@@ -70,7 +70,7 @@ LP = 125                        # folga construída à esquerda (px da arte)
 VP = (444.0, 183.0)             # ponto de fuga das linhas da porta (friso claro e borda da janela)
 # retrovisor externo esquerdo: linhas da moldura, faixa da moldura direita refletida (do começo da curva
 # do canto até a borda de fora, sem a aba presa à porta), coluna do meio e a borda de fora da moldura nova
-MIR_Y = (309, 401)
+MIR_Y = (309, 407)
 MIR_A, MIR_R, MIR_M, MIR_X0 = 34, 62, 22, -46
 MIR_BOX = (0, 300, 100, 410)    # caixa do retrovisor esquerdo (moldura não é ilha do cenário)
 # mostradores (centro, raio do aro na arte): o quadro refeito cobre cada um
@@ -429,10 +429,12 @@ def main():
         spur = st_al & (nb <= 1)
         spur[[0, -1]] = False; spur[:, [0, -1]] = False
         st_al &= ~spur
-    # furinhos de até 12 px: fecham com a cor do vizinho
+    # furinhos de até 12 px (60 na moldura do retrovisor): fecham com a cor do vizinho
     n, lab, stt, _ = cv2.connectedComponentsWithStats((~st_al).astype(np.uint8), connectivity=4)
     for i in range(1, n):
-        if stt[i, cv2.CC_STAT_AREA] <= 12:
+        x_, y_ = stt[i, 0], stt[i, 1]
+        near_mirror = x_ < PAD - 30 and EXT + 15 < y_ < EXT + 70   # frestas da moldura do retrovisor
+        if stt[i, cv2.CC_STAT_AREA] <= (60 if near_mirror else 12):
             for y, x in zip(*np.nonzero(lab == i)):
                 nb = [(yy_, xx_) for yy_ in range(y - 1, y + 2) for xx_ in range(x - 1, x + 2)
                       if 0 <= yy_ < st_al.shape[0] and 0 <= xx_ < st_al.shape[1] and st_al[yy_, xx_]]

@@ -1,8 +1,8 @@
 """Quadro do Jornada LS (VW Voyage LS 1986), copiando a foto do quadro real que o Victor mandou. Cinco
 blocos em fila, da esquerda para a direita: relógio de ponteiros (12, 3, 6 e 9, botão de acerto
 embaixo à direita); combustível (em cima) e temperatura (embaixo), pequenos, com o eixo escondido
-abaixo de cada janela; velocímetro 20-190 km/h (números por FORA das marcações: 20, 40, 60, 80 em
-vermelho, 100, 120, 140, 160 e 190, este no espaço de um passo só, como no carro), hodômetro em cima
+abaixo de cada janela; velocímetro 20-190 km/h (números por FORA das marcações: 20, 40, 60, 80,
+100, 120, 140, 160 e 190, todos da mesma cor (o 80 vermelho da foto saiu a pedido do Victor); o 190 no espaço de um passo só, como no carro), hodômetro em cima
 do eixo, parcial embaixo e "km/h"; bloco de luzes-espia em três fileiras de duas (farol alto e setas,
 pisca-alerta e freio, bateria e óleo), APAGADAS; conta-giros 0-8 (x1000 rpm) com o 0-1 apertado e a
 faixa vermelha de 6,5 a 8. Algarismos quadrados da fábrica (os `SQ` de gol_gauges.py), em traço mais fino.
@@ -191,7 +191,7 @@ def speed(im, d, pal):
         ww = (2.05 if len(s) == 3 else 1.6) * hh * (0.82 if len(s) == 3 else 0.9) * 0.82
         rr = R1 + 0.9 + abs(math.cos(a)) * ww / 2 + abs(math.sin(a)) * hh / 2
         x, y = g['x'] + math.cos(a) * rr, g['y'] + math.sin(a) * rr * PY
-        number(im, s, x, y, hh, pal['red'] if v == 80 else pal['ink'], 0.82 if len(s) == 3 else 0.9)
+        number(im, s, x, y, hh, pal['ink'], 0.82 if len(s) == 3 else 0.9)
     text(im, 'km/h', g['x'], g['y'] + 12.6 * PY, 1.7, pal['text'], FB)
     for bx, by, bw, bh in ((-7.2, -8.3, 14.4, 3.8), (-4.4, 5.2, 9.6, 3.6)):   # janelas do hodômetro e do parcial
         a = P(g['x'] + bx, g['y'] + by)

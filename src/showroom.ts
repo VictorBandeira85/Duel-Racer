@@ -6,7 +6,7 @@ import { SAFE_W, KMH } from './config';
 import { DEALER_CARS, drawCarSide, perfClass, type CarSpec } from './cars';
 import { classBadge, drawFilter, filterAt, filterRects, nextFilter, type ClassFilter } from './classui';
 import { newCareer, priceOf, saveCareer } from './career';
-import { flash, money, toast, topBar } from './careerScreens';
+import { flash, money, openPrepDemo, toast, topBar } from './careerScreens';
 import { BRANDS, brandOf, drawLogo } from './brands';
 import { paintHex } from './paint';
 import type { AppState, Actions, MenuKey, ScreenId } from './screens';
@@ -64,7 +64,8 @@ const listUi = () => {
 };
 const detailUi = () => {
   const x = ox();
-  return { back: { x: x + 4, y: 211, w: 100, h: 15 } as Rect, buy: { x: x + 186, y: 211, w: 130, h: 15 } as Rect };
+  // prep: abre o catálogo de preparação deste carro (sem precisar comprar nem estar na carreira)
+  return { back: { x: x + 4, y: 211, w: 78, h: 15 } as Rect, prep: { x: x + 86, y: 211, w: 96, h: 15 } as Rect, buy: { x: x + 186, y: 211, w: 130, h: 15 } as Rect };
 };
 
 // abre o showroom (a carreira é criada se ainda não existir: o saldo e a garagem são dela)
@@ -183,6 +184,7 @@ function drawDetail(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   ink(c, `Único dono, revisado. Tratar c/ ${b?.name ?? 'loja'} Motors.`, x + 4, 204, 4, GREY);
   const u = detailUi();
   tag(c, u.back, '◀ ANÚNCIOS');
+  tag(c, u.prep, 'PREPARAÇÃO ▶');
   const price = priceOf(car);
   if (owned) tag(c, u.buy, cs.car === car.id ? 'EM USO NA CARREIRA' : 'USAR NA CARREIRA');
   else {
@@ -226,6 +228,7 @@ export function tapShowroom(s: AppState, a: Actions, x: number, y: number) {
   if (car) {
     const u = detailUi();
     if (inside(x, y, u.back)) show.detail = '';
+    else if (inside(x, y, u.prep)) openPrepDemo(s, a, car.id, 'showroom');
     else if (inside(x, y, u.buy)) buy(s, car);
     return;
   }

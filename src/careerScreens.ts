@@ -15,7 +15,7 @@ import {
   sellValue, tunedCar, type CareerSave, type EventResult, type Upgrade,
 } from './career';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
-import type { AppState, Actions, MenuKey } from './screens';
+import type { ScreenId, AppState, Actions, MenuKey } from './screens';
 import { accelChart, carRows, carStars, ox, padlock, stageChip, verdictBox } from './screens';
 import { BLUE, GREY, INK, RED, YELLOW, arrow, box, burst, headline, ink, kicker, masthead, paper, photo, rule, specRows, stars, tag } from './mag';
 import type { ThemeId } from './themes';
@@ -32,7 +32,8 @@ const STYLE: Record<string, [string, string]> = {
 export const money = (v: number) => `$${Math.round(v).toLocaleString('pt-BR')}`;
 
 // estado da interface da carreira (não vai para o save)
-export const ui = { prep: false, prepRow: 0, prepView: {} as Build, revT0: -9, region: 0, event: 0, dealer: 0, garage: 0, gFocus: 6, msg: '', msgT: 0, filter: null as ClassFilter };
+// demo: oficina de preparação aberta fora da carreira (catálogo): id do carro em vista; nada é comprado
+export const ui = { demo: '', demoBack: 'title' as ScreenId, prep: false, prepRow: 0, prepView: {} as Build, revT0: -9, region: 0, event: 0, dealer: 0, garage: 0, gFocus: 6, msg: '', msgT: 0, filter: null as ClassFilter };
 export function flash(s: AppState, msg: string) {
   ui.msg = msg;
   ui.msgT = s.t + 2.2;
@@ -389,9 +390,9 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const cs = s.career!;
   const x = ox();
   const lv = levels(cs, car.id), st = setupOf(cs, car.id);
-  const cur = buildOf(cs, car.id);
+  const cur = ui.demo ? {} : buildOf(cs, car.id);
   const now = tunedFor(car, lv, st, cur), view = tunedFor(car, lv, st, ui.prepView);
-  kicker(c, 'PREPARAÇÃO', x + 4, 20, RED, '#fff');
+  kicker(c, ui.demo ? 'CATÁLOGO' : 'PREPARAÇÃO', x + 4, 20, RED, '#fff');
   // título na linha do selo: a foto ganha a altura para a lateral grande
   headline(c, car.name.toUpperCase(), x + 62, 21, 6, INK);
   classBadge(c, x + 62 + car.name.length * 6 + 6, 20, view, true, 8);
@@ -452,12 +453,13 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
     ink(c, vp.id && sl.id !== 'rodas' ? `${n + 1}/${sl.parts.length} · ${vp.note}` : `${sl.name.toUpperCase()} ${n + 1}/${sl.parts.length}`, tx, pb.name.y + 3, 4, GREY, 'center');
     ink(c, vp.name, tx, pb.name.y + 10, vp.name.length > 18 ? 5 : 6, vp.id ? RED : INK, 'center');
     const own = ownsPart(cs, car, sl.id, vp.id), cost = partCost(car, vp);
-    tag(c, pb.buy, installed ? 'INSTALADA' : own ? 'INSTALAR' : `COMPRAR ${money(cost)}`, !installed && (own || cs.money >= cost));
+    if (ui.demo) tag(c, pb.buy, vp.id ? `NA CARREIRA ${money(cost)}` : 'DE FÁBRICA'); // catálogo: só mostra o preço
+    else tag(c, pb.buy, installed ? 'INSTALADA' : own ? 'INSTALAR' : `COMPRAR ${money(cost)}`, !installed && (own || cs.money >= cost));
   }
   const b = prepButtons();
-  tag(c, b.back, '◀ OFICINA');
+  tag(c, b.back, ui.demo ? '◀ VOLTAR' : '◀ OFICINA');
   tag(c, b.rev, 'OUVIR O RONCO', true);
-  tag(c, b.stock, 'VER ORIGINAL');
+  tag(c, b.stock, ui.demo ? 'OUTRO CARRO ▶' : 'VER ORIGINAL');
   // ronco de teste: partida e duas aceleradas com as peças em vista
   const t = s.t - ui.revT0;
   if (t >= 0 && t < 2.6) {
@@ -476,6 +478,7 @@ function prepStep(car: CarSpec, slot: SlotId, d: number) {
 }
 function prepInstall(s: AppState, car: CarSpec, slot: SlotId) {
   const cs = s.career!;
+  if (ui.demo) return flash(s, 'Catálogo: compre e instale na oficina da carreira');
   const p = partOf(car, slot, ui.prepView[slot]);
   if ((buildOf(cs, car.id)[slot] ?? '') === p.id) return flash(s, 'Já está instalada');
   // turbina, polia, intercooler e downpipe só entram com o turbo/supercharger já instalado
@@ -518,7 +521,7 @@ function tapPrep(s: AppState, car: CarSpec, x: number, y: number) {
 
 function keyPrep(s: AppState, k: MenuKey) {
   const cs = s.career!;
-  const car = ownedCars(cs)[ui.garage];
+  const car = ui.demo ? demoCar() : ownedCars(cs)[ui.garage];
   const slots = prepSel(car);
   if (k === 'back') return closePrep();
   if (k === 'up') ui.prepRow = (ui.prepRow + slots.length - 1) % slots.length;
@@ -526,6 +529,53 @@ function keyPrep(s: AppState, k: MenuKey) {
   if (k === 'left') prepStep(car, slots[ui.prepRow].id, -1);
   if (k === 'right') prepStep(car, slots[ui.prepRow].id, 1);
   if (k === 'ok') prepInstall(s, car, slots[ui.prepRow].id);
+}
+
+// ---------- catálogo: a oficina de preparação fora da carreira ----------
+// Qualquer carro do showroom, todas as peças em vista (ficha, lateral, ronco e preço), sem comprar.
+// Entradas: capas de peças da revista e o botão PREPARAÇÃO do anúncio no showroom.
+const demoCars = () => DEALER_CARS.filter((k) => !k.pendingArt);
+const demoCar = () => demoCars().find((k) => k.id === ui.demo) ?? demoCars()[0];
+export function openPrepDemo(s: AppState, a: Actions, carId = '', back: ScreenId = 'title') {
+  if (!s.career) {
+    s.career = newCareer();
+    saveCareer(s.career);
+  }
+  const list = demoCars();
+  ui.demo = (list.find((k) => k.id === carId) ?? list.find((k) => k.id === 'br-golgti') ?? list[0]).id;
+  ui.demoBack = back;
+  ui.prep = true;
+  ui.prepRow = 0;
+  ui.prepView = {};
+  a.go('prepDemo');
+}
+function demoStep(d: number) {
+  const list = demoCars(), i = list.findIndex((k) => k.id === ui.demo);
+  ui.demo = list[(i + d + list.length) % list.length].id;
+  ui.prepRow = 0;
+  ui.prepView = {};
+  ui.revT0 = -9;
+  setEngine(0, false, false);
+}
+function closeDemo(a: Actions) {
+  const back = ui.demoBack;
+  closePrep();
+  ui.demo = '';
+  a.go(back);
+}
+function drawPrepDemo(c: CanvasRenderingContext2D, s: AppState) {
+  paper(c);
+  topBar(c, s, 'OFICINA DE PREPARAÇÃO', s.career!);
+  drawPrep(c, s, demoCar());
+}
+function tapPrepDemo(s: AppState, a: Actions, x: number, y: number) {
+  const b = prepButtons();
+  if (inside(x, y, b.back)) return closeDemo(a);
+  if (inside(x, y, b.stock)) return demoStep(1);
+  // tocar na foto também troca de carro (metade esquerda volta, direita avança)
+  const ph: Rect = { x: ox() + 4, y: 35, w: 198, h: 59 };
+  if (inside(x, y, ph)) return demoStep(x < ph.x + ph.w / 2 ? -1 : 1);
+  tapPrep(s, demoCar(), x, y);
 }
 
 // ---------- minha garagem: os carros comprados num pôster de revista ----------
@@ -834,6 +884,7 @@ export function drawCareerScreen(c: CanvasRenderingContext2D, s: AppState) {
     case 'collection': return drawCollection(c, s);
     case 'careerMenu': return drawCareerMenu(c, s);
     case 'showroom': return drawShowroom(c, s);
+    case 'prepDemo': return drawPrepDemo(c, s);
   }
 }
 
@@ -847,6 +898,7 @@ export function tapCareerScreen(s: AppState, a: Actions, x: number, y: number) {
     case 'collection': return tapCollection(s, a, x, y);
     case 'careerMenu': return tapCareerMenu(s, a, x, y);
     case 'showroom': return tapShowroom(s, a, x, y);
+    case 'prepDemo': return tapPrepDemo(s, a, x, y);
   }
 }
 
@@ -855,6 +907,9 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
   const b = (r: Rect) => tapCareerScreen(s, a, r.x + r.w / 2, r.y + r.h / 2);
   switch (s.screen) {
     case 'showroom': return keyShowroom(s, a, k);
+    case 'prepDemo':
+      if (k === 'back') return closeDemo(a);
+      return keyPrep(s, k);
     case 'careerMenu':
       if (k === 'left' || k === 'right' || k === 'up' || k === 'down') s.sel = 1 - (s.sel % 2);
       if (k === 'ok') careerMenuPick(s, a, s.sel % 2);

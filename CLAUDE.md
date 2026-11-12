@@ -108,6 +108,9 @@
 - Preparação (peças): catálogo em `src/tuning.ts` (vagas, peças, custo, efeito na ficha, no ronco via
   `soundMods` e na altura via `rideDrop`). Peça nova = uma linha no catálogo; a tela (drawPrep em
   careerScreens.ts), o save (`builds`/`parts`) e a física já leem de lá.
+- Catálogo de preparação fora da carreira (`openPrepDemo`, tela `prepDemo`, `ui.demo` em careerScreens.ts):
+  a mesma tela da oficina com qualquer carro do showroom, sem comprar (mostra preço, ficha, lateral e
+  ronco). Entradas: toque nas capas de peças ('pc') e botão PREPARAÇÃO do anúncio no showroom.
 - Vagas que dependem da indução (`slotsFor(car, build)`): turbo libera turbina, intercooler e downpipe;
   supercharger libera polia e intercooler. Só instalam com o turbo/supercharger já instalado.
   A tela de preparação mostra só a lateral, grande; a ilustração da peça fica na barra da vaga.

@@ -11,7 +11,7 @@ import { ACHIEVEMENTS, MEDAL_COLOR, loadStats, medalName, medals, takeToast, unl
 import { RIVAL_STYLE } from './race';
 import type { CareerSave, EventResult } from './career';
 import { newCareer, saveCareer } from './career';
-import { drawCareerScreen, keyCareerScreen, tapCareerScreen } from './careerScreens';
+import { drawCareerScreen, keyCareerScreen, openPrepDemo, tapCareerScreen } from './careerScreens';
 import { openShowroom } from './showroom';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
@@ -30,8 +30,8 @@ import { brandOf, drawLogo } from './brands';
 import { setEngine, setTires, shiftSound } from './audio';
 
 export type ScreenId = 'loading' | 'title' | 'options' | 'controls' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores' | 'achievements'
-  | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd' | 'collection' | 'careerMenu' | 'showroom';
-const CAREER_SCREENS: ScreenId[] = ['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection', 'careerMenu', 'showroom'];
+  | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd' | 'collection' | 'careerMenu' | 'showroom' | 'prepDemo';
+const CAREER_SCREENS: ScreenId[] = ['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection', 'careerMenu', 'showroom', 'prepDemo'];
 export type MenuKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back';
 
 export interface StageResult {
@@ -115,6 +115,7 @@ const titleSigns = () => {
   ] as Rect[];
 };
 const coverRect = (): Rect => ({ x: ox() + 4, y: 56, w: SAFE_W - 8, h: 108 });
+let coverKind = ''; // tipo da capa que está passando ('pc' = peças: o toque abre a oficina de preparação)
 let coverCarId = ''; // carro da capa que está passando (toque leva ao anúncio dele)
 
 // carros da capa: os que têm arte (e as vistas de frente e de trás)
@@ -185,6 +186,7 @@ function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot
   const ease = 1 - (1 - enter) ** 3;
   const p = paintHex(car.id);
   coverCarId = car.id;
+  coverKind = '';
   const kmh = (cc: CarSpec) => Math.round(cc.maxSpeed * KMH);
   const mirror = (fn: () => void, cx: number) => {
     c.save();
@@ -199,6 +201,7 @@ function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot
     const set = PHOTO_COVERS[kind].set;
     const pick = set[Math.floor(slot / SLIDES.length) % set.length];
     coverCarId = PHOTO_COVERS[kind].car;
+    coverKind = kind;
     const shown = { v: false };
     photo(c, ph, () => {
       c.fillStyle = '#f4f2ee';
@@ -263,6 +266,7 @@ function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot
     const ic = withArt.length ? withArt[Math.floor(slot / SLIDES.length) % withArt.length] : car;
     const img = interiorPhoto(ic.id, ic.dash);
     coverCarId = ic.id;
+    coverKind = '';
     photo(c, ph, () => {
       if (img) {
         // enquadra o painel inteiro e aproxima devagar (como câmera em movimento)
@@ -279,6 +283,7 @@ function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot
     const br = brCars();
     const pick = (k: number) => br[(Math.floor(slot / SLIDES.length) * 3 + k) % Math.max(1, br.length)] ?? car;
     coverCarId = pick(1).id;
+    coverKind = '';
     photo(c, ph, () => {
       // fundo verde e amarelo da bandeira, discreto, como capa de edição especial
       c.fillStyle = '#1f7a3a';
@@ -386,7 +391,7 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
   const cc = CARS.find((k) => k.id === coverCarId);
   if (cc) {
     c.font = '5px "Press Start 2P", monospace';
-    const lab = kind === 'pc' ? 'PEÇAS NA OFICINA DA CARREIRA' : `VER ${cc.name.toUpperCase()} NO SHOWROOM ▶`;
+    const lab = kind === 'pc' ? 'VISITE A OFICINA DE PREPARAÇÃO ▶' : `VER ${cc.name.toUpperCase()} NO SHOWROOM ▶`;
     const tw = Math.ceil(c.measureText(lab).width) + 6;
     const blink = Math.floor(s.t * 1.5) % 2 === 0;
     const ty = ph.y + ph.h - (kind === 'lp5' || kind === 'nx' || kind === 'vp' || kind === 'tr' || kind === 'f4' || kind === 'dia' || kind === 'gol' || kind === 'mz' || kind === 'vg' || kind === 'vs' || kind === 'pc' ? 21 : 11); // nas capas de foto, acima da faixa vermelha
@@ -417,7 +422,7 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
 }
 
 function tapTitle(s: AppState, a: Actions, x: number, y: number) {
-  if (inside(x, y, coverRect()) && coverCarId) return openShowroom(s, a, coverCarId, 'title');
+  if (inside(x, y, coverRect()) && coverCarId) return coverKind === 'pc' ? openPrepDemo(s, a, '', 'title') : openShowroom(s, a, coverCarId, 'title');
   titleSigns().forEach((r, i) => {
     if (inside(x, y, r)) activateTitle(s, i, a);
   });

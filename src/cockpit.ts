@@ -907,7 +907,7 @@ COCKPIT_ART.countach = {
 // quadro como o do carro: painel cinza escovado, conta-giros 0-9 (faixa vermelha a partir de 8) e
 // velocímetro 0-280 grandes, água e pressão do óleo à esquerda, combustível e bateria à direita
 COCKPIT_ART.nsx = {
-  dash: cp('nsx-dash'), top: cp('nsx-top'), wheel: cp('nsx-wheel'),
+  dash: cp('nsx-dash'), top: cp('nsx-top'), wheel: cp('nsx-wheel'), dashMask: cp('nsx-dash-mask'), topMask: cp('nsx-top-mask'),
   pivot: [128, 104], wheelTop: 14, tachReal: true, speedMax: 280, needle: '#f2361c', needleW: 2.1, needleTail: 3.0, needleTip: 0.14, hubUnder: true, hub: '#2c2c2f', pod: { x: -45, y: 17, r: 10, face: 'white', bezel: 'black', lit: 'blue' }, radar: [30, 4],
   // retrovisor externo à direita (mão inglesa): o espelho da arte é transparente e mostra a vista de trás
   glass: { at: [436, 71], thr: 256 },

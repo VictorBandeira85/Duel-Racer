@@ -94,6 +94,10 @@ export const SN_PHOTOS: Photo[] = ([
 ] as Photo[]).filter((p) => !!p.src);
 // Silber 95 (Porsche 959): tools/ref/silber_photos.py
 export const P9_PHOTOS: Photo[] = ([
+  { src: ph('p9-floresta'), kicker: 'LENDA', kc: '#1a1614', title: 'SILBER 95', sub: 'Boxer 6 biturbo de 2,85 L e 450 cv, com tração integral', inside: ['317 km/h de máxima', 'Kevlar e alumínio', 'Rodas de magnésio'], box: [118, 118, 431, 240] },
+  { src: ph('p9-neve'), kicker: 'TESTE NA SERRA', kc: '#1e4fb8', title: 'QUATRO NA NEVE', sub: 'A tração integral do Silber 95 contra o gelo da serra', inside: ['Tração que muda sozinha', 'Biturbo em sequência', 'Aguenta o inverno?'], box: [147, 156, 427, 278] },
+  { src: ph('p9-duelo'), kicker: 'COMPARATIVO', kc: '#d01f26', title: 'DUELO DE TITÃS', sub: 'Silber 95 contra Fúria F4: o duelo dos superesportivos', inside: ['Quem chega antes aos 300?', 'Tecnologia x força bruta', 'O veredito da redação'], box: [4, 4, 556, 311] },
+  { src: ph('p9-pista'), kicker: 'NA PISTA', kc: '#1a1614', title: '0 A 100 EM 3,7 S', sub: 'O Silber 95 vermelho de lado no autódromo', inside: ['Medições completas', 'Freadas e retomadas', 'Volta rápida cronometrada'], box: [34, 16, 533, 272] },
 ] as Photo[]).filter((p) => !!p.src);
 // Peças de preparação (tools/ref/parts_photos.py): capas e páginas de carregamento
 export const PC_PHOTOS: Photo[] = [

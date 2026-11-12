@@ -88,6 +88,9 @@ export const VS_PHOTOS: Photo[] = ([
 ] as Photo[]).filter((p) => !!p.src);
 // Savana GLS (Santana GLS 1990): tools/ref/santana_photos.py
 export const SN_PHOTOS: Photo[] = ([
+  { src: ph('sn-garagem'), kicker: 'CLÁSSICOS', kc: '#d01f26', title: 'SAVANA GLS', sub: 'O sedã de luxo da Ipê, também com quatro portas', inside: ['2.0 de 112 cv', 'Vidros e travas elétricos', 'Relógio digital no painel'], box: [30, 84, 541, 296] },
+  { src: ph('sn-catalogo'), kicker: 'POR DENTRO', kc: '#1e4fb8', title: 'LUXO DE SÉRIE', sub: 'Automático de 3 marchas, espelho iluminado e rodas de liga', inside: ['Câmbio automático ou de 5', 'Chave com o logo da Ipê', 'Calota ou roda de liga?'], box: [4, 4, 556, 311] },
+  { src: ph('sn-laranja'), kicker: 'TESTE', kc: '#1a1614', title: 'GRANDE E VALENTE', sub: 'Duas portas, 1.100 kg e 2.0 de 112 cv na estrada', inside: ['0 a 100 e retomadas', 'Consumo na viagem', 'Conforto de carro grande'], box: [11, 83, 550, 282] },
 ] as Photo[]).filter((p) => !!p.src);
 // Peças de preparação (tools/ref/parts_photos.py): capas e páginas de carregamento
 export const PC_PHOTOS: Photo[] = [

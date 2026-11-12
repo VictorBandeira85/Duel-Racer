@@ -357,7 +357,7 @@ const LAMPS: Record<string, LampDef> = {
 // raio é o do ARO (não o do pneu): medir com `python3 tools/qa/wheel_fit.py <arte>` (centro pelo que a
 // roda tem de redondo), senão ela gira fora do eixo e parece torta. Conferir com --sheet
 const WHEELS: Record<string, number[][]> = {
-  '959': [[0.199, 0.739, 0.08], [0.754, 0.74, 0.08]],
+  '959': [[0.2152, 0.7589, 0.0584], [0.7439, 0.7538, 0.0584]], // Silber 95 (silber_sprites.py)
   'br-passat': [[0.155, 0.75, 0.045], [0.78, 0.75, 0.045]],
   'br-corsa': [[0.18, 0.777, 0.057], [0.845, 0.777, 0.057]],
   'br-uno': [[0.196, 0.788, 0.061], [0.847, 0.788, 0.062]],

@@ -1,7 +1,7 @@
 {
   "name": "duel-racer-desktop",
   "productName": "Duel Racer",
-  "version": "0.47.1",
+  "version": "0.47.2",
   "description": "Duel Racer para computador",
   "author": "Victor Bandeira",
   "main": "main.cjs",

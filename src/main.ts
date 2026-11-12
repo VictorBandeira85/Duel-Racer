@@ -77,6 +77,12 @@ function showControls(on: boolean) {
   paused = false;
 }
 
+// Arcade: o carro que o jogador tem na garagem da carreira entra com as peças e ajustes da oficina
+function arcadeCar() {
+  const car = CARS[state.carIdx], cs = state.career;
+  if (!cs || !cs.owned.includes(car.id)) return car;
+  return tunedCar(car, levels(cs, car.id), setupOf(cs, car.id), buildOf(cs, car.id));
+}
 const actions: Actions = {
   go(s: ScreenId) {
     state.screen = s;
@@ -94,7 +100,7 @@ const actions: Actions = {
   startCourse() {
     state.mode = 'arcade';
     run = {
-      course: withTimeOfDay(COURSES[state.courseIdx], state.arcadeTime), car: CARS[state.carIdx],
+      course: withTimeOfDay(COURSES[state.courseIdx], state.arcadeTime), car: arcadeCar(),
       rival: state.oppIdx < CARS.length ? CARS[state.oppIdx] : null, opts: {},
     };
     begin(5);
@@ -107,7 +113,7 @@ const actions: Actions = {
     Object.assign(state, { courseIdx: sv.courseIdx, arcadeTime: (sv.time as ArcadeTime | undefined) ?? (sv.night ? 'night' : 'day') });
     state.mode = 'arcade';
     run = {
-      course: withTimeOfDay(COURSES[sv.courseIdx], state.arcadeTime), car: CARS[state.carIdx],
+      course: withTimeOfDay(COURSES[sv.courseIdx], state.arcadeTime), car: arcadeCar(),
       rival: state.oppIdx < CARS.length ? CARS[state.oppIdx] : null, opts: {},
     };
     initAudio();

@@ -176,7 +176,13 @@ export function saveCareer(s: CareerSave) {
   try {
     localStorage.setItem(KEY, JSON.stringify(s));
   } catch {
-    /* sem armazenamento: vale só nesta sessão */
+    // armazenamento cheio (fantasmas e recordes ocupam espaço): a carreira tem a vez; os fantasmas saem
+    try {
+      localStorage.removeItem('duel-racer:fantasmas');
+      localStorage.setItem(KEY, JSON.stringify(s));
+    } catch {
+      /* sem armazenamento: vale só nesta sessão */
+    }
   }
 }
 export function newCareer(): CareerSave {

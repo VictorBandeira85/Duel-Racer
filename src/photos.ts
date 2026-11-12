@@ -83,6 +83,8 @@ export const VG_PHOTOS: Photo[] = ([
 ] as Photo[]).filter((p) => !!p.src);
 // Jornada Sport (Voyage Sport 1992): tools/ref/voyagesport_photos.py
 export const VS_PHOTOS: Photo[] = ([
+  { src: ph('vs-bancos'), kicker: 'POR DENTRO', kc: '#1a1614', title: 'XADREZ ESPORTIVO', sub: 'Os bancos em tecido xadrez do Jornada Sport', inside: ['Encosto alto na frente', 'Atrás cabem três?', 'Acabamento em cinza'], box: [120, 85, 556, 305] },
+  { src: ph('vs-folheto'), kicker: 'SÉRIE ESPECIAL', kc: '#d01f26', title: 'JORNADA SPORT', sub: 'O sedã esportivo da Ipê: 1.8 de 99 cv e 960 kg', inside: ['Volante de quatro botões', 'Brake-light de série', 'Só em prata ou preto'], box: [8, 8, 552, 307] },
 ] as Photo[]).filter((p) => !!p.src);
 // Peças de preparação (tools/ref/parts_photos.py): capas e páginas de carregamento
 export const PC_PHOTOS: Photo[] = [
@@ -96,6 +98,9 @@ export const PC_PHOTOS: Photo[] = [
   { src: ph('pc-suspensao'), kicker: 'OFICINA', kc: '#1a6a2a', title: 'MAIS BAIXO, MAIS FIRME', sub: 'Molas esportivas e amortecedores a gás', inside: ['20% ou 35% mais baixo', 'Curva com mais g', 'Cuidado com a lombada'], box: [50, 5, 510, 310] },
   { src: ph('pc-freio'), kicker: 'TESTE', kc: '#1e4fb8', title: 'FREIA MAIS TARDE', sub: 'Disco ventilado e pinça de corrida', inside: ['Pastilha: qual usar', 'Fluido de alta temperatura', 'Metros a menos de 100 a 0'], box: [138, 14, 421, 278] },
   { src: ph('pc-bancos'), kicker: 'ALÍVIO DE PESO', kc: '#d01f26', title: 'BANCO CONCHA', sub: 'Segura o corpo e tira peso do carro', inside: ['Fibra ou tubular', 'Cinto de quatro pontos', 'Trilho regulável'], box: [50, 5, 510, 310] },
+  { src: ph('pc-turbomotor'), kicker: 'OFICINA', kc: '#1e4fb8', title: 'TURBO NO AP', sub: 'Turbina, intercooler e pressão no carburador', inside: ['Turbina da .32 à .70', 'Intercooler: vale a pena', 'Manômetro na cabine'], box: [30, 55, 535, 300] },
+  { src: ph('pc-kitturbo'), kicker: 'PREPARAÇÃO', kc: '#d01f26', title: 'KIT TURBO', sub: 'Peça por peça, o que vai no seu motor', inside: ['Downpipe de 2,5 ou 3,5 pol', 'Qual turbina escolher', 'Monte o seu na oficina'], box: [10, 5, 550, 310] },
+  { src: ph('pc-coletor'), kicker: 'PREPARAÇÃO', kc: '#1a1614', title: 'ADMISSÃO DE CORRIDA', sub: 'Coletor de dutos longos e pressão de sobra', inside: ['Turbo ou supercharger?', 'Polia menor, mais pressão', 'Visite a oficina'], box: [95, 40, 465, 280] },
 ].filter((p) => !!p.src);
 export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...VG_PHOTOS, ...VS_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
 

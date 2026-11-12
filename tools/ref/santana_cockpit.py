@@ -19,7 +19,8 @@ com cenário pelos vidros), no molde de voyagesport_cockpit.py (Jornada Sport):
 - o letreiro do painel do passageiro ("SANTANA GLS") vira "SAVANA GLS" no mesmo estilo (fica fora da
   área que o jogo usa, mas não sobra marca real em lugar nenhum)
 - a caixinha à direita do quadro (na arte um mostrador ilegível, com ponteiro e marcas acesos) vira o
-  botão do reostato da luz do painel e uma tecla, apagados
+  botão do reostato da luz do painel e uma tecla, apagados; o reflexo alaranjado das luzes acesas da arte
+  na moldura embaixo do quadro sai
 - o quadro é refeito por tools/ref/santana_gauges.py (cobre a placa inteira dos mostradores)
 Escala 0,34 (pixel 8:7), volante ampliado 1,08x, pivô do volante em (128, 104).
 Uso: python3 tools/ref/santana_cockpit.py <pasta com cab-wheel.png e cab-nowheel.png> <src/assets/cockpit>
@@ -225,6 +226,13 @@ def main():
     sx0, sy0, sx1, sy1 = SWITCH
     nw[sy0:sy1, sx0:sx1] = (14, 13, 16)
     pod(nw)
+    # reflexos alaranjados das luzes acesas da arte na moldura embaixo do quadro: as luzes agora ficam
+    # apagadas, então o reflexo vira o cinza da moldura (mesmo brilho)
+    reg = nw[420:458, 300:770].astype(int)
+    warm = (reg[..., 0] - reg[..., 2] > 10) & (reg[..., 0] - reg[..., 1] > 8) & (reg[..., 0] > 35)
+    lum = reg.mean(axis=2)
+    reg[warm] = np.stack([lum[warm] * 0.92, lum[warm] * 0.9, lum[warm] * 1.02], axis=-1).astype(int)
+    nw[420:458, 300:770] = reg.astype(np.uint8)
     E, A = extend(nw, ~g)
     mirror(E, A)
     if dbg:

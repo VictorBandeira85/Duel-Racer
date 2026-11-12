@@ -158,6 +158,9 @@
   diagonal da peça (forro da porta do GTI) e o vidro do retrovisor até a borda (toEdge + edgeFill).
 - Máscara de pintura: excluir lanternas, piscas, frisos e letreiros; incluir reflexos claros e bordas
   da cor da lataria (senão ficam rosados/vermelhos com outra cor). Conferir repintando de azul.
+- Máscara feita só pela cor "cheia" deixa de fora o contorno escuro e os reflexos da lataria: com outra
+  cor sobram pixels da cor de fábrica nas bordas (Kaze NX). Conferir com `python3 tools/qa/paint_leftover.py
+  <prefixo> <saída.png>` (pinta de branco e marca os restos) e corrigir como `tools/ref/nx_paint_edges.py`.
 - Arte que vem com uma cor diferente da de fábrica numa vista: converter pelo brilho da outra vista.
 - Quadro de instrumentos: medir os ângulos de início/fim das escalas na foto; números grandes e
   negritos; nada de texto improvisado no lugar de ícone (desenhar o pictograma).

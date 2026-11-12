@@ -17,6 +17,7 @@ export interface Part {
   drop?: number; // quanto a carroceria desce (fração da altura livre): 0,2 esportiva, 0,35 corrida
   forced?: 'turbo' | 'super';
   boost?: number; // pressão máxima (kgf/cm²) mostrada no manômetro auxiliar
+  boostMul?: number; // turbo de fábrica: quanto a pressão sobe (o manômetro do quadro mostra)
   wheel?: string; // roda aftermarket: arquivo em src/assets/wheels (rNN)
   sound?: SoundMods;
 }
@@ -126,7 +127,7 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
         { id: 'chip', name: 'Chip e bicos', note: '+7,5% cv', cost: 0.04, power: 1.075, sound: { drive: 1.05 } },
         { id: 'programavel', name: 'Programável', note: '+13,5% cv, +5% giro', cost: 0.09, power: 1.135, sound: { drive: 1.1, pops: 0.2, rev: 1.05 } }] },
     ft
-      ? { id: 'inducao', name: 'Turbina', parts: [ORIGINAL('De fábrica'), { id: 'turbomaior', name: 'Turbina maior', note: '+18% cv', cost: 0.12, power: 1.18, sound: { low: 0.92, pops: 0.2 } }] }
+      ? { id: 'inducao', name: 'Turbina', parts: [ORIGINAL('De fábrica'), { id: 'turbomaior', name: 'Turbina maior', note: '+18% cv, +0,3 bar', cost: 0.12, power: 1.18, boostMul: 1.3, sound: { low: 0.92, pops: 0.2, spool: 0.25 } }] }
       : { id: 'inducao', name: 'Indução', parts: [ORIGINAL('Aspirado'),
         { id: 'turbo', name: 'Turbo', note: '+42% cv', cost: 0.22, power: 1.42, forced: 'turbo', boost: 0.8, sound: { turbo: true, spool: 1, low: 0.82, pops: 0.25 } },
         { id: 'super', name: 'Supercharger', note: '+30% cv', cost: 0.2, power: 1.3, forced: 'super', boost: 0.45, sound: { whine: 0.55, blower: 1, drive: 1.1 } }] },
@@ -169,6 +170,7 @@ export const buildKey = (b: Build | undefined) => (b ? Object.entries(b).filter(
 /** aplica as peças à ficha (antes de prepareCar): potência, máxima, aderência, ronco e altura */
 export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
   if (!build || !buildKey(build)) return car;
+  let boostMul = 1;
   let power = 1, grip = 1, brake = 1, handling = 1, traction = 1, drop = 0, mass = 1, boost = 0;
   let forced: 'turbo' | 'super' | undefined;
   let wheel: string | undefined;
@@ -184,6 +186,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     drop = Math.max(drop, p.drop ?? 0);
     forced = p.forced ?? forced;
     boost = Math.max(boost, p.boost ?? 0);
+    boostMul *= p.boostMul ?? 1;
     wheel = p.wheel ?? wheel;
     const m = p.sound;
     if (m) {
@@ -208,6 +211,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     engine: forced === 'turbo' ? `${car.engine} turbo` : forced === 'super' ? `${car.engine} compressor` : car.engine,
     rideDrop: drop || undefined,
     forced, boostMax: forced ? boost : undefined,
+    boostMul: boostMul !== 1 ? boostMul : undefined,
     // relógios auxiliares: pressão do turbo/compressor, de óleo (pistões e bielas) e de combustível (alimentação)
     pods: [...(forced ? ['boost' as const] : []), ...(build.pistoes ? ['oil' as const] : []), ...(build.alimentacao ? ['fuel' as const] : [])],
     carb: isCarb(car),

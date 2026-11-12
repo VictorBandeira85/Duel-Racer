@@ -816,7 +816,7 @@ function silberCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   tip(SB_G5, 40 - 40 * (2.7 + v / 800 - 1.5)); // traseiros
   // manômetro do turbo (embaixo do conta-giros): pressão dos dois turbos de fábrica, até ~1 bar
   const [tx, ty, tr] = SB_TACH;
-  const bar = clamp(gauges.boost, 0, 1.2);
+  const bar = clamp(gauges.boost / BOOST_STOCK, 0, 1.4); // 1 bar de fábrica; 1,3 com a turbina maior
   fineNeedle(c, X(tx), Y(ty + 0.68 * tr * PIX_Y), 0.47 * tr * 0.95, (217.5 + 42 * bar) * VG_DEG, 0.9, art.needle, art.hub, 1.5, 2.6);
   // clarão morno do quadro aceso
   if (k > 0.02) {
@@ -2069,6 +2069,7 @@ function hand(c: CanvasRenderingContext2D, x0: number, y0: number, a: number, le
 // Leitura dos mostradores auxiliares (0..1 da escala), cada um com sua função:
 // pressão do óleo sobe na partida e estabiliza; água e óleo esquentam aos poucos;
 // o combustível baixa ao longo do trecho; o turbo só enche acelerando; a bateria fica parada.
+const BOOST_STOCK = 0.75;
 const gauges: Record<Gauge, number> = { oil: 0.3, water: 0.3, oiltemp: 0.25, fuel: 0.92, boost: 0, volt: 0.62, vac: 0.8 };
 let gaugeRace: Race | null = null;
 function updateGauges(r: Race, dt: number) {
@@ -2084,7 +2085,8 @@ function updateGauges(r: Race, dt: number) {
   gauges.water += (hot - gauges.water) * Math.min(1, dt * 0.6);
   gauges.oiltemp = 0.25 + 0.35 * Math.min(1, r.time / 80);
   gauges.fuel = 0.92 - 0.3 * clamp(r.playerZ / r.track.finishZ, 0, 1);
-  const boost = r.throttle && r.car.curve.includes('turbo') ? r.pt.boost * clamp((rpm - 0.2) / 0.4, 0, 1) : 0;
+  // turbo de fábrica: a pressão original fica em 3/4 da escala do manômetro; a turbina maior (boostMul) sobe o resto
+  const boost = r.throttle && r.car.curve.includes('turbo') ? BOOST_STOCK * (r.car.boostMul ?? 1) * r.pt.boost * clamp((rpm - 0.2) / 0.4, 0, 1) : 0;
   gauges.boost += (boost - gauges.boost) * Math.min(1, dt * 6);
   gauges.volt = r.speed > 0 || r.throttle ? 0.62 : 0.55;
   // econômetro: vácuo alto (faixa verde) com o pé leve, cai acelerando fundo
@@ -2096,7 +2098,7 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
   const mx = cx + 0.5, my = cy + 0.5; // centro real
   if (g.needleOnly) {
     const a0 = g.arc?.[0] ?? Math.PI * 1.1, a1 = g.arc?.[1] ?? Math.PI * 1.9;
-    const a = a0 + (a1 - a0) * gauges[(g.show ?? ['oil'])[0]];
+    const a = a0 + (a1 - a0) * Math.min(1.05, gauges[(g.show ?? ['oil'])[0]]);
     if (art.needleFine) return fineNeedle(c, mx, my, R, a, 1.4, art.needle, art.hub, g.hubR ?? 2.6, g.hubR === 0 ? 0 : 1.5);
     hand(c, mx, my, a, R, art.needle, 1);
     c.fillStyle = art.hub;
@@ -2117,7 +2119,7 @@ function auxDial(c: CanvasRenderingContext2D, g: Aux, ox: number, art: CockpitAr
     }
     c.fill();
   };
-  const val = (k: Gauge) => gauges[k];
+  const val = (k: Gauge) => Math.min(1.05, gauges[k]);
   const PI = Math.PI;
   if (g.kind === 'clock') {
     ticks(mx, my, R - 0.75, -PI / 2, PI * 1.5, 12);

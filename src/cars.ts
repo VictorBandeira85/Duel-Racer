@@ -75,6 +75,7 @@ export interface CarSpec {
   rideDrop?: number; // suspensão rebaixada (tuning.ts): fração da altura livre que a carroceria desce na vista lateral
   forced?: 'turbo' | 'super'; // turbo/supercharger instalado na preparação: a cabine ganha o manômetro auxiliar
   boostMax?: number; // pressão máxima (kgf/cm²) do manômetro
+  boostMul?: number; // turbo de fábrica com turbina maior: pressão multiplicada (manômetro do quadro)
   pods?: ('boost' | 'oil' | 'fuel')[]; // relógios auxiliares na cabine, conforme as peças instaladas
   prep?: number; // multiplicador de potência das peças (1 = original): tração dianteira preparada patina mais
   carb?: boolean; // alimentação por carburador (escala do relógio de combustível)

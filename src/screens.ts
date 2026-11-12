@@ -25,7 +25,7 @@ import { hasCockpitArt, interiorPhoto } from './cockpit';
 import { BLUE, GREY, INK, RED, YELLOW, arrow, barcode, box, burst, halftone, headline, ink, kicker, logo, masthead, paper, photo, rule, specRows, stars, tag } from './mag';
 import { formatTime, shade } from './util';
 import { drawEngine, drawParts, drawStation } from './loadart';
-import { DIA_PHOTOS, F4_PHOTOS, GOL_PHOTOS, LP5_PHOTOS, MZ_PHOTOS, VG_PHOTOS, VS_PHOTOS, NX_PHOTOS, PC_PHOTOS, TR_PHOTOS, VP_PHOTOS, drawPhoto } from './photos';
+import { DIA_PHOTOS, F4_PHOTOS, GOL_PHOTOS, LP5_PHOTOS, MZ_PHOTOS, VG_PHOTOS, VS_PHOTOS, SN_PHOTOS, NX_PHOTOS, PC_PHOTOS, TR_PHOTOS, VP_PHOTOS, drawPhoto } from './photos';
 import { brandOf, drawLogo } from './brands';
 import { setEngine, setTires, shiftSound } from './audio';
 
@@ -121,9 +121,9 @@ let coverCarId = ''; // carro da capa que está passando (toque leva ao anúncio
 // carros da capa: os que têm arte (e as vistas de frente e de trás)
 const coverCars = () => CARS.filter((c) => c.imgSide && c.rear.img && c.rear.frontImg && !c.arcadeOnly);
 const SLIDE_T = 8; // s por edição da capa
-const SLIDES = ['test', 'lp5', 'compare', 'tr', 'angles', 'f4', 'nx', 'interior', 'dia', 'vp', 'gol', 'mz', 'vg', 'vs', 'pc', 'brasil', 'news', 'road'] as const;
+const SLIDES = ['test', 'lp5', 'compare', 'tr', 'angles', 'f4', 'nx', 'interior', 'dia', 'vp', 'gol', 'mz', 'vg', 'vs', 'sn', 'pc', 'brasil', 'news', 'road'] as const;
 // capas de fotos (ensaio do Victor): o conjunto de fotos e o carro de cada uma
-const PHOTO_COVERS = { lp5: { set: LP5_PHOTOS, car: 'toro-lp5' }, nx: { set: NX_PHOTOS, car: 'kaze-nx' }, vp: { set: VP_PHOTOS, car: 'serpe-v10' }, tr: { set: TR_PHOTOS, car: 'furia-tr' }, f4: { set: F4_PHOTOS, car: 'furia-f4' }, dia: { set: DIA_PHOTOS, car: 'toro-v12' }, gol: { set: GOL_PHOTOS, car: 'br-golgti' }, mz: { set: MZ_PHOTOS, car: 'br-monza' }, vg: { set: VG_PHOTOS, car: 'br-voyage' }, vs: { set: VS_PHOTOS, car: 'br-voyagesport' }, pc: { set: PC_PHOTOS, car: 'toro-v12' } } as const;
+const PHOTO_COVERS = { lp5: { set: LP5_PHOTOS, car: 'toro-lp5' }, nx: { set: NX_PHOTOS, car: 'kaze-nx' }, vp: { set: VP_PHOTOS, car: 'serpe-v10' }, tr: { set: TR_PHOTOS, car: 'furia-tr' }, f4: { set: F4_PHOTOS, car: 'furia-f4' }, dia: { set: DIA_PHOTOS, car: 'toro-v12' }, gol: { set: GOL_PHOTOS, car: 'br-golgti' }, mz: { set: MZ_PHOTOS, car: 'br-monza' }, vg: { set: VG_PHOTOS, car: 'br-voyage' }, vs: { set: VS_PHOTOS, car: 'br-voyagesport' }, sn: { set: SN_PHOTOS, car: 'br-santana' }, pc: { set: PC_PHOTOS, car: 'toro-v12' } } as const;
 // carros nacionais com arte: entram no especial e nas fotos do interior (as novidades da revista)
 const brCars = () => coverCars().filter((c) => c.id.startsWith('br-'));
 
@@ -195,7 +195,7 @@ function drawCoverSlide(c: CanvasRenderingContext2D, s: AppState, ph: Rect, slot
     fn();
     c.restore();
   };
-  if ((kind === 'lp5' || kind === 'nx' || kind === 'vp' || kind === 'tr' || kind === 'f4' || kind === 'dia' || kind === 'gol' || kind === 'mz' || kind === 'vg' || kind === 'vs' || kind === 'pc') && PHOTO_COVERS[kind].set.length) {
+  if ((kind === 'lp5' || kind === 'nx' || kind === 'vp' || kind === 'tr' || kind === 'f4' || kind === 'dia' || kind === 'gol' || kind === 'mz' || kind === 'vg' || kind === 'vs' || kind === 'sn' || kind === 'pc') && PHOTO_COVERS[kind].set.length) {
     // capa especial de foto (horizontal, como as revistas importadas): foto sangrada,
     // título enorme, "nesta edição" ao lado, faixa vermelha embaixo e código de barras
     const set = PHOTO_COVERS[kind].set;
@@ -385,7 +385,7 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
   drawCoverSlide(c, s, ph, slot, (t % SLIDE_T) / SLIDE_T);
   // código de barras no canto (menos onde há quadros pequenos ali)
   const kind = SLIDES[Math.max(0, slot) % SLIDES.length];
-  if (kind !== 'angles' && kind !== 'news' && kind !== 'brasil' && kind !== 'lp5' && kind !== 'nx' && kind !== 'vp' && kind !== 'tr' && kind !== 'f4' && kind !== 'dia' && kind !== 'gol' && kind !== 'mz' && kind !== 'vg' && kind !== 'vs' && kind !== 'pc') barcode(c, ph.x + ph.w - 40, ph.y + ph.h - 36);
+  if (kind !== 'angles' && kind !== 'news' && kind !== 'brasil' && kind !== 'lp5' && kind !== 'nx' && kind !== 'vp' && kind !== 'tr' && kind !== 'f4' && kind !== 'dia' && kind !== 'gol' && kind !== 'mz' && kind !== 'vg' && kind !== 'vs' && kind !== 'sn' && kind !== 'pc') barcode(c, ph.x + ph.w - 40, ph.y + ph.h - 36);
   // chamadas = menu (o subtítulo muda a cada edição da foto)
   // o carro da capa: toque na foto abre o anúncio dele no showroom
   const cc = CARS.find((k) => k.id === coverCarId);
@@ -394,7 +394,7 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
     const lab = kind === 'pc' ? 'VISITE A OFICINA DE PREPARAÇÃO ▶' : `VER ${cc.name.toUpperCase()} NO SHOWROOM ▶`;
     const tw = Math.ceil(c.measureText(lab).width) + 6;
     const blink = Math.floor(s.t * 1.5) % 2 === 0;
-    const ty = ph.y + ph.h - (kind === 'lp5' || kind === 'nx' || kind === 'vp' || kind === 'tr' || kind === 'f4' || kind === 'dia' || kind === 'gol' || kind === 'mz' || kind === 'vg' || kind === 'vs' || kind === 'pc' ? 21 : 11); // nas capas de foto, acima da faixa vermelha
+    const ty = ph.y + ph.h - (kind === 'lp5' || kind === 'nx' || kind === 'vp' || kind === 'tr' || kind === 'f4' || kind === 'dia' || kind === 'gol' || kind === 'mz' || kind === 'vg' || kind === 'vs' || kind === 'sn' || kind === 'pc' ? 21 : 11); // nas capas de foto, acima da faixa vermelha
     c.fillStyle = blink ? RED : INK;
     c.fillRect(ph.x + ph.w - tw - 2, ty, tw, 9);
     ink(c, lab, ph.x + ph.w - 5, ty + 2, 5, blink ? YELLOW : '#fff', 'right');
@@ -1491,7 +1491,7 @@ const TIPS = [
   'Tela cheia no computador: F11. Pausa: Esc. Teclas trocam em AJUSTES > CONTROLES.',
   'Máquina mais fraca? Em AJUSTES, escolha QUADROS 30 FPS e GRÁFICOS ECONÔMICO.',
 ];
-const LOAD_PICS = ['cover', 'lp5', 'dia', 'tr', 'f4', 'nx', 'vp', 'engine', 'parts', 'station', 'dia', 'tr', 'f4', 'nx', 'vp', 'lp5', 'cover', 'interior', 'tr', 'dia', 'vp', 'gol', 'mz', 'vg', 'vs', 'pc', 'engine', 'pc', 'road', 'brasil'] as const;
+const LOAD_PICS = ['cover', 'lp5', 'dia', 'tr', 'f4', 'nx', 'vp', 'engine', 'parts', 'station', 'dia', 'tr', 'f4', 'nx', 'vp', 'lp5', 'cover', 'interior', 'tr', 'dia', 'vp', 'gol', 'mz', 'vg', 'vs', 'sn', 'pc', 'engine', 'pc', 'road', 'brasil'] as const;
 let load = { t0: 0, min: 1.6, next: null as null | (() => void), pic: 0, tip: 0, slot: 0 };
 let loadSeq = Math.floor(Math.random() * 1000);
 export function beginLoading(s: AppState, next: () => void, min = 1.6) {
@@ -1528,7 +1528,7 @@ function drawLoading(c: CanvasRenderingContext2D, s: AppState) {
     }
   } else {
     // as mesmas "edições" da capa (teste, interior, flagra na estrada, especial nacional)
-    const idx = SLIDES.indexOf(({ cover: load.slot % 3 === 0 ? 'test' : 'compare', interior: 'interior', road: 'road', brasil: 'brasil', lp5: 'lp5', nx: 'nx', vp: 'vp', tr: 'tr', f4: 'f4', dia: 'dia', gol: 'gol', mz: 'mz', vg: 'vg', vs: 'vs', pc: 'pc' } as const)[kind]);
+    const idx = SLIDES.indexOf(({ cover: load.slot % 3 === 0 ? 'test' : 'compare', interior: 'interior', road: 'road', brasil: 'brasil', lp5: 'lp5', nx: 'nx', vp: 'vp', tr: 'tr', f4: 'f4', dia: 'dia', gol: 'gol', mz: 'mz', vg: 'vg', vs: 'vs', sn: 'sn', pc: 'pc' } as const)[kind]);
     drawCoverSlide(c, s, ph, idx + SLIDES.length * (load.slot % 5), Math.min(1, t / 7));
   }
   // dica

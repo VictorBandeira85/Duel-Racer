@@ -64,6 +64,7 @@ const CAR_SOUND: Record<string, Partial<EngineSpec>> = {
   'br-xr3': { redline: 6200, rasp: 0.12 },
   'br-kadett': { redline: 6300 },
   'br-monza': { redline: 6000, low: 760 },
+  'br-santana': { redline: 6200, intake: 0.1, jitter: 0.03, low: 760 }, // AP 2.0 carburado, mais macio
   'br-voyagesport': { redline: 6400, intake: 0.14, jitter: 0.04, low: 800 }, // AP 1.8 carburado
   'br-voyage': { redline: 6200, intake: 0.12, jitter: 0.05 }, // AP 1.6 a álcool, carburado
   'br-monzacoupe': { redline: 6000, low: 760 },

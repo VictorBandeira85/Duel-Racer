@@ -32,7 +32,8 @@
   isso o to-artifact entrega toda imagem de arquivo como data: (fetch), nunca direto no `src`.
 - Fase de testes: `TEST_MONEY` (career.ts) dá saldo mínimo de $1.000.000 em toda carreira. Manter nas
   builds até o Victor mandar tirar (pôr 0).
-- Versão de PC (`npm run desktop`, instalador e zip) **só com autorização explícita do Victor**.
+- Versão de PC (`npm run desktop`, instalador e zip) e APK **só quando o Victor mandar, a cada vez**
+  (pedido de 12/11: nada de gerar por conta própria, nem "por garantia" antes do fim da sessão).
 - Versão Android (APK): `ANDROID_HOME=<sdk> bash android/build.sh` (WebView com o jogo dentro;
   a chave android/key.jks fica fora do git). Só quando o Victor pedir.
 - Nunca abrir PR.

@@ -93,3 +93,17 @@ for v in ('side', 'front', 'rear'):
     m2 = m | add
     Image.fromarray((m2 * 255).astype(np.uint8), 'L').convert(m0.mode).save(mp, optimize=True)
     print(v, 'acrescentados', int(add.sum()))
+
+# Vão sob o aerofólio (traseira): a borda de baixo do aerofólio e o filete de cima do painel traseiro
+# são lataria (não lanterna): linhas vermelhas/rosadas entre as lentes de canto, acima da faixa das
+# lanternas (linhas 38..48, colunas 32..W-32). Entram na máscara.
+a = np.array(Image.open(os.path.join(CARS, 'nsx-rear.png')).convert('RGBA')).astype(int)
+mp = os.path.join(CARS, 'nsx-rear-mask.png')
+m0 = Image.open(mp)
+m = np.array(m0.convert('L')) > 127
+H, W = m.shape
+r, g, b, al = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
+yy, xx = np.mgrid[0:H, 0:W]
+gap = (al > 0) & ~m & (yy >= 38) & (yy <= 48) & (xx >= 32) & (xx <= W - 33) & (r > g + 14) & (r > b + 14)
+Image.fromarray(((m | gap) * 255).astype(np.uint8), 'L').convert(m0.mode).save(mp, optimize=True)
+print('vão do aerofólio: acrescentados', int(gap.sum()))

@@ -447,6 +447,155 @@ COCKPIT_ART['br-voyage'] = {
 };
 queueMicrotask(() => faceImg(VG_FACE)); // a foto da revista (interiorPhoto) precisa do fundo do quadro já carregado
 
+// Jornada Sport (Voyage Sport 1.8 1992): interior do Victor (tools/ref/voyagesport_cockpit.py, no molde do
+// Jornada LS: painel da arte sem volante, volante de quatro botões da arte com volante, cenário dos vidros e
+// limpadores recortados, porta construída até a borda) e o quadro da foto do carro real
+// (tools/ref/voyagesport_gauges.py): velocímetro redondo 20-220 com os números por dentro das marcações,
+// hodômetro de seis tambores e parcial de quatro; bloco do meio com o esquema das marchas, dez lentes
+// redondas (apagadas na arte) e o relógio de cristal líquido com a hora de verdade; conta-giros 0-7 com
+// temperatura (e o LED vermelho) e combustível em duas janelas em leque embaixo. Ponteiros brancos em barra
+// que passam por cima do eixo (disco preto chapado embaixo), como na foto.
+// O 0-1 do conta-giros é apertado (19,5°) e o resto anda 28,25° por 1000: por isso os ponteiros são
+// desenhados aqui e não por `speed`/`tach`. À noite e no túnel o fundo acende em verde-garrafa escuro
+// (br-voyagesport-cluster-lit por cima do apagado, na medida do escuro da cabine), como no Jornada LS.
+const VS = { x: VG_X(67.5), y: VG_Y(33.3), w: (121 * 464) / 460, h: (52.8 * 128) / 124 }; // placa dos mostradores (voyagesport_gauges.py: 67,5, 33,3, 121 x 52,8)
+const VS_FACE = cp('br-voyagesport-cluster'), VS_LIT = cp('br-voyagesport-cluster-lit'), VS_LAMPS = cp('br-voyagesport-lamps');
+// fenda de uma linha na coluna do quebra-vento (liga os dois lados do vidro do retrovisor, para o jogo achar
+// um vidro só): depois da vista de trás, a coluna é repintada ali (cores da arte; colunas 41 a 50 da
+// linha 26 do painel, que esticada cai na linha 27 da tela)
+const VS_SLIT: [number, number, number][] = [[5, 5, 21], [74, 54, 108], [176, 128, 189], [116, 77, 140], [31, 26, 54], [32, 26, 53], [31, 25, 49], [30, 25, 48], [32, 27, 47], [3, 1, 2]];
+function voyageSportUnder(c: CanvasRenderingContext2D, ox: number, r: Race) {
+  if (!r.def) { // foto da revista (sem corrida): o fundo do quadro entra aqui
+    const im = faceImg(VS_FACE);
+    if (im) c.drawImage(im, ox + VS.x, ART_TOP + VS.y, VS.w, VS.h);
+  }
+  const q = r.def ? Math.round(cabinDark(r) * 20) / 20 : 0; // o mesmo escurecimento da cabine (nightImg)
+  VS_SLIT.forEach(([cr, cg, cb], i) => {
+    c.fillStyle = `rgb(${Math.round(cr * (1 - q) + 4 * q)},${Math.round(cg * (1 - q) + 4 * q)},${Math.round(cb * (1 - q) + 14 * q)})`;
+    c.fillRect(ox - DASH_PAD + 41 + i, ART_TOP + 27, 1, 1);
+  });
+}
+// ângulo de cada escala (graus), como no mostrador desenhado
+const vsSpeedA = (kmh: number) => 135 + (clamp(kmh, 17, 226) - 20) * (269.4 / 200);
+const vsTachA = (k: number) => (k <= 1 ? 175.5 + 19.5 * Math.max(0, k) : 195 + (Math.min(7.15, k) - 1) * 28.25);
+// lentes do bloco do meio (colunas e linhas da arte) e janelas em leque dos pequenos (em raios do conta-giros)
+const VS_LAMP_X = [121.45, 125.55, 129.65, 133.75, 137.85], VS_LAMP_Y = [57.5, 62.2];
+const VS_WELL: [number, number][] = [[-1.2, 0.15], [-0.72, 0.15], [-0.62, 0.22], [-0.52, 0.38], [-0.45, 0.56], [-0.45, 0.72], [-0.49, 1.2], [-1.2, 1.2]];
+// algarismos de cristal líquido (sete segmentos: a em cima, b/c à direita, d embaixo, e/f à esquerda, g no meio)
+const VS_SEG = ['abcdef', 'bc', 'abged', 'abgcd', 'fgbc', 'afgcd', 'afgedc', 'abc', 'abcdefg', 'abfgcd'];
+function vsLcdDigit(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, d: number) {
+  const t = 0.5, s = VS_SEG[d], hh = (h - t) / 2;
+  if (s.includes('a')) c.fillRect(x + 0.15, y, w - 0.3, t);
+  if (s.includes('g')) c.fillRect(x + 0.15, y + hh, w - 0.3, t);
+  if (s.includes('d')) c.fillRect(x + 0.15, y + h - t, w - 0.3, t);
+  if (s.includes('f')) c.fillRect(x, y + 0.15, t, hh + t - 0.3);
+  if (s.includes('b')) c.fillRect(x + w - t, y + 0.15, t, hh + t - 0.3);
+  if (s.includes('e')) c.fillRect(x, y + hh + 0.15, t, hh + t - 0.3);
+  if (s.includes('c')) c.fillRect(x + w - t, y + hh + 0.15, t, hh + t - 0.3);
+}
+function voyageSportCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
+  const art = COCKPIT_ART['br-voyagesport'];
+  const X = (x: number) => ox + VG_X(x), Y = (y: number) => ART_TOP + VG_Y(y); // medidas da arte -> tela
+  const k = r.def ? Math.min(1, cabinDark(r) / 0.6) : 0;
+  const sm = c.imageSmoothingEnabled;
+  c.imageSmoothingEnabled = true;
+  if (k > 0.02) {
+    const im = faceImg(VS_LIT);
+    if (im) {
+      c.globalAlpha = k;
+      c.drawImage(im, ox + VS.x, ART_TOP + VS.y, VS.w, VS.h);
+      c.globalAlpha = 1;
+    }
+  }
+  // luzes-espia (apagadas na arte). Em cima: setas (verde, com o relé; pisca-alerta na batida), bateria,
+  // (cega), óleo e farol alto (azul, à noite). Embaixo: (cega), afogador (amarela, fica apagada),
+  // (cega), freio de mão (parado sem acelerar), (cega). Bateria e óleo com o motor parado; óleo também no motor batido
+  const off = r.rpm < 0.05, crash = r.state === 'crash';
+  const on = [(r.signal !== 0 || crash) && blinkOn(), off, false, off || r.damage > 0.6 || crash, !!r.def?.night, false, false, false, r.speed < 1 && !r.throttle, false];
+  const lamps = on.some(Boolean) ? faceImg(VS_LAMPS) : null;
+  if (lamps) {
+    const kx = lamps.naturalWidth / 20.9, ky = lamps.naturalHeight / 52.8;
+    on.forEach((lit, i) => {
+      if (!lit) return;
+      const x = VS_LAMP_X[i % 5] - 2.05, y = VS_LAMP_Y[i < 5 ? 0 : 1] - 2.35; // casa de cada lente, com o clarão
+      c.drawImage(lamps, (x - 119.2) * kx, (y - 33.3) * ky, 4.1 * kx, 4.7 * ky, X(x), Y(y), X(x + 4.1) - X(x), Y(y + 4.7) - Y(y));
+    });
+  }
+  c.imageSmoothingEnabled = sm;
+  // tambores do hodômetro (seis) e do parcial (quatro, com décimos: o último é branco de algarismo vermelho)
+  const km = r.track ? Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600) : 0;
+  const drums = (v: number, n: number, cx: number, cy: number, pitch: number, last: boolean) => {
+    const s = String(Math.floor(v) % 10 ** n).padStart(n, '0');
+    for (let i = 0; i < n; i++) pix(c, s[i], X(cx + (i - (n - 1) / 2) * pitch), Y(cy), last && i === n - 1 ? (k > 0.3 ? '#7a1c14' : '#c02a1c') : k > 0.3 ? '#bef5cd' : '#dcdfd4', 0.5);
+  };
+  drums(60940 + km, 6, 93.4, 54.84, 3.55, false);
+  drums((416.4 + km) * 10, 4, 93.5, 69.01, 4.0, true);
+  // relógio de cristal líquido: a hora de verdade, algarismos escuros de sete segmentos
+  const now = new Date();
+  const hm = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const dw = 2.3, dh = 5.0, gap = 1.0, colon = 1.3;
+  let lx = X(129.65) - ((hm.length - 1) * (dw + gap) - gap + colon + gap) / 2;
+  const ly = Y(78.0) - dh / 2;
+  c.fillStyle = k > 0.3 ? '#06180e' : '#1c2418';
+  for (const ch of hm) {
+    if (ch === ':') {
+      c.fillRect(lx + 0.35, ly + dh * 0.28, 0.6, 0.6);
+      c.fillRect(lx + 0.35, ly + dh * 0.66, 0.6, 0.6);
+      lx += colon + gap;
+    } else {
+      vsLcdDigit(c, lx, ly, dw, dh, Number(ch));
+      lx += dw + gap;
+    }
+  }
+  // temperatura e combustível: o eixo fica escondido atrás da máscara do meio, só a ponta aparece na janela em leque
+  const tx = 165.5, ty = 61.7, R = 22;
+  for (const side of [-1, 1]) {
+    const v = clamp(side < 0 ? gauges.water : gauges.fuel, -0.05, 1.08);
+    const a = side < 0 ? 121 + 54.4 * v : 59 - 54.4 * v;
+    c.save();
+    c.beginPath();
+    VS_WELL.forEach(([wx, wy], i) => (i ? c.lineTo(X(tx - side * wx * R), Y(ty + wy * R * PIX_Y)) : c.moveTo(X(tx - side * wx * R), Y(ty + wy * R * PIX_Y))));
+    c.closePath();
+    c.clip();
+    fineNeedle(c, X(tx + side * 0.3816 * R), Y(ty + 0.2385 * R * PIX_Y), 7.6, a * VG_DEG, 1.0, art.needle, art.hub, 0, 0);
+    c.restore();
+  }
+  // LED vermelho da temperatura (motor quente)
+  if (gauges.water > 0.66) {
+    c.fillStyle = '#ff3a26';
+    c.beginPath(); c.ellipse(X(148.9), Y(74.0), 0.7, 0.7 * PIX_Y, 0, 0, Math.PI * 2); c.fill();
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    drawGlow(c, X(148.9), Y(74.0), 3, 3, '255,60,40', 0.5, GLOW_STOPS);
+    c.restore();
+  }
+  // velocímetro (descansa no 20, como na foto) e conta-giros (giro de verdade do motor do carro)
+  needle(c, X(93.2) - 0.5, Y(61.7) - 0.5, 22.6, vsSpeedA(Math.max(19, r.speed * KMH)) * VG_DEG, art);
+  let red = r.car.engine ? redlines.get(r.car.id) : 6400; // foto da revista: carro sem ficha
+  if (!red) redlines.set(r.car.id, red = engineSpec(r.car.engine, r.car.id).redline);
+  needle(c, X(165.5) - 0.5, Y(61.7) - 0.5, 21.4, vsTachA((Math.min(1, r.rpm) * red * (r.car.soundMods?.rev ?? 1)) / 1000) * VG_DEG, art);
+  // clarão verde do quadro aceso
+  if (k > 0.02) {
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (const gx of [93, 130, 166]) drawGlow(c, X(gx), Y(60), 44, 32, '60,170,110', 0.05 * k, GLOW_STOPS);
+    c.restore();
+  }
+}
+COCKPIT_ART['br-voyagesport'] = {
+  tells: null,
+  dash: cp('br-voyagesport-dash'), top: cp('br-voyagesport-top'), wheel: cp('br-voyagesport-wheel'),
+  glass: { at: [64, 115], thr: 256 }, // retrovisor esquerdo (vidro transparente na arte, dos dois lados da coluna do quebra-vento)
+  pivot: [128, 104], wheelTop: 16, wheelDx: 2, wheelDy: 3, // o volante acompanha o quadro (o painel esticado cai 2 colunas à direita e 3 linhas abaixo)
+  pod: { x: -25.5, y: -62, r: 7.5, dx: 5.4, dy: 17.5, pillar: '#211f29', face: 'black', bezel: 'black', lit: 'green' }, radar: [226, 21], // relógios na coluna, rentes ao friso (medido no topo da arte)
+  speedMax: 220, needle: '#f1eedd', needleW: 1.15, needleTail: 3.0, needleFine: true, needleTip: 0.46, hubUnder: true, hub: '#2b2b2e', hubR: 2.5,
+  faces: [{ src: VS_FACE, x: VS.x, y: VS.y, w: VS.w, h: VS.h }],
+  glow: '60,170,110', glowK: 0.5,
+  aux: [],
+  under: voyageSportUnder, extra: voyageSportCluster,
+};
+queueMicrotask(() => faceImg(VS_FACE)); // a foto da revista (interiorPhoto) precisa do fundo do quadro já carregado
+
 // Onça GTB: mostradores pretos com números âmbar e ponteiros laranja — velocímetro 20-220 com
 // hodômetro e parcial, conta-giros 0-7 (faixa vermelha a partir de 5, do seis-cilindros 4.1),
 // combustível no pequeno da esquerda (o da direita, atrás do aro, é o da arte) e, no console (tela larga), pressão

@@ -49,14 +49,14 @@ LENS = [[(60, 200, 90), (235, 50, 40), None, (235, 50, 40), (70, 110, 255)], [No
 # marcas dos pequenos, em graus em volta do centro do conta-giros
 TEMP_HOT, TEMP_LED, TEMP_COLD, TEMP_MIN = 162.0, 147.0, 134.0, 128.0
 FUEL_FULL, FUEL_HALF, FUEL_LOW, FUEL_RES = 18.0, 35.5, 46.5, 53.0
-DAY = dict(plate=(40, 40, 42), edge=(12, 12, 14), face=(21, 21, 23), face2=(15, 15, 17), well=(8, 8, 10), ink=(226, 232, 214),
+DAY = dict(plate=(40, 40, 42), edge=(12, 12, 14), face=(25, 25, 27), face2=(17, 17, 19), well=(8, 8, 10), ink=(226, 232, 214),
            band=(240, 120, 30), dark=(7, 7, 9), cell=(17, 17, 19), strip=(24, 24, 26), icon=(214, 218, 206), text=(206, 212, 198),
            lcd=(170, 180, 152), lcd2=(150, 160, 134), knob=(16, 16, 18), amber=(240, 200, 60), drum=(10, 10, 12), white=(226, 226, 216))
 # aceso: verde-garrafa profundo, mais claro no centro de cada mostrador (luz por trás de um difusor);
 # o que brilha são os números, as marcações e os letreiros (verde-claro quase branco)
 LIT = dict(plate=(5, 15, 11), edge=(2, 8, 5), face=(18, 70, 45), face2=(14, 56, 36), core=(30, 95, 62), well=(9, 40, 26), ink=(190, 245, 205),
            band=(244, 110, 44), dark=(3, 12, 8), cell=(4, 14, 10), strip=(7, 24, 16), icon=(120, 186, 142), text=(190, 245, 205),
-           lcd=(74, 142, 100), lcd2=(60, 122, 84), knob=(4, 16, 10), amber=(240, 222, 110), drum=(3, 12, 8), white=(170, 214, 180))
+           lcd=(66, 130, 92), lcd2=(54, 112, 78), knob=(4, 16, 10), amber=(240, 222, 110), drum=(3, 12, 8), white=(170, 214, 180))
 
 
 def P(x, y):
@@ -78,7 +78,7 @@ def tick(d, g, ang, r0, r1, w, col):
     d.polygon(pts, fill=col)
 
 
-def number(im, s, cx, cy, h, col, wide=1.0, stroke=1.3, gap=6.0):
+def number(im, s, cx, cy, h, col, wide=1.0, stroke=1.9, gap=6.5):
     """número com os algarismos quadrados da fábrica, centrado em (cx, cy) (colunas, linhas); h em colunas"""
     u = h * K / (6 + stroke)
     t = u * stroke
@@ -185,7 +185,7 @@ def a_tach(v):
 
 
 # janelas em leque dos pequenos (em raios do conta-giros, a partir do centro; a da direita é espelhada)
-WELL = [(-1.2, 0.13), (-0.72, 0.13), (-0.62, 0.22), (-0.52, 0.38), (-0.45, 0.56), (-0.45, 0.72), (-0.49, 1.2), (-1.2, 1.2)]
+WELL = [(-1.2, 0.15), (-0.72, 0.15), (-0.62, 0.22), (-0.52, 0.38), (-0.45, 0.56), (-0.45, 0.72), (-0.49, 1.2), (-1.2, 1.2)]
 
 
 def ico_pump(d, cx, cy, u, col, bg):
@@ -237,7 +237,7 @@ def tach(im, pal):
     tick(d, g, FUEL_LOW, R * 0.78, R * 0.95, 0.45, pal['ink'])
     tick(d, g, FUEL_RES, R * 0.78, R * 0.97, 1.5, pal['ink'])
     tick(d, g, FUEL_RES, R * 0.80, R * 0.90, 0.7, pal['amber'])
-    u = K * 0.62
+    u = K * 0.8
     cx, cy = P(g['x'] - 0.25 * R, g['y'] + 0.62 * R * PY)
     ico_temp(d, cx, cy, u, pal['icon'])
     cx, cy = P(g['x'] + 0.25 * R, g['y'] + 0.62 * R * PY)

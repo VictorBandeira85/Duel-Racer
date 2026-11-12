@@ -61,12 +61,12 @@ ZONES = {
                       rect(1436, 590, 1564, 704)]},  # saída de ar traseira
     'front': {'all': [rect(0, 806, 1672, 941)],    # pneus
               'dark': [rect(632, 692, 1040, 810)],  # grade do meio
-              'sym': [circle(476, 534, 76)],       # farol
+              'sym': [circle(476, 534, 73)],       # farol (com o aro preto)
               'dsym': [rect(508, 640, 604, 702),   # farolete escuro ao lado do pisca
                        rect(414, 696, 652, 804),   # grade do lado
                        rect(318, 626, 394, 804)]},  # frisos do canto
-    'rear': {'all': [rect(342, 524, 1334, 596),    # faixa das lanternas
-                     rect(676, 622, 1002, 718),    # placa
+    'rear': {'all': [rect(342, 528, 1334, 596),    # faixa das lanternas
+                     rect(684, 628, 998, 716),     # placa (o quadro)
                      rect(0, 792, 1672, 941)],     # pneus
              'dark': [rect(384, 708, 1294, 800)],  # escapamentos e grades de baixo
              'dsym': [rect(318, 600, 412, 780)]},  # frisos do canto
@@ -234,6 +234,15 @@ def main():
         for _ in range(2):
             n8 = cv2.filter2D(m.astype(np.uint8), -1, np.ones((3, 3), np.uint8), borderType=cv2.BORDER_CONSTANT)
             m |= silver & ~m & (n8 >= 5)
+        # reflexos claros do mesmo matiz encostados na máscara (beira das zonas e meio-tom do contorno,
+        # que ficariam prata com outra cor): entram se estão fora das zonas, ou bem cercados de lataria
+        hsv = cv2.cvtColor(np.ascontiguousarray(s[..., :3]), cv2.COLOR_RGB2HSV_FULL).astype(int)
+        hh, ss, vv = hsv[..., 0] * 360 / 256, hsv[..., 1], hsv[..., 2]
+        bh = np.median(hh[m])
+        refl = al & (vv > 150) & (ss > 15) & (ss < 110) & (np.abs((hh - bh + 180) % 360 - 180) < 25)
+        for _ in range(3):
+            n8 = cv2.filter2D(m.astype(np.uint8), -1, np.ones((3, 3), np.uint8), borderType=cv2.BORDER_CONSTANT)
+            m |= refl & ~m & (((n8 >= 2) & free) | (n8 >= 3))
         m8 = (m * 255).astype(np.uint8)
         if k in BADGE:
             bx, by, size = BADGE[k]

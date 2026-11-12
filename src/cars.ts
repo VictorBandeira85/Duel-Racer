@@ -157,10 +157,10 @@ export const CARS: CarSpec[] = [
     imgSide: f40SidePng,
   },
   {
-    id: 'silber-95', name: 'Silber 95', basedOn: 'Porsche 959', color: '#f0b400',
+    id: 'silber-95', name: 'Silber 95', basedOn: 'Porsche 959', color: '#9495aa', // prata: mediana da lataria da lateral (silber_sprites.py)
     price: '$300.000', position: 'traseira', drive: 'integral', engine: 'Boxer 6 biturbo',
     displacement: '2.849 cc', power: '450 cv', maxSpeed: kmh(317), zeroTo100: 3.7, zeroTo200: 13.3, accel: 1, mass: 1450, gears: [0.22, 0.36, 0.5, 0.65, 0.82, 1], curve: 'seqturbo', lateralG: 0.96, brakeG: 1.12, handling: 1.1, aero: 0.06,
-    dash: '959', hood: '#d89c00', art: '959',
+    dash: '959', hood: '#858599', art: '959',
     // proporções tiradas da foto de perfil do modelo real
     side: {
       body: [0.01, 0.025, 0, 0.085, 0.03, 0.12, 0.196, 0.165, 0.348, 0.2, 0.465, 0.29, 0.587, 0.296, 0.683, 0.278, 0.804, 0.209, 0.83, 0.22, 0.9, 0.206, 0.957, 0.2, 1, 0.19, 1, 0.15, 0.995, 0.035, 0.97, 0.018, 0.03, 0.018],
@@ -182,7 +182,7 @@ export const CARS: CarSpec[] = [
         [0.93, 0.07, 0.99, 0.07], [0.93, 0.085, 0.99, 0.085], [0.93, 0.1, 0.99, 0.1], [0.93, 0.115, 0.99, 0.115],
       ],
     },
-    rear: { h: 0.59, roof: 0.56, lights: 'bar', wing: 1, custom: '959', img: s959RearPng, frontImg: s959FrontPng, glow: { bar: [0.1, 0.51, 0.9, 0.58] } },
+    rear: { h: 0.69, roof: 0.56, lights: 'bar', wing: 1, custom: '959', img: s959RearPng, frontImg: s959FrontPng, glow: { bar: [0.14, 0.55, 0.86, 0.63] } }, // brilho só sobre as lentes vermelhas
     imgSide: s959SidePng,
   },
   {
@@ -336,7 +336,7 @@ const LAMPS: Record<string, LampDef> = {
   nsx: { pop: [0.1, 0.36, 0.28, 0.47], sigRear: [0.05, 0.37, 0.2, 0.47], sigFront: [0.09, 0.628, 0.14, 0.678] },
   countach: { head: [0.213, 0.604, 0.05], sigRear: [0.05, 0.42, 0.11, 0.5], sigFront: [0.082, 0.574, 0.164, 0.635] },
   viper: { head: [0.147, 0.52, 0.06], sigRear: [0.07, 0.55, 0.24, 0.6], sigFront: [0.035, 0.635, 0.075, 0.68] },
-  '959': { head: [0.17, 0.49, 0.05], sigRear: [0.083, 0.51, 0.183, 0.57], sigFront: [0.05, 0.65, 0.13, 0.68] },
+  '959': { head: [0.153, 0.543, 0.06], sigRear: [0.026, 0.548, 0.115, 0.632], sigFront: [0.053, 0.691, 0.157, 0.769] }, // Silber 95 (silber_sprites.py)
   'br-passat': { head: [0.17, 0.52, 0.06], sigRear: [0.03, 0.46, 0.25, 0.57], sigRed: true, sigFront: [0.06, 0.71, 0.21, 0.79] },
   'br-corsa': { head: [0.16, 0.54, 0.06], sigRear: [0.05, 0.51, 0.16, 0.54], sigFront: [0.06, 0.5, 0.1, 0.58] },
   'br-uno': { head: [0.19, 0.55, 0.06], sigRear: [0.065, 0.46, 0.18, 0.535], sigFront: [0.075, 0.51, 0.105, 0.6] },
@@ -388,7 +388,7 @@ const PLATE_BOX: Record<string, number[]> = {
   'br-monza': [100, 104, 160, 124, 260, 182], 'br-monzacoupe': [101, 97, 161, 117, 260, 196], 'br-voyage': [98, 101, 162, 120, 260, 192], 'br-voyagesport': [98, 97, 162, 116, 260, 196], 'br-santana': [99, 83, 161, 100, 260, 176], 'br-golgti': [76, 111, 124, 124, 200, 188], 'br-kadett': [31, 30, 62, 40, 93, 70], 'br-pumagte': [35, 34, 64, 46, 102, 65],
   'br-corsa': [88, 108, 150, 127, 239, 212], 'br-uno': [70, 81, 118, 100, 189, 157], 'br-passat': [63, 58, 109, 72, 173, 124],
   'br-vectra': [40, 52, 73, 62, 113, 79], 'br-pumagtb': [38, 31, 57, 37, 95, 59],
-  '959': [77, 74, 124, 87, 200, 118], countach: [90, 82, 132, 94, 224, 124], diablo: [185, 136, 245, 156, 430, 220],
+  '959': [93, 122, 169, 142, 260, 179], countach: [90, 82, 132, 94, 224, 124], diablo: [185, 136, 245, 156, 430, 220],
   f40: [80, 66, 121, 78, 200, 112], nsx: [78, 85, 122, 102, 200, 133], patrol: [84, 82, 116, 96, 200, 155],
   patrolsv: [185, 146, 245, 166, 430, 230], testarossa: [116, 103, 161, 125, 275, 162], viper: [103, 76, 133, 91, 237, 155],
   zr1: [80, 63, 121, 78, 200, 125],

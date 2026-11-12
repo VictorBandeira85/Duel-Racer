@@ -31,7 +31,7 @@ SPOTS = {
   'testarossa': {'rear': (136, 78, 11, 8), 'front': (91, 59, 7, 4), 'side': [(81.5, 68.5, 5, 6.6), (283.5, 68.5, 5, 6.6)]},
   'diablo':     {'rear': (298, 101, 18, 0), 'front': (110, 67, 9, 0), 'side': [(394, 85, 7, 0), (115, 86, 7, 0)]},  # diablosv_sprites.py
   'patrolsv':   {},  # feita a partir dos sprites do Diablo já com emblema (patrolsv_sprites.py)
-  'countach':   {'rear': (112, 70, 9, 0),  'front': (92, 69, 9, 5)},
+  'countach':   {'rear': (130, 63, 11, 0),  'front': (130, 97, 9, 0)},  # Countach 5000 QV: já gravado por countach_sprites.py (também na front-up)
   '959':        {'rear': (100, 70, 9, 0),  'front': (100, 64, 9, 0)},
   'zr1':        {'rear': (100, 46, 9, 0),  'front': (100, 52, 9, 0)},
   'nsx':        {'rear': (100, 56, 7, 5),  'front': (100, 65, 7, 5), 'side': [(62, 59, 5, 3.5), (232, 59, 5, 3.5)]},
@@ -56,7 +56,7 @@ WHEELS = {
   'br-kadett': (128, 104, 11, 0), 'br-uno': (128, 106, 11, 7), 'br-corsa': (127, 112, 13, 8),
   'br-passat': (129, 112, 13, 8), 'br-pumagtb': (128.5, 127, 13, 9), 'br-pumagte': (128.5, 116, 13, 10),
   'zr1': (128, 90, 13, 0), 'testarossa': (128, 117, 15, 0), 'nsx': (129.1, 115.9, 21, 0),
-  'viper': (131, 125, 17, 0), 'countach': (127.5, 117, 13, 11),
+  'viper': (131, 125, 17, 0), 'countach': (131.6, 92.4, 13, 0),  # lp5_cockpit.py (arte nova)
 }
 ZR1_CLEAR = (128, 90, 15, 13)  # elipse do emblema largo do C4
 ELL = {'zr1': ZR1_CLEAR, 'testarossa': (128, 117, 13.6, 15.8), 'f40': (128, 117, 13.6, 15.8), 'diablo': (128.7, 132, 14.5, 17)}  # emblemas apagados por uma elipse

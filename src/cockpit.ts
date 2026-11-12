@@ -12,7 +12,7 @@ import { clamp, formatTime, lerp, rng, shade } from './util';
 import { drawGlow, type Stops } from './glowsprite';
 const GLOW_STOPS: Stops = [[0, 1], [0.7, 0.5], [1, 0]];
 import { F40_WHEEL } from './svg/f40';
-import { preloadSvg, spriteAspect, svgSprite } from './svgsprites';
+import { imageReady, preloadSvg, spriteAspect, svgSprite } from './svgsprites';
 import { drawWipers, type DashTop } from './wipers';
 import { drawSideMirror, findGlass } from './sidemirror';
 import { drawSmoke } from './smoke';
@@ -1377,9 +1377,22 @@ COCKPIT_ART.viper = {
 // Imagens das cabines: decodificadas só quando o carro é escolhido (não todas na abertura)
 const artImages = (a: CockpitArt) => [a.dash, a.top, a.wheel, a.dashMask, a.topMask, a.mirror?.img].filter((s): s is string => !!s);
 export const hasCockpitArt = (dash: string) => !!COCKPIT_ART[dash];
+// quadros acesos e luzes-espia desenhados à parte (carregados junto com a cabine)
+const EXTRA_FACES: Record<string, string[]> = {
+  'br-voyage': [VG_LIT, VG_LAMPS], 'br-voyagesport': [VS_LIT, VS_LAMPS], 'br-santana': [SN_LIT, SN_LAMPS], '959': [SB_LIT, SB_LAMPS],
+};
+const faceList = (dash: string, a: CockpitArt) => [...(a.faces ?? []).map((f) => f.src), ...(EXTRA_FACES[dash] ?? [])].filter(Boolean);
 export function preloadCockpit(dash: string) {
   const a = COCKPIT_ART[dash];
-  if (a) preloadSvg(...artImages(a));
+  if (!a) return;
+  preloadSvg(...artImages(a));
+  faceList(dash, a).forEach((s) => faceImg(s));
+}
+// a cabine inteira já carregou? (a tela de carregamento espera por ela antes de largar)
+export function cockpitReady(dash: string) {
+  const a = COCKPIT_ART[dash];
+  if (!a) return true;
+  return artImages(a).every(imageReady) && faceList(dash, a).every((s) => !!faceImg(s));
 }
 
 // "Foto" do interior para a revista: teto, painel e volante da arte, com uma estrada clara no
@@ -1508,6 +1521,8 @@ function faceImg(src: string) {
   let im = faceImgs.get(src);
   if (!im) {
     im = new Image();
+    const me = im;
+    im.onerror = () => setTimeout(() => faceImgs.get(src) === me && faceImgs.delete(src), 1500); // tenta de novo
     im.src = src;
     faceImgs.set(src, im);
   }

@@ -15,7 +15,7 @@ import { Race } from './race';
 import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
 import { CHALLENGE_PRIZE, checkChallenge, partialStats, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
 import { paintHex } from './paint';
-import { preloadCockpit, renderCockpit } from './cockpit';
+import { cockpitReady, preloadCockpit, renderCockpit } from './cockpit';
 import { applyBtnSize, beginLoading, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { binding, input, pollGamepad, releaseAll, setBind, setupInput, touch } from './input';
 import { MUSIC_CREDITS } from './tracks';
@@ -175,7 +175,7 @@ function begin(lives: number) {
 function startStage(i: number) {
   preloadCockpit(run.car.dash);
   showControls(false);
-  beginLoading(state, () => startStageNow(i));
+  beginLoading(state, () => startStageNow(i), undefined, () => cockpitReady(run.car.dash));
 }
 function startStageNow(i: number) {
   // rival à frente no 1º trecho; depois, quem chegou primeiro ao posto no trecho anterior

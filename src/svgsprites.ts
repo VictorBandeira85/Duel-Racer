@@ -42,11 +42,14 @@ function image(src: string): HTMLImageElement | null {
   let img = images.get(src);
   if (!img) {
     img = new Image();
+    // falhou (rede do celular): sai do cache e é pedida de novo na próxima vez que for usada
+    img.onerror = () => setTimeout(() => images.get(src) === img && images.delete(src), 1500);
     img.src = src.trimStart().startsWith('<svg') ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(src) : src;
     images.set(src, img);
   }
   return img.complete && img.naturalWidth > 0 ? img : null;
 }
+export const imageReady = (src: string) => !!image(src);
 
 // proporção altura/largura da imagem (null enquanto carrega)
 export function spriteAspect(src: string): number | null {

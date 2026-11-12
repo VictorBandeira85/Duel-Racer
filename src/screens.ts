@@ -1492,11 +1492,12 @@ const TIPS = [
   'Máquina mais fraca? Em AJUSTES, escolha QUADROS 30 FPS e GRÁFICOS ECONÔMICO.',
 ];
 const LOAD_PICS = ['cover', 'lp5', 'dia', 'tr', 'f4', 'nx', 'vp', 'engine', 'parts', 'station', 'dia', 'tr', 'f4', 'nx', 'vp', 'lp5', 'cover', 'interior', 'tr', 'dia', 'vp', 'gol', 'mz', 'vg', 'vs', 'sn', 'p9', 'pc', 'engine', 'pc', 'road', 'brasil'] as const;
-let load = { t0: 0, min: 1.6, next: null as null | (() => void), pic: 0, tip: 0, slot: 0 };
+let load = { t0: 0, min: 1.6, next: null as null | (() => void), ready: null as null | (() => boolean), pic: 0, tip: 0, slot: 0 };
 let loadSeq = Math.floor(Math.random() * 1000);
-export function beginLoading(s: AppState, next: () => void, min = 1.6) {
+// ready: o que precisa estar carregado antes de seguir (a cabine do carro); espera até 15 s a mais
+export function beginLoading(s: AppState, next: () => void, min = 1.6, ready: (() => boolean) | null = null) {
   loadSeq++;
-  load = { t0: s.t, min, next, pic: loadSeq % LOAD_PICS.length, tip: (loadSeq * 7) % TIPS.length, slot: loadSeq };
+  load = { t0: s.t, min, next, ready, pic: loadSeq % LOAD_PICS.length, tip: (loadSeq * 7) % TIPS.length, slot: loadSeq };
   s.screen = 'loading';
 }
 function finishLoading() {
@@ -1546,8 +1547,9 @@ function drawLoading(c: CanvasRenderingContext2D, s: AppState) {
   c.fillRect(x + 8, 216, SAFE_W - 16, 4);
   c.fillStyle = RED;
   c.fillRect(x + 8, 216, Math.round((SAFE_W - 16) * k), 4);
-  ink(c, k < 1 ? 'PREPARANDO A PISTA...' : 'PRONTO!', w / 2, 224, 5, GREY, 'center');
-  if (t >= load.min) finishLoading();
+  const ready = !load.ready || t >= load.min + 15 || load.ready();
+  ink(c, k < 1 ? 'PREPARANDO A PISTA...' : ready ? 'PRONTO!' : 'CARREGANDO A CABINE...', w / 2, 224, 5, GREY, 'center');
+  if (t >= load.min && ready) finishLoading();
 }
 
 // ---------- roteamento ----------

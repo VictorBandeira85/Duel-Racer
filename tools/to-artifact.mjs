@@ -33,7 +33,7 @@ const shim = files ? `<script>(function(){
 var d=Object.getOwnPropertyDescriptor(HTMLImageElement.prototype,'src');
 Object.defineProperty(HTMLImageElement.prototype,'src',{configurable:true,enumerable:true,get:function(){return d.get.call(this)},
 set:function(v){var im=this;v=String(v);if(/^(data|blob):/i.test(v)){d.set.call(im,v);return}
-im.__w=v;fetch(v).then(function(r){if(!r.ok)throw 0;return r.blob()}).then(function(b){return new Promise(function(ok,no){var f=new FileReader();f.onload=function(){ok(f.result)};f.onerror=no;f.readAsDataURL(b)})})
+im.__w=v;var get=function(n){return fetch(v).then(function(r){if(!r.ok)throw 0;return r.blob()}).catch(function(e){if(n<=0||im.__w!==v)throw e;return new Promise(function(w){setTimeout(w,800)}).then(function(){return get(n-1)})})};get(2).then(function(b){return new Promise(function(ok,no){var f=new FileReader();f.onload=function(){ok(f.result)};f.onerror=no;f.readAsDataURL(b)})})
 .then(function(u){if(im.__w===v)d.set.call(im,u)},function(){if(im.__w===v)d.set.call(im,v)})}});
 })();</script>\n` : '';
 const title = head.match(/<title>[\s\S]*?<\/title>/)[0];

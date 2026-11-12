@@ -14,6 +14,17 @@ export function classBadge(c: CanvasRenderingContext2D, x: number, y: number, ca
   if (pi) text(c, `PI ${perfIndex(car)}`, x + size + 4, y + size / 2 - 2.5, 5, '#1a1614', 'left', null);
 }
 
+// Selo só com a letra (classe de uma região do campeonato)
+export function classLetter(c: CanvasRenderingContext2D, x: number, y: number, k: PerfClass, size = 12) {
+  c.fillStyle = '#1a1614';
+  c.fillRect(x - 1, y - 1, size + 2, size + 2);
+  c.fillStyle = CLASS_COLOR[k];
+  c.fillRect(x, y, size, size);
+  c.fillStyle = 'rgba(255,255,255,0.35)';
+  c.fillRect(x, y, size, 1);
+  text(c, k, x + size / 2 + 0.5, y + size / 2 - (size >= 12 ? 3.5 : 2.5), size >= 12 ? 8 : 5, '#fff', 'center', null);
+}
+
 // Filtro por classe: TODOS e uma ficha para cada classe
 export type ClassFilter = PerfClass | null;
 const OPTIONS: ClassFilter[] = [null, ...PERF_CLASSES];

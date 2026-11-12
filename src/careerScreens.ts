@@ -2,16 +2,16 @@ import { carSwap } from './carswap';
 import { buildKey, partCost, partOf, slotArt, slotsFor, type Build, type SlotId } from './tuning';
 import { setEngine, setEngineProfile, starterSound } from './audio';
 import { touch } from './input';
-import { drawShowroom, keyShowroom, openShowroom, tapShowroom } from './showroom';
+import { drawShowroom, keyShowroom, openShowroom, show, tapShowroom } from './showroom';
 // Telas do modo Carreira: central (regiões e eventos), evento, garagem, concessionária e resultado.
 import { SAFE_W, view, KMH, RES } from './config';
 import { svgSprite } from './svgsprites';
 const PARTPNG = import.meta.glob('./assets/parts/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 const partPng = (n: string) => PARTPNG[`./assets/parts/${n}.png`];
-import { CARS, DEALER_CARS, RIMS, accelCurve, drawCar, drawCarSide, wheelPng, gearbox, layout, type CarSpec } from './cars';
-import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
+import { CARS, DEALER_CARS, RIMS, accelCurve, drawCar, drawCarSide, wheelPng, gearbox, layout, perfClass, type CarSpec } from './cars';
+import { classBadge, classLetter, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import {
-  DEFAULT_SETUP, RATIO_LABEL, REGIONS, SUSP_LABEL, setupOf, buildOf, type Setup, carById, eventUnlocked, levels, newCareer, priceOf, regionUnlocked, regionsAfter, saveCareer,
+  DEFAULT_SETUP, RATIO_LABEL, REGIONS, SUSP_LABEL, setupOf, buildOf, classFits, type Setup, carById, eventUnlocked, levels, newCareer, priceOf, regionUnlocked, regionsAfter, saveCareer,
   sellValue, tunedCar, type CareerSave, type EventResult, type Upgrade,
 } from './career';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
@@ -94,22 +94,30 @@ const hubButtons = () => {
   };
 };
 
+// classe do carro do jogador com as peças e ajustes (é ela que vale para entrar na região)
+const myClass = (cs: CareerSave) => perfClass(tunedFor(carById(cs.car), levels(cs, cs.car), setupOf(cs, cs.car), buildOf(cs, cs.car)));
+const fits = (cs: CareerSave, ri: number) => classFits(myClass(cs), REGIONS[ri].cls);
+const noFit = (cs: CareerSave, ri: number) => `Só até a classe ${REGIONS[ri].cls}: seu carro é ${myClass(cs)}`;
+
 export function drawCareer(c: CanvasRenderingContext2D, s: AppState) {
   const cs = s.career!;
   const x = ox();
   paper(c);
   topBar(c, s, 'CAMPEONATO', cs);
-  kicker(c, `CARRO: ${carById(cs.car).name.toUpperCase()}`, x + 4, 20, INK);
   const ri = ui.region;
+  const ok = fits(cs, ri);
+  kicker(c, `CARRO: ${carById(cs.car).name.toUpperCase()} · CLASSE ${myClass(cs)}`, x + 4, 20, ok ? INK : RED, ok ? YELLOW : '#fff');
   const reg = REGIONS[ri];
   const b = hubButtons();
   const open = regionUnlocked(cs, ri);
   // a região como seção da revista: faixa na cor dela, nome e descrição
   c.fillStyle = open ? reg.color : '#9a9286';
   c.fillRect(x + 24, 34, SAFE_W - 48, 20);
-  text(c, `ETAPA ${ri + 1}: ${reg.name.toUpperCase()}`, view.w / 2, 37, 8, '#fff', 'center', INK);
+  text(c, `ETAPA ${ri + 1}: ${reg.name.toUpperCase()}`, view.w / 2 + 8, 37, 8, '#fff', 'center', INK);
+  classLetter(c, x + 28, 37, reg.cls, 14); // classe da região
   const prevName = (REGIONS.find((r2) => r2.id === reg.after) ?? REGIONS[ri - 1])?.name ?? '';
-  text(c, open ? reg.desc : `Vença o chefão de ${prevName}`, view.w / 2, 47, 5, '#fff', 'center', null);
+  // carro acima da classe da região: o aviso entra no lugar da descrição
+  text(c, !open ? `Vença o chefão de ${prevName}` : ok ? reg.desc : `Só carros até a classe ${reg.cls}: troque na GARAGEM`, view.w / 2 + 8, 47, 5, ok || !open ? '#fff' : YELLOW, 'center', null);
   arrow(c, b.prev, 'left');
   arrow(c, b.next, 'right');
   hubRows().forEach((r, ei) => {
@@ -195,16 +203,22 @@ export function drawEvent(c: CanvasRenderingContext2D, s: AppState) {
   const done = cs.done.includes(ev.id);
   burst(c, x + 290, 182, 22, ['PRÊMIO', money(done ? ev.prize / 2 : ev.prize)], YELLOW, '#1a6a2a', s.t);
   const np = Object.values(buildOf(cs, cs.car)).filter(Boolean).length;
-  ink(c, `Seu carro: ${carById(cs.car).name} (${np ? `${np} peça${np > 1 ? 's' : ''} de preparação` : 'original'})`, x + 4, 197, 5, INK);
+  if (fits(cs, ui.region)) ink(c, `Seu carro: ${carById(cs.car).name}, classe ${myClass(cs)} (${np ? `${np} peça${np > 1 ? 's' : ''} de preparação` : 'original'})`, x + 4, 197, 5, INK);
+  else ink(c, `Seu ${carById(cs.car).name} é classe ${myClass(cs)}: aqui só até a classe ${reg.cls}`, x + 4, 197, 5, RED);
   const b = eventButtons();
   tag(c, b.back, '◀ VOLTAR');
   tag(c, b.go, 'CORRER ▶', Math.floor(s.t * 2) % 2 === 0);
   toast(c, s);
 }
 
+// largada do evento: só com carro da classe da região ou abaixo
+function goEvent(s: AppState, a: Actions) {
+  if (!fits(s.career!, ui.region)) return flash(s, noFit(s.career!, ui.region));
+  a.startEvent(ui.region, ui.event);
+}
 function tapEvent(s: AppState, a: Actions, x: number, y: number) {
   const b = eventButtons();
-  if (inside(x, y, b.go)) a.startEvent(ui.region, ui.event);
+  if (inside(x, y, b.go)) goEvent(s, a);
   else if (inside(x, y, b.back)) a.go('career');
 }
 
@@ -881,7 +895,8 @@ export function openCareer(s: AppState, a: Actions) {
   if (!s.career.owned.length) {
     // primeiro carro: escolhido nos classificados do showroom
     openShowroom(s, a, '', 'careerMenu');
-    flash(s, 'Escolha seu primeiro carro');
+    show.cls = 'D'; // o campeonato começa na classe D: os classificados já abrem nela
+    flash(s, 'Escolha seu primeiro carro: o campeonato começa na classe D');
   } else {
     // abre na região mais avançada liberada
     ui.region = REGIONS.reduce((best, _, i) => (regionUnlocked(s.career!, i) ? i : best), 0);
@@ -944,7 +959,7 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
       if (k === 'back') a.go('careerMenu');
       return;
     case 'event':
-      if (k === 'ok') a.startEvent(ui.region, ui.event);
+      if (k === 'ok') goEvent(s, a);
       if (k === 'back') a.go('career');
       return;
     case 'garage': {

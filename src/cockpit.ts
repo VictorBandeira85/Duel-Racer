@@ -596,6 +596,143 @@ COCKPIT_ART['br-voyagesport'] = {
 };
 queueMicrotask(() => faceImg(VS_FACE)); // a foto da revista (interiorPhoto) precisa do fundo do quadro já carregado
 
+// Savana GLS (Santana GLS 2.0 1990): interior do Victor (tools/ref/santana_cockpit.py, no molde dos Jornadas:
+// painel da arte sem volante, volante de quatro raios da arte com volante centrado no quadro, cenário dos
+// vidros e limpadores recortados, retrovisor esquerdo completado, porta construída até a borda) e o quadro
+// das fotos do carro real (tools/ref/santana_gauges.py), parente do Jornada Sport: velocímetro 20-220 com os
+// números por dentro, hodômetro de seis tambores e parcial de quatro; bloco do meio com a tampa redonda,
+// a faixa de ícones, dez lentes (apagadas na arte) e o relógio de cristal líquido com a hora de verdade;
+// conta-giros 0-7 (faixa amarelo-alaranjada hachurada de 6,3 a 7) com temperatura e combustível em leque.
+// Ponteiros claros em barra afinada que passam por cima do eixo (disco escuro chapado embaixo), como na foto.
+// À esquerda do quadro, os interruptores do desembaçador traseiro (aceso na chuva) e do farol de neblina
+// (aceso na neblina), com a luz vermelha. À noite e no túnel o fundo acende em verde-garrafa escuro, como no
+// Jornada Sport (br-santana-cluster-lit por cima do apagado, na medida do escuro da cabine).
+const SN = { x: VG_X(75.3), y: VG_Y(38.91), w: (105.4 * 464) / 460, h: (48.19 * 128) / 124 }; // placa dos mostradores (santana_gauges.py)
+const SN_SW = { x: VG_X(57.96), y: VG_Y(69.61), w: (15.98 * 464) / 460, h: (17.1 * 128) / 124 }; // os dois interruptores
+const SN_FACE = cp('br-santana-cluster'), SN_LIT = cp('br-santana-cluster-lit'), SN_LAMPS = cp('br-santana-lamps');
+const SN_SWITCH = cp('br-santana-switch'), SN_SWITCH_ON = cp('br-santana-switch-on');
+const snTachA = (k: number) => (k <= 1 ? 175.5 + 19.5 * Math.max(0, k) : 195 + (Math.min(7.15, k) - 1) * 28.25);
+// lentes do bloco do meio (colunas e linhas da arte) e janelas em leque dos pequenos (em raios do conta-giros)
+const SN_LAMP_X = [121.55, 124.95, 128.35, 131.75, 135.15], SN_LAMP_Y = [62.41, 66.31];
+const SN_WELL: [number, number][] = [[-1.2, 0.14], [-0.72, 0.14], [-0.62, 0.21], [-0.52, 0.37], [-0.45, 0.55], [-0.45, 0.72], [-0.49, 1.2], [-1.2, 1.2]];
+function santanaUnder(c: CanvasRenderingContext2D, ox: number, r: Race) {
+  if (!r.def) { // foto da revista (sem corrida): o fundo do quadro entra aqui
+    const im = faceImg(SN_FACE);
+    if (im) c.drawImage(im, ox + SN.x, ART_TOP + SN.y, SN.w, SN.h);
+  }
+}
+function santanaCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
+  const art = COCKPIT_ART['br-santana'];
+  const X = (x: number) => ox + VG_X(x), Y = (y: number) => ART_TOP + VG_Y(y); // medidas da arte -> tela
+  const k = r.def ? Math.min(1, cabinDark(r) / 0.6) : 0;
+  const sm = c.imageSmoothingEnabled;
+  c.imageSmoothingEnabled = true;
+  if (k > 0.02) {
+    const im = faceImg(SN_LIT);
+    if (im) {
+      c.globalAlpha = k;
+      c.drawImage(im, ox + SN.x, ART_TOP + SN.y, SN.w, SN.h);
+      c.globalAlpha = 1;
+    }
+  }
+  // interruptores à esquerda do quadro (apagados na arte): desembaçador traseiro na chuva, farol de neblina na neblina
+  const sw = [r.def?.weather === 'rain', r.def?.weather === 'fog'];
+  const swi = sw.some(Boolean) ? faceImg(SN_SWITCH_ON) : null;
+  if (swi) {
+    const half = swi.naturalHeight * (8.5 / 17.1);
+    sw.forEach((lit, i) => {
+      if (lit) c.drawImage(swi, 0, i * half, swi.naturalWidth, half, ox + SN_SW.x, ART_TOP + SN_SW.y + (i * SN_SW.h * 8.5) / 17.1, SN_SW.w, (SN_SW.h * 8.5) / 17.1);
+    });
+  }
+  // luzes-espia (apagadas na arte). Em cima: setas (verde, com o relé; pisca-alerta na batida), bateria,
+  // (cega), óleo e farol alto (azul, à noite). Embaixo: (cega), afogador (amarela, fica apagada),
+  // (cega), freio de mão (parado sem acelerar), (cega). Bateria e óleo com o motor parado; óleo também no motor batido
+  const off = r.rpm < 0.05, crash = r.state === 'crash';
+  const on = [(r.signal !== 0 || crash) && blinkOn(), off, false, off || r.damage > 0.6 || crash, !!r.def?.night, false, false, false, r.speed < 1 && !r.throttle, false];
+  const lamps = on.some(Boolean) ? faceImg(SN_LAMPS) : null;
+  if (lamps) {
+    const kx = lamps.naturalWidth / 16.8, ky = lamps.naturalHeight / 48.19;
+    on.forEach((lit, i) => {
+      if (!lit) return;
+      const x = SN_LAMP_X[i % 5] - 1.7, y = SN_LAMP_Y[i < 5 ? 0 : 1] - 1.95; // casa de cada lente, com o clarão
+      c.drawImage(lamps, (x - 120.1) * kx, (y - 38.91) * ky, 3.4 * kx, 3.9 * ky, X(x), Y(y), X(x + 3.4) - X(x), Y(y + 3.9) - Y(y));
+    });
+  }
+  c.imageSmoothingEnabled = sm;
+  // tambores do hodômetro (seis) e do parcial (quatro, com décimos: o último é branco de algarismo vermelho)
+  const km = r.track ? Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600) : 0;
+  const drums = (v: number, n: number, cx: number, cy: number, pitch: number, last: boolean) => {
+    const s = String(Math.floor(v) % 10 ** n).padStart(n, '0');
+    for (let i = 0; i < n; i++) pix(c, s[i], X(cx + (i - (n - 1) / 2) * pitch), Y(cy), last && i === n - 1 ? (k > 0.3 ? '#7a1c14' : '#c02a1c') : k > 0.3 ? '#bef5cd' : '#dcdfd4', 0.45);
+  };
+  drums(38685 + km, 6, 99.06, 60.31, 2.9, false);
+  drums((243.8 + km) * 10, 4, 99.06, 71.51, 3.4, true);
+  // relógio de cristal líquido: a hora de verdade, algarismos escuros de sete segmentos
+  const now = new Date();
+  const hm = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const dw = 1.9, dh = 3.9, gap = 0.8, colon = 1.1;
+  let lx = X(128.35) - ((hm.length - 1) * (dw + gap) - gap + colon + gap) / 2;
+  const ly = Y(78.3) - dh / 2;
+  c.fillStyle = k > 0.3 ? '#06180e' : '#1c2418';
+  for (const ch of hm) {
+    if (ch === ':') {
+      c.fillRect(lx + 0.3, ly + dh * 0.26, 0.55, 0.55);
+      c.fillRect(lx + 0.3, ly + dh * 0.64, 0.55, 0.55);
+      lx += colon + gap;
+    } else {
+      vsLcdDigit(c, lx, ly, dw, dh, Number(ch));
+      lx += dw + gap;
+    }
+  }
+  // temperatura e combustível: o eixo fica escondido atrás da máscara do meio, só a ponta aparece na janela em leque
+  const tx = 158.26, ty = 65.91, R = 19.5;
+  for (const side of [-1, 1]) {
+    const v = clamp(side < 0 ? gauges.water : gauges.fuel, -0.05, 1.08);
+    const a = side < 0 ? 121 + 54.4 * v : 59 - 54.4 * v;
+    c.save();
+    c.beginPath();
+    SN_WELL.forEach(([wx, wy], i) => (i ? c.lineTo(X(tx - side * wx * R), Y(ty + wy * R * PIX_Y)) : c.moveTo(X(tx - side * wx * R), Y(ty + wy * R * PIX_Y))));
+    c.closePath();
+    c.clip();
+    fineNeedle(c, X(tx + side * 0.3816 * R), Y(ty + 0.2385 * R * PIX_Y), 6.7, a * VG_DEG, 0.95, art.needle, art.hub, 0, 0);
+    c.restore();
+  }
+  // LED vermelho da temperatura (motor quente)
+  if (gauges.water > 0.66) {
+    c.fillStyle = '#ff3a26';
+    c.beginPath(); c.ellipse(X(143.54), Y(76.84), 0.6, 0.6 * PIX_Y, 0, 0, Math.PI * 2); c.fill();
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    drawGlow(c, X(143.54), Y(76.84), 3, 3, '255,60,40', 0.5, GLOW_STOPS);
+    c.restore();
+  }
+  // velocímetro (descansa no 20, como na foto) e conta-giros (giro de verdade do motor do carro)
+  needle(c, X(98.76) - 0.5, Y(65.91) - 0.5, 16.8, vsSpeedA(Math.max(19, r.speed * KMH)) * VG_DEG, art);
+  let red = r.car.engine ? redlines.get(r.car.id) : 6200; // foto da revista: carro sem ficha
+  if (!red) redlines.set(r.car.id, red = engineSpec(r.car.engine, r.car.id).redline);
+  needle(c, X(158.26) - 0.5, Y(65.91) - 0.5, 17.6, snTachA((Math.min(1, r.rpm) * red * (r.car.soundMods?.rev ?? 1)) / 1000) * VG_DEG, art);
+  // clarão verde do quadro aceso
+  if (k > 0.02) {
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (const gx of [99, 128, 158]) drawGlow(c, X(gx), Y(64), 40, 30, '60,170,110', 0.05 * k, GLOW_STOPS);
+    c.restore();
+  }
+}
+COCKPIT_ART['br-santana'] = {
+  tells: null,
+  dash: cp('br-santana-dash'), top: cp('br-santana-top'), wheel: cp('br-santana-wheel'),
+  glass: { at: [56, 116], thr: 256 }, // retrovisor esquerdo (completado em santana_cockpit.py, vidro transparente)
+  pivot: [128, 104], wheelTop: 16, wheelDx: 2, wheelDy: 3, // o volante acompanha o quadro (o painel esticado cai 2 colunas à direita e 3 linhas abaixo)
+  pod: { x: -25.5, y: -62, r: 7.5, dx: 5.4, dy: 17.5, pillar: '#2a2830', face: 'black', bezel: 'black', lit: 'green' }, radar: [226, 21],
+  speedMax: 220, needle: '#f0ecd8', needleW: 1.0, needleTail: 2.3, needleFine: true, needleTip: 0.4, hubUnder: true, hub: '#232326', hubR: 2.1,
+  faces: [{ src: SN_FACE, x: SN.x, y: SN.y, w: SN.w, h: SN.h }, { src: SN_SWITCH, x: SN_SW.x, y: SN_SW.y, w: SN_SW.w, h: SN_SW.h }],
+  glow: '60,170,110', glowK: 0.5,
+  aux: [],
+  under: santanaUnder, extra: santanaCluster,
+};
+queueMicrotask(() => faceImg(SN_FACE)); // a foto da revista (interiorPhoto) precisa do fundo do quadro já carregado
+
 // Onça GTB: mostradores pretos com números âmbar e ponteiros laranja — velocímetro 20-220 com
 // hodômetro e parcial, conta-giros 0-7 (faixa vermelha a partir de 5, do seis-cilindros 4.1),
 // combustível no pequeno da esquerda (o da direita, atrás do aro, é o da arte) e, no console (tela larga), pressão

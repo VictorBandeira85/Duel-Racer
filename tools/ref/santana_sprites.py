@@ -49,11 +49,11 @@ def rect(x0, y0, x1, y1):
 
 # zonas fora da máscara (polígonos em pixels da arte); em 'sym' vale também o espelho
 ZONES = {
-    'front': {'all': [rect(236, 536, 1298, 645),     # faróis, auxiliares e grade
+    'front': {'all': [rect(236, 541, 1298, 645),     # faróis, auxiliares e grade
                       rect(0, 645, 1536, 1024),      # para-choque, piscas, placa, saia e pneus
                       # para-brisa inteiro pela borracha (bancos e volante lá dentro são azulados)
-                      [(452, 160), (1082, 160), (1192, 392), (342, 392)]],
-              'sym': [rect(222, 312, 336, 396)]},     # retrovisor prata
+                      [(458, 166), (1076, 166), (1192, 392), (342, 392)]],
+              'sym': [rect(224, 316, 331, 389)]},     # retrovisor prata
     'rear': {'all': [rect(0, 500, 1536, 1024),       # lanternas, painel, placa, faixa, para-choque, pneus
                      [(442, 178), (1092, 178), (1228, 380), (306, 380)]],  # vidro de trás pela borracha
              'disc': [(765, 474, 20)]},                # fechadura
@@ -196,27 +196,30 @@ def paint_blue(a, car, k):
         polys.append(np.c_[2 * CX[k] - np.array(Z['sym'][0])[:, 0], np.array(Z['sym'][0])[:, 1]])
         for p in polys:
             cv2.fillPoly(hard, [np.round(p).astype(np.int32)], 1)
-        conv = car & (hard == 0) & loose & (ok | (lum < 120))
+        conv = car & (hard == 0) & loose & ok
     else:
         conv = ok & loose
     return m, conv | (m & ~((lum > 200) & (sat < 34)))
 
 
 def tone_map(a, m, ref):
-    """pinta os pixels de m com o bege de ref (cores da lateral ordenadas pelo brilho) na mesma
-    posição da escala de tons; o que for mais escuro que o tom mais escuro da lataria escurece junto"""
+    """pinta os pixels de m com o bege da lateral pelo brilho: o tom médio da lataria da vista vira o
+    tom médio do bege, o mais escuro escurece na mesma proporção e o mais claro sobe até o branco (a
+    mesma conta da repintura do jogo, paintImage); a cor de cada brilho é a do bege da lateral naquele
+    brilho (ref: cores da lataria da lateral ordenadas pelo brilho), então o bege escuro é o da arte.
+    Casar por quantis esticava a faixa estreita de tons do chumbo e virava chuvisco."""
     lum = a[m].astype(float).mean(axis=1)
-    q = np.linspace(0, 1, 49)
-    src = np.quantile(lum, q)
+    base = np.median(lum)
     rl = ref.mean(axis=1)
+    tl = np.median(rl)
+    nl = np.where(lum < base, tl * (lum / base) ** 0.6, tl + (lum - base) * (255 - tl) / max(1.0, 255 - base))
     bins = np.array([np.median(c, axis=0) for c in np.array_split(ref, 48)])
-    bl = np.array([c.mean() for c in bins])
-    # cada tom da arte -> quantil -> brilho da lateral naquele quantil -> bege daquele brilho
-    t = np.interp(lum, src, q)
-    tl = np.interp(t, q, np.quantile(rl, q))
-    col = np.stack([np.interp(tl, bl, bins[:, i]) for i in range(3)], axis=1)
-    dark = lum < src[0]  # abaixo do mais escuro: o bege mais escuro na proporção
-    col[dark] = bins[0] * (lum[dark] / max(1.0, src[0]))[:, None]
+    bl = bins.mean(axis=1)
+    col = np.stack([np.interp(nl, bl, bins[:, i]) for i in range(3)], axis=1)
+    lo = nl < bl[0]  # abaixo do bege mais escuro da lateral: ele mesmo, escurecido
+    col[lo] = bins[0] * (nl[lo] / bl[0])[:, None]
+    hi = nl > bl[-1]
+    col[hi] = bins[-1] + (nl[hi] - bl[-1])[:, None] * (255 - bins[-1]) / max(1.0, 255 - bl[-1])
     a[m] = np.clip(col, 0, 255).astype(np.uint8)
 
 
@@ -276,9 +279,26 @@ def main():
         beige = (s[..., 3] > 0) & (z8[..., 0] < 128) & (c[..., 0] - c[..., 2] >= 6) & (c.mean(axis=2) > 50) & (c.max(axis=2) - c.min(axis=2) < 70)
         for _ in range(2):
             m |= beige & ~m & (cv2.filter2D(m.astype(np.uint8), -1, np.ones((3, 3), np.uint8), borderType=cv2.BORDER_CONSTANT) >= 5)
+        # bordas claras da lataria encostadas na máscara (meio-tom do contorno, beira do farol e da
+        # lanterna, filetes da saia): o mesmo matiz do bege, fora das rodas, dos vidros e das zonas
+        if k == 'side':
+            ex = np.zeros(car.shape, np.uint8)
+            for cx, cy in SIDE_WHEELS:
+                cv2.circle(ex, (int(round(cx)), int(round(cy))), SIDE_R, 1, -1)
+            ex = (ex > 0) | glass_zone(a, car)
+            x8, _ = shrink(np.dstack([ex * 255] * 3).astype(np.uint8), car, WIDTH[k], colors=0)
+            free = x8[..., 0] < 128
+        else:
+            free = z8[..., 0] < 128
+        hsv = cv2.cvtColor(np.ascontiguousarray(s[..., :3]), cv2.COLOR_RGB2HSV_FULL).astype(float)
+        hh, ss, vv = hsv[..., 0] * 360 / 256, hsv[..., 1], hsv[..., 2]
+        bh = np.median(hh[m])
+        edge = free & (s[..., 3] > 0) & (vv > 150) & (ss > 15) & (ss < 110) & (np.abs((hh - bh + 180) % 360 - 180) < 25)
+        for _ in range(2):
+            m |= edge & (cv2.dilate(m.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0)
         if k != 'side':  # bege convertido em tons chapados (pixel a pixel deixava chuvisco): 14 tons
             lab = cv2.cvtColor(np.ascontiguousarray(s[..., :3]), cv2.COLOR_RGB2LAB)
-            sm = cv2.medianBlur(lab, 3).astype(np.float32)
+            sm = lab.astype(np.float32)
             cv2.setRNGSeed(7)
             _, lbl, cen = cv2.kmeans(sm[m], 14, None, (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 60, 0.2), 3, cv2.KMEANS_PP_CENTERS)
             q = sm.copy()

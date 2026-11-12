@@ -98,6 +98,9 @@ export const P9_PHOTOS: Photo[] = ([
   { src: ph('p9-neve'), kicker: 'TESTE NA SERRA', kc: '#1e4fb8', title: 'QUATRO NA NEVE', sub: 'A tração integral do Silber 95 contra o gelo da serra', inside: ['Tração que muda sozinha', 'Biturbo em sequência', 'Aguenta o inverno?'], box: [147, 156, 427, 278] },
   { src: ph('p9-duelo'), kicker: 'COMPARATIVO', kc: '#d01f26', title: 'DUELO DE TITÃS', sub: 'Silber 95 contra Fúria F4: o duelo dos superesportivos', inside: ['Quem chega antes aos 300?', 'Tecnologia x força bruta', 'O veredito da redação'], box: [4, 4, 556, 311] },
   { src: ph('p9-pista'), kicker: 'NA PISTA', kc: '#1a1614', title: '0 A 100 EM 3,7 S', sub: 'O Silber 95 vermelho de lado no autódromo', inside: ['Medições completas', 'Freadas e retomadas', 'Volta rápida cronometrada'], box: [34, 16, 533, 272] },
+  { src: ph('p9-garagem'), kicker: 'COMPARATIVO', kc: '#d01f26', title: 'CAMINHOS OPOSTOS', sub: 'Silber 95 x Fúria F4: tecnologia contra leveza', inside: ['Biturbo e tração nas quatro', '1.100 kg e nada de luxo', 'Qual vale o que custa'], box: [16, 54, 560, 246] },
+  { src: ph('p9-raiox'), kicker: 'RAIO-X', kc: '#1a1614', title: 'POR DENTRO DO 95', sub: 'Boxer biturbo, tração integral e carroceria de Kevlar', inside: ['Dois turbos em sequência', 'Embreagem que divide a força', 'Peso: 1.450 kg'], box: [28, 26, 536, 290] },
+  { src: ph('p9-teste'), kicker: 'TESTE COMPLETO', kc: '#1e4fb8', title: '317 KM/H MEDIDOS', sub: 'As medições da redação com a quinta roda', inside: ['0 a 100 em 3,7 s', 'Torque das porcas centrais', 'Lavador de farol que sobe'], box: [9, 19, 546, 295] },
 ] as Photo[]).filter((p) => !!p.src);
 // Peças de preparação (tools/ref/parts_photos.py): capas e páginas de carregamento
 export const PC_PHOTOS: Photo[] = [

@@ -7,7 +7,17 @@ apagado é coberto com a cor/textura do entorno (nunca tarja):
   frente do prédio) remontadas no papel creme da revista; somem textos, faixas de
   título, placas e emblemas (placas lisas, emblema e plaqueta da Fúria pintados do preto do painel);
 - pista: fica só a foto do carro na pista (recorte abaixo do texto, sem título, legenda e rodapé), a
-  placa fica branca e lisa, o letreiro do suporte da placa e o da faixa traseira somem.
+  placa fica branca e lisa, o letreiro do suporte da placa e o da faixa traseira somem;
+- garagem: o texto do canto (título, filete e parágrafo) some com o piso e a grama continuados por
+  baixo (textura copiada do lado, ao longo da faixa de grama, com o degradê do entorno); o escudo da
+  porta da Fúria some na lataria, o emblema do nariz vira o logo da Fúria e o brasão do capô do
+  Silber vira o logo da Silber;
+- raiox: o letreiro da faixa traseira some (vermelho da faixa continuado) e o brasão do centro das
+  duas rodas vira miolo liso prateado;
+- teste: da página dupla ficam só as fotos (lateral em movimento, frente, traseira com a quinta roda,
+  mecânico com o torquímetro, motorista e os dois lavadores de farol) remontadas no papel creme; somem
+  textos, ficha, quadro de resultados e rodapé; a placa fica lisa, o letreiro da lanterna, o brasão
+  do capô e o do volante somem.
 Reduz para 560 x 315 com paleta curta (cores do logo da Silber garantidas).
 Uso: python3 tools/ref/silber_photos.py <pasta com capa-*.png> <src/assets/photos>
 """
@@ -21,7 +31,8 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(__file__))
 from brand_badges import logo_img  # noqa: E402
 
-OUT = {'floresta': 'p9-floresta', 'neve': 'p9-neve', 'revista': 'p9-duelo', 'pista': 'p9-pista'}
+OUT = {'floresta': 'p9-floresta', 'neve': 'p9-neve', 'revista': 'p9-duelo', 'pista': 'p9-pista',
+       'garagem': 'p9-garagem', 'raiox': 'p9-raiox', 'teste': 'p9-teste'}
 RNG = np.random.default_rng(95)
 
 
@@ -79,9 +90,9 @@ def red(px):
     return (q[:, 0] > 140) & (q[:, 1] < 110) & (q[:, 2] < 110)
 
 
-def silber(a, cx, cy, w, h):
+def silber(a, cx, cy, w, h, bid='silber'):
     """Logo da Silber (losango de src/assets/brands.json) em w x h, centrado em (cx, cy)."""
-    lg = np.array(Image.fromarray(logo_img('silber', 9)).resize((w, h), Image.NEAREST))
+    lg = np.array(Image.fromarray(logo_img(bid, 9)).resize((w, h), Image.NEAREST))
     y0, x0 = cy - h // 2, cx - w // 2
     sel = lg[..., 3] > 0
     a[y0:y0 + h, x0:x0 + w][sel] = lg[..., :3][sel]
@@ -126,7 +137,7 @@ def neve(a):
 def paper(h, w, src):
     """Papel creme: retalho limpo da página repetido (espelhado a cada volta para não marcar emenda)."""
     ph, pw = src.shape[:2]
-    out = np.zeros((h, w, 3), np.uint8)
+    out = np.zeros((h, w) + src.shape[2:], src.dtype)
     for j in range(0, h, ph):
         for i in range(0, w, pw):
             t = src[:, ::-1] if (i // pw) % 2 else src
@@ -191,11 +202,183 @@ def pista(a):
     return a[345:941, 70:1130].copy()
 
 
+# ---------------------------------------------------------------- garagem (Fúria F4 x Silber 95)
+def ground_fill(a, mask, patch, ok, fit_ok, strip=None, ref=None):
+    """Cobre `mask` com chão: o sombreado do entorno (superfície suave de grau 3 ajustada no anel em volta
+    da máscara, nos pixels `fit_ok`, mais a diferença do anel, que some em ~30 px para dentro) e o grão
+    de um retalho limpo de piso (`patch` = x0, y0, x1, y1), repetido espelhado e na escala do brilho do
+    lugar. (Continuar só a borda, como o inpaint, arrasta a sombra dos carros para o meio do vazio.)
+    `ok`: pixels de chão (o anel só usa estes). `ref`: pixels da máscara que entram no anel com a cor
+    original (a borda da foto: o chão refeito emenda com o escuro do canto sem degrau).
+    `strip` = (c0, inclinação, meia largura, passo, x mínimo e máximo da origem): a faixa de grama
+    continua copiada ao longo dela mesma, de `passo` em `passo` px, a partir do trecho que aparece (o
+    contraste acompanha o brilho do lugar: some aos poucos no escuro do canto)."""
+    ring = grow(mask, 50) & ~mask & ok
+    if ref is not None:
+        ring |= ref
+    fit = ring & fit_ok
+    A = cv2.GaussianBlur(a.astype(np.float32), (0, 0), 4)
+    H, W = mask.shape
+    yy, xx = np.mgrid[0:H, 0:W]
+    u, v = xx / W, yy / H
+    terms = [u ** i * v ** j for i in range(4) for j in range(4 - i)]
+    X = np.stack([t[fit] for t in terms], 1)
+    base = np.zeros(A.shape, np.float32)
+    for ch in range(3):
+        coef = np.linalg.lstsq(X, A[..., ch][fit], rcond=None)[0]
+        base[..., ch] = sum(c * t for c, t in zip(coef, terms))
+    r = (A - base) * ring[..., None]
+    wb = cv2.GaussianBlur(ring.astype(np.float32), (0, 0), 15)
+    base += cv2.GaussianBlur(r, (0, 0), 15) / (wb[..., None] + 0.15)
+    x0, y0, x1, y1 = patch
+    src = a[y0:y1, x0:x1].astype(np.float32)
+    sb = cv2.GaussianBlur(src, (0, 0), 6)
+    det = (src - sb) / np.maximum(sb.mean(axis=2, keepdims=True), 1)
+    tile = paper(a.shape[0], a.shape[1], det)
+    ys, xs = np.nonzero(mask)
+    lb = base[ys, xs].mean(axis=1, keepdims=True)
+    out = a.astype(np.float32)
+    out[ys, xs] = base[ys, xs] + tile[ys, xs] * lb
+    if strip:
+        c0, k, hw, step, xmin, xmax = strip
+        H, W = mask.shape
+        det2 = a.astype(np.float32) - base
+        for y, x in zip(ys, xs):
+            if abs(y - (c0 - k * x)) > hw:
+                continue
+            for n in range(1, 8):
+                sx, sy = x + step * n, int(round(y - k * step * n))
+                if sx >= min(W, xmax) or sy < 0:
+                    break
+                if sx >= xmin and not mask[sy, sx]:
+                    out[y, x] = base[y, x] + det2[sy, sx] * base[y, x].mean() / max(base[sy, sx].mean(), 1)
+                    break
+    a[:] = np.clip(out, 0, 255).astype(np.uint8)
+
+
+def garagem(a):
+    # texto do canto: o bloco inteiro (título de três linhas, filete e parágrafo) vira chão, não só as
+    # letras (a sombra escura delas entre os traços também sai); mais as letras claras que sobrem fora
+    zone = rect_mask(a, 0, 575, 990, 910) & ~rect_mask(a, 735, 0, 1672, 740)
+    ink = zone & (lum(a) > 165) & (sat(a) < 70)
+    txt = (rect_mask(a, 0, 578, 628, 802) | rect_mask(a, 0, 806, 985, 906) | grow(ink, 5)) & zone
+    # chão: grão do piso limpo do lado direito; a faixa de grama (centro em y 598 no x 720, descendo
+    # 0,27 px por px para a esquerda) continua copiada do trecho que aparece entre o texto e o Silber
+    ground = rect_mask(a, 0, 560, 1672, 941) & ~rect_mask(a, 735, 0, 1672, 760)
+    shadow = rect_mask(a, 0, 540, 460, 600)  # (sombra da Fúria: fica fora do ajuste do sombreado)
+    ground_fill(a, txt, (1020, 790, 1520, 930), ground, ~shadow, (598 + 0.27 * 720, 0.27, 30, 100, 628, 729),
+                rect_mask(a, 0, 578, 40, 906))
+    # escudo da porta da Fúria: só o amarelo e o preto do escudo saem (o reflexo claro de cima e a
+    # lente do pisca embaixo ficam); lataria continuada e o pontilhado dela copiado do para-lama ao lado
+    box = rect_mask(a, 630, 326, 666, 377)
+    q = a.astype(int)
+    shield = rect_mask(a, 632, 330, 664, 375) & (((q[..., 0] > 170) & (q[..., 1] > 140)) | (lum(a) < 70))
+    shield = grow(shield, 2) & box & ~rect_mask(a, 650, 376, 666, 377)
+    # (cada linha com a mediana do vermelho da mesma linha nos dois lados: o reflexo de cima segue)
+    fill = a.copy()
+    row_fill(fill, 630, 326, 666, 377, [(612, 630), (672, 690)], red, 1.5)
+    a[shield] = fill[shield]
+    sm = cv2.GaussianBlur(a.astype(np.float32), (0, 0), 3)
+    det = a.astype(np.float32) - sm
+    ys, xs = np.nonzero(shield)
+    a[ys, xs] = np.clip(sm[ys, xs] + det[ys, xs - 34] * 0.8, 0, 255).astype(np.uint8)
+    # emblema amarelo do nariz: lataria vermelha e o logo da Fúria
+    heal(a, rect_mask(a, 178, 421, 221, 451), 5)
+    silber(a, 199, 437, 14, 16, 'furia')
+    # brasão do capô do Silber: lataria prata continuada e o logo da Silber deitado como o capô
+    heal(a, ell_mask(a, 1004, 509, 23, 20), 6)
+    sm = cv2.GaussianBlur(a, (0, 0), 2)
+    m = ell_mask(a, 1004, 509, 21, 18)
+    a[m] = sm[m]
+    silber(a, 1004, 510, 30, 26)
+    return a
+
+
+# ---------------------------------------------------------------- raiox (desenho em corte)
+def ink_in_red(a, region):
+    """Letras escuras dentro de uma faixa vermelha: o que o fechamento do vermelho cobre (traços finos
+    cercados de vermelho), sem a borda preta da faixa (vermelho só de um lado) nem o filete claro."""
+    r = red(a.reshape(-1, 3)).reshape(a.shape[:2])
+    cl = cv2.morphologyEx(r.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8)) > 0
+    hl = (a[..., 0] > 200) & (a[..., 1] > 110)
+    m = cl & ~r & (lum(a) < 130) & region
+    return grow(m, 1) & cl & ~hl & region
+
+
+def hub(a, cx, cy, rx, ry):
+    """Miolo liso prateado: degradê claro no alto à esquerda, escuro embaixo, contorno escuro."""
+    yy, xx = np.mgrid[0:a.shape[0], 0:a.shape[1]]
+    e = ((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2
+    t = np.clip(((xx - cx) / rx + (yy - cy) / ry + 1.4) / 2.8, 0, 1)[..., None]
+    c = np.array((232, 232, 242)) * (1 - t) + np.array((128, 128, 150)) * t
+    m = e <= 1
+    a[m] = c[m].astype(np.uint8)
+    rim = (e > 1) & (e <= 1.35)
+    a[rim] = (44, 42, 60)
+    # (sobra amarela/vermelha do brasão na borda: vai para o escuro do contorno)
+    a[(e <= 2.2) & (sat(a) > 70)] = (44, 42, 60)
+
+
+def raiox(a):
+    # letreiro da faixa vermelha traseira
+    m = ink_in_red(a, rect_mask(a, 130, 490, 320, 652))
+    heal(a, m, 3)
+    # brasão do centro das rodas (traseira e dianteira)
+    hub(a, 941, 714, 10, 13)
+    hub(a, 1500, 447, 8, 12)
+    return a
+
+
+# ---------------------------------------------------------------- teste (página dupla da revista)
+def teste(a):
+    # frente: placa lisa (cor da placa; a borda escura fica) e brasão do capô na lataria
+    inner = rect_mask(a, 250, 383, 320, 400)
+    flat_rows(a, inner, inner & (lum(a) > 170))
+    heal(a, rect_mask(a, 272, 357, 285, 367), 4)
+    # traseira: letreiro escuro na faixa das lanternas e placa miúda lisa
+    # (aqui as letras são vermelho-escuras, não pretas: cada uma vira a mediana do vermelho vivo em volta)
+    # (a faixa sobe para a direita: miolo de 8 linhas a partir de y 342,5 no x 712, -0,177 px por px;
+    # a borda preta de cima e de baixo fica)
+    q = a.astype(int)
+    vivid = rect_mask(a, 700, 326, 790, 356) & (q[..., 0] >= 0xb0) & (q[..., 1] * 2 < q[..., 0]) & (q[..., 2] * 2 < q[..., 0])
+    inside = np.zeros(a.shape[:2], bool)
+    for x in range(727, 777):
+        t = int(round(342.5 - 0.177 * (x - 712)))
+        inside[t:t + 8, x] = True
+    for y, x in zip(*np.nonzero(inside & ~vivid)):
+        win = vivid[y - 4:y + 5, x - 4:x + 5]
+        if win.sum() > 2:
+            a[y, x] = np.median(q[y - 4:y + 5, x - 4:x + 5][win], axis=0).astype(np.uint8)
+    inner = rect_mask(a, 755, 356, 766, 366)
+    flat_rows(a, inner, inner & (lum(a) > 150))
+    # volante: brasão do centro no preto do volante
+    heal(a, rect_mask(a, 592, 584, 620, 617), 6)
+    big = a[66:250, 56:805].copy()
+    fr = a[266:441, 56:400].copy()
+    rr = a[266:441, 417:805].copy()
+    mec = a[458:619, 57:430].copy()
+    drv = a[458:619, 446:805].copy()
+    hl1 = a[66:277, 1106:1337].copy()
+    hl2 = a[66:277, 1357:1604].copy()
+    c = paper(941, 1672, a[22:44, 330:790].copy())
+    # coluna da esquerda: a lateral em cima, frente e traseira, mecânico e motorista; à direita os
+    # dois lavadores de farol um sobre o outro
+    put(c, big, 36, 65, 1.45)
+    put(c, fr, 36, 360, 1.45)
+    put(c, rr, 559, 360, 1.45)
+    put(c, mec, 36, 642, 1.45)
+    put(c, drv, 601, 642, 1.45)
+    put(c, hl1, 1179, 65, 1.85)
+    put(c, hl2, 1164, 483, 1.85)
+    return c
+
+
 def main():
     src, out = sys.argv[1], sys.argv[2]
-    fn = {'floresta': floresta, 'neve': neve, 'revista': revista, 'pista': pista}
-    lg = logo_img('silber', 9)
-    cols = sorted({tuple(int(v) for v in c[:3]) for c in lg.reshape(-1, 4) if c[3] > 0})
+    fn = {'floresta': floresta, 'neve': neve, 'revista': revista, 'pista': pista, 'garagem': garagem, 'raiox': raiox,
+          'teste': teste}
+    cols = {b: sorted({tuple(int(v) for v in c[:3]) for c in logo_img(b, 9).reshape(-1, 4) if c[3] > 0})
+            for b in ('silber', 'furia')}
     for k, name in OUT.items():
         p = os.path.join(src, f'capa-{k}.png')
         if not os.path.exists(p):
@@ -206,9 +389,9 @@ def main():
         if os.environ.get('DBG'):
             im.save(os.path.join(os.environ['DBG'], f'full-{k}.png'))
         im = im.resize((560, 315), Image.LANCZOS)
-        n = 156
+        n = 240 if k == 'raiox' else 156  # (o corte tem azul, prata, dourado e o vermelho da faixa)
         q = im.quantize(n, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
-        extra = cols if k == 'neve' else []
+        extra = {'neve': cols['silber'], 'garagem': cols['silber'] + cols['furia']}.get(k, [])
         pal = Image.new('P', (1, 1))
         pal.putpalette((q.getpalette()[:n * 3] + [v for c in extra for v in c] + [0] * 768)[:768])
         im = im.quantize(palette=pal, dither=Image.Dither.NONE)

@@ -74,6 +74,7 @@
 - Limpadores de para-brisa desenhados na arte SAEM (para-brisa limpo): os limpadores são do jogo, na chuva.
 - Quadro aceso à noite (Jornada LS): fundo verde-garrafa escuro e pouco saturado, números e marcações
   claros por cima; nunca verde vivo chapado (apaga os algarismos). Conferir a leitura em tamanho de celular.
+  Savana GLS: o aceso é verde-AMARELADO (oliva), como nas fotos do Santana, com números lima claros.
 - Luzes-espia nunca ficam acesas na arte: desenhar apagadas e acender no jogo na hora certa (óleo,
   freio de mão, pisca). Faixas de cor seguem a lógica do ponteiro (econômetro: verde onde ele fica com
   o pé leve).

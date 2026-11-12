@@ -663,7 +663,7 @@ function santanaCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   const km = r.track ? Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600) : 0;
   const drums = (v: number, n: number, cx: number, cy: number, pitch: number, last: boolean) => {
     const s = String(Math.floor(v) % 10 ** n).padStart(n, '0');
-    for (let i = 0; i < n; i++) pix(c, s[i], X(cx + (i - (n - 1) / 2) * pitch), Y(cy), last && i === n - 1 ? (k > 0.3 ? '#7a1c14' : '#c02a1c') : k > 0.3 ? '#bef5cd' : '#dcdfd4', 0.45);
+    for (let i = 0; i < n; i++) pix(c, s[i], X(cx + (i - (n - 1) / 2) * pitch), Y(cy), last && i === n - 1 ? (k > 0.3 ? '#7a1c14' : '#c02a1c') : k > 0.3 ? '#d6ec8c' : '#dcdfd4', 0.45);
   };
   drums(38685 + km, 6, 99.06, 60.31, 2.9, false);
   drums((243.8 + km) * 10, 4, 99.06, 71.51, 3.4, true);
@@ -673,7 +673,7 @@ function santanaCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   const dw = 1.9, dh = 3.9, gap = 0.8, colon = 1.1;
   let lx = X(128.35) - ((hm.length - 1) * (dw + gap) - gap + colon + gap) / 2;
   const ly = Y(78.3) - dh / 2;
-  c.fillStyle = k > 0.3 ? '#06180e' : '#1c2418';
+  c.fillStyle = k > 0.3 ? '#141806' : '#1c2418';
   for (const ch of hm) {
     if (ch === ':') {
       c.fillRect(lx + 0.3, ly + dh * 0.26, 0.55, 0.55);
@@ -727,7 +727,7 @@ COCKPIT_ART['br-santana'] = {
   pod: { x: -8, y: -54, r: 7.5, dx: 3.5, dy: 17.5, pillar: '#87767f', face: 'black', bezel: 'black', lit: 'green' }, radar: [226, 21], // relógios no forro claro da coluna (medido no topo da arte: centro do forro em x 94 na linha 22, 101 na 57)
   speedMax: 220, needle: '#f0ecd8', needleW: 1.0, needleTail: 2.3, needleFine: true, needleTip: 0.4, hubUnder: true, hub: '#232326', hubR: 2.1,
   faces: [{ src: SN_FACE, x: SN.x, y: SN.y, w: SN.w, h: SN.h }, { src: SN_SWITCH, x: SN_SW.x, y: SN_SW.y, w: SN_SW.w, h: SN_SW.h }],
-  glow: '60,170,110', glowK: 0.5,
+  glow: '150,170,60', glowK: 0.5,
   aux: [],
   under: santanaUnder, extra: santanaCluster,
 };

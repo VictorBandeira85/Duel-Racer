@@ -61,10 +61,11 @@ DAY = dict(plate=(38, 38, 40), edge=(12, 12, 14), face=(25, 25, 27), face2=(17, 
            cap=(30, 30, 33), cap2=(44, 44, 48), screw=(120, 120, 124))
 # aceso: verde-garrafa profundo, mais claro no centro de cada mostrador (luz por trás de um difusor);
 # o que brilha são os números, as marcações e os letreiros (verde-claro quase branco)
-LIT = dict(plate=(5, 15, 11), edge=(2, 8, 5), face=(18, 70, 45), face2=(14, 56, 36), core=(30, 95, 62), well=(9, 40, 26), ink=(190, 245, 205),
-           band=(250, 176, 60), dark=(3, 12, 8), cell=(4, 14, 10), strip=(7, 24, 16), icon=(120, 186, 142), text=(190, 245, 205),
-           lcd=(66, 130, 92), lcd2=(54, 112, 78), knob=(4, 16, 10), amber=(240, 222, 110), drum=(3, 12, 8), white=(170, 214, 180),
-           cap=(6, 18, 12), cap2=(10, 28, 19), screw=(30, 50, 40))
+# aceso: verde-amarelado (oliva) como nas fotos do Santana à noite, escuro e pouco saturado; números claros
+LIT = dict(plate=(12, 14, 6), edge=(6, 8, 2), face=(55, 67, 21), face2=(44, 54, 16), core=(77, 92, 33), well=(31, 38, 11), ink=(214, 236, 140),
+           band=(250, 176, 60), dark=(9, 12, 3), cell=(11, 14, 4), strip=(19, 23, 8), icon=(167, 183, 123), text=(214, 236, 140),
+           lcd=(112, 127, 69), lcd2=(96, 109, 57), knob=(13, 15, 5), amber=(240, 222, 110), drum=(9, 12, 3), white=(202, 212, 172),
+           cap=(15, 17, 7), cap2=(23, 27, 11), screw=(44, 49, 31))
 
 
 def P(x, y):

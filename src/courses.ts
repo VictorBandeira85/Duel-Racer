@@ -27,6 +27,9 @@ const s = (theme: ThemeId, lanes: 2 | 4, extra: Partial<StageDef> = {}): StageDe
   theme, lanes, curviness: 1, hilliness: 0.5, sections: 14, traffic: lanes === 4 ? 6 : 4, police: 1, ...extra,
 });
 
+// trecho longo: o dobro das seções de um trecho normal
+const L = (theme: ThemeId, lanes: 2 | 4, extra: Partial<StageDef> = {}): StageDef => s(theme, lanes, { sections: 28, ...extra });
+
 const ALL: Course[] = [
   {
     id: 'deserto', name: 'Rajada no Deserto', level: 'Fácil', rivalSkill: 0.93,
@@ -231,11 +234,113 @@ const ALL: Course[] = [
       s('city', 4, { night: true, traffic: 10, police: 3 }),
     ],
   },
+  // ---- roteiros longos (trechos com o dobro do tamanho: 28 seções) ----
+  {
+    id: 'litoralnorte', name: 'Litoral Norte', level: 'Fácil', rivalSkill: 0.93,
+    stages: [
+      L('beach', 4, { curviness: 0.6, police: 0, traffic: 4, tod: 'dawn' }),
+      L('coast', 2, { curviness: 0.8, traffic: 3 }),
+      L('beach', 2, { curviness: 0.9, hilliness: 0.6 }),
+      L('jungle', 2, { curviness: 0.9 }),
+      L('coast', 4, { curviness: 0.7, tod: 'sunset' }),
+    ],
+  },
+  {
+    id: 'cerrado', name: 'Cerrado Sem Fim', level: 'Fácil', rivalSkill: 0.94,
+    stages: [
+      L('savanna', 4, { curviness: 0.5, police: 0, traffic: 4, tod: 'dawn' }),
+      L('farm', 2, { hilliness: 0.7 }),
+      L('savanna', 2, { curviness: 0.8, hilliness: 0.6 }),
+      L('desert', 4, { curviness: 0.6, police: 2 }),
+      L('savanna', 2, { curviness: 0.9, dusk: true }),
+    ],
+  },
+  {
+    id: 'transamazonica', name: 'Transamazônica', level: 'Médio', rivalSkill: 0.96,
+    stages: [
+      L('jungle', 2, { curviness: 1, tod: 'dawn' }),
+      L('jungle', 2, { curviness: 1.2, weather: 'rain' }),
+      L('savanna', 2, { curviness: 0.8, hilliness: 0.7 }),
+      L('jungle', 2, { curviness: 1.1, weather: 'fog' }),
+      L('jungle', 2, { night: true, curviness: 1.1, weather: 'rain' }),
+    ],
+  },
+  {
+    id: 'rotadoouro', name: 'Rota do Ouro', level: 'Médio', rivalSkill: 0.96,
+    stages: [
+      L('desert', 4, { curviness: 0.7, police: 2, tod: 'dawn' }),
+      L('canyon', 2, { curviness: 1.2, hilliness: 0.9 }),
+      L('desert', 2, { curviness: 1, hilliness: 0.8 }),
+      L('canyon', 2, { curviness: 1.3, hilliness: 1, tod: 'sunset' }),
+      L('mountain', 2, { curviness: 1.3, night: true }),
+    ],
+  },
+  {
+    id: 'polo', name: 'Polo Industrial', level: 'Médio', rivalSkill: 0.965,
+    stages: [
+      L('farm', 4, { curviness: 0.7, tod: 'dawn' }),
+      L('industrial', 4, { traffic: 7, police: 2 }),
+      L('industrial', 4, { weather: 'fog', traffic: 7 }),
+      L('city', 4, { weather: 'rain', traffic: 8, police: 2 }),
+      L('industrial', 4, { night: true, traffic: 8, police: 2 }),
+    ],
+  },
+  {
+    id: 'serragaucha', name: 'Serra Gaúcha', level: 'Difícil', rivalSkill: 0.98,
+    stages: [
+      L('autumn', 2, { curviness: 1.2, hilliness: 0.9, tod: 'dawn' }),
+      L('farm', 2, { curviness: 1.1, hilliness: 1, weather: 'fog' }),
+      L('autumn', 2, { curviness: 1.4, hilliness: 1, weather: 'rain' }),
+      L('mountain', 2, { curviness: 1.5, hilliness: 1 }),
+      L('autumn', 2, { curviness: 1.3, night: true, weather: 'fog' }),
+    ],
+  },
+  {
+    id: 'costaverde', name: 'Costa Verde', level: 'Difícil', rivalSkill: 0.98,
+    stages: [
+      L('coast', 2, { curviness: 1.3, hilliness: 0.8, tod: 'dawn' }),
+      L('jungle', 2, { curviness: 1.4, weather: 'rain' }),
+      L('beach', 2, { curviness: 1.2, police: 2 }),
+      L('coast', 2, { curviness: 1.5, hilliness: 1, weather: 'fog' }),
+      L('coast', 2, { curviness: 1.4, night: true, weather: 'rain' }),
+    ],
+  },
+  {
+    id: 'marginal', name: 'Marginal à Noite', level: 'Difícil', rivalSkill: 0.985,
+    stages: [
+      L('city', 4, { dusk: true, traffic: 8, police: 2 }),
+      L('city', 4, { night: true, traffic: 9, police: 2 }),
+      L('industrial', 4, { night: true, traffic: 8, weather: 'rain' }),
+      L('city', 4, { night: true, traffic: 10, police: 3, weather: 'fog' }),
+      L('city', 4, { night: true, traffic: 9, police: 3, weather: 'rain' }),
+    ],
+  },
+  {
+    id: 'cordilheira', name: 'Cordilheira', level: 'Expert', rivalSkill: 1.0,
+    stages: [
+      L('alpine', 2, { curviness: 1.5, hilliness: 1, tod: 'dawn' }),
+      L('alpinesnow', 2, { curviness: 1.6, hilliness: 1, weather: 'snow' }),
+      L('mountain', 2, { curviness: 1.7, hilliness: 1, weather: 'fog' }),
+      L('snow', 2, { curviness: 1.6, hilliness: 1, weather: 'snow', tod: 'sunset' }),
+      L('alpine', 2, { curviness: 1.7, hilliness: 1, night: true, weather: 'rain' }),
+    ],
+  },
+  {
+    id: 'maratona', name: 'Grande Maratona', level: 'Expert', rivalSkill: 1.01,
+    stages: [
+      L('beach', 4, { curviness: 0.9, tod: 'dawn' }),
+      L('canyon', 2, { curviness: 1.6, hilliness: 1 }),
+      L('city', 4, { traffic: 9, police: 3, weather: 'rain' }),
+      L('alpinesnow', 2, { curviness: 1.7, hilliness: 1, weather: 'snow', dusk: true }),
+      L('mountain', 2, { curviness: 1.8, hilliness: 1, night: true, weather: 'fog' }),
+    ],
+  },
 ];
 
 // ordem do Arcade, do mais fácil ao mais difícil: cada mapa concluído libera o seguinte
 const ORDER = ['deserto', 'litoral', 'savana', 'outono', 'metropole', 'canion', 'selva', 'crepusculo', 'industrial', 'neblina',
-  'serra', 'alpes', 'tuneis', 'grandemetropole', 'noturno', 'tempestade', 'penhasco', 'inverno', 'mundo', 'lendas'];
+  'serra', 'alpes', 'tuneis', 'grandemetropole', 'noturno', 'tempestade', 'penhasco', 'inverno', 'mundo', 'lendas',
+  'litoralnorte', 'cerrado', 'transamazonica', 'rotadoouro', 'polo', 'serragaucha', 'costaverde', 'marginal', 'cordilheira', 'maratona'];
 export const COURSES: Course[] = ORDER.map((id) => ALL.find((c) => c.id === id)!);
 
 // mapas liberados no Arcade (no começo só o primeiro), guardado no aparelho

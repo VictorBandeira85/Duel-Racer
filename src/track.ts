@@ -120,7 +120,7 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
   // iluminação pública: postes do lado direito em alguns trechos (perto das cidades, das
   // pontes e da chegada); na cidade e na zona industrial, em quase toda a estrada
   const urban = theme.scenery.includes('lamp');
-  const stretches = urban ? 6 : 2;
+  const stretches = Math.round((urban ? 6 : 2) * Math.max(1, def.sections / 14)); // trecho longo: mais trechos iluminados
   for (let k = 0; k < stretches; k++) {
     const start = Math.floor(segments.length * (k + 0.2 + rand() * 0.5) / stretches);
     const len = 120 + Math.floor(rand() * 160);

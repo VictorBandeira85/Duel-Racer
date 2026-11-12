@@ -34,7 +34,8 @@ export function stageChallenges(r: Race): Challenge[] {
   const rand = rng((r.course.seed ?? r.course.id.length * 1000) + r.stageIdx * 131 + 77);
   const max = r.car.maxSpeed * KMH;
   const pool: Challenge[] = [];
-  const traffic = def.traffic;
+  // trechos longos (mais seções) pedem mais ultrapassagens e raspões, na mesma proporção
+  const traffic = def.traffic * Math.max(1, def.sections / 14);
   const n = Math.max(4, Math.round(traffic * (2.5 + rand() * 1.5)));
   pool.push({ kind: 'passes', target: n, label: `Ultrapasse ${n} carros` });
   const top = Math.round((max * (0.82 + rand() * 0.08)) / 5) * 5;

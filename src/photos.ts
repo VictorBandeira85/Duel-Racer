@@ -92,6 +92,9 @@ export const SN_PHOTOS: Photo[] = ([
   { src: ph('sn-catalogo'), kicker: 'POR DENTRO', kc: '#1e4fb8', title: 'LUXO DE SÉRIE', sub: 'Automático de 3 marchas, espelho iluminado e rodas de liga', inside: ['Câmbio automático ou de 5', 'Chave com o logo da Ipê', 'Calota ou roda de liga?'], box: [4, 4, 556, 311] },
   { src: ph('sn-laranja'), kicker: 'TESTE', kc: '#1a1614', title: 'GRANDE E VALENTE', sub: 'Duas portas, 1.100 kg e 2.0 de 112 cv na estrada', inside: ['0 a 100 e retomadas', 'Consumo na viagem', 'Conforto de carro grande'], box: [11, 83, 550, 282] },
 ] as Photo[]).filter((p) => !!p.src);
+// Silber 95 (Porsche 959): tools/ref/silber_photos.py
+export const P9_PHOTOS: Photo[] = ([
+] as Photo[]).filter((p) => !!p.src);
 // Peças de preparação (tools/ref/parts_photos.py): capas e páginas de carregamento
 export const PC_PHOTOS: Photo[] = [
   { src: ph('pc-motor'), kicker: 'RAIO-X', kc: '#1a1614', title: 'DOZE EM V', sub: 'Por dentro do coração do Toro', inside: ['48 válvulas, 12 borboletas', 'Coletores 6 em 1', 'Quanto custa abrir um'], box: [95, 14, 464, 278] },
@@ -108,7 +111,7 @@ export const PC_PHOTOS: Photo[] = [
   { src: ph('pc-kitturbo'), kicker: 'PREPARAÇÃO', kc: '#d01f26', title: 'KIT TURBO', sub: 'Peça por peça, o que vai no seu motor', inside: ['Downpipe de 2,5 ou 3,5 pol', 'Qual turbina escolher', 'Monte o seu na oficina'], box: [10, 5, 550, 310] },
   { src: ph('pc-coletor'), kicker: 'PREPARAÇÃO', kc: '#1a1614', title: 'ADMISSÃO DE CORRIDA', sub: 'Coletor de dutos longos e pressão de sobra', inside: ['Turbo ou supercharger?', 'Polia menor, mais pressão', 'Visite a oficina'], box: [95, 40, 465, 280] },
 ].filter((p) => !!p.src);
-export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...VG_PHOTOS, ...VS_PHOTOS, ...SN_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
+export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...VG_PHOTOS, ...VS_PHOTOS, ...SN_PHOTOS, ...P9_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
 
 // Enquadramento: a foto cobre o quadro e a caixa do carro (p.box) fica inteira e centrada na área
 // livre (sem a faixa vermelha de baixo, 'bottom' px), com uma aproximação lenta (u: 0..1) que nunca

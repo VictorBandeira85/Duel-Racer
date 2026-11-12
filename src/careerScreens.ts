@@ -380,9 +380,19 @@ function openPrep(cs: CareerSave, car: CarSpec) {
     cs.setup = { ...(cs.setup ?? {}), [car.id]: { ...st, susp: 0 } };
     saveCareer(cs);
   }
+  ui.demo = ''; // oficina da carreira: compra e instala de verdade (nunca o modo catálogo)
   ui.prep = true;
   ui.prepRow = 0;
   ui.prepView = { ...buildOf(cs, car.id) };
+}
+// preparação na carreira: o próximo carro da garagem
+function prepSwap(s: AppState) {
+  const cs = s.career!, cars = ownedCars(cs);
+  if (cars.length < 2) return;
+  ui.revT0 = -9;
+  setEngine(0, false, false);
+  ui.garage = (ui.garage + 1) % cars.length;
+  openPrep(cs, cars[ui.garage]);
 }
 const ownsPart = (cs: CareerSave, car: CarSpec, slot: SlotId, id: string) => !id || (cs.parts?.[car.id] ?? []).includes(`${slot}:${id}`);
 
@@ -459,7 +469,9 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const b = prepButtons();
   tag(c, b.back, ui.demo ? '◀ VOLTAR' : '◀ OFICINA');
   tag(c, b.rev, 'OUVIR O RONCO', true);
-  tag(c, b.stock, ui.demo ? 'OUTRO CARRO ▶' : 'VER ORIGINAL');
+  // catálogo: passa pelos carros do showroom; carreira: troca entre os carros da garagem (só se houver outro)
+  if (ui.demo) tag(c, b.stock, 'OUTRO CARRO ▶');
+  else if (ownedCars(cs).length > 1) tag(c, b.stock, 'TROCAR CARRO ▶');
   // ronco de teste: partida e duas aceleradas com as peças em vista
   const t = s.t - ui.revT0;
   if (t >= 0 && t < 2.6) {
@@ -509,7 +521,7 @@ function tapPrep(s: AppState, car: CarSpec, x: number, y: number) {
   const b = prepButtons();
   if (inside(x, y, b.back)) return closePrep();
   if (inside(x, y, b.rev)) return prepRev(s, car);
-  if (inside(x, y, b.stock)) { ui.prepView = {}; return; }
+  if (inside(x, y, b.stock)) return prepSwap(s);
   const slots = prepSel(car), pb = prepBar();
   if (inside(x, y, pb.prev)) return prepStep(car, slots[ui.prepRow].id, -1);
   if (inside(x, y, pb.next) || inside(x, y, pb.name)) return prepStep(car, slots[ui.prepRow].id, 1);
@@ -540,6 +552,14 @@ export function openPrepDemo(s: AppState, a: Actions, carId = '', back: ScreenId
   if (!s.career) {
     s.career = newCareer();
     saveCareer(s.career);
+  }
+  // carro que já é seu: a oficina de verdade, na garagem da carreira (compra e instala)
+  const mine = ownedCars(s.career).findIndex((k) => k.id === carId);
+  if (mine >= 0) {
+    ui.garage = mine;
+    a.go('garage');
+    openPrep(s.career, ownedCars(s.career)[mine]);
+    return;
   }
   const list = demoCars();
   ui.demo = (list.find((k) => k.id === carId) ?? list.find((k) => k.id === 'br-golgti') ?? list[0]).id;

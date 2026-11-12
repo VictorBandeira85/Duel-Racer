@@ -11,8 +11,8 @@
   depois do santana_sprites.py rodar santana_rear_panel.py e santana_side_lamp.py)
   (Voyage LS 1986: voyage_sprites.py, voyage_cockpit.py, voyage_gauges.py, voyage_photos.py). O Ímola de
   quatro portas saiu do jogo (a cabine do cupê continua nos arquivos br-monzasedan-*).
-  O Silber 95 (959) está em atualização: exterior e capas novos, cabine parcial (falta a arte sem
-  volante; vem depois). Os demais (Toro LP5, ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Passat, Pumas) ficam como estão
+  O Silber 95 (959) está atualizado: exterior, capas e cabine completa (painel da arte sem volante,
+  volante da arte com volante; tools/ref/silber_cockpit.py e silber_gauges.py). Os demais (Toro LP5, ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Passat, Pumas) ficam como estão
   até a arte nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
   O LP5 tem fotos de revista, mas o carro ainda não foi atualizado. Na dúvida, perguntar.
 

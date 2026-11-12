@@ -1,32 +1,34 @@
-"""Cabine do Silber 95 (Porsche 959) a partir da arte do Victor (por enquanto só a versão COM volante;
-a sem volante vem depois), no molde de santana_cockpit.py:
+"""Cabine do Silber 95 (Porsche 959) a partir das duas artes do Victor, no molde de santana_cockpit.py:
+- painel: a arte SEM volante (cab-nowheel.png, 1670x942: a última linha, do banco, sobra; no resto bate com
+  a com volante, deslocamento abaixo de 1 px). Sem ela, o que fica atrás do volante é RECONSTRUÍDO a
+  partir da arte com volante (rebuild, mantido só como reserva): o aro de cima sobre o para-brisa vira
+  vidro; no capuz do quadro e no painel cada linha continua a textura dos dois lados (bridge); a borda de
+  baixo do capuz é refeita com o perfil medido embaixo do relógio da direita (LIP); dentro do aro o painel
+  de baixo anda junto com o volante (DX) e atrás da almofada entra o vão escuro com a capa da coluna
 - volante de quatro raios (aro, barra de cima, barra de baixo e a almofada) recortado da arte com volante:
-  aro pela elipse medida e os quatro vãos (o do quadro, os dois dos lados da almofada e o de baixo) por
-  contorno. O volante anda DX px para a direita para ficar centrado no conta-giros (como no carro de
-  verdade: o aro emoldura os três mostradores do meio)
+  aro pela elipse medida e os quatro vãos (o do quadro, os dois dos lados da almofada, até a costura do
+  aro, e o de baixo) por contorno; pixels vermelhos (ponteiro da arte na borda do aro) saem. O volante
+  anda DX px para a direita para ficar centrado no conta-giros (como no carro de verdade: o aro emoldura
+  os três mostradores do meio)
 - "PORSCHE 959" da almofada sai (textura da própria almofada) e entra "SILBER 95" no mesmo baixo-relevo
-- painel: se houver cab-nowheel.png na pasta, ele é usado direto (só falta medir de novo DASH_TOP e as
-  sementes, se a arte nova vier deslocada). Sem ela, o que fica atrás do volante é RECONSTRUÍDO
-  (rebuild): o aro de cima sobre o para-brisa vira vidro; no capuz do quadro e no painel cada linha
-  continua a textura dos dois lados (bridge); a borda de baixo do capuz do quadro é refeita com o perfil
-  medido embaixo do relógio da direita (LIP); embaixo do quadro, dentro do aro, o painel de baixo anda
-  junto com o volante (a coluna de direção, as alavancas e o vão escuro da arte, deslocados DX), e atrás
-  da almofada e das barras entra o vão escuro com a capa da coluna de direção
 - vidros: o cenário (parede de tijolos e estacionamento) é inundado a partir de sementes dentro de cada
   vidro (para-brisa, janela da porta, vidro do retrovisor esquerdo); o contorno preto do carro segura.
   Ilhas do cenário (palhetas, rejunte) são fechadas
 - os limpadores da arte saem (o jogo desenha os dele, na chuva): o vidro desce até a borda de cima do
-  painel (DASH_TOP, medida na arte: o contorno preto acima do friso claro do painel)
+  painel (DASH_TOP, medida na arte sem volante: o contorno preto acima do friso claro do painel)
 - retrovisor interno e haste saem (o jogo desenha o dele); o forro e as duas luzes de teto ficam
-- retrovisor externo esquerdo: a arte o corta na borda; a moldura arredondada da direita (sem a aba presa
-  à porta) é refletida e vira a esquerda, fora da arte (área construída), e o meio continua igual
+- retrovisor externo esquerdo: o vidro é o que o contorno de dentro da moldura fecha em volta de
+  MIR_SEED; a carcaça, azul na arte sem volante, volta à cor prata da arte com volante pelo brilho
+  (silver; o carro é prata). A arte o corta na borda: a moldura arredondada da direita (sem a aba presa à
+  porta) é refletida e vira a esquerda, fora da arte (área construída), e o meio continua igual
 - à esquerda da arte (telas largas) a porta é construída: cada linha continua na própria inclinação
   (ponto de fuga medido no friso claro e na borda da janela), nunca espelhada nem esticada
-- os cinco mostradores ficam com o fundo liso da arte: o quadro refeito (silber_gauges.py) cobre cada um
-  (aro cromado + fundo), e o jogo desenha ponteiros, tambores e luzes
+- os cinco mostradores ficam com fundo liso (os da arte sem volante estão no mesmo lugar que os da com
+  volante, DIALS vale para as duas): o quadro refeito (silber_gauges.py) cobre cada um (aro cromado +
+  fundo), e o jogo desenha ponteiros, tambores e luzes
 Escala 0,34 (pixel 8:7), volante na mesma escala, pivô do volante em (128, 104).
-Uso: python3 tools/ref/silber_cockpit.py <pasta com cab-wheel.png [e cab-nowheel.png]> <src/assets/cockpit>
-     (DBG=<pasta> grava as máscaras e o painel reconstruído para conferência)
+Uso: python3 tools/ref/silber_cockpit.py <pasta com cab-wheel.png e cab-nowheel.png> <src/assets/cockpit>
+     (DBG=<pasta> grava as máscaras e o painel para conferência)
 """
 import os
 import sys
@@ -48,13 +50,15 @@ RIM_IN = (522.0, 496.0, 242.0, 264.0)    # a de dentro é mais funda embaixo (ar
 # no vão do quadro a face de dentro do aro (escura, com a costura) é mais larga: o vão é o contorno de
 # dentro dessa faixa, medido na arte (da barra de cima, à esquerda, até a barra, à direita)
 TOP_IN = [(300, 453), (304, 440), (310, 420), (318, 400), (330, 380), (342, 360), (357, 340), (373, 320), (392, 300), (412, 284),
-          (440, 270), (470, 262), (500, 259), (530, 258), (568, 262), (605, 280), (632, 299), (668, 316), (696, 339), (715, 362), (735, 391), (742, 420),
+          (440, 270), (470, 262), (500, 259), (530, 258), (568, 260), (588, 264), (605, 270), (622, 281), (632, 291), (668, 316), (696, 339), (715, 362), (735, 391), (742, 420),
           (738, 440), (728, 456)]
 # vãos do volante (arte com volante); o lado de fora de cada um é a elipse de dentro do aro
 HOLES = [
     [(250, 150), (800, 150), (800, 437), (760, 441), (740, 444), (700, 450), (650, 453), (400, 453), (340, 449), (310, 438), (290, 428), (250, 420)],  # quadro
-    [(294, 470), (330, 468), (347, 480), (347, 610), (294, 610)],                                         # esquerdo (sem a costura do aro)
-    [(752, 474), (712, 474), (693, 480), (693, 612), (752, 612)],                                         # direito
+    # dos lados da almofada o vão vai até a elipse de dentro (a costura do aro fica): as alavancas e o painel
+    # da arte com volante saem, atrás entra o painel da arte sem volante
+    [(250, 470), (330, 468), (347, 480), (347, 610), (250, 610)],                                         # esquerdo
+    [(800, 474), (712, 474), (693, 480), (693, 612), (800, 612)],                                         # direito
     [(250, 642), (800, 642), (800, 800), (250, 800)],                                                     # de baixo
 ]
 # sementes de cada vidro (x, y): para-brisa, janela da porta esquerda (em cima e embaixo do retrovisor),
@@ -62,9 +66,9 @@ HOLES = [
 SEEDS = [(600, 150), (1300, 150), (60, 150), (60, 250), (20, 350), (1640, 150), (1625, 250)]
 WIPER_Y = 205                   # daqui para baixo ficam as palhetas da arte
 # borda de cima do painel (x, y: a primeira das 3 linhas do contorno preto acima do friso claro)
-DASH_TOP = [(190, 323), (200, 320), (250, 308), (300, 299), (400, 291), (450, 285), (500, 283), (540, 281), (600, 280), (700, 279),
-            (800, 278), (900, 278), (1000, 279), (1050, 280), (1100, 283), (1150, 284), (1200, 287), (1250, 290), (1300, 294),
-            (1350, 300), (1400, 306), (1450, 316), (1482, 325)]
+DASH_TOP = [(190, 324), (200, 320), (250, 309), (300, 301), (400, 290), (450, 287), (500, 285), (540, 283), (600, 282), (700, 279),
+            (800, 278), (900, 278), (1000, 280), (1050, 281), (1100, 283), (1150, 284), (1200, 287), (1250, 290), (1300, 295),
+            (1350, 300), (1400, 307), (1450, 316), (1482, 325)]   # remedida na arte sem volante
 IMIRROR = (688, 56, 992, 172)   # retrovisor interno e haste (abaixo do forro)
 LP = 125                        # folga construída à esquerda (px da arte)
 VP = (444.0, 183.0)             # ponto de fuga das linhas da porta (friso claro e borda da janela)
@@ -73,6 +77,10 @@ VP = (444.0, 183.0)             # ponto de fuga das linhas da porta (friso claro
 MIR_Y = (309, 407)
 MIR_A, MIR_R, MIR_M, MIR_X0 = 34, 62, 22, -46
 MIR_BOX = (0, 300, 100, 410)    # caixa do retrovisor esquerdo (moldura não é ilha do cenário)
+MIR_SEED = (20, 350)            # dentro do vidro do retrovisor esquerdo
+# retrovisores externos (caixa, semente do vidro): na arte sem volante a carcaça veio azul; o carro é prata
+# (o da direita fica fora do recorte do painel)
+MIRRORS = [((0, 300, 100, 410), MIR_SEED)]
 # mostradores (centro, raio do aro na arte): o quadro refeito cobre cada um
 DIALS = [(284, 399, 52), (426, 400, 64), (563, 399, 69), (709, 400, 68), (836, 404, 58)]
 GAP = (770, 398, 786, 462)     # entre o velocímetro e o da direita: sobras da luz laranja da arte
@@ -258,12 +266,14 @@ def glass_mask(img, forced):
     tt = top[np.clip(xx, 0, W - 1)]
     g |= span & (yy >= WIPER_Y) & (yy < tt)
     g &= ~(span & (yy >= tt))
-    # retrovisor esquerdo: o cenário vaza pelas frestas do contorno para a moldura prateada; na caixa
-    # dele vale a cor: vidro azul (vira o espelho do jogo) (verde-azulado) e cenário (asfalto, pouco azul); a caixa e a moldura são azul-acinzentadas
+    # retrovisor esquerdo: o cenário vaza pelas frestas do contorno para a moldura; na caixa dele o vidro é
+    # o que o contorno preto de dentro da moldura fecha em volta da semente MIR_SEED (a moldura da arte nova
+    # é azul como o vidro: a cor não separa) e fora da moldura sai o cenário (asfalto, pouco azul)
     x0, y0, x1, y1 = MIR_BOX
     rr, gg, bb = (img[y0:y1, x0:x1, i].astype(int) for i in range(3))
     lu = (rr + gg + bb) / 3
-    vid = ((bb - rr > 35) & (gg - rr > 12)).astype(np.uint8)
+    n, lab = cv2.connectedComponents((lu >= 40).astype(np.uint8), connectivity=4)
+    vid = (lab == lab[MIR_SEED[1] - y0, MIR_SEED[0] - x0]).astype(np.uint8)
     n, lab, st, _ = cv2.connectedComponentsWithStats(1 - vid, connectivity=4)
     for i in range(1, n):
         if st[i, cv2.CC_STAT_AREA] < 60:   # pintinhas escuras dentro do vidro
@@ -280,6 +290,32 @@ def glass_mask(img, forced):
         if st[i, cv2.CC_STAT_AREA] < 2500 and not (x < MIR_BOX[2] and MIR_BOX[1] < y < MIR_BOX[3]):
             g[lab == i] = True
     return g
+
+
+def silver(nw, ww):
+    """carcaça dos retrovisores externos: a arte sem volante a trouxe azul, mas o carro é prata. Cada pixel
+    azul da carcaça (fora do vidro) vira a cor prata da arte com volante (mesmo desenho, mesmo lugar) pelo
+    brilho: tabela brilho -> cor montada com a mediana dos pixels da arte com volante em cada faixa"""
+    for (x0, y0, x1, y1), (sx, sy) in MIRRORS:
+        a = nw[y0:y1, x0:x1].astype(int)
+        b = ww[y0:y1, x0:x1].astype(int)
+        lu = a.mean(axis=2)
+        n, lab = cv2.connectedComponents((lu >= 40).astype(np.uint8), connectivity=4)
+        vid = lab == lab[sy - y0, sx - x0]
+        body = (a[..., 2] - a[..., 0] > 15) & ~vid
+        lw = b.mean(axis=2)
+        bins = np.clip((lu / 8).astype(int), 0, 31)
+        lut = np.zeros((32, 3))
+        ok = np.zeros(32, bool)
+        for k in range(32):
+            m = body & (bins == k) & (b[..., 2] - b[..., 0] < 45)   # na arte com volante: carcaça, não vidro
+            if m.sum() >= 4:
+                lut[k], ok[k] = np.median(b[m], axis=0), True
+        ks = np.nonzero(ok)[0]
+        for c in range(3):
+            lut[:, c] = np.interp(np.arange(32), ks, lut[ks, c])
+        reg = nw[y0:y1, x0:x1]
+        reg[body] = lut[bins[body]].astype(np.uint8)
 
 
 def clean(img):
@@ -394,13 +430,15 @@ def main():
     wheel = wheel_mask((H, W))
     nwp = os.path.join(d, 'cab-nowheel.png')
     if os.path.exists(nwp):
-        nw = np.array(Image.open(nwp).convert('RGB'))
+        nw = np.array(Image.open(nwp).convert('RGB'))[:H]   # 942 linhas: a de baixo (banco) sobra
         forced = np.zeros((H, W), bool)
         print('painel da arte sem volante')
     else:
         nw, forced = rebuild(ww, wheel)
-        print('painel reconstruído atrás do volante (falta a arte sem volante)')
+        print('painel reconstruído atrás do volante (sem cab-nowheel.png na pasta)')
     g = glass_mask(nw, forced)
+    if os.path.exists(nwp):
+        silver(nw, ww)
     nw = clean(nw)
     dials(nw)
     if dbg:
@@ -460,6 +498,7 @@ def main():
     xs = PIV_W[0] + (np.arange(256) + 0.5 - PIV_N[0]) * PXW
     ys = PIV_W[1] + (np.arange(WROWS) + 0.5 - (PIV_N[1] + WTOP)) * PXH
     w_rgb, w_al = sample(wart, xs, ys), sample(wheel, xs, ys) & (ys < H)[:, None]
+    w_al &= w_rgb[..., 0].astype(int) - w_rgb[..., 2] <= 40   # pontas do ponteiro vermelho da arte na borda do aro
     wimg = np.dstack([w_rgb, w_al.astype(np.uint8) * 255])
     tx = PIV_N[0] + ((EMB_TXT[0] + EMB_TXT[2]) / 2 - PIV_W[0]) * S
     ty = PIV_N[1] + WTOP + ((EMB_TXT[1] + EMB_TXT[3]) / 2 - PIV_W[1]) / PXH

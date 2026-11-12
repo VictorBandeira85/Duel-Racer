@@ -712,10 +712,9 @@ COCKPIT_ART['br-santana'] = {
 };
 queueMicrotask(() => faceImg(SN_FACE)); // a foto da revista (interiorPhoto) precisa do fundo do quadro já carregado
 
-// Silber 95 (Porsche 959): interior do Victor (tools/ref/silber_cockpit.py, no molde do Savana: por enquanto só
-// a arte COM volante; o painel atrás do aro, dos raios e da almofada é reconstruído até chegar a sem volante;
-// volante de quatro raios centrado no conta-giros, "SILBER 95" na almofada, vidros e limpadores recortados,
-// retrovisor esquerdo completado, porta construída até a borda) e o quadro da FOTO DO QUADRO REAL
+// Silber 95 (Porsche 959): interior do Victor (tools/ref/silber_cockpit.py, no molde do Savana: painel da arte
+// SEM volante, volante de quatro raios da arte com volante centrado no conta-giros, "SILBER 95" na almofada,
+// vidros e limpadores recortados, retrovisor esquerdo prata completado, porta construída até a borda) e o quadro da FOTO DO QUADRO REAL
 // (tools/ref/silber_gauges.py): no meio, o combinado do óleo (temperatura 40-170 com a faixa vermelha e
 // pressão 0-5, eixos escondidos atrás da ilha das luzes vermelhas), o conta-giros 0-8 com a faixa laranja
 // e o manômetro do turbo 0-2,5 bar embaixo, e o velocímetro 20-340 com hodômetro e parcial; nos de fora,

@@ -54,7 +54,10 @@ ZONES = {
              'sym': [[(120, 789), (184, 789), (246, 882), (120, 882)]],   # pneu ao lado da saia
              'disc': [(368, 871, 50), (765, 447, 19)]},  # escapamento e fechadura
     'side': {'all': [rect(110, 372, 171, 452),      # pisca dianteiro
-                     rect(2031, 342, 2100, 430)]},  # lanterna
+                     rect(2031, 342, 2100, 430),    # lanterna
+                     # vidros da porta e de trás, pela borracha preta (bancos e tampão cinzentos lá dentro)
+                     [(986, 104), (1278, 104), (1297, 289), (868, 289), (868, 227), (963, 126)],
+                     [(1328, 107), (1578, 107), (1732, 267), (1718, 292), (1351, 292)]]},
 }
 # emblema da Ipê: centro (pixels da arte) e lado (pixels do sprite)
 BADGE = {'front': (769, 583, 11), 'rear': (300, 457, 9)}
@@ -115,6 +118,19 @@ def zone_mask(k, shape):
     return z > 0
 
 
+def glass_zone(a, car):
+    """vidros: cada mancha fechada pelo contorno/borracha preta em que o azul do vidro é maioria sai
+    inteira (bancos, tampão e reflexos acinzentados vistos pelo vidro passariam por lataria prata)"""
+    rgb = a.astype(int)
+    lum = rgb.mean(axis=2)
+    blue = (rgb[..., 2] - rgb[..., 0] > 45) & (rgb.max(axis=2) - rgb.min(axis=2) > 60)
+    n, lab, st, _ = cv2.connectedComponentsWithStats((car & (lum > 45)).astype(np.uint8), 4)
+    frac = np.bincount(lab.ravel(), weights=blue.ravel(), minlength=n) / np.maximum(1, st[:, cv2.CC_STAT_AREA])
+    frac[0] = 0
+    z = (frac > 0.35)[lab]
+    return cv2.dilate(z.astype(np.uint8), np.ones((9, 9), np.uint8)) > 0
+
+
 def paint_mask(a, car, k):
     """lataria prata, medida na arte inteira (antes da paleta curta): cinza azulado e claro fora das
     zonas + reflexos e vincos brancos encostados nela. Na lateral, os filetes claros de dentro da faixa
@@ -122,7 +138,7 @@ def paint_mask(a, car, k):
     rgb = a.astype(int)
     r, b = rgb[..., 0], rgb[..., 2]
     lum, sat = rgb.mean(axis=2), rgb.max(axis=2) - rgb.min(axis=2)
-    ok = car & ~zone_mask(k, car.shape)
+    ok = car & ~zone_mask(k, car.shape) & ~glass_zone(a, car)
     if k == 'side':
         dark = ((lum < 58) & car).astype(np.uint8)
         band = cv2.morphologyEx(dark, cv2.MORPH_CLOSE, np.ones((27, 1), np.uint8)) > 0
@@ -153,13 +169,16 @@ def main():
         s, (ox, oy, f) = shrink(a, car, WIDTH[k])
         to_s = lambda x, y: (int(round((x - ox) / f)), int(round((y - oy) / f)))
         g8, _ = shrink(np.dstack([paint_mask(a, car, k) * 255] * 3).astype(np.uint8), car, WIDTH[k], colors=0)
-        z8, _ = shrink(np.dstack([zone_mask(k, car.shape) * 255] * 3).astype(np.uint8), car, WIDTH[k], colors=0)
+        z8, _ = shrink(np.dstack([(zone_mask(k, car.shape) | glass_zone(a, car)) * 255] * 3).astype(np.uint8), car, WIDTH[k], colors=0)
         m = (g8[..., 0] > 127) & (s[..., 3] > 0)
         # pixels soltos da cor da lataria cercados de máscara (sobras do miolo dos blocos) entram
         c = s[..., :3].astype(int)
         body = (s[..., 3] > 0) & (z8[..., 0] < 128) & (c.mean(axis=2) > 70) & (c.max(axis=2) - c.min(axis=2) < 50) & (c[..., 2] >= c[..., 0] - 6)
         for _ in range(2):
             m |= body & ~m & (cv2.filter2D(m.astype(np.uint8), -1, np.ones((3, 3), np.uint8), borderType=cv2.BORDER_CONSTANT) >= 6)
+        # bordas claras da lataria encostadas na máscara (meio-tom do contorno): entram, fora das zonas
+        edge = (s[..., 3] > 0) & (z8[..., 0] < 128) & (c.max(axis=2) > 150) & (c.max(axis=2) - c.min(axis=2) < 45) & (c[..., 2] >= c[..., 0] - 6)
+        m |= edge & (cv2.dilate(m.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0)
         m8 = (m * 255).astype(np.uint8)
         if k in BADGE:
             bx, by, size = BADGE[k]

@@ -282,17 +282,22 @@ def main():
             pal.putpalette((q.getpalette()[:154 * 3] + [v for c in cols for v in c] + [0] * 768)[:768])
             im = im.quantize(palette=pal, dither=Image.Dither.NONE)
         elif k in ('bancos', 'coletor'):
-            # muito pontilhado: 92 cores para ficar no peso das outras fotos, mais 4 reservadas para os
-            # poucos pixels de cor viva (fivelas laranja dos cintos, friso vermelho), que sumiriam
-            q = im.quantize(92, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+            # muito pontilhado: 80 cores para ficar no peso das outras fotos, mais até 16 reservadas para
+            # os poucos pixels de cor viva (fivelas laranja dos cintos, reservatório laranja, conexões azuis),
+            # que o corte mediano trocaria pela cor dominante: duas por faixa de matiz (escura e clara)
+            q = im.quantize(80, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
             px = np.array(im).reshape(-1, 3)
-            viv = px[(px.max(axis=1).astype(int) - px.min(axis=1)) > 110]
+            hsv = cv2.cvtColor(px[None], cv2.COLOR_RGB2HSV)[0].astype(int)
+            viv = (hsv[:, 1] > 130) & (hsv[:, 2] > 90)
             cols = []
-            if len(viv) > 8:
-                vq = Image.fromarray(viv[None]).quantize(4, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
-                cols = vq.getpalette()[:12]
+            for hb in range(8):
+                sel = px[viv & (((hsv[:, 0] + 11) % 180) // 23 == hb)]
+                if len(sel) >= 40:
+                    v = sel.astype(int).sum(axis=1)
+                    md = np.median(v)
+                    cols += [int(c) for c in np.median(sel[v <= md], axis=0)] + [int(c) for c in np.median(sel[v >= md], axis=0)]
             pal = Image.new('P', (1, 1))
-            pal.putpalette((q.getpalette()[:92 * 3] + cols + [0] * 768)[:768])
+            pal.putpalette((q.getpalette()[:80 * 3] + cols[:48] + [0] * 768)[:768])
             im = im.quantize(palette=pal, dither=Image.Dither.NONE)
         else:
             im = im.quantize(160, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)

@@ -17,7 +17,9 @@
   O LP5 tem fotos de revista, mas o carro ainda não foi atualizado. Na dúvida, perguntar.
 
 ## Publicação
-- A cada rodada: só a versão web/mobile (artifact), commit e push em `main`. Subir a versão em
+- A cada rodada: só a versão web/mobile (artifact), commit e push em `main`.
+  Carro novo: publicar cada parte assim que ficar pronta e conferida (exterior e capas primeiro, a
+  cabine depois), sem esperar o carro inteiro (pedido do Victor: estava demorando). Subir a versão em
   `package.json` (e `desktop/package.json`) ANTES do build.
 - Publicação (desde a v0.34.1): a página leva só o código e as imagens pequenas; as imagens acima de
   32 KB vão como arquivos de apoio do artifact (limite de 16 MB por arquivo, 256 MB no total).

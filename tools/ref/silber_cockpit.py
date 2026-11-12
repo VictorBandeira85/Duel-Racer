@@ -53,8 +53,8 @@ TOP_IN = [(300, 453), (304, 440), (310, 420), (318, 400), (330, 380), (342, 360)
 # vãos do volante (arte com volante); o lado de fora de cada um é a elipse de dentro do aro
 HOLES = [
     [(250, 150), (800, 150), (800, 437), (760, 441), (740, 444), (700, 450), (650, 453), (400, 453), (340, 449), (310, 438), (290, 428), (250, 420)],  # quadro
-    [(250, 470), (330, 468), (347, 480), (347, 610), (250, 610)],                                         # esquerdo
-    [(800, 474), (712, 474), (693, 480), (693, 612), (800, 612)],                                         # direito
+    [(294, 470), (330, 468), (347, 480), (347, 610), (294, 610)],                                         # esquerdo (sem a costura do aro)
+    [(752, 474), (712, 474), (693, 480), (693, 612), (752, 612)],                                         # direito
     [(250, 642), (800, 642), (800, 800), (250, 800)],                                                     # de baixo
 ]
 # sementes de cada vidro (x, y): para-brisa, janela da porta esquerda (em cima e embaixo do retrovisor),
@@ -72,11 +72,18 @@ VP = (444.0, 183.0)             # ponto de fuga das linhas da porta (friso claro
 # do canto até a borda de fora, sem a aba presa à porta), coluna do meio e a borda de fora da moldura nova
 MIR_Y = (309, 401)
 MIR_A, MIR_R, MIR_M, MIR_X0 = 34, 62, 22, -46
+MIR_BOX = (0, 300, 100, 410)    # caixa do retrovisor esquerdo (moldura não é ilha do cenário)
 # mostradores (centro, raio do aro na arte): o quadro refeito cobre cada um
-DIALS = [(283, 398, 54), (426, 400, 64), (563, 399, 69), (709, 400, 67), (836, 404, 57)]
+DIALS = [(284, 399, 52), (426, 400, 64), (563, 399, 69), (709, 400, 68), (836, 404, 58)]
+GAP = (770, 398, 786, 462)     # entre o velocímetro e o da direita: sobras da luz laranja da arte
+G1_ART = (285, 398, 64, 53)   # o da esquerda na arte é uma elipse larga (pod inclinado): o miolo vira fundo do pod
 # reconstrução (rebuild): borda de baixo do capuz do quadro (linhas) e de onde vem o perfil dela
 LIP = (452, 490)
-LIP_SRC = (846, 876)
+LIP_X = (226, 812)
+# perfil da borda de baixo do capuz (linhas, cor de cima, cor de baixo, força do grão), como embaixo do
+# relógio da direita
+LIP_ROWS = [(452, 467, (10, 9, 12), (10, 9, 12), 0.25), (467, 470, (5, 4, 7), (5, 4, 7), 0.1), (470, 473, (104, 100, 114), (78, 74, 88), 0.4),
+            (473, 485, (60, 57, 68), (40, 38, 47), 0.7), (485, 490, (9, 8, 11), (14, 13, 17), 0.3)]
 BAND_TOP = 490                  # daqui para baixo, dentro do aro, o painel anda junto com a coluna
 EMB_TXT = (392, 516, 636, 570)  # letreiro da almofada (arte com volante)
 
@@ -104,9 +111,14 @@ def dash_top(W):
     return np.interp(np.arange(W), px, py), px[0], px[-1]
 
 
-def bridge(img, hole):
+def bridge(img, hole, bad=None, inward=None):
     """cada trecho de linha a refazer continua a textura dos dois lados: cópia deslocada da faixa da
-    esquerda passando para a da direita (sem espelhar)"""
+    esquerda passando para a da direita (sem espelhar). `bad`: pixels que não servem de fonte (vidro):
+    ali vale só o outro lado. `inward` (x do centro do volante): a textura vem do lado de dentro do aro
+    (o capuz do quadro é reto ali; por fora ele faz a curva das pontas) e só o último quarto passa
+    para o lado de fora, para não ficar emenda"""
+    if bad is None:
+        bad = np.zeros_like(hole)
     H, W = hole.shape
     out = img.astype(float)
     for y in range(H):
@@ -126,22 +138,76 @@ def bridge(img, hole):
             rsrc = b + 1 + i
             rsrc = np.where(rsrc > W - 1, b + 1 + (i % max(1, W - 1 - b)), rsrc) if okr else None
             t = ((i + 0.5) / n)[:, None]
+            if inward is not None:
+                if (a + b) / 2 < inward:   # aro à esquerda do centro: dentro = direita
+                    t = 1 - np.clip(((1 - t) - 0.75) / 0.25, 0, 1)
+                else:
+                    t = np.clip((t - 0.75) / 0.25, 0, 1)
             if okl and okr:
-                v = out[y, lsrc] * (1 - t) + out[y, rsrc] * t
+                wl, wr = (1 - t) * ~bad[y, lsrc][:, None], t * ~bad[y, rsrc][:, None]
+                sw = wl + wr
+                wl, wr = np.where(sw > 0, wl / np.maximum(sw, 1e-9), 1 - t), np.where(sw > 0, wr / np.maximum(sw, 1e-9), t)
+                v = out[y, lsrc] * wl + out[y, rsrc] * wr
             else:
                 v = out[y, lsrc] if okl else out[y, rsrc]
             out[y, a:b + 1] = v
     return out.astype(np.uint8)
 
 
+def grain(ww):
+    """grão do couro para as partes refeitas: pontinhos claros e escuros soltos, como o pontilhado da arte
+    (sem faixas nem repetição visível)"""
+    rs = np.random.RandomState(959)
+    n = rs.normal(0, 1, (128, 128))
+    n = cv2.GaussianBlur(n, (3, 3), 0.7)
+    n = n / n.std() * 7.5
+    return np.repeat(n[..., None], 3, axis=2)
+
+
+def put(out, m, base, det, k):
+    """pinta a cor `base` (por pixel ou uma só) com o grão do couro repetido"""
+    ys, xs = np.nonzero(m)
+    gh, gw = det.shape[:2]
+    b = base[ys, xs] if isinstance(base, np.ndarray) and base.ndim == 3 else np.array(base, float)
+    out[ys, xs] = np.clip(b + det[ys % gh, xs % gw] * k, 0, 255).astype(np.uint8)
+
+
+def smooth_rows(out, hole, det):
+    """cada trecho de linha recebe a cor dos dois lados (mediana de 6 px), passando de uma para a outra,
+    com o grão do couro por cima: as bordas e frisos continuam retos, sem copiar botões nem saídas de ar"""
+    H, W = hole.shape
+    base = np.zeros((H, W, 3))
+    for y in range(H):
+        if not hole[y].any():
+            continue
+        xs = np.nonzero(hole[y])[0]
+        for r in np.split(xs, np.nonzero(np.diff(xs) > 1)[0] + 1):
+            a, b = r[0], r[-1]
+            cl = np.median(out[y, max(0, a - 6):a], axis=0) if a > 0 else None
+            cr = np.median(out[y, b + 1:b + 7], axis=0) if b < W - 1 else None
+            cl = cr if cl is None else cl
+            cr = cl if cr is None else cr
+            t = ((np.arange(b - a + 1) + 0.5) / (b - a + 1))[:, None]
+            base[y, a:b + 1] = cl * (1 - t) + cr * t
+    put(out, hole, base, det, 0.7)
+
+
 def rebuild(ww, wheel):
     """o painel atrás do volante, enquanto não chega a arte sem volante (ver o cabeçalho)"""
     H, W = wheel.shape
     out = ww.copy()
+    det = grain(ww)
     top, _, _ = dash_top(W)
     yy, xx = np.mgrid[0:H, 0:W]
     hole = wheel.copy()
-    # 1) dentro do aro, embaixo do quadro: o painel de baixo anda junto com a coluna de direção
+    # 1) aro sobre o para-brisa: vira vidro (cor qualquer, a máscara do vidro marca)
+    above = hole & (yy < top[np.clip(xx, 0, W - 1)])
+    hole &= ~above
+    # 2) capuz e painel do quadro (acima da borda de baixo do capuz): cada linha continua a textura
+    upper = hole & (yy < LIP[0])
+    out = bridge(out, upper, yy < top[np.clip(xx, 0, W - 1)] + 2, PIV_W[0])
+    hole &= ~upper
+    # 3) dentro do aro, embaixo do quadro: o painel de baixo anda junto com a coluna de direção (DX)
     inner_new = ellipse((H, W), (RIM_IN[0] + DX, RIM_IN[1], RIM_IN[2] + 6, RIM_IN[3] + 6))
     band = inner_new & (yy >= BAND_TOP) & (xx >= DX)
     src_wheel = np.zeros_like(wheel)
@@ -150,36 +216,32 @@ def rebuild(ww, wheel):
     shifted[:, DX:] = ww[:, :-DX]
     take = band & ~src_wheel
     out[take] = shifted[take]
-    hole &= ~take
-    # atrás da almofada e das barras (na arte): vão escuro com a textura do vão ao lado (lado esquerdo
-    # da almofada, já deslocado) e a capa da coluna de direção
+    # atrás da almofada e das barras (na arte): vão escuro do painel de baixo e a capa da coluna
     dark = band & src_wheel
-    sx0, sx1, sy0, sy1 = 283 + DX, 300 + DX, 560, 600   # amostra lisa do vão (já deslocada)
-    tex = out[sy0:sy1, sx0:sx1].astype(int)
-    ty, tx = np.nonzero(dark)
-    out[ty, tx] = tex[(ty - sy0) % (sy1 - sy0), (tx - sx0) % (sx1 - sx0)]
-    hole &= ~dark
-    # capa da coluna (embaixo da almofada; só aparece com o volante bem virado)
+    put(out, dark, (17, 16, 21), det, 0.45)
     col = Image.fromarray(out)
     d = ImageDraw.Draw(col)
     cx = PIV[0]
-    d.rounded_rectangle([cx - 78, 520, cx + 78, 700], radius=26, fill=(10, 9, 13))
-    d.rounded_rectangle([cx - 74, 524, cx + 74, 700], radius=24, fill=(38, 36, 44))
-    d.line([(cx - 60, 527), (cx + 60, 527)], fill=(70, 67, 80), width=2)
-    d.rounded_rectangle([cx - 66, 532, cx + 66, 700], radius=20, fill=(30, 29, 36))
-    keep = np.array(col)
-    m = dark & (yy >= 520) & (np.abs(xx - cx) <= 78)
-    out[m] = keep[m]
-    # 2) aro sobre o para-brisa: vira vidro (cor qualquer, a máscara do vidro marca)
-    above = hole & (yy < top[np.clip(xx, 0, W - 1)])
-    hole &= ~above
-    # 3) borda de baixo do capuz do quadro: perfil medido embaixo do relógio da direita, repetido
-    lip = hole & (yy >= LIP[0]) & (yy < LIP[1])
-    ly, lx = np.nonzero(lip)
-    out[ly, lx] = ww[ly, LIP_SRC[0] + (lx - LIP_SRC[0]) % (LIP_SRC[1] - LIP_SRC[0])]
+    d.rounded_rectangle([cx - 78, 522, cx + 78, 720], radius=26, fill=(8, 7, 10))
+    d.rounded_rectangle([cx - 74, 525, cx + 74, 720], radius=24, fill=(46, 44, 53))
+    d.rounded_rectangle([cx - 70, 531, cx + 70, 720], radius=21, fill=(34, 32, 40))
+    d.line([(cx - 52, 528), (cx + 52, 528)], fill=(84, 80, 94), width=2)
+    shroud = np.array(col)
+    m = dark & (yy >= 522) & (np.abs(xx - cx) <= 78)
+    out[m] = shroud[m]
+    put(out, m & (np.abs(xx - cx) <= 66) & (yy >= 534), shroud.astype(float), det, 0.4)
+    hole &= ~band
+    # 4) borda de baixo do capuz do quadro, entre os dois lados que a arte mostra: fundo preto do quadro,
+    # contorno, friso claro, a aba de couro e a sombra
+    lip = hole & (yy >= LIP[0]) & (yy < LIP[1]) & (xx >= LIP_X[0]) & (xx <= LIP_X[1])
+    for y0, y1, c0, c1, k in LIP_ROWS:
+        for y in range(y0, y1):
+            t = (y - y0) / max(1, y1 - y0 - 1)
+            c = tuple(c0[i] * (1 - t) + c1[i] * t for i in range(3))
+            put(out, lip & (yy == y), c, det, k)
     hole &= ~lip
-    # 4) o resto (capuz do quadro, painel do quadro, painel embaixo fora do aro): cada linha continua a textura
-    out = bridge(out, hole)
+    # 5) o resto embaixo (fora do aro novo): a cor dos dois lados de cada linha, com o grão do couro
+    smooth_rows(out, hole, det)
     return out, above
 
 
@@ -196,13 +258,26 @@ def glass_mask(img, forced):
     tt = top[np.clip(xx, 0, W - 1)]
     g |= span & (yy >= WIPER_Y) & (yy < tt)
     g &= ~(span & (yy >= tt))
+    # retrovisor esquerdo: o cenário vaza pelas frestas do contorno para a moldura prateada; na caixa
+    # dele vale a cor: vidro azul (vira o espelho do jogo) (verde-azulado) e cenário (asfalto, pouco azul); a caixa e a moldura são azul-acinzentadas
+    x0, y0, x1, y1 = MIR_BOX
+    rr, gg, bb = (img[y0:y1, x0:x1, i].astype(int) for i in range(3))
+    lu = (rr + gg + bb) / 3
+    vid = ((bb - rr > 35) & (gg - rr > 12)).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(1 - vid, connectivity=4)
+    for i in range(1, n):
+        if st[i, cv2.CC_STAT_AREA] < 60:   # pintinhas escuras dentro do vidro
+            vid[lab == i] = 1
+    vid = vid > 0
+    g[y0:y1, x0:x1] = vid | (g[y0:y1, x0:x1] & (rr - bb > -8) & (lu < 165))
     # retrovisor interno e haste
     a0, b0, a1, b1 = IMIRROR
     g[b0:b1, a0:a1] = True
     # ilhas do cenário dentro dos vidros (rejunte, palhetas, sobras): o que não se liga ao carro
     n, lab, st, _ = cv2.connectedComponentsWithStats((~g).astype(np.uint8), connectivity=4)
     for i in range(1, n):
-        if st[i, cv2.CC_STAT_AREA] < 2500:
+        x, y, w, h = st[i, :4]
+        if st[i, cv2.CC_STAT_AREA] < 2500 and not (x < MIR_BOX[2] and MIR_BOX[1] < y < MIR_BOX[3]):
             g[lab == i] = True
     return g
 
@@ -222,8 +297,11 @@ def dials(img):
     """fundo liso no lugar dos cinco mostradores da arte (o quadro refeito cobre com aro e fundo)"""
     im = Image.fromarray(img)
     d = ImageDraw.Draw(im)
+    ex, ey, rx, ry = G1_ART
+    d.ellipse([ex - rx, ey - ry, ex + rx, ey + ry], fill=(12, 11, 15))
     for cx, cy, r in DIALS:
         d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(9, 9, 11))
+    d.rectangle(GAP, fill=(9, 9, 11))
     img[:] = np.array(im)
 
 

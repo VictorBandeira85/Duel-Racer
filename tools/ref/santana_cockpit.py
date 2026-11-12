@@ -18,6 +18,8 @@ com cenário pelos vidros), no molde de voyagesport_cockpit.py (Jornada Sport):
 - o emblema do miolo do volante vira o da Ipê (brand_badges.py)
 - o letreiro do painel do passageiro ("SANTANA GLS") vira "SAVANA GLS" no mesmo estilo (fica fora da
   área que o jogo usa, mas não sobra marca real em lugar nenhum)
+- a caixinha à direita do quadro (na arte um mostrador ilegível, com ponteiro e marcas acesos) vira o
+  botão do reostato da luz do painel e uma tecla, apagados
 - o quadro é refeito por tools/ref/santana_gauges.py (cobre a placa inteira dos mostradores)
 Escala 0,34 (pixel 8:7), volante ampliado 1,08x, pivô do volante em (128, 104).
 Uso: python3 tools/ref/santana_cockpit.py <pasta com cab-wheel.png e cab-nowheel.png> <src/assets/cockpit>
@@ -67,6 +69,7 @@ EMB = (512.5, 498.0, 40)        # emblema do miolo do volante (arte com volante)
 # da curva do canto até a borda de fora, sem a caixa), coluna do meio e a borda de fora da moldura nova
 MIR_Y = (236, 360)
 MIR_A, MIR_R, MIR_M, MIR_X0 = 54, 74, 30, -34
+POD = (697, 376, 744, 434)      # caixinha à direita do quadro (na arte, um relógio sem sentido, com ponteiro aceso)
 LETTER = (1265, 442, 1402, 460)  # miolo da placa do letreiro do painel do passageiro
 
 
@@ -147,6 +150,24 @@ def letreiro(nw):
     nw[y0:y1, x0:x1] = np.array(lay.resize((x1 - x0, y1 - y0), Image.LANCZOS))
 
 
+def pod(nw):
+    """caixinha à direita do quadro: fundo escuro, botão redondo do reostato e uma tecla, sem nada aceso"""
+    x0, y0, x1, y1 = POD
+    im = Image.fromarray(nw)
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle([x0, y0, x1, y1], radius=5, fill=(15, 14, 18), outline=(40, 38, 46), width=2)
+    cx, cy = (x0 + x1) / 2, y0 + 19
+    d.ellipse([cx - 11, cy - 11, cx + 11, cy + 11], fill=(8, 8, 10))
+    d.ellipse([cx - 9, cy - 9, cx + 9, cy + 9], fill=(58, 56, 64))
+    d.ellipse([cx - 7, cy - 7, cx + 7, cy + 7], fill=(44, 42, 50))
+    d.arc([cx - 9, cy - 9, cx + 9, cy + 9], 200, 290, fill=(110, 106, 118), width=2)
+    d.line([(cx, cy - 7), (cx, cy - 2)], fill=(196, 192, 200), width=2)
+    d.rounded_rectangle([cx - 13, y1 - 22, cx + 13, y1 - 8], radius=3, fill=(8, 8, 10))
+    d.rounded_rectangle([cx - 11, y1 - 20, cx + 11, y1 - 10], radius=2, fill=(48, 46, 54))
+    d.line([(cx - 11, y1 - 19), (cx + 11, y1 - 19)], fill=(82, 80, 90), width=1)
+    nw[:] = np.array(im)
+
+
 def extend(nw, al):
     """folga à esquerda: cada linha da porta continua em direção oposta ao ponto de fuga"""
     H, W = nw.shape[:2]
@@ -203,6 +224,7 @@ def main():
     nw[fy0:fy1, fx0:fx1] = (14, 13, 16)
     sx0, sy0, sx1, sy1 = SWITCH
     nw[sy0:sy1, sx0:sx1] = (14, 13, 16)
+    pod(nw)
     E, A = extend(nw, ~g)
     mirror(E, A)
     if dbg:

@@ -724,7 +724,7 @@ COCKPIT_ART['br-santana'] = {
   dash: cp('br-santana-dash'), top: cp('br-santana-top'), wheel: cp('br-santana-wheel'),
   glass: { at: [56, 116], thr: 256 }, // retrovisor esquerdo (completado em santana_cockpit.py, vidro transparente)
   pivot: [128, 104], wheelTop: 16, wheelDx: 2, wheelDy: 3, // o volante acompanha o quadro (o painel esticado cai 2 colunas à direita e 3 linhas abaixo)
-  pod: { x: -25.5, y: -62, r: 7.5, dx: 5.4, dy: 17.5, pillar: '#2a2830', face: 'black', bezel: 'black', lit: 'green' }, radar: [226, 21],
+  pod: { x: -8, y: -54, r: 7.5, dx: 3.5, dy: 17.5, pillar: '#87767f', face: 'black', bezel: 'black', lit: 'green' }, radar: [226, 21], // relógios no forro claro da coluna (medido no topo da arte: centro do forro em x 94 na linha 22, 101 na 57)
   speedMax: 220, needle: '#f0ecd8', needleW: 1.0, needleTail: 2.3, needleFine: true, needleTip: 0.4, hubUnder: true, hub: '#232326', hubR: 2.1,
   faces: [{ src: SN_FACE, x: SN.x, y: SN.y, w: SN.w, h: SN.h }, { src: SN_SWITCH, x: SN_SW.x, y: SN_SW.y, w: SN_SW.w, h: SN_SW.h }],
   glow: '60,170,110', glowK: 0.5,

@@ -24,7 +24,7 @@ export interface Slot { id: SlotId; name: string; parts: Part[] }
 export type Build = Partial<Record<SlotId, string>>;
 
 // carros de carburador (os demais são de injeção eletrônica)
-const CARB = new Set(['br-monza', 'br-monzacoupe', 'br-voyage', 'br-passat', 'br-opala', 'br-pumagtb', 'br-pumagte', 'br-chevette', 'br-147', 'br-sp2', 'br-charger', 'br-maverick', 'toro-lp5']);
+const CARB = new Set(['br-monza', 'br-monzacoupe', 'br-voyage', 'br-voyagesport', 'br-passat', 'br-opala', 'br-pumagtb', 'br-pumagte', 'br-chevette', 'br-147', 'br-sp2', 'br-charger', 'br-maverick', 'toro-lp5']);
 export const isCarb = (car: CarSpec) => CARB.has(car.id);
 const factoryTurbo = (car: CarSpec) => car.curve === 'turbo' || car.curve === 'seqturbo';
 

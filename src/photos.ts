@@ -81,6 +81,9 @@ export const VG_PHOTOS: Photo[] = ([
   { src: ph('vg-pista'), kicker: 'NA ESTRADA', kc: '#1a1614', title: 'SEDÃ PARA VIAJAR', sub: 'Mil quilômetros com o Jornada LS e a família', inside: ['Porta-malas para as férias', 'Silêncio em quarta marcha', 'Quanto custa o quilômetro'], box: [12, 22, 548, 313] },
   { src: ph('vg-motor'), kicker: 'TÉCNICA', kc: '#1a6a2a', title: 'ÁLCOOL 1.6', sub: 'Por dentro do motor de 90 cv do Jornada', inside: ['Regulagem do carburador', 'Partida a frio sem susto', 'Manutenção fácil e barata'], box: [40, 20, 520, 300] },
 ] as Photo[]).filter((p) => !!p.src);
+// Jornada Sport (Voyage Sport 1992): tools/ref/voyagesport_photos.py
+export const VS_PHOTOS: Photo[] = ([
+] as Photo[]).filter((p) => !!p.src);
 // Peças de preparação (tools/ref/parts_photos.py): capas e páginas de carregamento
 export const PC_PHOTOS: Photo[] = [
   { src: ph('pc-motor'), kicker: 'RAIO-X', kc: '#1a1614', title: 'DOZE EM V', sub: 'Por dentro do coração do Toro', inside: ['48 válvulas, 12 borboletas', 'Coletores 6 em 1', 'Quanto custa abrir um'], box: [95, 14, 464, 278] },
@@ -94,7 +97,7 @@ export const PC_PHOTOS: Photo[] = [
   { src: ph('pc-freio'), kicker: 'TESTE', kc: '#1e4fb8', title: 'FREIA MAIS TARDE', sub: 'Disco ventilado e pinça de corrida', inside: ['Pastilha: qual usar', 'Fluido de alta temperatura', 'Metros a menos de 100 a 0'], box: [138, 14, 421, 278] },
   { src: ph('pc-bancos'), kicker: 'ALÍVIO DE PESO', kc: '#d01f26', title: 'BANCO CONCHA', sub: 'Segura o corpo e tira peso do carro', inside: ['Fibra ou tubular', 'Cinto de quatro pontos', 'Trilho regulável'], box: [50, 5, 510, 310] },
 ].filter((p) => !!p.src);
-export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...VG_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
+export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...VG_PHOTOS, ...VS_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
 
 // Enquadramento: a foto cobre o quadro e a caixa do carro (p.box) fica inteira e centrada na área
 // livre (sem a faixa vermelha de baixo, 'bottom' px), com uma aproximação lenta (u: 0..1) que nunca

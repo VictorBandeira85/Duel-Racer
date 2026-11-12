@@ -1318,7 +1318,7 @@ const LENGTH_M: Record<string, number> = {
   'kaze-nx': 4.4, 'serpe-v10': 4.45, patrol: 5.42, 'patrol-sv': 4.47,
   'br-vectra': 4.43, 'br-tempra': 4.36, 'br-gol16v': 3.81, 'br-tipo16v': 3.96, 'br-omega': 4.74, 'br-uno': 3.69,
   'br-charger': 5.1, 'br-maverick': 4.9, 'br-golgti': 3.81, 'br-kadett': 4.0, 'br-xr3': 4.05, 'br-corsa': 3.73,
-  'br-monza': 4.37, 'br-monzacoupe': 4.49, 'br-voyage': 4.06, 'br-opala': 4.78, 'br-pumagtb': 4.29, 'br-passat': 4.19, 'br-pumagte': 3.98, 'br-chevette': 4.17,
+  'br-monza': 4.37, 'br-monzacoupe': 4.49, 'br-voyage': 4.06, 'br-voyagesport': 4.06, 'br-opala': 4.78, 'br-pumagtb': 4.29, 'br-passat': 4.19, 'br-pumagte': 3.98, 'br-chevette': 4.17,
   'br-147': 3.63, 'br-sp2': 4.21,
 };
 // rodas aftermarket: o aro escolhido por cima do aro original (mesmo centro e raio de WHEELS), girando junto

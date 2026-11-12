@@ -7,7 +7,8 @@
 ## Escopo
 - **Só mexer nos carros que o Victor já mandou atualizados**: Toro V12 (Diablo) e a viatura SV,
   Fúria TR, Fúria F4, Kaze NX, Serpe V10, Gaúcho GTI, Ímola S/R (hatch), Ímola Classic Coupé, Jornada LS
-  e Jornada Sport (Voyage Sport 1992: voyagesport_*.py)
+  Jornada Sport (Voyage Sport 1992: voyagesport_*.py) e Savana GLS (Santana GLS 1990: santana_*.py;
+  depois do santana_sprites.py rodar santana_rear_panel.py e santana_side_lamp.py)
   (Voyage LS 1986: voyage_sprites.py, voyage_cockpit.py, voyage_gauges.py, voyage_photos.py). O Ímola de
   quatro portas saiu do jogo (a cabine do cupê continua nos arquivos br-monzasedan-*).
   Os demais (Toro LP5, 959, ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Passat, Pumas) ficam como estão

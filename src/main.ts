@@ -1,5 +1,5 @@
 import { carSwapWatch } from './carswap';
-import { newFrame } from './svgsprites';
+import { freeBudget, newFrame } from './svgsprites';
 import { VOLS, prefs, savePrefs } from './prefs';
 import { clearArcade, loadArcade, saveArcade } from './arcadesave';
 import { capsHtml } from './ui';
@@ -175,9 +175,58 @@ function begin(lives: number) {
 function startStage(i: number) {
   preloadCockpit(run.car.dash);
   showControls(false);
-  beginLoading(state, () => startStageNow(i), undefined, () => cockpitReady(run.car.dash));
+  warm = null;
+  beginLoading(state, () => startStageNow(i), undefined, () => cockpitReady(run.car.dash) && warmUp(i));
+}
+// Aquecimento: com a cabine carregada, a corrida já é montada e os primeiros quadros são desenhados
+// fora da tela (cenário, carros, névoa, luzes da noite e retrovisor ficam prontos). Sem isso o 3º
+// quadro da corrida travava meio segundo nos aparelhos mais lentos.
+let warm: { i: number; r: Race; n: number } | null = null;
+const WARM_FRAMES = 3;
+let warmCv: HTMLCanvasElement | null = null;
+function warmUp(i: number) {
+  if (!warm || warm.i !== i) {
+    warm = { i, r: makeRace(i), n: 0 };
+    return false;
+  }
+  if (warm.n >= WARM_FRAMES) return true;
+  const saved = { w: view.w, h: view.h, aspect: view.aspect };
+  try {
+    // as medidas da tela de corrida (as mesmas do resize), num canvas à parte
+    const safe = getComputedStyle(safeProbe);
+    const px = (v: string) => parseFloat(v) || 0;
+    const aw = window.innerWidth - px(safe.paddingLeft) - px(safe.paddingRight), ah = window.innerHeight - px(safe.paddingTop) - px(safe.paddingBottom);
+    view.h = 224;
+    view.aspect = 8 / 7;
+    view.w = Math.round(Math.min(460, Math.max(256, (view.h * (aw / ah)) / view.aspect)));
+    if (!warmCv) warmCv = document.createElement('canvas');
+    warmCv.width = view.w * CRES;
+    warmCv.height = view.h * CRES;
+    const g = warmCv.getContext('2d')!;
+    g.setTransform(CRES, 0, 0, CRES, 0, 0);
+    g.imageSmoothingEnabled = false;
+    freeBudget();
+    renderCockpit(g, warm.r, state.lives, `${i + 1}/${run.course.stages.length}`, totalTime(), 0);
+  } catch {
+    warm.n = WARM_FRAMES; // aquecimento é só ganho: se algo falhar, a corrida segue normal
+  } finally {
+    Object.assign(view, saved);
+  }
+  warm.n++;
+  return warm.n >= WARM_FRAMES;
 }
 function startStageNow(i: number) {
+  const r = warm?.i === i ? warm.r : makeRace(i);
+  warm = null;
+  race = r;
+  releaseAll();
+  state.screen = 'race';
+  resize();
+  showControls(true);
+  // uma faixa por trecho (muda a cada trecho e a cada percurso)
+  playMusic(`race:${(run.event ? run.event.region * 3 + run.event.event : state.courseIdx * 5) + i}`);
+}
+function makeRace(i: number) {
   // rival à frente no 1º trecho; depois, quem chegou primeiro ao posto no trecho anterior
   // larga atrás e o outro à frente (vale no Arcade e na Carreira)
   const prev = i > 0 ? state.results[i - 1] : undefined;
@@ -226,13 +275,7 @@ function startStageNow(i: number) {
       }
     }
   };
-  race = r;
-  releaseAll();
-  state.screen = 'race';
-  resize();
-  showControls(true);
-  // uma faixa por trecho (muda a cada trecho e a cada percurso)
-  playMusic(`race:${(run.event ? run.event.region * 3 + run.event.event : state.courseIdx * 5) + i}`);
+  return r;
 }
 
 // resultado de um evento da carreira (dinheiro, prêmio, progresso)

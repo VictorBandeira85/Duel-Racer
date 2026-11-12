@@ -16,6 +16,10 @@ let budget = 3;
 export function newFrame() {
   budget = 3;
 }
+// aquecimento na tela de carregamento: sem limite de sprites novos neste quadro
+export function freeBudget() {
+  budget = 1e9;
+}
 export function takeBudget() {
   if (budget <= 0) return false;
   budget--;

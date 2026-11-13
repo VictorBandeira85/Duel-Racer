@@ -92,6 +92,12 @@ export const SN_PHOTOS: Photo[] = ([
   { src: ph('sn-catalogo'), kicker: 'POR DENTRO', kc: '#1e4fb8', title: 'LUXO DE SÉRIE', sub: 'Automático de 3 marchas, espelho iluminado e rodas de liga', inside: ['Câmbio automático ou de 5', 'Chave com o logo da Ipê', 'Calota ou roda de liga?'], box: [4, 4, 556, 311] },
   { src: ph('sn-laranja'), kicker: 'TESTE', kc: '#1a1614', title: 'GRANDE E VALENTE', sub: 'Duas portas, 1.100 kg e 2.0 de 112 cv na estrada', inside: ['0 a 100 e retomadas', 'Consumo na viagem', 'Conforto de carro grande'], box: [11, 83, 550, 282] },
 ] as Photo[]).filter((p) => !!p.src);
+// Passeio GTS (Passat GTS Pointer): tools/ref/passat_photos.py
+export const PS_PHOTOS: Photo[] = ([
+  { src: ph('ps-anuncio'), kicker: 'CLÁSSICOS', kc: '#d01f26', title: 'PASSEIO GTS', sub: 'O cupê esportivo da Ipê: conforto e 1.8 de 99 cv', inside: ['Bancos esportivos de série', 'Rodas de liga e faróis duplos', '0 a 100 em 10,8 s'], box: [25, 56, 536, 304] },
+  { src: ph('ps-historia'), kicker: 'HISTÓRIA', kc: '#1a6a2a', title: 'A ERA GTS', sub: 'De 1983 a 1986, a evolução do esportivo da Ipê', inside: ['Do 1.6 ao motor 1.8', 'Bancos de concha listrados', 'A faixa que virou marca'], box: [8, 8, 552, 307] },
+  { src: ph('ps-emblema'), kicker: 'USADOS', kc: '#1a1614', title: 'GTS DE GARAGEM', sub: 'Como achar um Passeio 1.8 inteiro e original', inside: ['Lanterna e emblemas certos', 'Ferrugem: onde olhar', 'Quanto pagar hoje'], box: [90, 20, 470, 240] },
+] as Photo[]).filter((p) => !!p.src);
 // Silber 95 (Porsche 959): tools/ref/silber_photos.py
 export const P9_PHOTOS: Photo[] = ([
   { src: ph('p9-floresta'), kicker: 'LENDA', kc: '#1a1614', title: 'SILBER 95', sub: 'Boxer 6 biturbo de 2,85 L e 450 cv, com tração integral', inside: ['317 km/h de máxima', 'Kevlar e alumínio', 'Rodas de magnésio'], box: [118, 118, 431, 240] },
@@ -118,7 +124,7 @@ export const PC_PHOTOS: Photo[] = [
   { src: ph('pc-kitturbo'), kicker: 'PREPARAÇÃO', kc: '#d01f26', title: 'KIT TURBO', sub: 'Peça por peça, o que vai no seu motor', inside: ['Downpipe de 2,5 ou 3,5 pol', 'Qual turbina escolher', 'Monte o seu na oficina'], box: [10, 5, 550, 310] },
   { src: ph('pc-coletor'), kicker: 'PREPARAÇÃO', kc: '#1a1614', title: 'ADMISSÃO DE CORRIDA', sub: 'Coletor de dutos longos e pressão de sobra', inside: ['Turbo ou supercharger?', 'Polia menor, mais pressão', 'Visite a oficina'], box: [95, 40, 465, 280] },
 ].filter((p) => !!p.src);
-export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...VG_PHOTOS, ...VS_PHOTOS, ...SN_PHOTOS, ...P9_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
+export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...VG_PHOTOS, ...VS_PHOTOS, ...SN_PHOTOS, ...PS_PHOTOS, ...P9_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
 
 // Enquadramento: a foto cobre o quadro e a caixa do carro (p.box) fica inteira e centrada na área
 // livre (sem a faixa vermelha de baixo, 'bottom' px), com uma aproximação lenta (u: 0..1) que nunca

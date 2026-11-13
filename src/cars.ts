@@ -342,7 +342,7 @@ const LAMPS: Record<string, LampDef> = {
   'br-corsa': { head: [0.16, 0.54, 0.06], sigRear: [0.05, 0.51, 0.16, 0.54], sigFront: [0.06, 0.5, 0.1, 0.58] },
   'br-uno': { head: [0.19, 0.55, 0.06], sigRear: [0.065, 0.46, 0.18, 0.535], sigFront: [0.075, 0.51, 0.105, 0.6] },
   'br-kadett': { head: [0.2, 0.52, 0.06], sigRear: [0.07, 0.46, 0.15, 0.54], sigFront: [0.05, 0.46, 0.11, 0.58] },
-  'br-pumagte': { head: [0.11, 0.53, 0.07], sigRear: [0.24, 0.46, 0.3, 0.6], sigFront: [0.217, 0.63, 0.022] },
+  'br-pumagte': { head: [0.131, 0.533, 0.055], sigRear: [0.264, 0.523, 0.317, 0.621], sigFront: [0.253, 0.639, 0.025] }, // Puma GTE 1974 (pumagte_sprites2.py)
   'br-pumagtb': { head: [0.185, 0.49, 0.06], sigRear: [0.16, 0.53, 0.33, 0.68], sigRed: true, sigFront: [0.1, 0.56, 0.19, 0.61] },
   'br-golgti': { head: [0.18, 0.57, 0.06], sigRear: [0.03, 0.585, 0.09, 0.665], sigFront: [0.025, 0.515, 0.085, 0.62] }, // Gol GTI 1993 (golgti_sprites.py)
   'br-vectra': { head: [0.21, 0.56, 0.05], sigRear: [0.06, 0.44, 0.135, 0.49], sigFront: [0.075, 0.515, 0.13, 0.6] },
@@ -363,7 +363,7 @@ const WHEELS: Record<string, number[][]> = {
   'br-corsa': [[0.18, 0.777, 0.057], [0.845, 0.777, 0.057]],
   'br-uno': [[0.196, 0.788, 0.061], [0.847, 0.788, 0.062]],
   'br-kadett': [[0.192, 0.775, 0.081], [0.807, 0.775, 0.081]],
-  'br-pumagte': [[0.218, 0.752, 0.073], [0.781, 0.753, 0.073]],
+  'br-pumagte': [[0.2093, 0.7416, 0.0558], [0.7541, 0.7378, 0.0558]], // Puma GTE 1974 (pumagte_sprites2.py)
   'br-pumagtb': [[0.192, 0.741, 0.078], [0.749, 0.738, 0.079]],
   'br-golgti': [[0.1921, 0.8185, 0.0574], [0.8187, 0.8149, 0.0574]],
   'br-vectra': [[0.178, 0.777, 0.07], [0.778, 0.779, 0.07]],
@@ -386,7 +386,7 @@ const WHEELS: Record<string, number[][]> = {
 // Onde fica a placa na traseira de cada carro: [x0, y0, x1, y1] em pixels do sprite e o
 // tamanho dele (largura, altura); vira frações ao carregar
 const PLATE_BOX: Record<string, number[]> = {
-  'br-monza': [100, 104, 160, 124, 260, 182], 'br-monzacoupe': [101, 97, 161, 117, 260, 196], 'br-voyage': [98, 101, 162, 120, 260, 192], 'br-voyagesport': [98, 97, 162, 116, 260, 196], 'br-santana': [99, 83, 161, 100, 260, 176], 'br-golgti': [76, 111, 124, 124, 200, 188], 'br-kadett': [31, 30, 62, 40, 93, 70], 'br-pumagte': [35, 34, 64, 46, 102, 65],
+  'br-monza': [100, 104, 160, 124, 260, 182], 'br-monzacoupe': [101, 97, 161, 117, 260, 196], 'br-voyage': [98, 101, 162, 120, 260, 192], 'br-voyagesport': [98, 97, 162, 116, 260, 196], 'br-santana': [99, 83, 161, 100, 260, 176], 'br-golgti': [76, 111, 124, 124, 200, 188], 'br-kadett': [31, 30, 62, 40, 93, 70], 'br-pumagte': [99, 106, 160, 129, 260, 173],
   'br-corsa': [88, 108, 150, 127, 239, 212], 'br-uno': [70, 81, 118, 100, 189, 157], 'br-passat': [99, 104, 161, 122, 260, 198],
   'br-vectra': [40, 52, 73, 62, 113, 79], 'br-pumagtb': [38, 31, 57, 37, 95, 59],
   '959': [93, 122, 169, 142, 260, 179], countach: [109, 82, 151, 100, 260, 141], diablo: [185, 136, 245, 156, 430, 220],

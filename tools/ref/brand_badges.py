@@ -46,7 +46,7 @@ SPOTS = {
   'br-corsa':   {'rear': (115, 88, 9, 6),  'front': (96, 88, 9, 6)},
   'br-pumagtb': {'rear': (47, 18, 5, 3),   'front': (47, 26, 5, 0)},
   'br-passat':  {'rear': (85, 50, 7, 3),   'front': (83, 64, 11, 7)},
-  'br-pumagte': {'rear': (49, 30, 5, 0),   'front': (82, 72, 7, 0)},
+  'br-pumagte': {'rear': (184, 70, 9, 0), 'front': (131, 118, 9, 0)},  # Puma GTE 1974: já gravado por pumagte_sprites2.py
 }
 
 # cubos dos volantes (src/assets/cockpit/<arte>-wheel.png): no lugar da buzina/emblema

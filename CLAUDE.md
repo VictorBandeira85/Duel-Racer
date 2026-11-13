@@ -16,7 +16,8 @@
   faróis escamoteáveis em countach-front-up), cabine (lp5_cockpit.py: painel da arte sem volante, volante da com volante) e
   quadro das fotos reais (lp5_cluster.py, aceso em verde à noite). Passeio GTS (Passat): cabine nova (tools/ref/passat_cockpit2.py:
   painel da arte sem volante, volante da com volante, emblema da Ipê) com o quadro do Savana GLS por decisão do Victor
-  (passatPlate em cockpit.ts); o exterior e as capas do Passat seguem à parte. Os demais (ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Pumas) ficam como estão
+  (passatPlate em cockpit.ts); exterior novo (tools/ref/passat_sprites2.py: arte de cenário,
+  frente vermelha convertida para o prata da lateral pelo brilho); as capas seguem à parte. Os demais (ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Pumas) ficam como estão
   até a arte nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
   Na dúvida, perguntar.
 

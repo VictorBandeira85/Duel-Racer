@@ -338,7 +338,7 @@ const LAMPS: Record<string, LampDef> = {
   countach: { pop: [0.083, 0.383, 0.281, 0.577], popLit: [0.181, 0.503], sigRear: [0.065, 0.4, 0.127, 0.478], sigFront: [0.119, 0.617, 0.192, 0.664] }, // Countach 5000 QV (countach_sprites.py)
   viper: { head: [0.147, 0.52, 0.06], sigRear: [0.07, 0.55, 0.24, 0.6], sigFront: [0.035, 0.635, 0.075, 0.68] },
   '959': { head: [0.153, 0.543, 0.06], sigRear: [0.026, 0.548, 0.115, 0.632], sigFront: [0.053, 0.691, 0.157, 0.769] }, // Silber 95 (silber_sprites.py)
-  'br-passat': { head: [0.17, 0.52, 0.06], sigRear: [0.03, 0.46, 0.25, 0.57], sigRed: true, sigFront: [0.06, 0.71, 0.21, 0.79] },
+  'br-passat': { head: [0.111, 0.567, 0.046], sigRear: [0.026, 0.509, 0.149, 0.565], sigFront: [0.07, 0.783, 0.207, 0.835] }, // Passat GTS Pointer (passat_sprites2.py)
   'br-corsa': { head: [0.16, 0.54, 0.06], sigRear: [0.05, 0.51, 0.16, 0.54], sigFront: [0.06, 0.5, 0.1, 0.58] },
   'br-uno': { head: [0.19, 0.55, 0.06], sigRear: [0.065, 0.46, 0.18, 0.535], sigFront: [0.075, 0.51, 0.105, 0.6] },
   'br-kadett': { head: [0.2, 0.52, 0.06], sigRear: [0.07, 0.46, 0.15, 0.54], sigFront: [0.05, 0.46, 0.11, 0.58] },
@@ -359,7 +359,7 @@ const LAMPS: Record<string, LampDef> = {
 // roda tem de redondo), senão ela gira fora do eixo e parece torta. Conferir com --sheet
 const WHEELS: Record<string, number[][]> = {
   '959': [[0.2152, 0.7589, 0.0584], [0.7439, 0.7538, 0.0584]], // Silber 95 (silber_sprites.py)
-  'br-passat': [[0.155, 0.75, 0.045], [0.78, 0.75, 0.045]],
+  'br-passat': [[0.1932, 0.7917, 0.0516], [0.7831, 0.7943, 0.051]], // Passat GTS Pointer (passat_sprites2.py)
   'br-corsa': [[0.18, 0.777, 0.057], [0.845, 0.777, 0.057]],
   'br-uno': [[0.196, 0.788, 0.061], [0.847, 0.788, 0.062]],
   'br-kadett': [[0.192, 0.775, 0.081], [0.807, 0.775, 0.081]],
@@ -387,7 +387,7 @@ const WHEELS: Record<string, number[][]> = {
 // tamanho dele (largura, altura); vira frações ao carregar
 const PLATE_BOX: Record<string, number[]> = {
   'br-monza': [100, 104, 160, 124, 260, 182], 'br-monzacoupe': [101, 97, 161, 117, 260, 196], 'br-voyage': [98, 101, 162, 120, 260, 192], 'br-voyagesport': [98, 97, 162, 116, 260, 196], 'br-santana': [99, 83, 161, 100, 260, 176], 'br-golgti': [76, 111, 124, 124, 200, 188], 'br-kadett': [31, 30, 62, 40, 93, 70], 'br-pumagte': [35, 34, 64, 46, 102, 65],
-  'br-corsa': [88, 108, 150, 127, 239, 212], 'br-uno': [70, 81, 118, 100, 189, 157], 'br-passat': [63, 58, 109, 72, 173, 124],
+  'br-corsa': [88, 108, 150, 127, 239, 212], 'br-uno': [70, 81, 118, 100, 189, 157], 'br-passat': [99, 104, 161, 122, 260, 198],
   'br-vectra': [40, 52, 73, 62, 113, 79], 'br-pumagtb': [38, 31, 57, 37, 95, 59],
   '959': [93, 122, 169, 142, 260, 179], countach: [109, 82, 151, 100, 260, 141], diablo: [185, 136, 245, 156, 430, 220],
   f40: [80, 66, 121, 78, 200, 112], nsx: [78, 85, 122, 102, 200, 133], patrol: [84, 82, 116, 96, 200, 155],

@@ -18,7 +18,8 @@
   painel da arte sem volante, volante da com volante, emblema da Ipê) com o quadro do Savana GLS por decisão do Victor
   (passatPlate em cockpit.ts); exterior novo (tools/ref/passat_sprites2.py: arte de cenário,
   frente vermelha convertida para o prata da lateral pelo brilho); as capas seguem à parte. Onça GTE (Puma GTE 1974): exterior novo (tools/ref/pumagte_sprites2.py: arte de
-  cenário, branco da lateral como cor de fábrica, frente e traseira turquesa convertidas pelo brilho). Os demais (ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Onça GTB) ficam como estão
+  cenário, branco da lateral como cor de fábrica, frente e traseira turquesa convertidas pelo brilho); cabine nova (tools/ref/onca_gte_cockpit2.py: painel da arte
+  sem volante, volante da com volante, logo da Onça na buzina) e quadro da foto do carro real (onca_gte_gauges.py). Os demais (ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Onça GTB) ficam como estão
   até a arte nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
   Na dúvida, perguntar.
 

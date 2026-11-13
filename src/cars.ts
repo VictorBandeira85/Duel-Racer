@@ -101,6 +101,7 @@ export interface CarSpec {
   brakeG: number; // força de frenagem (g)
   aero: number; // ganho de aderência a 300 km/h pela asa e o fundo (negativo: a frente flutua)
   traction?: number; // aderência na largada (em g), calibrada pelo 0-100
+  launch?: number; // força extra do motor em 1ª (calibrada pelo 0-100 quando só a aderência não basta)
   drag?: number; // arrasto aerodinâmico (por m), calibrado pela velocidade máxima
   handling: number;
   arcadeOnly?: boolean; // fora da concessionária e dos pilotos da carreira
@@ -121,6 +122,10 @@ export interface CarSpec {
 
 const kmh = (v: number) => v / KMH;
 const G5 = [0.28, 0.45, 0.62, 0.8, 1]; // câmbio de 5 marchas típico
+// Viper RT/10: câmbio de 6 com relações de verdade (2,66 / 1,78 / 1,30 / 1,00 / 0,74 / 0,50,
+// diferencial 3,07, pneu 335/35 R17, corte a 6.000 rpm): 92, 137, 188, 245, 331 e 490 km/h no
+// corte. A máxima (266) sai em 5ª, a ~4.800 rpm; a 6ª é sobremarcha de estrada (giro baixo, pouca força)
+const VIPER_GEARS = [92, 137, 188, 245, 331, 490].map((v) => v / 266);
 
 // turbo: fraco embaixo e "explode" no meio; seqturbo: turbos em sequência, mais linear;
 // v12/flat12: aspirados que crescem até o alto; vtec: acorda no giro alto; torque: V8/V10
@@ -268,7 +273,7 @@ export const CARS: CarSpec[] = [
   {
     id: 'serpe-v10', name: 'Serpe V10', basedOn: 'Dodge Viper RT/10', color: '#c81e24',
     price: '$55.000', position: 'dianteira', drive: 'traseira', engine: 'V10 20v',
-    displacement: '7.990 cc', power: '400 cv', maxSpeed: kmh(266), zeroTo100: 4.6, zeroTo200: 17.8, accel: 1, mass: 1490, gears: [0.3, 0.45, 0.6, 0.74, 0.87, 1], curve: 'torque', lateralG: 0.96, brakeG: 1.0, handling: 0.92, aero: -0.02,
+    displacement: '7.990 cc', power: '400 cv', maxSpeed: kmh(266), zeroTo100: 4.6, zeroTo200: 17.8, accel: 1, mass: 1490, gears: VIPER_GEARS, curve: 'torque', lateralG: 0.96, brakeG: 1.0, handling: 0.92, aero: -0.02,
     dash: 'viper', hood: '#a8161a', art: 'viper',
     side: {
       body: [0, 0.065, 0, 0.12, 0.03, 0.148, 0.2, 0.165, 0.38, 0.178, 0.46, 0.182, 0.56, 0.186, 0.7, 0.19, 0.92, 0.186, 1, 0.16, 1, 0.07, 0.985, 0.065],
@@ -435,26 +440,57 @@ export const toMs = (v: number) => (v * KMH) / 3.6;
 export const toGame = (a: number) => (a * 3.6) / KMH;
 const powerW = (car: CarSpec) => Number(car.power.replace(/\D/g, '')) * 735.5 * EFFICIENCY * car.accel;
 
-// fração da potência máxima conforme a rotação, por tipo de motor
+// Torque do motor (fração do máximo) a cada 10% do giro, de 0 ao corte, por tipo de motor. A
+// potência é torque × giro (antes a curva de potência era quase plana desde o giro baixo: numa
+// marcha alta, saindo de giro baixo, o carro puxava quase como em 1ª e o giro subia depressa)
+const TORQUE: Record<PowerCurve, number[]> = {
+  // V8/V10 de cilindrada grande: muito torque cedo, curva cheia
+  torque: [0.7, 0.78, 0.86, 0.93, 0.98, 1, 1, 0.97, 0.91, 0.82, 0.7],
+  // V12 de giro alto: enche até perto do corte
+  v12: [0.55, 0.62, 0.7, 0.78, 0.85, 0.91, 0.96, 1, 1, 0.96, 0.86],
+  flat12: [0.6, 0.67, 0.75, 0.83, 0.9, 0.95, 0.99, 1, 0.98, 0.92, 0.82],
+  // comando variável: manso em baixa, entra o comando bravo em cima
+  vtec: [0.6, 0.68, 0.75, 0.81, 0.85, 0.87, 0.9, 0.98, 1, 0.97, 0.88],
+  // turbo dos anos 80: quase nada até a turbina encher, depois um coice
+  turbo: [0.45, 0.5, 0.56, 0.66, 0.84, 0.98, 1, 1, 0.96, 0.9, 0.8],
+  // biturbo sequencial: uma turbina pequena enche cedo
+  seqturbo: [0.55, 0.62, 0.72, 0.84, 0.94, 1, 1, 0.98, 0.94, 0.88, 0.8],
+};
+const torqueAt = (r: number, curve: PowerCurve) => {
+  const t = TORQUE[curve], x = clamp(r, 0, 1) * 10, i = Math.min(9, Math.floor(x));
+  return t[i] + (t[i + 1] - t[i]) * (x - i);
+};
+const POWER_PEAK = Object.fromEntries((Object.keys(TORQUE) as PowerCurve[]).map((k) => {
+  let m = 0;
+  for (let r = 0; r <= 1.0001; r += 0.01) m = Math.max(m, torqueAt(r, k) * r);
+  return [k, m];
+})) as Record<PowerCurve, number>;
+// fração da potência máxima conforme a rotação (pico = 1)
 function powerShape(rpm: number, curve: PowerCurve = 'v12') {
-  const r = clamp(rpm, 0.1, 1);
-  switch (curve) {
-    case 'turbo': return r < 0.35 ? 0.22 + 0.5 * r : r < 0.6 ? 0.4 + ((r - 0.35) / 0.25) * 0.58 : r < 0.88 ? 0.98 + (r - 0.6) * 0.07 : 1 - (r - 0.88) * 0.9;
-    case 'seqturbo': return r < 0.75 ? 0.45 + (0.55 * r) / 0.75 : 1 - (r - 0.75) * 0.4;
-    case 'v12': return r < 0.9 ? 0.3 + (0.7 * r) / 0.9 : 1 - (r - 0.9) * 0.6;
-    case 'flat12': return r < 0.85 ? 0.38 + (0.62 * r) / 0.85 : 1 - (r - 0.85) * 0.7;
-    case 'vtec': return r < 0.62 ? 0.32 + (0.43 * r) / 0.62 : r < 0.93 ? 0.75 + ((r - 0.62) / 0.31) * 0.25 : 1 - (r - 0.93) * 0.5;
-    case 'torque': return r < 0.6 ? 0.58 + (0.42 * r) / 0.6 : r < 0.8 ? 1 : 1 - (r - 0.8) * 0.9;
-  }
+  return (torqueAt(rpm, curve) * clamp(rpm, 0, 1)) / POWER_PEAK[curve];
+}
+// giro mínimo de trabalho: abaixo dele a embreagem patina (marcha alta em velocidade baixa) e a
+// força na roda é a do torque do motor nesse giro, sem explodir perto de parado
+const SLIP_RPM = 0.3;
+// giro de saída ideal (o de mais torque, entre 30 e 65% do corte): em 1ª, enquanto a embreagem
+// patina, o motor fica nele e a roda recebe o torque desse giro
+export function launchRpm(curve: PowerCurve) {
+  let best = 0.3;
+  for (let r = 0.3; r <= 0.65; r += 0.01) if (torqueAt(r, curve) > torqueAt(best, curve)) best = r;
+  return best;
+}
+// aceleração (m/s²) que o motor dá na marcha de máxima gearMax, sem limite de tração;
+// slip: giro em que o motor fica enquanto a embreagem patina
+function engineAcc(car: CarSpec, speed: number, gearMax: number, mult = 1, slip = SLIP_RPM) {
+  const re = Math.max(speed / gearMax, slip);
+  return (powerW(car) * powerShape(re, car.curve) * mult) / (car.mass * Math.max(toMs(re * gearMax), 0.5));
 }
 
 // aceleração do motor (m/s²) na marcha atual; zero no corte de giro
 export function driveAcc(car: CarSpec, gear: number, speed: number) {
   const gearMax = car.maxSpeed * car.gears[gear];
   if (speed >= gearMax) return 0;
-  const v = Math.max(toMs(speed), 1.5);
-  const aPow = (powerW(car) * powerShape(speed / gearMax, car.curve)) / (car.mass * v);
-  return Math.min(aPow, (car.traction ?? 1) * G);
+  return Math.min(engineAcc(car, speed, gearMax, gear === 0 ? car.launch ?? 1 : 1, gear === 0 ? launchRpm(car.curve) : SLIP_RPM), (car.traction ?? 1) * G);
 }
 
 // resistência: ar (v²) + pneus (m/s²)
@@ -463,9 +499,10 @@ export function resistAcc(car: CarSpec, speed: number, dragMul = 1) {
   return (car.drag ?? 0) * dragMul * v * v + ROLL;
 }
 
-export function autoGear(car: CarSpec, gear: number, speed: number, throttle: boolean) {
+export function autoGear(car: CarSpec, gear: number, speed: number, throttle: boolean, pedal = 1) {
   const rpm = speed / (car.maxSpeed * car.gears[gear]);
-  if (rpm >= 0.97 && throttle && gear < car.gears.length - 1) return gear + 1;
+  // pé leve troca um pouco antes (sempre acima do ponto de redução, para não ficar indo e voltando)
+  if (rpm >= 0.97 - 0.07 * (1 - pedal) && throttle && gear < car.gears.length - 1) return gear + 1;
   if (gear > 0 && speed < car.maxSpeed * car.gears[gear - 1] * 0.85) return gear - 1;
   return gear;
 }
@@ -491,17 +528,21 @@ export class Powertrain {
   boost = 1; // pressão do turbo (0..1); aspirados ficam sempre em 1
   shiftT = 0;
   spin = 0; // rodas patinando (0..1): potência sobrando acima da aderência
-  constructor(public car: CarSpec) {}
+  slipRpm: number; // giro da saída em 1ª (embreagem patinando); a corrida troca pelo do jogador
+  constructor(public car: CarSpec) {
+    this.slipRpm = launchRpm(car.curve);
+  }
 
   shift(gear: number) {
     if (gear > this.gear) this.shiftT = SHIFT_T;
     this.gear = gear;
   }
 
-  // aceleração do motor (m/s²), já limitada pela tração; tracMul = piso / lombada
-  step(speed: number, throttle: boolean, dt: number, tracMul = 1, auto = true) {
+  // aceleração do motor (m/s²), já limitada pela tração; tracMul = piso / lombada;
+  // pedal = quanto o acelerador está pisado (0..1: gatilho do controle; teclado e toque = 1)
+  step(speed: number, throttle: boolean, dt: number, tracMul = 1, auto = true, pedal = 1) {
     const car = this.car;
-    if (auto) this.shift(autoGear(car, this.gear, speed, throttle));
+    if (auto) this.shift(autoGear(car, this.gear, speed, throttle, pedal));
     if (this.shiftT > 0) this.shiftT -= dt;
     const gearMax = car.maxSpeed * car.gears[this.gear];
     const rpm = speed / gearMax;
@@ -509,14 +550,16 @@ export class Powertrain {
     const tb = TURBO[car.curve];
     if (tb) {
       // enche mais devagar em giro baixo; alivia (válvula de alívio) ao tirar o pé ou trocar marcha
+      // (meio pé enche só parte da pressão)
       const rate = on ? tb.rate * (0.4 + clamp(rpm, 0, 1)) : 2;
-      this.boost += ((on ? 1 : 0) - this.boost) * Math.min(1, dt * rate);
+      this.boost += ((on ? clamp(0.15 + 0.85 * pedal, 0, 1) : 0) - this.boost) * Math.min(1, dt * rate);
     }
     this.spin = 0;
     if (!on || speed >= gearMax) return 0;
-    const v = Math.max(toMs(speed), 1.5);
     const mult = tb ? 1 - tb.k * (1 - this.boost) : 1;
-    const aPow = (powerW(car) * powerShape(rpm, car.curve) * mult) / (car.mass * v);
+    // borboleta parcial: a força do motor acompanha o pedal, progressiva como a de verdade (o
+    // começo do curso abre mais: 30% de pedal ~ metade do torque)
+    const aPow = engineAcc(car, speed, gearMax, mult * (1 - (1 - clamp(pedal, 0, 1)) ** 2) * (this.gear === 0 ? car.launch ?? 1 : 1), this.gear === 0 ? this.slipRpm : SLIP_RPM);
     const cap = (car.traction ?? 1) * G * tracMul;
     // a tração calibrada já é a arrancada "no limite"; as rodas só giram em falso quando
     // sobra bem mais potência do que isso (integral quase nunca, motor central menos que dianteiro)
@@ -535,7 +578,9 @@ export const aeroMul = (car: CarSpec, speed: number) => 1 + car.aero * (toMs(spe
 // arrasto que faz a máxima acontecer exatamente na velocidade de ficha do carro
 export function prepareCar(car: CarSpec) {
   const vmax = toMs(car.maxSpeed) * 0.995;
-  const aPow = (powerW(car) * powerShape(0.995, car.curve)) / (car.mass * vmax);
+  // na marcha que dá mais força nessa velocidade (com sobremarcha, a máxima vem antes da última)
+  const best = Math.max(...car.gears.map((g) => (g >= 0.995 ? powerShape(0.995 / g, car.curve) : 0)));
+  const aPow = (powerW(car) * best) / (car.mass * vmax);
   car.drag = Math.max(0.00002, (aPow - ROLL) / (vmax * vmax));
   return car;
 }
@@ -614,11 +659,22 @@ export function calibrate(car: CarSpec) {
     prepareCar(car);
     let lo = 0.2, hi = 1.6;
     const secs = Math.ceil(car.zeroTo100 + 6);
+    car.launch = 1;
     for (let i = 0; i < 18; i++) {
       car.traction = (lo + hi) / 2;
       const t = accelCurve(car, secs).t100 || 99;
       if (t > car.zeroTo100) lo = car.traction;
       else hi = car.traction;
+    }
+    // nem com toda a aderência chega no 0-100 da ficha: falta força em 1ª (a ficha tem relação
+    // de 1ª mais curta / mais torque do que a curva genérica dá); completa só na 1ª
+    if ((accelCurve(car, secs).t100 || 99) > car.zeroTo100 + 0.02) {
+      let a = 1, b = 2;
+      for (let i = 0; i < 14; i++) {
+        car.launch = (a + b) / 2;
+        if ((accelCurve(car, secs).t100 || 99) > car.zeroTo100) a = car.launch;
+        else b = car.launch;
+      }
     }
   };
   fitTraction();

@@ -1,6 +1,6 @@
 import { brandOf, drawLogo } from './brands';
 import { prefs } from './prefs';
-import { binds, keyName, touch } from './input';
+import { binds, keyName, pad, touch } from './input';
 import { ghostTimeAt } from './records';
 import { CRES, DASH_Y, KMH, RES, ROOF_H, SEG_LEN, view } from './config';
 import { sirenWash } from './nightlight';
@@ -1530,9 +1530,9 @@ COCKPIT_ART.nsx = {
 // do volante e os quatro pequenos no meio do painel: água, pressão do óleo, combustível e bateria
 const VP_INK = '#16161a', VP_BG = '#ecebe2';
 COCKPIT_ART.viper = {
-  dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'),
+  dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'), dashMask: cp('viper-dash-mask'), topMask: cp('viper-top-mask'), // capô e retrovisor na cor do carro
   pivot: [131, 105], wheelDx: -14.4, wheelTop: 14, tachReal: true, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 0, needleFine: true, hub: '#151517', hubR: 3.4, pod: { x: -14, y: -51, r: 9, dx: -4.8, dy: 22.8, pillar: '#22212b', face: 'white', bezel: 'chrome', lit: 'green' }, radar: [102, 22],
-  glass: { at: [32, 95], thr: 256 }, tells: null, // retrovisor esquerdo completado (tools/qa/mirror_complete.py)
+  glass: { at: [31, 91], thr: 256 }, tells: null, // retrovisor esquerdo do RT/10 (gota deitada, tools/ref/viper_mirror.py)
   // à noite os fundos brancos acendem em bege claro (luz por trás, como no carro); os ponteiros
   // vermelhos não têm luz e ficam escuros contra o fundo aceso
   facesLit: '255,236,196', glow: '255,226,170', glowK: 0.3,
@@ -1760,9 +1760,14 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   if (top) {
     if (dx > 0) c.drawImage(top, 0, 0, 2, TOP_EXT, 0, ART_TOP - TOP_EXT, dx, TOP_EXT);
     c.drawImage(top, dx, ART_TOP - TOP_EXT);
-    // cabine rebaixada: a primeira linha do topo (colunas) sobe até o teto, sem vão
+    // cabine rebaixada ou visão afastada: as colunas sobem até o teto continuando a própria
+    // inclinação (pillarExt), o forro liso continua igual; sem vão
     const gap = ART_TOP - TOP_EXT - ROOF_H;
-    if (gap > 0) c.drawImage(top, 0, 0, DASH_W, 1, dx, ROOF_H, DASH_W, gap + 1);
+    if (gap > 0) {
+      const ext = pillarExt(art.top, top, gap);
+      if (ext) c.drawImage(ext, dx, ROOF_H);
+      else c.drawImage(top, 0, 0, DASH_W, 1, dx, ROOF_H, DASH_W, gap + 1);
+    }
   }
   // retrovisor externo esquerdo funcionando (onde a arte mostra o vidro dele)
   if (art.mirror) {
@@ -2264,9 +2269,10 @@ function updateGauges(r: Race, dt: number) {
   const rpm = Math.min(1, r.rpm);
   gauges.oil += (0.3 + 0.35 * clamp(rpm / 0.3, 0, 1) - gauges.oil) * k;
   // motor batido: a água sobe até perto da faixa vermelha
-  const hot = 0.3 + 0.25 * Math.min(1, r.time / 40) + Math.max(0, r.damage - 0.3) * 0.6;
+  // giro no corte por muito tempo (r.heat): água e óleo sobem até a faixa vermelha (acende a luz-espia)
+  const hot = 0.3 + 0.25 * Math.min(1, r.time / 40) + Math.max(0, r.damage - 0.3) * 0.6 + 0.45 * r.heat;
   gauges.water += (hot - gauges.water) * Math.min(1, dt * 0.6);
-  gauges.oiltemp = 0.25 + 0.35 * Math.min(1, r.time / 80);
+  gauges.oiltemp = 0.25 + 0.35 * Math.min(1, r.time / 80) + 0.25 * r.heat;
   gauges.fuel = 0.92 - 0.3 * clamp(r.playerZ / r.track.finishZ, 0, 1);
   // turbo de fábrica: a pressão original fica em 3/4 da escala do manômetro; a turbina maior (boostMul) sobe o resto
   const boost = r.throttle && r.car.curve.includes('turbo') ? BOOST_STOCK * (r.car.boostMul ?? 1) * r.pt.boost * clamp((rpm - 0.2) / 0.4, 0, 1) : 0;
@@ -2524,8 +2530,17 @@ const drops: { x: number; y: number; v: number }[] = [];
 
 const coreX = () => Math.floor((view.w - CORE_W) / 2);
 
+// VISÃO DO PAINEL afastada (ajustes): a tela de corrida ganha EXTRA linhas acima das 224 nativas;
+// o para-brisa cresce para cima (mais céu e estrada), a cabine desce junto e, com a tela mais
+// alta, cabem mais colunas da arte nas laterais (o painel inteiro em tela 16:9)
+export const viewExtra = () => Math.max(0, view.h - 224);
+// quanto cada cabine pode afastar (linhas acima das 224): na Fúria F4 a moldura vermelha da porta
+// faz curva no alto da arte e, continuada reta, vira uma faixa atravessando o para-brisa; na Fúria TR
+// a moldura da porta encosta na borda e viraria um bloco azul
+export const VIEW_EXTRA_CAP: Record<string, number> = { f40: 24, testarossa: 24 };
 export function windshield(): Viewport {
-  return { x: 0, y: ROOF_H, w: view.w, h: DASH_Y - ROOF_H, horizon: HORIZON_Y, K: 190 };
+  const ex = viewExtra();
+  return { x: 0, y: ROOF_H, w: view.w, h: DASH_Y - ROOF_H + ex, horizon: HORIZON_Y + ex, K: 190 };
 }
 
 const disc = (c: CanvasRenderingContext2D, x: number, y: number, r: number, color: string | CanvasPattern | CanvasGradient) => {
@@ -2762,10 +2777,149 @@ function weather(c: CanvasRenderingContext2D, r: Race, vp: Viewport, dt: number)
   c.restore();
 }
 
+// Teto construído acima da arte de cima (gap linhas, na VISÃO DO PAINEL afastada ou cabine
+// rebaixada), sem esticar nada: onde a primeira linha da arte é forro (trecho largo), o forro
+// continua como um teto liso na cor média dele (sem o contorno preto), com uma costura escura junto
+// da arte e escurecendo em faixas para o alto; as colunas (trechos estreitos) sobem na própria
+// inclinação, medida nas primeiras linhas da arte, como faixas da cor delas com o contorno; entre
+// elas fica o vidro (o céu do jogo). Guardado por arte, altura e noite (a imagem vem escurecida).
+const pillarCache = new Map<string, { key: CanvasImageSource; cv: HTMLCanvasElement }>();
+function pillarExt(id: string, top: CanvasImageSource & { width: number; height: number }, gap: number) {
+  const k = `${id}:${gap}`;
+  const hit = pillarCache.get(k);
+  if (hit && hit.key === top) return hit.cv;
+  const W = top.width, H = top.height, sc = W / DASH_W; // pixels do sprite por coluna nativa
+  const src = document.createElement('canvas');
+  src.width = W;
+  src.height = H;
+  const sg = src.getContext('2d', { willReadFrequently: true })!;
+  sg.drawImage(top, 0, 0);
+  const rowsN = Math.min(H, Math.ceil(14 * sc) + 1);
+  const d = sg.getImageData(0, 0, W, rowsN).data;
+  const at = (x: number, y: number) => (y * W + x) * 4;
+  const op = (x: number, y: number) => d[at(x, y) + 3] > 40;
+  const lum = (o: number) => 0.3 * d[o] + 0.59 * d[o + 1] + 0.11 * d[o + 2];
+  const runs = (y: number) => {
+    const out: [number, number][] = [];
+    for (let x = 0; x < W; x++) if (op(x, y) && (x === 0 || !op(x - 1, y))) {
+      let e = x;
+      while (e + 1 < W && op(e + 1, y)) e++;
+      out.push([x, e]);
+    }
+    return out;
+  };
+  // cor mediana de um trecho nas primeiras linhas, sem o contorno (quase preto)
+  const median = (a: number, b: number, y0: number, y1: number, slope = 0) => {
+    const rs: number[] = [], gs: number[] = [], bs: number[] = [];
+    for (let y = y0; y <= Math.min(rowsN - 1, y1); y++) {
+      const sh = Math.round(-slope * y);
+      for (let x = Math.max(0, a + sh); x <= Math.min(W - 1, b + sh); x++) {
+        const o = at(x, y);
+        if (d[o + 3] > 40 && lum(o) > 14) { rs.push(d[o]); gs.push(d[o + 1]); bs.push(d[o + 2]); }
+      }
+    }
+    if (!rs.length) return null;
+    const m = (v: number[]) => v.sort((p, q) => p - q)[v.length >> 1];
+    return [m(rs), m(gs), m(bs)];
+  };
+  const rgb = (c: number[], f: number) => `rgb(${Math.round(c[0] * f)},${Math.round(c[1] * f)},${Math.round(c[2] * f)})`;
+  const r0 = runs(0), dy = Math.min(rowsN - 1, Math.round(10 * sc)), r1 = runs(dy);
+  const wideMin = W * 0.25, maxSlope = 1.2 * sc;
+  // forro: trechos largos da primeira linha, juntando os trechos e vãos pequenos em volta
+  // (retrovisor interno recortado, luz de teto) para o teto ficar inteiro
+  const spans: [number, number][] = [];
+  for (const [a, b] of r0) if (b - a >= wideMin) spans.push([a, b]);
+  for (let grow = true; grow;) {
+    grow = false;
+    for (const sp of spans) for (const [a, b] of r0) {
+      if (a >= sp[0] && b <= sp[1]) continue;
+      if (a > sp[1] && a - sp[1] < W * 0.25) { sp[1] = b; grow = true; }
+      else if (b < sp[0] && sp[0] - b < W * 0.25) { sp[0] = a; grow = true; }
+    }
+  }
+  // borda de cada lado do forro: segue a inclinação da coluna que a forma (medida umas linhas abaixo)
+  const edgeAt = (x: number, dir: -1 | 1) => {
+    // primeira coluna opaca na linha dy perto de x, procurando para fora do forro
+    for (let k = 0; k < 40 * sc; k++) {
+      const xi = x + dir * k, xo = x - dir * k;
+      if (xi >= 0 && xi < W && op(xi, dy) && (xi + dir < 0 || xi + dir >= W || !op(xi + dir, dy))) return xi;
+      if (xo >= 0 && xo < W && op(xo, dy) && (xo + dir < 0 || xo + dir >= W || !op(xo + dir, dy))) return xo;
+    }
+    return x;
+  };
+  const edgeSlope = (x: number, dir: -1 | 1) => (x <= 1 || x >= W - 2 ? 0 : clamp((x - edgeAt(x, dir)) / dy, -maxSlope, maxSlope));
+  const inSpan = (a: number, b: number) => spans.some(([p, q]) => a >= p - 2 && b <= q + 2);
+  const cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = Math.ceil(gap * sc) + Math.ceil(sc);
+  const g = cv.getContext('2d')!;
+  const hh = cv.height, u = Math.max(1, Math.round(sc));
+  // forro: cor média das primeiras linhas do forro (sem as colunas e o contorno)
+  const liner = spans.length ? median(spans[0][0], spans[spans.length - 1][1], 0, Math.round(5 * sc)) ?? [42, 42, 46] : null;
+  if (liner) {
+    const bands = 4;
+    // forro muito escuro (quase preto) vira um cinza de teto, para não parecer uma faixa vazia
+    const lm = 0.3 * liner[0] + 0.59 * liner[1] + 0.11 * liner[2];
+    const base = lm < 44 ? liner.map((v) => v + (54 - lm)) : liner;
+    for (const [a, b] of spans) {
+      const sl = edgeSlope(a, -1), sr = edgeSlope(b, 1);
+      for (let y = hh - 1, j = 1; y >= 0; y--, j++) {
+        // faixas horizontais: mais claro junto do para-brisa, escurecendo para o alto
+        const q = Math.floor(((hh - 1 - y) / hh) * bands);
+        const x0 = Math.max(0, Math.round(a + sl * j)), x1 = Math.min(W - 1, Math.round(b + sr * j));
+        g.fillStyle = rgb(base, 1 - 0.07 * q);
+        g.fillRect(x0, y, x1 - x0 + 1, 1);
+        // contorno escuro nas bordas inclinadas (como o da arte)
+        g.fillStyle = '#0c0c0e';
+        if (a > 1) g.fillRect(x0, y, u, 1);
+        if (b < W - 2) g.fillRect(x1 - u + 1, y, u, 1);
+      }
+      // costura junto do topo da arte
+      g.fillStyle = rgb(base, 0.62);
+      g.fillRect(a, hh - u, b - a + 1, u);
+    }
+  }
+  // colunas: trechos estreitos fora do forro sobem na inclinação delas, com o contorno. Largura e
+  // inclinação medidas umas linhas abaixo do topo (a primeira linha às vezes tem um recorte que
+  // viraria um "dente" na emenda)
+  const ky = Math.min(rowsN - 1 - dy, Math.round(3 * sc));
+  const rk = runs(ky), rkd = runs(ky + dy);
+  const near = (list: [number, number][], c: number, w: number) => {
+    let best: [number, number] | null = null, bd = Infinity;
+    for (const q of list) {
+      const dd = Math.abs((q[0] + q[1]) / 2 - c) + Math.abs(q[1] - q[0] - w) * 0.5;
+      if (dd < bd) { bd = dd; best = q; }
+    }
+    return bd < 24 * sc ? best : null;
+  };
+  for (const [a, b] of r0) {
+    if (b - a >= wideMin || inSpan(a, b)) continue;
+    const q0 = near(rk, (a + b) / 2, b - a) ?? [a, b];
+    const q1 = near(rkd, (q0[0] + q0[1]) / 2, q0[1] - q0[0]);
+    const slope = q1 ? clamp(((q0[0] + q0[1]) / 2 - (q1[0] + q1[1]) / 2) / dy, -maxSlope, maxSlope) : 0;
+    const w = q0[1] - q0[0] + 1, c0 = (q0[0] + q0[1]) / 2 + slope * ky; // centro levado até a linha 0
+    const col = median(q0[0], q0[1], ky, ky + Math.round(5 * sc)) ?? [24, 24, 26];
+    const dark = (x: number) => op(x, ky) && lum(at(x, ky)) < 30;
+    const edgeL = dark(q0[0]), edgeR = dark(q0[1]);
+    for (let y = hh - 1, jj = 1; y >= 0; y--, jj++) {
+      const cx = c0 + slope * jj;
+      // (coluna colada na borda esquerda da arte continua colada nela)
+      const x = a <= 1 ? 0 : Math.round(cx - w / 2), ww = a <= 1 ? Math.max(1, Math.round(cx + w / 2)) : w;
+      g.fillStyle = rgb(col, 1);
+      g.fillRect(x, y, ww, 1);
+      g.fillStyle = '#0c0c0e';
+      if (edgeL && a > 1) g.fillRect(x, y, u, 1);
+      if (edgeR) g.fillRect(x + ww - u, y, u, 1);
+    }
+  }
+  pillarCache.set(k, { key: top, cv });
+  return cv;
+}
+
 // topo do painel em cada coluna da tela (primeira linha opaca da arte do painel)
 const dashTops = new Map<string, Int16Array>();
 function dashTopFn(art: CockpitArt | undefined): DashTop {
-  if (!art) return () => DASH_Y;
+  if (!art) return () => DASH_Y + viewExtra();
   let col = dashTops.get(art.dash);
   if (!col) {
     const spr = svgSprite(art.dash, DASH_W, 124);
@@ -2794,7 +2948,7 @@ function dashTopFn(art: CockpitArt | undefined): DashTop {
     }
   }
   const dx = coreX() - DASH_PAD;
-  return (x) => (col ? ART_TOP + col[Math.max(0, Math.min(col.length - 1, x - dx))] : DASH_Y);
+  return (x) => (col ? ART_TOP + col[Math.max(0, Math.min(col.length - 1, x - dx))] : DASH_Y + viewExtra());
 }
 
 // batida: a cabine inteira sacode com o tranco
@@ -2882,7 +3036,7 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   const { w } = view;
   const vp = windshield();
   const art = COCKPIT_ART[r.car.dash];
-  ART_TOP = 100 + (art?.dy ?? 0);
+  ART_TOP = 100 + (art?.dy ?? 0) + viewExtra();
   needleTip = art?.needleTip ?? 0.12;
   hubUnder = !!art?.hubUnder;
   // nas cabines desenhadas, os vidros laterais vão abaixo do painel: a estrada desce até o fim
@@ -2924,15 +3078,31 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   }
   drawRoof(c, r, stageLabel, totalTime);
   const dash = r.car.dash;
-  if (art && drawCockpitArt(c, r, dt, art)) {
+  // a cabine anda uns poucos pixels ao contrário da cabeça (paralaxe): só até onde a arte tem
+  // colunas sobrando fora da tela (em tela da largura da arte inteira ela fica parada)
+  const slack = Math.max(0, DASH_PAD - coreX());
+  const par = Math.round(clamp(-r.head * 45, -slack, slack) * 2) / 2;
+  if (art && par) {
+    c.save();
+    c.translate(par, 0);
+  }
+  const artOk = !!art && drawCockpitArt(c, r, dt, art);
+  if (art && par) c.restore();
+  if (artOk) {
     // cabine desenhada a partir da arte
   } else if (art) {
     // a arte desta cabine ainda está carregando (só no primeiro quadro): painel escuro
     c.fillStyle = '#0c0c0e';
     c.fillRect(0, ART_TOP, w, view.h - ART_TOP);
-  } else if (dash === 'f40') drawDashF40(c, r, dt);
-  else if (dash === 'A') drawDashTD2Black(c, r, dt);
-  else drawDashTD2Grey(c, r, dt);
+  } else {
+    // painéis desenhados em código (coordenadas fixas de 224 linhas): descem com a visão afastada
+    c.save();
+    c.translate(0, viewExtra());
+    if (dash === 'f40') drawDashF40(c, r, dt);
+    else if (dash === 'A') drawDashTD2Black(c, r, dt);
+    else drawDashTD2Grey(c, r, dt);
+    c.restore();
+  }
 
   if (r.state === 'countdown') {
     const n = Math.ceil(r.timer);
@@ -2972,6 +3142,29 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   }
   if (r.messageT > 0) text(c, r.message, w / 2, vp.y + 10, 8, '#ffd400', 'center');
   if (r.officer?.phase === 'show' && r.fine) drawFine(c, r, vp);
+  // câmbio manual no teclado/controle: a marcha engatada no teto (no toque ela já fica entre os botões)
+  if (!r.auto && (!touch.ui || pad.connected)) drawGearHud(c, r);
+}
+
+// Marcha engatada (câmbio manual): visor pequeno no teto, à direita do retrovisor, como um
+// mostrador de LED âmbar; pisca enquanto a marcha está entrando
+function drawGearHud(c: CanvasRenderingContext2D, r: Race) {
+  const x = coreX() + 246, y = 3;
+  const g = r.speed < 1 && !r.throttle ? 'N' : String(r.gear + 1);
+  c.fillStyle = '#5a5a62';
+  c.beginPath();
+  c.roundRect(x, y, 17, 20, 3);
+  c.fill();
+  c.fillStyle = '#0c0c0e';
+  c.beginPath();
+  c.roundRect(x + 1, y + 1, 15, 18, 2);
+  c.fill();
+  // as duas barrinhas do câmbio (sobe/desce) dos lados do número, apagadas
+  c.fillStyle = '#2a2018';
+  c.fillRect(x + 3, y + 3, 11, 1);
+  c.fillRect(x + 3, y + 16, 11, 1);
+  const shifting = r.pt.shiftT > 0 && Math.floor(performance.now() / 70) % 2 === 0;
+  pix(c, g, x + 8.5, y + 10, shifting ? '#7a5418' : '#ffb030', 2);
 }
 
 // Teto: tecido escuro, alça do quebra-sol, faixa inferior com os marcadores de

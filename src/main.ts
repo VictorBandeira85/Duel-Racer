@@ -1,6 +1,6 @@
 import { carSwapWatch } from './carswap';
 import { freeBudget, newFrame } from './svgsprites';
-import { VOLS, prefs, savePrefs } from './prefs';
+import { VIEW_LEVELS, prefs, raceViewSize, savePrefs, volLabel } from './prefs';
 import { clearArcade, loadArcade, saveArcade } from './arcadesave';
 import { capsHtml } from './ui';
 import { stageResult } from './score';
@@ -15,11 +15,11 @@ import { Race } from './race';
 import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
 import { CHALLENGE_PRIZE, checkChallenge, partialStats, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
 import { paintHex } from './paint';
-import { cockpitReady, preloadCockpit, renderCockpit } from './cockpit';
-import { applyBtnSize, beginLoading, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, keyScreen, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
-import { binding, input, pollGamepad, releaseAll, setBind, setupInput, touch } from './input';
+import { VIEW_EXTRA_CAP, cockpitReady, preloadCockpit, renderCockpit } from './cockpit';
+import { applyBtnSize, beginLoading, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, focusInfo, hoverScreen, keyScreen, setScreenActions, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
+import { binding, binds, input, lastDevice, pad, pollGamepad, releaseAll, setBind, setupInput, touch } from './input';
 import { MUSIC_CREDITS } from './tracks';
-import { audioCtx, audioState, resumeAudio, sfxLevel, synthReady, setSfxVolume, initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicOn, setMusicVolume, setMuted, setSiren, setTires } from './audio';
+import { audioCtx, audioState, gainLevels, resumeAudio, sfxLevel, synthReady, setSfxVolume, initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicVolume, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
 import { preloadSvg } from './svgsprites';
 import { FX_LABEL, fxMode, lowFx, perfSample, setFxMode, lowRes } from './perf';
@@ -34,12 +34,10 @@ const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d', { alpha: false })!;
 const $ = (id: string) => document.getElementById(id)!;
 $('credits').textContent = MUSIC_CREDITS;
-setMuted(!prefs.sound);
-setMusicOn(prefs.music);
 $('version').textContent = __APP_VERSION__;
 
 const state: AppState = {
-  screen: 'title', t: 0, sel: 0, auto: prefs.auto, sound: prefs.sound, music: prefs.music,
+  screen: 'title', t: 0, sel: 0, auto: prefs.auto,
   carIdx: 0, oppIdx: 0, courseIdx: 0, scoreCourse: 0,
   lives: 5, results: [], gameOver: false,
   mode: 'arcade', career: loadCareer(), careerResult: null, gasPage: 0, arcadeTime: 'day', courseTop: 0, newMap: null, lockedT: 0, carFilter: null, oppFilter: null,
@@ -85,6 +83,7 @@ function arcadeCar() {
 }
 const actions: Actions = {
   go(s: ScreenId) {
+    binding.action = null; // saiu da tela CONTROLES no meio da troca de tecla: cancela
     state.screen = s;
     resize();
     state.sel = s === 'title' ? 0 : s === 'course' ? unlockedCourses() - 1 : 0; // percursos: já no mapa liberado mais novo
@@ -141,29 +140,24 @@ const actions: Actions = {
     if (state.results.length >= run.course.stages.length) finishCourse();
     else startStage(state.results.length);
   },
-  toggleSound() {
-    state.sound = !state.sound;
-    setMuted(!state.sound);
-    savePrefs({ sound: state.sound });
-  },
-  toggleMusic() {
-    state.music = !state.music;
-    setMusicOn(state.music);
-    savePrefs({ music: state.music });
-  },
-  // volumes: 25% → 50% → 75% → 100% → 25%... (música e efeitos separados)
-  cycleMusicVol() {
-    savePrefs({ musVol: (prefs.musVol + 1) % VOLS.length });
-    setMusicVolume(VOLS[prefs.musVol]);
-  },
-  cycleSfxVol() {
-    savePrefs({ sfxVol: (prefs.sfxVol + 1) % VOLS.length });
-    setSfxVolume(VOLS[prefs.sfxVol]);
+  // volumes da música e dos efeitos (0 = mudo, até 100%, de 10 em 10), separados
+  setVolume(kind: 'sfx' | 'music', pct: number) {
+    const v = Math.max(0, Math.min(100, Math.round(pct / 10) * 10));
+    if (kind === 'sfx') {
+      savePrefs({ sfxPct: v });
+      setSfxVolume(v / 100);
+    } else {
+      savePrefs({ musPct: v });
+      setMusicVolume(v / 100);
+    }
   },
 };
 
+setScreenActions(actions);
+
 function begin(lives: number) {
   initAudio();
+  state.playerCar = run.car; // posto e fim mostram o carro preparado (altura, rodas, cor)
   state.lives = lives;
   state.results = [];
   state.gameOver = false;
@@ -196,9 +190,10 @@ function warmUp(i: number) {
     const safe = getComputedStyle(safeProbe);
     const px = (v: string) => parseFloat(v) || 0;
     const aw = window.innerWidth - px(safe.paddingLeft) - px(safe.paddingRight), ah = window.innerHeight - px(safe.paddingTop) - px(safe.paddingBottom);
-    view.h = 224;
+    const rv = raceViewSize(aw / ah, VIEW_EXTRA_CAP[run.car.dash] ?? 96);
+    view.h = rv.h;
     view.aspect = 8 / 7;
-    view.w = Math.round(Math.min(460, Math.max(256, (view.h * (aw / ah)) / view.aspect)));
+    view.w = rv.w;
     if (!warmCv) warmCv = document.createElement('canvas');
     warmCv.width = view.w * CRES;
     warmCv.height = view.h * CRES;
@@ -324,6 +319,8 @@ function resize() {
   const availH = window.innerHeight - px(safe.paddingTop) - px(safe.paddingBottom);
   const screenAspect = availW / availH;
   view.w = Math.round(Math.min(race ? 460 : 520, Math.max(race ? 256 : 320, (view.h * screenAspect) / view.aspect)));
+  // VISÃO DO PAINEL afastada: tela de corrida mais alta (e mais larga) que as 224 linhas
+  if (race) Object.assign(view, raceViewSize(screenAspect, VIEW_EXTRA_CAP[run.car.dash] ?? 96));
   // resolução interna 2x: tudo continua desenhado em pixels nativos (e ampliado sem
   // suavizar), mas os detalhes finos (números dos mostradores) podem usar meio pixel
   const scale = Math.min(availW / (view.w * view.aspect), availH / view.h);
@@ -351,10 +348,33 @@ canvas.addEventListener('pointerdown', (e) => {
   tapScreen(state, actions, ((e.clientX - rect.left) / rect.width) * view.w, ((e.clientY - rect.top) / rect.height) * view.h);
 });
 
+// mouse passando pelos menus: o item embaixo dele fica com o foco (o mesmo destaque das setas);
+// sobre um item clicável o cursor vira a mãozinha
+canvas.addEventListener('pointermove', (e) => {
+  if (e.pointerType !== 'mouse' || state.screen === 'race') {
+    canvas.style.cursor = '';
+    return;
+  }
+  lastDevice.kind = 'key';
+  const rect = canvas.getBoundingClientRect();
+  const hit = hoverScreen(state, actions, ((e.clientX - rect.left) / rect.width) * view.w, ((e.clientY - rect.top) / rect.height) * view.h);
+  canvas.style.cursor = hit ? 'pointer' : '';
+});
+
 const MENU_KEYS: Record<string, MenuKey> = {
   ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
-  Enter: 'ok', Space: 'ok', Escape: 'back', Backspace: 'back',
+  Enter: 'ok', Space: 'ok', Escape: 'back', Backspace: 'back', PageUp: 'prevTab', PageDown: 'nextTab',
 };
+// nos menus as teclas de marcha (Q/E, ou as escolhidas em CONTROLES) também trocam a classe
+const menuKey = (code: string): MenuKey | undefined => MENU_KEYS[code] ?? (code === binds.shiftDown || code === 'KeyZ' ? 'prevTab' : code === binds.shiftUp || code === 'KeyX' ? 'nextTab' : undefined);
+// o mesmo comando de menu chegando pelas duas vias ao mesmo tempo (o Steam no PC e a WebView do
+// Android também transformam o direcional/A/B do controle em teclas): vale uma vez só
+const lastNav: Record<string, { src: 'pad' | 'key'; t: number }> = {};
+function dupNav(k: string, src: 'pad' | 'key') {
+  const t = performance.now(), l = lastNav[k];
+  lastNav[k] = { src, t };
+  return !!l && l.src !== src && t - l.t < 150;
+}
 // tela cheia: F11 ou Alt+Enter (no navegador e na versão de computador)
 window.addEventListener('keydown', (e) => {
   if (e.code === 'F11' || (e.code === 'Enter' && e.altKey)) {
@@ -371,7 +391,11 @@ window.addEventListener('keydown', (e) => {
     binding.action = null;
     return;
   }
-  const k = MENU_KEYS[e.code];
+  const k = state.screen === 'race' && !paused ? MENU_KEYS[e.code] : menuKey(e.code);
+  if (k && (state.screen !== 'race' || paused || quitOpen()) && dupNav(k, 'key')) {
+    e.preventDefault();
+    return;
+  }
   // janela "Sair do jogo?" aberta: setas escolhem, Enter confirma, Esc fecha
   if (quitOpen()) {
     if (k) {
@@ -409,10 +433,38 @@ function showFocus() {
   focusIdx = ((focusIdx % bs.length) + bs.length) % bs.length;
   bs[focusIdx].classList.add('kfocus');
 }
+// vizinho na direção pedida, pela posição na tela (a grade dos ajustes tem duas colunas: cima e
+// baixo andam de linha, esquerda e direita de coluna); sem vizinho, anda na ordem da lista
+function panelStep(bs: HTMLButtonElement[], from: number, k: MenuKey) {
+  const n = bs.length;
+  const cur = bs[((from % n) + n) % n];
+  if (!cur) return from;
+  const c = cur.getBoundingClientRect();
+  const cx = c.left + c.width / 2, cy = c.top + c.height / 2;
+  const vert = k === 'up' || k === 'down', sign = k === 'up' || k === 'left' ? -1 : 1;
+  // candidatos daquele lado; fica a linha (ou coluna) mais próxima e, nela, o mais alinhado
+  const cand = bs.map((b, i) => {
+    const r = b.getBoundingClientRect();
+    const dx = r.left + r.width / 2 - cx, dy = r.top + r.height / 2 - cy;
+    return { i, along: (vert ? dy : dx) * sign, side: Math.abs(vert ? dx : dy), h: r.height };
+  }).filter((q) => bs[q.i] !== cur && q.along >= 4 && (vert || q.side <= Math.max(q.h, c.height) / 2));
+  if (cand.length) {
+    const near = Math.min(...cand.map((q) => q.along));
+    return cand.filter((q) => q.along <= near + 8).sort((p, q) => p.side - q.side + (Math.abs(p.side - q.side) < 6 ? (p.i - q.i) * 1e3 : 0))[0].i;
+  }
+  // sem vizinho: cima/baixo dão a volta (do último ao primeiro); esquerda/direita andam na lista
+  return from + sign;
+}
+const VOL_SET: Record<string, 'sfx' | 'music'> = { volume: 'music', sfxvol: 'sfx' };
 function panelKey(k: MenuKey) {
   const bs = panelButtons();
-  if (k === 'up' || k === 'left') focusIdx--;
-  else if (k === 'down' || k === 'right') focusIdx++;
+  const cur = bs[((focusIdx % bs.length) + bs.length) % bs.length];
+  const vol = cur && VOL_SET[cur.dataset.set ?? ''];
+  if (vol && (k === 'left' || k === 'right')) {
+    // nos volumes, esquerda/direita diminuem/aumentam 10%
+    actions.setVolume(vol, (vol === 'sfx' ? prefs.sfxPct : prefs.musPct) + (k === 'right' ? 10 : -10));
+    settingsLabels();
+  } else if (k === 'up' || k === 'down' || k === 'left' || k === 'right') focusIdx = panelStep(bs, focusIdx, k);
   else if (k === 'ok') {
     // continua no mesmo botão (ligar/desligar música); trocou de painel, começa do primeiro
     const before = panelButtons()[0];
@@ -427,6 +479,18 @@ function panelKey(k: MenuKey) {
   showFocus();
 }
 const quitOpen = () => !$('quitDlg').classList.contains('hidden');
+// mouse sobre um botão da pausa/ajustes/sair: ele fica com o foco (o teclado/controle continua dali)
+for (const id of ['pause', 'settings', 'quitDlg']) {
+  $(id).addEventListener('pointerover', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    const b = (e.target as HTMLElement).closest('button');
+    const i = b ? panelButtons().indexOf(b as HTMLButtonElement) : -1;
+    if (i >= 0) {
+      focusIdx = i;
+      showFocus();
+    }
+  });
+}
 function openQuit() {
   $('quitDlg').classList.remove('hidden');
   focusIdx = 1; // começa no NÃO
@@ -464,7 +528,8 @@ function reportText() {
     `Pista: ${st?.theme ?? '-'}${st?.night ? ' · noite' : ''}${st?.dusk ? ' · pôr do sol' : ''}${st?.tod ? ` · ${st.tod === 'dawn' ? 'amanhecer' : 'entardecer'}` : ''}${st?.weather ? ` · ${st.weather}` : ''} · ${race ? Math.round((race.playerZ / race.track.finishZ) * 100) : 0}% do trecho`,
     `Gráficos: ${FX_LABEL[fxMode()]}${lowFx() ? ' (econômico ativo)' : ''} · FPS médio ${fpsAvg} (mín ${fpsMin})`,
     `Tela: ${window.innerWidth}x${window.innerHeight} · densidade ${window.devicePixelRatio} · resolução interna ${RES}x (tela ${CRES}x)`,
-    `Áudio: ${audioState()} · motor ${synthReady() ? 'sintetizado' : 'simples'} · nível ${sfxLevel().toFixed(3)} · efeitos ${state.sound ? 'ligados' : 'desligados'} ${VOLS[prefs.sfxVol] * 100}%`,
+    `Áudio: ${audioState()} · motor ${synthReady() ? 'sintetizado' : 'simples'} · nível ${sfxLevel().toFixed(3)} · efeitos ${volLabel(prefs.sfxPct)} · música ${volLabel(prefs.musPct)}`,
+    `Controle: ${pad.connected ? `${pad.id} (${pad.mapping || 'sem mapa padrão'})` : 'nenhum'}`,
     'O que aconteceu: ',
   ].join('\n');
 }
@@ -513,21 +578,23 @@ $('pauseBtn').addEventListener('pointerdown', (e) => {
   e.stopPropagation();
   setPaused(true);
 });
-// atalhos da pausa: música e efeitos sonoros sem abrir os ajustes
+// atalhos da pausa: música e efeitos sem abrir os ajustes (mudo / volta ao volume de antes)
 function quickLabels() {
-  $('qMusic').innerHTML = capsHtml(`MÚSICA: ${state.music ? 'LIGADA' : 'DESLIGADA'}`);
-  $('qSound').innerHTML = capsHtml(`EFEITOS: ${state.sound ? 'LIGADOS' : 'DESLIGADOS'}`);
-  $('qMusic').classList.toggle('off', !state.music);
-  $('qSound').classList.toggle('off', !state.sound);
+  $('qMusic').innerHTML = capsHtml(`MÚSICA: ${volLabel(prefs.musPct)}`);
+  $('qSound').innerHTML = capsHtml(`EFEITOS: ${volLabel(prefs.sfxPct)}`);
+  $('qMusic').classList.toggle('off', prefs.musPct <= 0);
+  $('qSound').classList.toggle('off', prefs.sfxPct <= 0);
 }
-$('qMusic').addEventListener('click', () => {
-  actions.toggleMusic();
+function quickMute(kind: 'sfx' | 'music') {
+  const cur = kind === 'sfx' ? prefs.sfxPct : prefs.musPct;
+  if (cur > 0) {
+    savePrefs(kind === 'sfx' ? { sfxPrev: cur } : { musPrev: cur });
+    actions.setVolume(kind, 0);
+  } else actions.setVolume(kind, (kind === 'sfx' ? prefs.sfxPrev : prefs.musPrev) || 100);
   quickLabels();
-});
-$('qSound').addEventListener('click', () => {
-  actions.toggleSound();
-  quickLabels();
-});
+}
+$('qMusic').addEventListener('click', () => quickMute('music'));
+$('qSound').addEventListener('click', () => quickMute('sfx'));
 $('resume').addEventListener('click', () => setPaused(false));
 // botões dos painéis da pausa, ajustes e saída: respondem ao soltar o dedo (no iPhone o primeiro
 // toque às vezes só "passa por cima" do botão e o click não vem); o click de verdade que chega
@@ -540,7 +607,8 @@ for (const id of ['pause', 'settings', 'quitDlg']) {
     const b = (e.target as HTMLElement).closest('button');
     if (!b || !panel.contains(b)) return;
     tapClickAt = performance.now();
-    const ev = new MouseEvent('click', { bubbles: true, cancelable: true });
+    // leva o ponto do toque (os volumes diminuem na metade esquerda do botão e aumentam na direita)
+    const ev = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: e.clientX, clientY: e.clientY, detail: 1 });
     (ev as MouseEvent & { synth?: boolean }).synth = true;
     b.dispatchEvent(ev);
   });
@@ -568,14 +636,12 @@ $('restart').addEventListener('click', () => {
   if (race) startStage(race.stageIdx);
 });
 // ajustes durante a corrida (os mesmos do menu principal, e mais o volume e a faixa)
-setMusicVolume(VOLS[prefs.musVol]);
-setSfxVolume(VOLS[prefs.sfxVol]);
+setMusicVolume(prefs.musPct / 100);
+setSfxVolume(prefs.sfxPct / 100);
 function settingsLabels() {
   const lab: Record<string, [string, string]> = {
-    sound: ['EFEITOS', state.sound ? 'LIGADOS' : 'DESLIGADOS'],
-    music: ['MÚSICA', state.music ? 'LIGADA' : 'DESLIGADA'],
-    volume: ['VOL. MÚSICA', `${VOLS[prefs.musVol] * 100}%`],
-    sfxvol: ['VOL. EFEITOS', `${VOLS[prefs.sfxVol] * 100}%`],
+    volume: ['VOL. MÚSICA', `◀ ${volLabel(prefs.musPct)} ▶`],
+    sfxvol: ['VOL. EFEITOS', `◀ ${volLabel(prefs.sfxPct)} ▶`],
     track: ['FAIXA ▶', musicTitle() || '-'],
     gear: ['CÂMBIO', state.auto ? 'AUTOMÁTICO' : 'MANUAL'],
     buttons: ['BOTÕES', btnSizeLabel()],
@@ -584,6 +650,7 @@ function settingsLabels() {
     fps: ['MOSTRAR FPS', prefs.fps ? 'SIM' : 'NÃO'],
     fps30: ['QUADROS', prefs.fps30 ? '30 FPS' : '60 FPS'],
     fx: ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')],
+    view: ['VISÃO DO PAINEL', VIEW_LEVELS[prefs.view].label],
   };
   document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b) => {
     const [k, v] = lab[b.dataset.set!];
@@ -591,14 +658,19 @@ function settingsLabels() {
   });
 }
 let trackStep = 0;
-document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b) => b.addEventListener('click', () => {
+// volume: toque na metade esquerda diminui, na direita aumenta (10%); Enter/A sem ponto de
+// toque aumenta e, passando de 100%, volta ao mudo
+function volClick(b: HTMLButtonElement, e: MouseEvent, kind: 'sfx' | 'music') {
+  const r = b.getBoundingClientRect();
+  const cur = kind === 'sfx' ? prefs.sfxPct : prefs.musPct;
+  const pointed = e.detail > 0 && (e.clientX !== 0 || e.clientY !== 0);
+  if (pointed) actions.setVolume(kind, cur + (e.clientX < r.left + r.width / 2 ? -10 : 10));
+  else actions.setVolume(kind, cur >= 100 ? 0 : cur + 10);
+}
+document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b) => b.addEventListener('click', (e) => {
   switch (b.dataset.set) {
-    case 'sound': actions.toggleSound(); break;
-    case 'music': actions.toggleMusic(); break;
-    case 'volume':
-      actions.cycleMusicVol();
-      break;
-    case 'sfxvol': actions.cycleSfxVol(); break;
+    case 'volume': volClick(b, e, 'music'); break;
+    case 'sfxvol': volClick(b, e, 'sfx'); break;
     case 'track': playMusic(`race:${state.courseIdx * 5 + (race?.stageIdx ?? 0) + ++trackStep}`); break;
     case 'gear':
       state.auto = !state.auto;
@@ -614,6 +686,7 @@ document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b)
     case 'hints': savePrefs({ hints: !prefs.hints }); break;
     case 'fps': savePrefs({ fps: !prefs.fps }); break;
     case 'fps30': savePrefs({ fps30: !prefs.fps30 }); break;
+    case 'view': savePrefs({ view: (prefs.view + 1) % VIEW_LEVELS.length }); resize(); break;
     case 'fx': setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]); resize(); break;
   }
   settingsLabels();
@@ -664,7 +737,7 @@ function countFps(now: number) {
 }
 
 // opção QUADROS 30 FPS: desenha um quadro a cada ~33 ms (em telas de 60 Hz, um sim e um
-// não); a física continua no passo fixo de 60 Hz, então o carro anda igual, só com menos
+// não); em 60 FPS, no máximo um a cada ~16,7 ms (telas de 120 Hz ou mais pulam quadros); a física continua no passo fixo de 60 Hz, então o carro anda igual, só com menos
 // quadros desenhados (como no iPhone em modo de economia)
 let nextDraw = 0;
 // áudio suspenso pelo sistema (tela bloqueada, outro app, iPhone em segundo plano): volta no
@@ -676,8 +749,11 @@ function frame(now: number) {
     audioCheck = now;
     if (audioState() !== 'running' && audioState() !== 'none') resumeAudio();
   }
-  if (prefs.fps30) {
-    const gap = 1000 / 30;
+  // limite de quadros: 60 (ou 30 na opção QUADROS) também em monitores de 120/144/165 Hz, onde o
+  // requestAnimationFrame vem mais vezes; os quadros pulados não contam no FPS (countFps só
+  // conta os desenhados). Num monitor de 60 Hz todo quadro passa (a folga de 3 ms cobre o tremor)
+  {
+    const gap = 1000 / (prefs.fps30 ? 30 : 60);
     if (now < nextDraw - 3) {
       requestAnimationFrame(frame);
       return;
@@ -705,6 +781,13 @@ function frameInner(now: number) {
   state.t += dt;
   // controle Bluetooth: na corrida mexe direto nos comandos; nos menus vira navegação
   for (const k of pollGamepad()) {
+    // tela CONTROLES esperando a tecla nova: o controle não mexe na escolha (nem a "rouba");
+    // só o B/O cancela, como o Esc
+    if (binding.action) {
+      if (k === 'back') binding.action = null;
+      continue;
+    }
+    if (k !== 'start' && (state.screen !== 'race' || paused || quitOpen()) && dupNav(k, 'pad')) continue;
     if (quitOpen()) panelKey(k === 'start' ? 'ok' : k);
     else if (state.screen === 'race') {
       if (k === 'start') setPaused(!paused);
@@ -760,7 +843,7 @@ beginLoading(state, () => actions.go('title'), 1.4);
 requestAnimationFrame(frame);
 
 // para testes automatizados
-Object.assign(window, { app: { state, actions, beginLoading, courses: COURSES, cars: CARS, get race() { return race; } }, input, audio: { audioCtx, synthReady, sfxLevel } });
+Object.assign(window, { app: { state, actions, beginLoading, focusInfo: () => focusInfo(state), courses: COURSES, cars: CARS, get race() { return race; } }, input, audio: { audioCtx, synthReady, sfxLevel, gainLevels }, pad });
 
 // app instalável: funciona sem internet (não no arquivo único usado para testes)
 if ('serviceWorker' in navigator && import.meta.env.MODE !== 'single' && (location.protocol === 'https:' || location.hostname === 'localhost')) {

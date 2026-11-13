@@ -1,7 +1,7 @@
 import { carSwap } from './carswap';
-import { ACTIONS, binding, binds, keyName, resetBinds } from './input';
+import { ACTIONS, binding, binds, keyName, lastDevice, resetBinds } from './input';
 import { drawPerson } from './people';
-import { VOLS, prefs, savePrefs } from './prefs';
+import { VIEW_LEVELS, prefs, savePrefs, volLabel } from './prefs';
 import { clearArcade, loadArcade } from './arcadesave';
 import { gasQuip } from './score';
 import { clearFriendGhosts, friendGhostCount, ghostCode, ghostOn, loadGhostCode, setGhostOn } from './records';
@@ -11,8 +11,8 @@ import { ACHIEVEMENTS, MEDAL_COLOR, loadStats, medalName, medals, takeToast, unl
 import { RIVAL_STYLE } from './race';
 import type { CareerSave, EventResult } from './career';
 import { newCareer, saveCareer } from './career';
-import { drawCareerScreen, keyCareerScreen, openPrepDemo, tapCareerScreen } from './careerScreens';
-import { openShowroom } from './showroom';
+import { careerFocusables, drawCareerScreen, keyCareerScreen, openPrepDemo, tapCareerScreen, ui as careerUi } from './careerScreens';
+import { openShowroom, show } from './showroom';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
 import { MUSIC_CREDIT_LINES } from './tracks';
@@ -20,7 +20,7 @@ import { CARS, CLASS_COLOR, accelCurve, drawCar, drawCarSide, gearbox, layout, p
 import { COURSES, TIME_LABEL, TIME_NEXT, unlockedCourses, withTimeOfDay, type ArcadeTime, type Course } from './courses';
 import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import { THEMES } from './themes';
-import { dither, inside, panel, text, type Rect } from './ui';
+import { dither, focusRing, inside, panel, spatialStep, text, type Focusable, type FocusSet, type Rect } from './ui';
 import { hasCockpitArt, interiorPhoto } from './cockpit';
 import { BLUE, GREY, INK, RED, YELLOW, arrow, barcode, box, burst, halftone, headline, ink, kicker, logo, masthead, paper, photo, rule, specRows, stars, tag } from './mag';
 import { formatTime, shade } from './util';
@@ -32,7 +32,8 @@ import { setEngine, setTires, shiftSound } from './audio';
 export type ScreenId = 'loading' | 'title' | 'options' | 'controls' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores' | 'achievements'
   | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd' | 'collection' | 'careerMenu' | 'showroom' | 'prepDemo';
 const CAREER_SCREENS: ScreenId[] = ['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection', 'careerMenu', 'showroom', 'prepDemo'];
-export type MenuKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back';
+// prevTab/nextTab: LB/RB do controle (ou Q/E, PageUp/PageDown) nos menus: filtro de classe
+export type MenuKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back' | 'prevTab' | 'nextTab';
 
 export interface StageResult {
   time: number; rival: number; clean: boolean; crashes: number; tickets: number; fines?: number;
@@ -47,8 +48,7 @@ export interface AppState {
   t: number;
   sel: number;
   auto: boolean;
-  sound: boolean;
-  music: boolean;
+  playerCar?: CarSpec; // o carro da última corrida já com as peças e ajustes (posto e fim mostram ele)
   carIdx: number;
   oppIdx: number; // 0..2 = carro rival, 3 = contra o relógio
   courseIdx: number;
@@ -73,10 +73,7 @@ export interface Actions {
   go: (s: ScreenId) => void;
   startCourse: () => void;
   nextStage: () => void;
-  toggleSound: () => void;
-  toggleMusic: () => void;
-  cycleMusicVol: () => void;
-  cycleSfxVol: () => void;
+  setVolume: (kind: 'sfx' | 'music', pct: number) => void;
   startEvent: (region: number, event: number) => void;
   resumeCourse: () => void;
 }
@@ -441,7 +438,7 @@ function activateTitle(s: AppState, i: number, a: Actions) {
 }
 
 // ---------- opções ----------
-const optionRects = () => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i): Rect => ({ x: ox() + 40, y: 31 + i * 17, w: 240, h: 15 }));
+const optionRects = () => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((i): Rect => ({ x: ox() + 40, y: 31 + i * 16, w: 240, h: 14 }));
 // tamanho dos botões de toque (direção, acelerador, freio, marchas), salvo no aparelho
 const BTN_SIZES = [{ label: 'PEQUENOS', k: 0.8 }, { label: 'MÉDIOS', k: 1 }, { label: 'GRANDES', k: 1.22 }, { label: 'ENORMES', k: 1.45 }];
 const BTN_KEY = 'duel-racer:botoes';
@@ -473,20 +470,20 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
   kicker(c, 'EXPEDIENTE', x + 4, 22, RED, '#fff');
   ink(c, 'Toque num item para mudar', x + 70, 24, 5, GREY);
   const items: [string, string][] = [
-    ['CÂMBIO', s.auto ? 'AUTOMÁTICO' : 'MANUAL'], ['EFEITOS', s.sound ? `${VOLS[prefs.sfxVol] * 100}%` : 'DESLIGADOS'], ['MÚSICA', s.music ? `${VOLS[prefs.musVol] * 100}%` : 'DESLIGADA'],
+    ['CÂMBIO', s.auto ? 'AUTOMÁTICO' : 'MANUAL'], ['VOLUME DOS EFEITOS', `◀ ${volLabel(prefs.sfxPct)} ▶`], ['VOLUME DA MÚSICA', `◀ ${volLabel(prefs.musPct)} ▶`],
     ['BOTÕES', BTN_SIZES[btnSizeIdx()].label], ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'],
-    ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')], ['DICAS NA TELA', prefs.hints ? 'LIGADAS' : 'DESLIGADAS'], ['MOSTRAR FPS', prefs.fps ? 'SIM' : 'NÃO'], ['QUADROS', prefs.fps30 ? '30 FPS' : '60 FPS'], ['CONTROLES', 'TECLAS ▶'], ['', ''],
+    ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')], ['DICAS NA TELA', prefs.hints ? 'LIGADAS' : 'DESLIGADAS'], ['MOSTRAR FPS', prefs.fps ? 'SIM' : 'NÃO'], ['QUADROS', prefs.fps30 ? '30 FPS' : '60 FPS'], ['VISÃO DO PAINEL', VIEW_LEVELS[prefs.view].label], ['CONTROLES', 'TECLAS ▶'], ['', ''],
   ];
   optionRects().forEach((r, i) => {
     const hot = s.sel === i;
-    if (i === 10) return tag(c, { x: r.x + 60, y: r.y + 1, w: r.w - 120, h: 14 }, '◀ VOLTAR À CAPA', hot, 5);
+    if (i === 11) return tag(c, { x: r.x + 60, y: r.y + 1, w: r.w - 120, h: 13 }, '◀ VOLTAR À CAPA', hot, 5);
     c.fillStyle = hot ? '#fff8e4' : '#f6efdd';
     c.fillRect(r.x, r.y, r.w, r.h);
     c.strokeStyle = hot ? RED : 'rgba(26,22,20,0.35)';
     c.lineWidth = hot ? 2 : 1;
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
-    ink(c, items[i][0], r.x + 10, r.y + 4, 8, INK);
-    ink(c, items[i][1], r.x + r.w - 10, r.y + 5, 5, hot ? RED : BLUE, 'right');
+    ink(c, items[i][0], r.x + 10, r.y + 3, 8, INK);
+    ink(c, items[i][1], r.x + r.w - 10, r.y + 4, 5, hot ? RED : BLUE, 'right');
   });  // créditos da trilha, discretos no rodapé
   MUSIC_CREDIT_LINES.forEach((l, i) => ink(c, l, x + SAFE_W / 2, Math.min(view.h - 13, 227) + i * 6, 4, 'rgba(26,22,20,0.45)', 'center'));
 }
@@ -497,7 +494,7 @@ function drawControls(c: CanvasRenderingContext2D, s: AppState) {
   paper(c);
   masthead(c, 'CONTROLES');
   kicker(c, 'TECLADO', x + 20, 24, RED, '#fff');
-  ink(c, binding.action ? 'Aperte a tecla nova (Esc cancela)' : 'Escolha e aperte Enter para trocar', x + 70, 26, 5, binding.action ? RED : GREY);
+  ink(c, binding.action ? 'Aperte a tecla nova (Esc ou B cancela)' : 'Escolha e aperte Enter (ou A) para trocar', x + 70, 26, 5, binding.action ? RED : GREY);
   ctrlRects().forEach((r, i) => {
     const hot = s.sel === i;
     if (i === ACTIONS.length) return tag(c, r, 'TECLAS DE FÁBRICA', hot, 5);
@@ -515,7 +512,7 @@ function drawControls(c: CanvasRenderingContext2D, s: AppState) {
   });
   // controle de videogame (fixo)
   box(c, { x: x + 192, y: 38, w: 124, h: 146 }, 'CONTROLE');
-  [['Acelerar', 'A / X  ou  RT'], ['Frear', 'B / O  ou  LT'], ['Direção', 'Direcional / alavanca'], ['Marchas', 'LB  /  RB'], ['Pausa', 'Start'], ['Menus', 'Direcional + A'], ['Voltar', 'B / O']].forEach(([k, v], i) => {
+  [['Acelerar', 'RT (gradual)  ou  A / X'], ['Frear', 'LT (gradual)  ou  B / O'], ['Direção', 'Alavanca (gradual) / direc.'], ['Marchas', 'LB  /  RB'], ['Pausa', 'Start'], ['Menus', 'Direcional / alavanca + A'], ['Voltar', 'B / O']].forEach(([k, v], i) => {
     ink(c, k, x + 198, 56 + i * 17, 5, INK);
     ink(c, v, x + 198, 63 + i * 17, 4, GREY);
   });
@@ -527,20 +524,19 @@ function activateControl(s: AppState, a: Actions, i: number) {
   else a.go('options');
 }
 
+function stepVolume(a: Actions, i: number, dir: number) {
+  a.setVolume(i === 1 ? 'sfx' : 'music', (i === 1 ? prefs.sfxPct : prefs.musPct) + dir * 10);
+}
 function activateOption(s: AppState, a: Actions, i: number) {
   if (i === 0) {
     s.auto = !s.auto;
     savePrefs({ auto: s.auto });
   }
-  // efeitos e música: 25% → 50% → 75% → 100% → desligado → 25%...
-  else if (i === 1) {
-    if (!s.sound) { a.toggleSound(); savePrefs({ sfxVol: VOLS.length - 1 }); a.cycleSfxVol(); }
-    else if (prefs.sfxVol === VOLS.length - 1) a.toggleSound();
-    else a.cycleSfxVol();
-  } else if (i === 2) {
-    if (!s.music) { a.toggleMusic(); savePrefs({ musVol: VOLS.length - 1 }); a.cycleMusicVol(); }
-    else if (prefs.musVol === VOLS.length - 1) a.toggleMusic();
-    else a.cycleMusicVol();
+  // volumes (efeitos e música): Enter/A aumenta 10% e, passando de 100%, volta ao mudo;
+  // esquerda/direita e o toque nas metades do item diminuem/aumentam (stepVolume)
+  else if (i === 1 || i === 2) {
+    const cur = i === 1 ? prefs.sfxPct : prefs.musPct;
+    a.setVolume(i === 1 ? 'sfx' : 'music', cur >= 100 ? 0 : cur + 10);
   }
   else if (i === 3) setBtnSize((btnSizeIdx() + 1) % BTN_SIZES.length);
   else if (i === 4) setGhostOn(!ghostOn());
@@ -548,7 +544,8 @@ function activateOption(s: AppState, a: Actions, i: number) {
   else if (i === 6) savePrefs({ hints: !prefs.hints });
   else if (i === 7) savePrefs({ fps: !prefs.fps });
   else if (i === 8) savePrefs({ fps30: !prefs.fps30 });
-  else if (i === 9) a.go('controls');
+  else if (i === 9) savePrefs({ view: (prefs.view + 1) % VIEW_LEVELS.length });
+  else if (i === 10) a.go('controls');
   else a.go('title');
 }
 
@@ -1345,7 +1342,7 @@ function drawEnd(c: CanvasRenderingContext2D, s: AppState) {
     const t: Rect = { x: x + 4, y: 52, w: 200, h: 70 };
     box(c, t, 'PLACAR FINAL');
     specRows(c, t, [['Seu tempo', formatTime(total)], ...(rival >= 0 ? [['Rival', formatTime(rival)] as [string, string]] : []), ['Pontuação', pts(s.results.reduce((a, r) => a + r.score, 0))], ['Trechos', `${s.results.length}`]], 11, 16);
-    const car = CARS[s.carIdx];
+    const car = s.playerCar ?? CARS[s.carIdx]; // o carro da corrida, com as peças (altura, rodas)
     photo(c, { x: x + 214, y: 56, w: 102, h: 62 }, () => drawCarSide(c, x + 218, 112, 94, car, paintHex(car.id)));
     if (s.newMap) {
       burst(c, x + 270, 160, 32, ['NOVO', 'ROTEIRO', 'LIBERADO!'], YELLOW, RED, s.t);
@@ -1554,6 +1551,176 @@ function drawLoading(c: CanvasRenderingContext2D, s: AppState) {
 
 // ---------- roteamento ----------
 export function drawScreen(c: CanvasRenderingContext2D, s: AppState) {
+  drawScreenInner(c, s);
+  // contorno amarelo no item com foco que a própria tela não destaca (teclado, controle, mouse)
+  if (lastDevice.kind !== 'touch') {
+    const fs = focusables(s);
+    const f = fs && fs.items[curFocus(s, fs)];
+    if (f && !f.is) focusRing(c, f.r);
+  }
+  drawLegend(c, s);
+}
+
+// ---------- foco: itens de cada tela (setas, A/Enter e mouse) ----------
+let actionsRef: Actions | null = null;
+export const setScreenActions = (a: Actions) => { actionsRef = a; };
+const nav = { key: '', idx: -1 };
+export function focusables(s: AppState): FocusSet | null {
+  const a = actionsRef;
+  if (!a) return null;
+  const sel = (i: number, r: Rect, extra: Partial<Focusable> = {}): Focusable => ({ r, is: () => s.sel === i, pick: () => { s.sel = i; }, ...extra });
+  switch (s.screen) {
+    case 'title':
+      return { key: 'title', items: [...titleSigns().map((r, i) => sel(i, r)), { r: coverRect() }] };
+    case 'options':
+      return { key: 'options', items: optionRects().map((r, i) => sel(i, r, i === 1 || i === 2 ? { lr: (d: number) => stepVolume(a, i, d) } : {})) };
+    case 'controls':
+      if (binding.action) return null;
+      return { key: 'controls', items: ctrlRects().map((r, i) => sel(i, r)) };
+    case 'car': {
+      const b = carButtons(), car = () => CARS[s.carIdx];
+      const sw = swatches();
+      const paint = (d: number) => car().sideMask && setPaint(car().id, ((paintIdx(car().id) ?? nearestPaint(car().color)) + d + PAINTS.length) % PAINTS.length);
+      const items: Focusable[] = [
+        { r: b.back }, ...carFilterRects().map((r) => ({ r })), { r: b.ok },
+        { r: { x: b.prev.x, y: 46, w: b.next.x + b.next.w - b.prev.x, h: 106 }, lr: (d) => { s.carIdx = stepCar(CARS, s.carFilter, s.carIdx, d > 0 ? 1 : -1); }, act: () => a.go('opponent') },
+        { r: { x: sw[0].x - 2, y: sw[0].y - 2, w: sw[sw.length - 1].x + sw[0].w - sw[0].x + 4, h: sw[0].h + 4 }, lr: paint, act: () => paint(1) },
+      ];
+      return { key: 'car', items, def: items.length - 2 };
+    }
+    case 'opponent': {
+      const list = oppList(s), pb = oppPageButtons(), ob = oppButtons();
+      const cells: Focusable[] = [];
+      oppCells().forEach((r, slot) => {
+        const li = oppPage(s) * OPP_PAGE + slot;
+        if (li < list.length) cells.push(sel(li, r, { act: () => { s.oppIdx = list[li]; a.go('course'); } }));
+      });
+      const pages = Math.ceil(list.length / OPP_PAGE);
+      return { key: 'opponent', items: [{ r: ob.back }, ...oppFilterRects().map((r) => ({ r })), { r: ob.ok }, ...(pages > 1 ? [{ r: pb.prev }, { r: pb.next }] : []), ...cells] };
+    }
+    case 'course': {
+      const b = courseButtons();
+      const rows: Focusable[] = [];
+      courseRects().forEach((r, i) => {
+        const li = s.courseTop + i;
+        if (li < COURSES.length) rows.push(sel(li, r, { pick: () => { s.sel = li; scrollCourses(s); }, lr: (d) => { const order: ArcadeTime[] = ['day', 'sunset', 'dawn', 'night']; s.arcadeTime = order[(order.indexOf(s.arcadeTime) + (d > 0 ? 1 : 3)) % 4]; } }));
+      });
+      // passando da primeira/última linha visível, a lista rola
+      const edge = (k: string) => {
+        if (k !== 'up' && k !== 'down') return false;
+        const cur = rows.findIndex((f) => f.is!());
+        if (cur < 0) return false;
+        const n = Math.max(0, Math.min(COURSES.length - 1, s.sel + (k === 'down' ? 1 : -1)));
+        if (n === s.sel) return false;
+        s.sel = n;
+        scrollCourses(s);
+        return true;
+      };
+      return { key: 'course', items: [{ r: b.back }, { r: b.time }, ...rows, { r: b.up }, { r: b.down }], edge };
+    }
+    case 'scores': {
+      const g = ghostButtons();
+      return { key: 'scores', def: 0, items: [
+        { r: { x: ox() + 4, y: 20, w: SAFE_W - 8, h: 34 }, lr: (d) => { s.scoreCourse = (s.scoreCourse + COURSES.length + d) % COURSES.length; }, act: () => {} },
+        { r: scoresBack() }, { r: g.send }, { r: g.recv }, { r: achButton() },
+      ] };
+    }
+    default:
+      return CAREER_SCREENS.includes(s.screen) ? careerFocusables(s, a) : null;
+  }
+}
+// item com foco agora: o guardado (se ainda for desta tela) ou o que a tela marca como escolhido
+function curFocus(s: AppState, fs: FocusSet) {
+  const it = fs.items;
+  if (nav.key === fs.key && it[nav.idx] && (!it[nav.idx].is || it[nav.idx].is!())) return nav.idx;
+  const n = it.findIndex((f) => f.is && f.is());
+  if (n >= 0) return n;
+  return Math.min(it.length - 1, fs.def ?? 0);
+}
+function setFocus(fs: FocusSet, i: number) {
+  nav.key = fs.key;
+  nav.idx = i;
+  fs.items[i]?.pick?.();
+}
+// setas e A/Enter pelos itens da tela (true = tratado aqui)
+function navKey(s: AppState, a: Actions, k: MenuKey) {
+  actionsRef = a;
+  if (k !== 'up' && k !== 'down' && k !== 'left' && k !== 'right' && k !== 'ok') return false;
+  const fs = focusables(s);
+  if (!fs || !fs.items.length) return false;
+  const i = curFocus(s, fs), f = fs.items[i];
+  if (k === 'ok') {
+    if (f.act) f.act();
+    else tapScreen(s, a, f.r.x + f.r.w / 2, f.r.y + f.r.h / 2);
+    return true;
+  }
+  if ((k === 'left' || k === 'right') && f.lr) {
+    f.lr(k === 'right' ? 1 : -1);
+    return true;
+  }
+  const j = spatialStep(fs.items.map((q) => q.r), i, k);
+  if (j >= 0) setFocus(fs, j);
+  else if (!fs.edge?.(k)) setFocus(fs, i);
+  return true;
+}
+// para testes automatizados: itens da tela e qual tem o foco
+export function focusInfo(s: AppState) {
+  const fs = focusables(s);
+  return fs ? { key: fs.key, cur: curFocus(s, fs), rects: fs.items.map((f) => f.r), native: fs.items.map((f) => !!f.is) } : null;
+}
+// mouse passando por cima: o item embaixo dele fica com o foco (true = há item ali: cursor de mão)
+export function hoverScreen(s: AppState, a: Actions, x: number, y: number) {
+  actionsRef = a;
+  const fs = focusables(s);
+  if (!fs) return false;
+  // o menor item que contém o ponto (um botão dentro de um quadro maior ganha)
+  let best = -1;
+  fs.items.forEach((f, i) => {
+    if (inside(x, y, f.r) && (best < 0 || f.r.w * f.r.h < fs.items[best].r.w * fs.items[best].r.h)) best = i;
+  });
+  if (best >= 0 && (nav.key !== fs.key || nav.idx !== best || (fs.items[best].is && !fs.items[best].is!()))) setFocus(fs, best);
+  return best >= 0;
+}
+// Legenda dos botões no pé das telas de menu, conforme o último jeito de jogar (controle ou
+// teclado; no toque, nada): só os comandos que valem naquela tela
+const LEGEND_Y: Partial<Record<ScreenId, number>> = {};
+function drawLegend(c: CanvasRenderingContext2D, s: AppState) {
+  const dev = lastDevice.kind;
+  if (dev === 'touch' || s.screen === 'loading' || s.screen === 'race') return;
+  const p = dev === 'pad';
+  const ok = p ? 'A' : 'Enter', back = p ? 'B' : 'Esc', cls = p ? 'LB/RB' : `${keyName(binds.shiftDown)}/${keyName(binds.shiftUp)}`;
+  const items: string[] = [];
+  const sc = s.screen, detail = sc === 'showroom' && !!show.detail;
+  if (sc === 'controls' && binding.action) items.push(p ? 'B: cancelar' : 'Esc: cancelar');
+  else {
+    if (sc === 'car' || sc === 'dealer' || sc === 'collection') items.push('◀▶: carro');
+    if (sc === 'course') items.push('◀▶: horário');
+    if (sc === 'options' && (s.sel === 1 || s.sel === 2)) items.push('◀▶: volume');
+    if ((sc === 'garage' && !careerUi.prep) || sc === 'prepDemo') items.push(`${cls}: carro`);
+    items.push(`${ok}: ${sc === 'showroom' && !detail ? 'ver' : sc === 'dealer' ? 'comprar' : 'escolher'}`);
+    if (sc !== 'title' || DESKTOP_UA) items.push(`${back}: ${sc === 'title' ? 'sair' : 'voltar'}`);
+    if (sc === 'car' || sc === 'opponent' || (sc === 'showroom' && !detail) || sc === 'dealer') items.push(`${cls}: classe`);
+    if (sc === 'collection') items.push(`${cls}: página`);
+  }
+  c.font = '4px "Press Start 2P", monospace';
+  const wid = (t: string) => Math.ceil(c.measureText(t).width);
+  const pill = (t: string, x: number, y: number, align: CanvasTextAlign) => {
+    const tw = wid(t) + 6, x0 = align === 'right' ? x - tw + 3 : align === 'center' ? x - tw / 2 : x - 3;
+    c.fillStyle = 'rgba(26,22,20,0.82)';
+    c.fillRect(Math.round(x0), y - 1, tw, 7);
+    ink(c, t, x, y, 4, '#fff8e4', align);
+  };
+  // telas largas: uma dica por linha na margem esquerda, embaixo (fora do conteúdo da página);
+  // sem margem bastante, uma linha só no pé da tela
+  const m = ox();
+  if (Math.max(...items.map(wid)) + 10 <= m) {
+    items.forEach((t, i) => pill(t, m - 5, view.h - 9 - (items.length - 1 - i) * 9, 'right'));
+    return;
+  }
+  pill(items.join('  ·  '), view.w / 2, LEGEND_Y[sc] ?? view.h - 7, 'center');
+}
+const DESKTOP_UA = /electron/i.test(navigator.userAgent);
+function drawScreenInner(c: CanvasRenderingContext2D, s: AppState) {
   switch (s.screen) {
     case 'loading': return drawLoading(c, s);
     case 'title': return drawTitle(c, s);
@@ -1568,7 +1735,7 @@ export function drawScreen(c: CanvasRenderingContext2D, s: AppState) {
         setEngine(0, false, false);
         setTires(0, 0);
       }
-      return s.gasPage === 2 ? drawChallenges(c, s) : s.gasPage ? drawStageResult(c, s) : drawGas(c, s, CARS[s.carIdx]);
+      return s.gasPage === 2 ? drawChallenges(c, s) : s.gasPage ? drawStageResult(c, s) : drawGas(c, s, s.playerCar ?? CARS[s.carIdx]);
     case 'end': return drawEnd(c, s);
     case 'scores': return drawScores(c, s);
     case 'achievements': return drawAchievements(c, s);
@@ -1581,7 +1748,14 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
   switch (s.screen) {
     case 'title': return tapTitle(s, a, x, y);
     case 'options':
-      optionRects().forEach((r, i) => inside(x, y, r) && activateOption(s, a, i));
+      optionRects().forEach((r, i) => {
+        if (!inside(x, y, r)) return;
+        // volumes: metade esquerda do item diminui, direita aumenta
+        if (i === 1 || i === 2) {
+          s.sel = i;
+          stepVolume(a, i, x < r.x + r.w / 2 ? -1 : 1);
+        } else activateOption(s, a, i);
+      });
       return;
     case 'car': {
       const b = carButtons();
@@ -1683,8 +1857,9 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 }
 
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
+  if (navKey(s, a, k)) return;
   if (CAREER_SCREENS.includes(s.screen)) return keyCareerScreen(s, a, k);
-  const counts: Partial<Record<ScreenId, number>> = { title: 5, options: 11, opponent: oppList(s).length, course: COURSES.length };
+  const counts: Partial<Record<ScreenId, number>> = { title: 5, options: 12, opponent: oppList(s).length, course: COURSES.length };
   // percursos: cima/baixo escolhem, esquerda/direita trocam a hora (dia, entardecer, amanhecer, noite)
   if (s.screen === 'course' && (k === 'left' || k === 'right')) {
     const order: ArcadeTime[] = ['day', 'sunset', 'dawn', 'night'];
@@ -1695,8 +1870,8 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (s.screen === 'car') {
     if (k === 'left') s.carIdx = stepCar(CARS, s.carFilter, s.carIdx, -1);
     if (k === 'right') s.carIdx = stepCar(CARS, s.carFilter, s.carIdx, 1);
-    // cima/baixo trocam o filtro de classe
-    if (k === 'up' || k === 'down') setCarFilter(s, nextFilter(s.carFilter, k === 'down' ? 1 : -1, (c2) => filtered(CARS, c2).length > 0));
+    // cima/baixo (e LB/RB, como nos classificados) trocam o filtro de classe
+    if (k === 'up' || k === 'down' || k === 'prevTab' || k === 'nextTab') setCarFilter(s, nextFilter(s.carFilter, k === 'down' || k === 'nextTab' ? 1 : -1, (c2) => filtered(CARS, c2).length > 0));
     if (k === 'ok') a.go('opponent');
     if (k === 'back') a.go('title');
     return;
@@ -1727,7 +1902,14 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
     return;
   }
   if (!n) return;
+  if (s.screen === 'options' && (s.sel === 1 || s.sel === 2) && (k === 'left' || k === 'right')) return stepVolume(a, s.sel, k === 'right' ? 1 : -1);
   const grid = s.screen === 'opponent';
+  // adversário: LB/RB (Q/E) trocam a classe, como nos classificados
+  if (grid && (k === 'prevTab' || k === 'nextTab')) {
+    s.oppFilter = nextFilter(s.oppFilter, k === 'nextTab' ? 1 : -1, (c2) => filtered(CARS, c2).length > 0);
+    s.sel = 0;
+    return;
+  }
   if (k === 'left' || (k === 'up' && !grid)) s.sel = (s.sel + n - 1) % n;
   if (k === 'right' || (k === 'down' && !grid)) s.sel = (s.sel + 1) % n;
   if (grid && k === 'up') s.sel = (s.sel + n - OPP_COLS) % n;

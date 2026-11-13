@@ -12,7 +12,8 @@ import { paintHex } from './paint';
 import type { AppState, Actions, MenuKey, ScreenId } from './screens';
 import { accelChart, carRows, carStars, ox, verdictBox } from './screens';
 import { GREY, INK, RED, YELLOW, arrow, box, burst, headline, ink, kicker, paper, photo, specRows, stars, tag } from './mag';
-import { inside, type Rect } from './ui';
+import { inside, type Focusable, type FocusSet, type Rect } from './ui';
+import { lastDevice } from './input';
 
 // faixas de potência (cv)
 const POWER = [
@@ -47,7 +48,7 @@ function listing(cls = show.cls, brand = show.brand, power = show.power) {
 }
 
 const PER_PAGE = 6;
-const cards = () => {
+const cardsRects = () => {
   const x = ox();
   return Array.from({ length: PER_PAGE }, (_, i): Rect => ({ x: x + 4 + (i % 3) * 105, y: 50 + Math.floor(i / 3) * 79, w: 102, h: 76 }));
 };
@@ -119,7 +120,7 @@ function drawList(c: CanvasRenderingContext2D, s: AppState) {
     ink(c, 'Nenhum carro com esses filtros', x + SAFE_W / 2, 110, 5, GREY, 'center');
     ink(c, 'Toque em TODAS para limpar', x + SAFE_W / 2, 122, 5, GREY, 'center');
   }
-  cards().forEach((r, i) => {
+  cardsRects().forEach((r, i) => {
     const car = all[show.page * PER_PAGE + i];
     if (!car) return;
     adCard(c, s, r, car, cs.owned.includes(car.id), i === show.sel);
@@ -130,8 +131,11 @@ function drawList(c: CanvasRenderingContext2D, s: AppState) {
     ink(c, `${show.page + 1}/${pages}`, x + 160, 216, 5, INK, 'center');
   }
   tag(c, u.back, '◀ VOLTAR');
-  ink(c, 'Toque no anúncio', x + SAFE_W - 4, 213, 4, GREY, 'right');
-  ink(c, 'para ver tudo', x + SAFE_W - 4, 220, 4, GREY, 'right');
+  // no controle/teclado a legenda do pé da tela mostra os botões (LB/RB ou Q/E: classe)
+  if (lastDevice.kind === 'touch') {
+    ink(c, 'Toque no anúncio', x + SAFE_W - 4, 213, 4, GREY, 'right');
+    ink(c, 'para ver tudo', x + SAFE_W - 4, 220, 4, GREY, 'right');
+  }
 }
 
 // anúncio pequeno: moldura fina, VENDE-SE, foto, nome, marca, números e o preço
@@ -246,7 +250,7 @@ export function tapShowroom(s: AppState, a: Actions, x: number, y: number) {
   else if (inside(x, y, u.back)) a.go(show.back);
   else if (pages > 1 && inside(x, y, u.prev)) show.page = cycle(pages, show.page, -1);
   else if (pages > 1 && inside(x, y, u.next)) show.page = cycle(pages, show.page, 1);
-  else cards().forEach((r, i) => {
+  else cardsRects().forEach((r, i) => {
     const cc = all[show.page * PER_PAGE + i];
     if (cc && inside(x, y, r)) show.detail = cc.id;
   });
@@ -263,18 +267,53 @@ export function keyShowroom(s: AppState, a: Actions, k: MenuKey) {
   const pages = Math.max(1, Math.ceil(all.length / PER_PAGE));
   if (k === 'back') return a.go(show.back);
   if (k === 'ok' && onPage) show.detail = all[show.page * PER_PAGE + show.sel]?.id ?? '';
-  if (k === 'left' || k === 'right') {
+  // setas andam livres pela grade (3 colunas x 2 linhas): esquerda/direita na linha, cima/baixo
+  // na coluna; passando da borda vai para a página anterior/seguinte
+  const count = (pg: number) => Math.max(0, Math.min(PER_PAGE, all.length - pg * PER_PAGE));
+  if ((k === 'left' || k === 'right') && onPage) {
     const d = k === 'right' ? 1 : -1;
     const n = show.sel + d;
     if (n < 0 || n >= onPage) {
-      // passa de página nas pontas
       show.page = cycle(pages, show.page, d);
-      show.sel = d > 0 ? 0 : Math.max(0, Math.min(PER_PAGE, all.length - show.page * PER_PAGE) - 1);
+      show.sel = d > 0 ? 0 : Math.max(0, count(show.page) - 1);
     } else show.sel = n;
   }
-  if (k === 'up' || k === 'down') {
-    // cima/baixo trocam a classe (como na escolha do carro)
-    show.cls = nextFilter(show.cls, k === 'down' ? 1 : -1, (c2) => listing(c2).length > 0);
+  if ((k === 'up' || k === 'down') && onPage) {
+    const col = show.sel % 3, row = Math.floor(show.sel / 3);
+    if (k === 'down' && show.sel + 3 < onPage) show.sel += 3;
+    else if (k === 'up' && row > 0) show.sel -= 3;
+    else if (k === 'down' && row === 0 && onPage > 3) show.sel = onPage - 1; // linha de baixo incompleta
+    else if (pages > 1) {
+      // vira a página: descendo, vai para a linha de cima da seguinte; subindo, para a de baixo da anterior
+      show.page = cycle(pages, show.page, k === 'down' ? 1 : -1);
+      const n = count(show.page);
+      const target = k === 'down' ? col : (n > 3 ? 3 : 0) + col;
+      show.sel = Math.min(target, n - 1);
+    }
+  }
+  // LB/RB (ou Q/E e PageUp/PageDown no teclado): classe anterior/seguinte, incluindo TODAS
+  if (k === 'prevTab' || k === 'nextTab') {
+    show.cls = nextFilter(show.cls, k === 'nextTab' ? 1 : -1, (c2) => listing(c2).length > 0);
     Object.assign(show, { page: 0, sel: 0 });
   }
+}
+
+// foco (setas, A/Enter, mouse): na lista, os anúncios, os filtros de marca/potência e os botões de
+// baixo (passando da ponta de uma linha de anúncios vira a página); no anúncio, os três botões
+export function showroomFocusables(s: AppState, a: Actions): FocusSet {
+  const car = show.detail ? DEALER_CARS.find((cc) => cc.id === show.detail) : undefined;
+  if (car) {
+    const u = detailUi();
+    return { key: 'showroom:detail', def: 2, items: [{ r: u.back }, { r: u.prep }, { r: u.buy }] };
+  }
+  const u = listUi(), all = listing();
+  const pages = Math.max(1, Math.ceil(all.length / PER_PAGE));
+  const onPage = Math.max(0, Math.min(PER_PAGE, all.length - show.page * PER_PAGE));
+  const cards = cardsRects().slice(0, onPage).map((r, i): Focusable => ({ r, is: () => show.sel === i, pick: () => { show.sel = i; }, act: () => { show.detail = all[show.page * PER_PAGE + i]?.id ?? ''; } }));
+  const edge = (k: string) => {
+    if ((k !== 'left' && k !== 'right') || !cards.some((c) => c.is!())) return false;
+    keyShowroom(s, a, k as MenuKey);
+    return true;
+  };
+  return { key: 'showroom:list', items: [{ r: u.brand }, { r: u.power }, ...cards, { r: u.back }, ...(pages > 1 ? [{ r: u.prev }, { r: u.next }] : [])], def: 2, edge };
 }

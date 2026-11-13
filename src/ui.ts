@@ -130,3 +130,38 @@ export function speckle(c: CanvasRenderingContext2D, base: string, dots: [string
   }
   return p;
 }
+
+// ---------- foco das telas de menu (setas do teclado/controle e passar o mouse) ----------
+// Cada tela lista os itens que dá para escolher, com o retângulo de toque de cada um.
+// is/pick: o item é o escolhido "da própria tela" (s.sel, linha da oficina...), que a tela já
+// destaca; sem is, o jogo desenha o contorno amarelo. act: o que A/Enter faz (sem act, é um
+// toque no meio do item). lr: esquerda/direita mudam o valor do item (volume, cor, carro) em
+// vez de andar. edge: o que fazer quando a seta não acha vizinho (virar página, rolar a lista)
+export interface Focusable { r: Rect; is?: () => boolean; pick?: () => void; act?: () => void; lr?: (d: number) => void }
+export interface FocusSet { key: string; items: Focusable[]; def?: number; edge?: (k: 'up' | 'down' | 'left' | 'right') => boolean }
+// vizinho na direção: a linha (ou coluna) mais próxima daquele lado e, nela, o mais alinhado;
+// -1 = não há
+export function spatialStep(rs: Rect[], cur: number, k: 'up' | 'down' | 'left' | 'right') {
+  const c = rs[cur];
+  if (!c) return rs.length ? 0 : -1;
+  const cx = c.x + c.w / 2, cy = c.y + c.h / 2;
+  const vert = k === 'up' || k === 'down', sign = k === 'up' || k === 'left' ? -1 : 1;
+  const cand = rs.map((r, i) => {
+    // distância de borda a borda na direção (itens grandes ao lado de pequenos) e desvio de lado
+    const along = vert ? (sign > 0 ? r.y - (c.y + c.h) : c.y - (r.y + r.h)) : sign > 0 ? r.x - (c.x + c.w) : c.x - (r.x + r.w);
+    const center = vert ? (r.y + r.h / 2 - cy) * sign : (r.x + r.w / 2 - cx) * sign;
+    const side = vert ? Math.max(0, Math.abs(r.x + r.w / 2 - cx) - (r.w + c.w) / 2) + Math.abs(r.x + r.w / 2 - cx) * 0.01 : Math.max(0, Math.abs(r.y + r.h / 2 - cy) - (r.h + c.h) / 2) + Math.abs(r.y + r.h / 2 - cy) * 0.01;
+    return { i, along, center, side };
+  }).filter((q) => q.i !== cur && q.center > 1 && q.along > -Math.min(c.w, c.h) / 2);
+  if (!cand.length) return -1;
+  // nos lados (esquerda/direita) só vale quem está mais ou menos na mesma altura
+  const pool = vert ? cand : cand.filter((q) => q.side < 12);
+  if (!pool.length) return -1;
+  const near = Math.min(...pool.map((q) => Math.max(0, q.along)));
+  return pool.filter((q) => Math.max(0, q.along) <= near + 10).sort((a, b) => a.side - b.side || a.along - b.along)[0].i;
+}
+export function focusRing(c: CanvasRenderingContext2D, r: Rect) {
+  c.strokeStyle = '#ffd21a';
+  c.lineWidth = 2;
+  c.strokeRect(r.x - 1.5, r.y - 1.5, r.w + 3, r.h + 3);
+}

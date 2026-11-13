@@ -3,6 +3,8 @@ package com.duelracer.game;
 import android.app.Activity;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.InputDevice;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -54,6 +56,22 @@ public class MainActivity extends Activity {
   public void onWindowFocusChanged(boolean f) {
     super.onWindowFocusChanged(f);
     if (f) immersive();
+  }
+
+  // botões do controle (gamepad): a WebView entrega ao jogo pela Gamepad API; aqui só não deixamos o
+  // Android transformar um botão que ninguém tratou em outra tecla (o B virava VOLTAR = Esc, e
+  // pausava a corrida no meio de uma freada)
+  @Override
+  public boolean dispatchKeyEvent(KeyEvent e) {
+    int src = e.getSource();
+    boolean pad = KeyEvent.isGamepadButton(e.getKeyCode())
+      || (src & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD
+      || (src & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK;
+    if (pad && e.getKeyCode() != KeyEvent.KEYCODE_BACK) {
+      super.dispatchKeyEvent(e);
+      return true;
+    }
+    return super.dispatchKeyEvent(e);
   }
 
   // voltar do Android = tecla Esc do jogo (pausa na corrida, volta nos menus)

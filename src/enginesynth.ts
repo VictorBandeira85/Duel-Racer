@@ -202,7 +202,9 @@ class Engine extends AudioWorkletProcessor {
     this.rpmS += (this.rpm - this.rpmS) * k;
     this.loadS += (this.load - this.loadS) * (1 - Math.exp(-n / (sr * 0.06)));
     this.onS += (this.on - this.onS) * (1 - Math.exp(-n / (sr * 0.05)));
-    const rpm = s.idle + Math.max(0, this.rpmS) * (s.redline - s.idle);
+    // giro proporcional à velocidade na marcha (como o conta-giros): na troca o ronco cai na razão
+    // entre as relações; perto de parado fica na marcha lenta (soma suave das duas)
+    const rpm = Math.hypot(s.idle, Math.max(0, this.rpmS) * s.redline);
     const limiter = this.rpmS > 1.0;
     const load = this.loadS;
     // comando variável: acima do ponto, o came bravo abre o som (suave, sem degrau)

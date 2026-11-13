@@ -220,3 +220,43 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     soundMods: snd,
   };
 }
+
+// Aviso ao instalar uma peça, com o nome da vaga e da peça no português certo ("Comando de corrida
+// instalado!", "Pistões forjados instalados!", "Discos ventilados instalados!")
+type Gen = 'o' | 'a' | 'os' | 'as';
+const SLOT_WORD: Record<string, [string, Gen]> = {
+  pistoes: ['Pistões e bielas', 'os'], comando: ['Comando', 'o'], intercooler: ['Intercooler', 'o'], escape: ['Escapamento', 'o'],
+  pneus: ['Pneus', 'os'], suspensao: ['Suspensão', 'a'], turbina: ['Turbina', 'a'], polia: ['Polia de', 'a'], downpipe: ['Downpipe de', 'o'],
+};
+// adjetivo concordando com a vaga (esportivo -> esportiva/esportivos...)
+const agree = (adj: string, g: Gen) => {
+  const w = adj.charAt(0).toLowerCase() + adj.slice(1);
+  if (/^de /.test(w) || g === 'o') return w;
+  return w.replace(/^(\S+?)o(\b| )/, (_, st, sp) => `${st}${g === 'a' ? 'a' : g === 'os' ? 'os' : 'as'}${sp}`).replace(/^(\S+?)a(\b| )/, (m, st, sp) => (g === 'as' ? `${st}as${sp}` : m));
+};
+export function partInstalledMsg(car: CarSpec, slot: SlotId, p: Part): string {
+  const done = (g: Gen) => `instalad${g}!`;
+  const id = p.id;
+  // peças cujo nome já diz tudo, ou que pedem outra frase
+  const special: Record<string, string> = {
+    'alimentacao:duplo': `Carburador de corpo duplo ${done('o')}`, 'alimentacao:weber': `Dupla carburação de corrida ${done('a')}`,
+    'alimentacao:chip': `Chip e bicos ${done('os')}`, 'alimentacao:programavel': `Injeção programável ${done('a')}`,
+    'inducao:turbo': `Turbo ${done('o')}`, 'inducao:super': `Supercharger ${done('o')}`, 'inducao:turbomaior': `Turbina maior ${done('a')}`,
+    'freios:esportivo': `Discos ventilados ${done('os')}`, 'freios:corrida': `Discos de corrida ${done('os')}`,
+    'pneus:esportivo': `Pneus esportivos de rua ${done('os')}`, 'pneus:semislick': `Pneus semi slick ${done('os')}`,
+    'bancos:entretenimento': 'Som e entretenimento retirados!', 'bancos:forros': 'Forros de porta retirados!',
+    'bancos:acabamentos': 'Acabamentos retirados!', 'bancos:concha': `Bancos de corrida ${done('os')}`,
+    'bancos:estrutura': 'Alívio na estrutura feito!', 'bancos:corrida': 'Alívio de corrida feito!',
+  };
+  if (special[`${slot}:${id}`]) return special[`${slot}:${id}`];
+  if (slot === 'rodas') return `Rodas ${/^[A-Z]{2,}$/.test(p.name) ? p.name : p.name.charAt(0).toLowerCase() + p.name.slice(1)} ${done('as')}`;
+  const sw = SLOT_WORD[slot];
+  if (sw) {
+    const [noun, g] = sw;
+    // números (turbina .50, polia 40 mm, downpipe 2,5 pol) entram como estão
+    const what = /^[.\d]/.test(p.name) ? p.name : agree(p.name, g);
+    return `${noun} ${what} ${done(g)}`;
+  }
+  const sl = slotsFor(car).find((s) => s.id === slot);
+  return `${sl?.name ?? ''} ${p.name.toLowerCase()} ${done('o')}`.trim();
+}

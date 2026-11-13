@@ -327,6 +327,23 @@ function alps(img: Img, rand: () => number, night: boolean, frozen = false) {
 }
 
 const cache = new Map<string, HTMLCanvasElement>();
+// Fundos desenhados pelo Victor (tools/ref/bg_panorama.py: arte do gerador na grade nativa, 1024 x 64,
+// relevo encostado embaixo, céu transparente). Enquanto a imagem carrega vale o fundo gerado (sem guardar
+// no cache, para trocar assim que ela chegar); à noite os pixels escurecem como os gerados.
+const ART = import.meta.glob('./assets/bg/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+const artImgs = new Map<string, HTMLImageElement>();
+function artFor(kind: BgLayer): HTMLImageElement | null | undefined {
+  const src = ART[`./assets/bg/${kind}.png`];
+  if (!src) return undefined; // sem arte: fundo gerado
+  let im = artImgs.get(kind);
+  if (!im) {
+    im = new Image();
+    im.src = src;
+    artImgs.set(kind, im);
+  }
+  return im.complete && im.naturalWidth ? im : null; // null: ainda carregando
+}
+export const preloadBgArt = () => (Object.keys(ART).map((k) => k.slice(12, -4)) as BgLayer[]).forEach((k) => artFor(k));
 
 export function panorama(kind: BgLayer, near: boolean, night: boolean, seed: number): HTMLCanvasElement {
   const key = `${kind}:${near}:${night}:${seed}`;
@@ -334,7 +351,16 @@ export function panorama(kind: BgLayer, near: boolean, night: boolean, seed: num
   if (cv) return cv;
   const img = new Img(PANO_W, PANO_H);
   const rand = rng(seed * 7919 + (near ? 13 : 3));
-  switch (kind) {
+  const art = artFor(kind);
+  if (art) {
+    const g = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!;
+    g.canvas.width = PANO_W;
+    g.canvas.height = PANO_H;
+    g.drawImage(art, 0, 0, PANO_W, PANO_H);
+    const d = g.getImageData(0, 0, PANO_W, PANO_H);
+    if (night) for (let i = 0; i < d.data.length; i += 4) { d.data[i] *= 0.42; d.data[i + 1] *= 0.42; d.data[i + 2] *= 0.42; }
+    img.data = d;
+  } else switch (kind) {
     case 'city': city(img, rand, night); break;
     case 'forest': forest(img, rand, night, near ? 7 : 11); break;
     case 'mesa': rocks(img, rand, night); break;
@@ -356,7 +382,7 @@ export function panorama(kind: BgLayer, near: boolean, night: boolean, seed: num
   cv.width = PANO_W;
   cv.height = PANO_H;
   cv.getContext('2d')!.putImageData(img.data, 0, 0);
-  cache.set(key, cv);
+  if (art !== null) cache.set(key, cv); // arte ainda carregando: o gerado vale só por agora
   // linha do topo dos morros/árvores em cada coluna (para o sol nascer/se pôr atrás deles)
   const top = new Int16Array(PANO_W).fill(PANO_H);
   const d = img.data.data;

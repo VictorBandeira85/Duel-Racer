@@ -223,16 +223,20 @@ export function setEngineProfile(desc: string, carId = '', mods?: import('./tuni
   synth?.port.postMessage({ spec });
 }
 
-export function setEngine(rpm: number, throttle: boolean, on: boolean, boost = 0) {
+// pedal: liga/desliga (true/false) ou a posição do acelerador (0..1, gatilho do controle)
+export function setEngine(rpm: number, pedal: boolean | number, on: boolean, boost = 0) {
   if (!ctx) return;
   const t = ctx.currentTime;
   const r = Math.max(0, Math.min(1.1, rpm));
+  const amt = typeof pedal === 'number' ? Math.max(0, Math.min(1, pedal)) : pedal ? 1 : 0;
+  const throttle = amt > 0.02;
   if (synth) {
     const dip = shiftDip > t;
-    synth.port.postMessage({ rpm: r, load: throttle && !dip ? 1 : 0, on: on ? 1 : 0, boost });
+    // carga do ronco segue o pé (meio acelerador = ronco mais manso), com um mínimo audível
+    synth.port.postMessage({ rpm: r, load: throttle && !dip ? 0.25 + 0.75 * amt : 0, on: on ? 1 : 0, boost });
     gain.gain.setTargetAtTime(0, t, 0.04);
     // turbo: assobio que acompanha a pressão; ao tirar o pé com pressão alta, a válvula de alívio chia
-    const tb = spec.turbo && on ? boost * (throttle ? 1 : 0.25) : 0;
+    const tb = spec.turbo && on ? boost * (throttle ? 0.4 + 0.6 * amt : 0.25) : 0;
     // assobio mais baixo e discreto (antes chegava a ~5,7 kHz e deixava o som estridente)
     // turbo da preparação: assobio mais forte e mais grave quanto maior a turbina, com o sopro do ar
     // enchendo por baixo, para aparecer mesmo com motor alto (V12); o de fábrica fica discreto
@@ -259,10 +263,10 @@ export function setEngine(rpm: number, throttle: boolean, on: boolean, boost = 0
   osc2.frequency.setTargetAtTime(f / 2, t, 0.03);
   subGain.gain.setTargetAtTime(prof.sub * 0.8, t, 0.05);
   raspFilter.frequency.setTargetAtTime(f * 3, t, 0.05);
-  raspGain.gain.setTargetAtTime(prof.rasp * (throttle ? 1 : 0.4), t, 0.05);
-  filter.frequency.setTargetAtTime((350 + r * 1300 + (throttle ? 450 : 0)) * prof.bright, t, 0.05);
+  raspGain.gain.setTargetAtTime(prof.rasp * (0.4 + 0.6 * amt), t, 0.05);
+  filter.frequency.setTargetAtTime((350 + r * 1300 + 450 * amt) * prof.bright, t, 0.05);
   const dip = shiftDip > t ? 0.35 : 1;
-  gain.gain.setTargetAtTime(on ? (throttle ? 0.085 : 0.05) * dip : 0, t, 0.04);
+  gain.gain.setTargetAtTime(on ? (0.05 + 0.035 * amt) * dip : 0, t, 0.04);
   const tb = prof.turbo && on && throttle ? Math.max(0, r - 0.45) * 0.022 : 0;
   turbo.frequency.setTargetAtTime(1800 + r * 2600, t, 0.08);
   turboGain.gain.setTargetAtTime(tb, t, 0.15);
@@ -678,6 +682,7 @@ function playFile(i: number) {
     fileEl = new Audio();
     fileEl.loop = true;
     fileEl.preload = 'auto';
+    fileEl.muted = musicVol <= 0;
     ctx.createMediaElementSource(fileEl).connect(musicGain);
   }
   const el = fileEl;
@@ -712,6 +717,9 @@ let musicVol = 0.5;
 export function setMusicVolume(v: number) {
   musicVol = 0.5 * v;
   if (ctx && musicGain) musicGain.gain.setTargetAtTime(musicOn ? musicVol : 0, ctx.currentTime, 0.05);
+  // 0% = mudo de verdade: a faixa em arquivo também cala no próprio elemento (WebView antiga
+  // que não passa o <audio> pelo Web Audio continuaria tocando)
+  if (fileEl) fileEl.muted = musicVol <= 0;
 }
 
 // toca a música indicada ('menu', 'race:<n>' ou 't:<faixa>'); começa assim que o áudio for liberado
@@ -764,3 +772,6 @@ export function setSfxVolume(v: number) {
   sfxVol = v;
   if (ctx && sfx && !muted) sfx.gain.setTargetAtTime(v, ctx.currentTime, 0.05);
 }
+
+// ganhos atuais (para testes automatizados e o relatório): efeitos, música e o <audio> da faixa
+export const gainLevels = () => ({ sfx: sfx ? sfx.gain.value : -1, music: musicGain ? musicGain.gain.value : -1, fileMuted: fileEl ? fileEl.muted : null });

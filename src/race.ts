@@ -1,13 +1,13 @@
 import { prewarmAds } from './billboards';
 import { CAR_W, KMH, LANE_W, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
-import { aeroMul, CARS, G, LAUNCH_BOOST, Powertrain, perfClass, resistAcc, toGame, toMs, type CarLook, type CarSpec, type PerfClass, SHIFT_T } from './cars';
+import { aeroMul, CARS, G, LAUNCH_BOOST, launchRpm, Powertrain, perfClass, resistAcc, toGame, toMs, type CarLook, type CarSpec, type PerfClass, SHIFT_T } from './cars';
 import { PAINTS } from './paint';
 import type { Course, StageDef } from './courses';
 import { makePlate, modelYear, themeRegion, REGION_PLATE, type Plate } from './plates';
 import { THEMES, blendTheme, fogTheme, nightTheme, rainTheme, sunsetTheme, goldenTheme, type Theme } from './themes';
 import { SPRITES } from './sprites';
 import { buildTrack, laneCenter, type Segment, type Track } from './track';
-import { input, takeShift } from './input';
+import { brakeAmt, gasAmt, steerAmt, takeShift } from './input';
 import { beep, radarBeep, bumpSound, crashSound, landSound, stoneSound, setTunnel, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
 import { updateTrafficAudio } from './trafficaudio';
@@ -170,6 +170,9 @@ export class Race {
   steer = 0;
   throttle = false;
   braking = false;
+  // quanto os pedais estão pisados (0..1): o gatilho do controle é proporcional; teclado e toque = 1
+  gasPedal = 0;
+  brakePedal = 0;
   autoStop = false; // o posto está freando o carro sozinho (o freio do jogador não precisa)
   ghost = 0;
   shake = 0;
@@ -184,6 +187,14 @@ export class Race {
   // (x, y em fração do para-brisa; size 0..1; seed para o desenho)
   glass: { x: number; y: number; size: number; seed: number; star: boolean }[] = [];
   overheat = false;
+  // temperatura extra do motor por giro no corte (0..1): sobe segurando o giro lá em cima, esfria
+  // com giro normal; acima de 0,8 a central corta potência (até -30%) e baixa o corte
+  heat = 0;
+  private heatWarn = false;
+  // largada: patinada das rodas de tração (0..1) por sair com giro alto e pé no fundo; some aos
+  // poucos (mais depressa aliviando o pé) e tira tração enquanto dura
+  launchSpin = 0;
+  launchHeld = 0; // giro na hora do VAI (para os testes e o relatório)
   // passagem gravada (posição a cada GHOST_DT do relógio do trecho) e o fantasma da melhor
   trace: { z: number[]; x: number[] } = { z: [], x: [] };
   ghostRun: Ghost | null = null; // fantasma (melhor passagem do trecho)
@@ -487,12 +498,19 @@ export class Race {
       this.timer -= dt;
       const after = Math.ceil(this.timer);
       if (after !== before && after <= 3) beep(after <= 0 ? 880 : 440, after <= 0 ? 0.4 : 0.15);
-      if (this.timer <= 0) this.state = 'drive';
-      this.throttle = input.gas;
-      this.rpm = lerp(this.rpm, input.gas ? 0.85 : 0.1, dt * 6);
+      // na contagem o motor acelera livre (ponto morto): o giro sobe com o pé e, no fundo, bate no
+      // corte (o ronco corta acima de 1); tirando o pé ele cai para a marcha lenta
+      this.gasPedal = gasAmt();
+      this.throttle = this.gasPedal > 0.02;
+      const want = 0.1 + 0.95 * this.gasPedal;
+      this.rpm = clamp(this.rpm + (want - this.rpm) * Math.min(1, dt * (want > this.rpm ? 3.2 : 2.2)), 0.1, 1.04);
+      if (this.timer <= 0) {
+        this.state = 'drive';
+        this.startLaunch();
+      }
       // segurando o giro na contagem o turbo já sobe pressão
-      if (this.pt.boost < 1) this.pt.boost = lerp(this.pt.boost, input.gas ? LAUNCH_BOOST : 0.1, Math.min(1, dt * 2));
-      setEngine(this.rpm, input.gas, true, this.pt.boost < 1 ? this.pt.boost : 0);
+      if (this.pt.boost < 1) this.pt.boost = lerp(this.pt.boost, 0.1 + (LAUNCH_BOOST - 0.1) * this.gasPedal, Math.min(1, dt * 2));
+      setEngine(this.rpm, this.gasPedal, true, this.pt.boost < 1 ? this.pt.boost : 0);
       // o trânsito não espera a largada: segue circulando (quem vem atrás na faixa do jogador freia)
       this.updateTraffic(dt);
       this.rivalTraffic();
@@ -518,11 +536,23 @@ export class Race {
       takeShift('shiftDown');
     }
 
+    // largada: a embreagem vai do giro em que o jogador largou ao giro ideal; a patinada some aos
+    // poucos (aliviando o pé ela some mais depressa, e a roda volta a tracionar)
+    if (driving) {
+      const ideal = launchRpm(this.car.curve);
+      // (giro baixo sobe só com o pé no acelerador)
+      if (gasAmt() > 0.1 || this.pt.slipRpm > ideal) this.pt.slipRpm += clamp(ideal - this.pt.slipRpm, -dt * 1.5, dt * 1.1 * gasAmt());
+      // pé no fundo: a roda segue girando em falso (some devagar, mais devagar nos potentes);
+      // dosando o pé (até ~3/4) ela volta a agarrar logo
+      if (this.launchSpin > 0) this.launchSpin = Math.max(0, this.launchSpin - dt * (gasAmt() > 0.75 ? 1.1 / (0.5 + 0.5 * this.launchK()) : 4));
+    }
     const pulling = this.state === 'pullover';
     const cop = pulling ? this.police.find((p) => p.state === 'pull') : undefined;
     const copAhead = !!cop && cop.z > this.playerZ + SEG_LEN * 1.2;
-    this.throttle = driving && input.gas;
-    this.braking = driving ? input.brake : pulling ? copAhead : this.state !== 'ticket' || this.speed > 0;
+    this.gasPedal = driving ? gasAmt() : 0;
+    this.brakePedal = driving ? brakeAmt() : 1;
+    this.throttle = this.gasPedal > 0.02;
+    this.braking = driving ? this.brakePedal > 0.02 : pulling ? copAhead : this.state !== 'ticket' || this.speed > 0;
     // chegando ao posto: o carro começa a frear sozinho a tempo de chegar na bomba (4 segmentos
     // depois da linha) já perto da velocidade de parada, em vez de frear só na linha e parar longe
     if (driving && this.speed > 0) {
@@ -531,11 +561,14 @@ export class Race {
       const dec = toGame(G * this.car.brakeG * BRAKE_BOOST) * 0.55; // freada firme (a real é menor que a nominal), sem travar
       if (toPump > 0 && toPump < this.track.finishZ - this.track.startZ && (this.speed * this.speed - vEnd * vEnd) / (2 * dec) >= toPump - SEG_LEN) {
         this.throttle = false;
+        this.gasPedal = 0;
         this.braking = this.speed > vEnd;
+        this.brakePedal = 1;
         this.autoStop = true;
       }
     }
-    this.steer = driving ? (input.left ? -1 : 0) + (input.right ? 1 : 0) : 0;
+    // direção: teclado/toque/direcional = tudo; alavanca do controle = na medida em que é empurrada
+    this.steer = driving ? steerAmt() : 0;
 
     // ---- relevo: inclinação e "flutuação" no topo das lombadas ----
     const slope = clamp((pSeg.p2.world.y - pSeg.p1.world.y) / SEG_LEN, -0.6, 0.6);
@@ -616,12 +649,32 @@ export class Race {
       this.message = 'MOTOR ESQUENTANDO!';
       this.messageT = 2.5;
     }
-    const aDrive = this.pt.step(this.speed, this.throttle, dt, surf * (1 - this.air * 0.6), this.auto) * hurt;
+    // giro no corte por muito tempo (uns 4 s seguidos já avisam, ~5 s começa a cortar): o motor
+    // esquenta (água e óleo sobem no quadro, luz-espia e aviso) e, insistindo, perde potência e o
+    // corte baixa, até o jogador aliviar o pé ou subir marcha; esfria aos poucos com giro normal
+    const heatLoss = clamp((this.heat - 0.8) / 0.2, 0, 1);
+    const cut = 1 - 0.07 * heatLoss;
+    if (this.state === 'drive') {
+      // na última marcha a máxima chega devagarinho perto do corte: só conta se estiver mesmo nele
+      const top = this.gear >= this.car.gears.length - 1;
+      const atCut = this.rpm >= (top ? 0.99 : 0.965) * cut && this.gasPedal > 0.5;
+      this.heat = clamp(this.heat + (atCut ? dt / 6 : this.rpm < 0.9 ? -dt / 8 : -dt / 20), 0, 1);
+    } else this.heat = Math.max(0, this.heat - dt / 8);
+    if (this.heat > 0.65 && !this.heatWarn && this.state === 'drive') {
+      this.heatWarn = true;
+      this.message = 'MOTOR ESQUENTANDO!';
+      this.messageT = 2.2;
+    }
+    if (this.heat < 0.3) this.heatWarn = false;
+    const aDrive0 = this.pt.step(this.speed, this.throttle, dt, surf * (1 - this.air * 0.6), this.auto, this.gasPedal) * hurt * (1 - 0.3 * heatLoss) * (1 - 0.5 * this.launchSpin) * this.bog();
+    // motor quente: a central corta no giro mais baixo (corte cai até 7%)
+    const aDrive = cut < 1 && this.speed >= max * this.car.gears[this.pt.gear] * cut ? 0 : aDrive0;
     this.gear = this.pt.gear;
     const gearMax = max * this.car.gears[this.gear];
     const rpmNow = this.speed / gearMax;
     // vácuo tira até 35% do arrasto; sem acelerar, o freio-motor segura conforme o giro
-    const aResist = resistAcc(this.car, this.speed, 1 - 0.35 * this.draft) + (this.throttle ? 0 : 0.6 + 1.2 * clamp(rpmNow, 0, 1));
+    // (com meio pé o freio-motor some na mesma proporção)
+    const aResist = resistAcc(this.car, this.speed, 1 - 0.35 * this.draft) + (1 - clamp(this.gasPedal, 0, 1)) * (0.6 + 1.2 * clamp(rpmNow, 0, 1));
     // a pista desenhada exagera as rampas (~2,5×): a gravidade usa a inclinação de verdade
     const realSlope = slope * RELIEF;
     const aGrav = (G * realSlope) / Math.sqrt(1 + realSlope * realSlope);
@@ -630,13 +683,13 @@ export class Race {
     if (this.braking) {
       if (this.state === 'crash') { /* a batida desacelera em updateCrash (arrastando) */ }
       else if (pulling) this.speed -= max * 0.17 * dt;
-      else this.speed -= toGame(G * this.car.brakeG * BRAKE_BOOST * surf * aero * (1 - this.air * 0.5)) * dt;
+      else this.speed -= toGame(G * this.car.brakeG * BRAKE_BOOST * surf * aero * (1 - this.air * 0.5)) * this.brakePedal * dt; // freio parcial = freada parcial
     }
     // acima do corte de giro (reduziu marcha ou embalou na descida): o motor segura
-    if (this.speed > gearMax) this.speed -= (this.speed - gearMax) * (slope < -0.05 ? 0.4 : 1.5) * dt;
+    if (this.speed > gearMax * cut) this.speed -= (this.speed - gearMax * cut) * (slope < -0.05 ? 0.4 : 1.5) * dt;
     this.speed = clamp(this.speed, 0, max * 1.12);
     // patinando, o giro sobe sem o carro andar
-    this.spin = lerp(this.spin, this.pt.spin, Math.min(1, dt * 8));
+    this.spin = lerp(this.spin, Math.max(this.pt.spin, this.launchSpin * clamp(this.gasPedal * 1.4, 0, 1)), Math.min(1, dt * 8));
     // rodas patinando: o giro dispara, e mais ainda em alta rotação nos carros preparados
     const rpmBase = this.speed / (max * this.car.gears[this.gear]);
     const rpmGear = Math.min(1.02, rpmBase + this.spin * (0.3 + ((this.car.prep ?? 1) > 1 ? 0.4 * clamp(rpmBase, 0, 1) : 0)));
@@ -667,7 +720,7 @@ export class Race {
     const latG = (vms * vms * Math.abs(pSeg.curve) * CURVE_K) / G;
     const tire = this.car.lateralG * surf;
     const lonDrive = clamp(aDrive / (G * tire), 0, 1);
-    const lonBrake = this.braking && speedPct > 0.15 ? clamp(this.car.brakeG / this.car.lateralG, 0, 1) : 0;
+    const lonBrake = this.braking && speedPct > 0.15 ? clamp(this.car.brakeG / this.car.lateralG, 0, 1) * this.brakePedal : 0;
     // círculo de atrito mais tolerante (antes acelerar fundo na curva cortava até metade da
     // aderência e o carro saía de traseira à toa; o rival usa a aderência inteira)
     const shared = 1 - 0.28 * lonDrive * lonDrive - 0.25 * lonBrake * lonBrake;
@@ -728,9 +781,14 @@ export class Race {
       this.speed -= max * 0.5 * dt;
     }
     this.yaw = lerp(this.yaw, yawTarget, Math.min(1, dt * (this.spinOut > 0 ? 7 : 12)));
-    // na derrapagem o motorista vira a cabeça de leve para o lado da saída da curva, com um pouco
-    // de atraso (movimento suave); rodando, não acompanha
-    const lookTarget = this.spinOut > 0 || Math.abs(this.drift) < 0.04 ? 0 : clamp(-this.drift * 0.35, -0.07, 0.07);
+    // a cabeça do motorista acompanha a curva: olha um pouquinho para dentro da curva que vem
+    // (mais em velocidade) e, na derrapagem, bem mais para o lado para onde o carro vai; com
+    // atraso (movimento suave); rodando, não acompanha
+    let bend = 0;
+    for (let k = 2; k <= 8; k += 3) bend += this.findSegment(this.playerZ + k * SEG_LEN).curve / 3;
+    const curveLook = clamp(bend / 6, -1, 1) * 0.045 * clamp(speedPct * 2, 0, 1);
+    const driftLook = Math.abs(this.drift) < 0.04 ? 0 : clamp(-this.drift * 0.5, -0.1, 0.1);
+    const lookTarget = this.spinOut > 0 || !driving ? 0 : curveLook + driftLook;
     this.head = lerp(this.head, lookTarget, Math.min(1, dt * 2.5));
 
     // ---- fora da pista ----
@@ -827,8 +885,29 @@ export class Race {
     const surface = this.def.weather === 'snow' ? 'snow' : this.def.weather === 'rain' ? 'wet' : 'dry';
     setTires(screech, offRoad && this.speed > 100 ? 0.4 + speedPct * 0.6 : 0, surface, driving || this.state === 'arrived' ? speedPct : 0);
     // durante a troca o pé sai do acelerador: o ronco perde carga até a marcha entrar
-    setEngine(Math.max(0.1, this.rpm), this.throttle && this.pt.shiftT <= 0, true, this.turboCar ? this.pt.boost : 0);
+    setEngine(Math.max(0.1, this.rpm), this.pt.shiftT <= 0 ? this.gasPedal : 0, true, this.turboCar ? this.pt.boost : 0);
     setSteam(this.smoke);
+  }
+
+  // quanto o carro tende a patinar na largada: potência por peso (os fracos quase não patinam),
+  // tração integral bem menos
+  private launchK() {
+    const cvkg = Number(this.car.power.replace(/\D/g, '')) / this.car.mass;
+    return clamp(0.25 + (cvkg - 0.06) / 0.25, 0.3, 1) * (this.car.drive === 'integral' ? 0.45 : 1);
+  }
+  // largou com o motor embaixo (sem acelerar na contagem): até o giro subir, ele quase afoga
+  private bog() {
+    return this.gear === 0 && this.pt.slipRpm < 0.3 && this.speed / (this.car.maxSpeed * this.car.gears[0]) < 0.3 ? 0.35 + 0.65 * clamp((this.pt.slipRpm - 0.1) / 0.2, 0, 1) : 1;
+  }
+  // VAI!: o resultado depende do giro e do pé nessa hora. Giro alto (acima da faixa de torque) com
+  // pé fundo = rodas patinando; giro na faixa = sai forte; giro baixo = a embreagem segura o
+  // motor embaixo e ele "afoga" até subir (sem acelerar nada, sai devagar)
+  private startLaunch() {
+    const ideal = launchRpm(this.car.curve);
+    this.launchHeld = this.rpm;
+    const over = clamp((this.rpm - (ideal + 0.15)) / Math.max(0.2, 1 - ideal - 0.15), 0, 1);
+    this.launchSpin = this.gasPedal > 0.5 ? over * this.launchK() : 0;
+    this.pt.slipRpm = clamp(this.rpm, 0.1, 1);
   }
 
   private lastGear = 0;
@@ -907,6 +986,7 @@ export class Race {
     this.damage = 0;
     this.glass = [];
     this.overheat = false;
+    this.heat = 0;
     this.jolt = 0;
     this.drift = 0;
     this.gear = 0;
@@ -1104,20 +1184,50 @@ export class Race {
     return best;
   }
 
-  // pisca automático do jogador, só em mão dupla: esquerdo ao sair rumo à contramão para
-  // ultrapassar, direito ao voltar para a sua faixa; desliga quando a manobra termina
+  // pisca automático do jogador, só em mão dupla: esquerdo quando ele sai de verdade da sua
+  // faixa para ultrapassar (deslocamento sustentado rumo à outra faixa, com um carro logo à frente
+  // na faixa dele), direito ao voltar depois de passar. Não liga com toque curto no direcional nem
+  // em curva (a posição é medida na pista, já sem a curva, e precisa sair da faixa); desliga quando
+  // o carro estabiliza na faixa nova ou depois de uns segundos
+  private sigVx = 0;
+  private sigHold = 0;
+  private sigOn = 0;
+  private sigBack = 0; // depois de uma ultrapassagem: tempo em que a volta para a faixa pisca
   private updateSignal(dt: number, driving: boolean) {
     const vx = dt > 0 ? (this.x - this.sigX) / dt : 0;
     this.sigX = this.x;
+    this.sigVx = lerp(this.sigVx, vx, Math.min(1, dt * 5)); // velocidade lateral suavizada (~0,2 s)
     const prev = this.signal;
-    if (this.track.lanes !== 2 || !driving || this.speed * KMH < 30) this.signal = 0;
-    else {
-      const x = this.x, lw = this.track.roadW; // na mão dupla cada faixa tem roadW
+    if (this.sigBack > 0) this.sigBack -= dt;
+    if (this.track.lanes !== 2 || !driving || this.speed * KMH < 30) {
+      this.signal = 0;
+      this.sigHold = 0;
+    } else {
+      const x = this.x, lw = this.track.roadW; // na mão dupla cada faixa tem roadW; a do jogador é x > 0
+      // alguém logo à frente na faixa do jogador (até ~12 segmentos), que ele vai passar
+      const ahead = (cz: number, cx: number) => cz > this.playerZ && cz - this.playerZ < SEG_LEN * 12 && cx > lw * 0.15;
+      const blocked = this.traffic.some((c) => !c.hit && ahead(c.z, c.x)) || (!!this.rival && ahead(this.rival.z, this.rival.x));
       if (this.signal === 0) {
-        // indo em direção à faixa central (não só corrigindo dentro da faixa)
-        if (x > 0 && x < lw * 0.42 && vx < -500) this.signal = -1;
-        else if (x < 0 && x > -lw * 0.42 && vx > 500) this.signal = 1;
-      } else if (this.signal < 0 ? x < -lw * 0.25 || x > lw * 0.6 : x > lw * 0.25 || x < -lw * 0.6) this.signal = 0;
+        const out = x < lw * 0.42 && x > -lw * 0.2 && this.sigVx < -350; // saindo rumo à contramão
+        const back = this.sigBack > 0 && x > -lw * 0.6 && x < lw * 0.2 && this.sigVx > 350; // voltando
+        this.sigHold = out || back ? this.sigHold + dt : 0;
+        if (this.sigHold > 0.3 && out && blocked) {
+          this.signal = -1;
+          this.sigOn = 0;
+        } else if (this.sigHold > 0.3 && back) {
+          this.signal = 1;
+          this.sigOn = 0;
+          this.sigBack = 0;
+        }
+      } else {
+        this.sigOn += dt;
+        const settled = Math.abs(this.sigVx) < 120;
+        if (this.signal < 0 && ((x < -lw * 0.2 && settled) || this.sigOn > 3 || this.sigVx > 300)) {
+          // chegou à outra faixa (ou desistiu): a volta, depois de passar, pisca para a direita
+          if (x < -lw * 0.2) this.sigBack = 8;
+          this.signal = 0;
+        } else if (this.signal > 0 && ((x > lw * 0.2 && settled) || this.sigOn > 1.6)) this.signal = 0;
+      }
     }
     if (this.signal !== prev) tickSound();
   }
@@ -1558,7 +1668,7 @@ export class Race {
         o.t = 0;
       }
     } else if (o.phase === 'show') {
-      if (o.t > 4.5 || (o.t > 1.2 && (input.gas || input.brake))) {
+      if (o.t > 4.5 || (o.t > 1.2 && (gasAmt() > 0.3 || brakeAmt() > 0.3))) {
         o.phase = 'back';
         o.t = 0;
       }

@@ -1,8 +1,8 @@
 import { carSwap } from './carswap';
-import { buildKey, partCost, partOf, slotArt, slotsFor, type Build, type SlotId } from './tuning';
+import { buildKey, partCost, partInstalledMsg, partOf, slotArt, slotsFor, type Build, type SlotId } from './tuning';
 import { setEngine, setEngineProfile, starterSound } from './audio';
-import { touch } from './input';
-import { drawShowroom, keyShowroom, openShowroom, show, tapShowroom } from './showroom';
+import { lastDevice } from './input';
+import { drawShowroom, keyShowroom, openShowroom, show, showroomFocusables, tapShowroom } from './showroom';
 // Telas do modo Carreira: central (regiões e eventos), evento, garagem, concessionária e resultado.
 import { SAFE_W, view, KMH, RES } from './config';
 import { svgSprite } from './svgsprites';
@@ -19,7 +19,7 @@ import type { ScreenId, AppState, Actions, MenuKey } from './screens';
 import { accelChart, carRows, carStars, ox, padlock, stageChip, verdictBox } from './screens';
 import { BLUE, GREY, INK, RED, YELLOW, arrow, box, burst, headline, ink, kicker, masthead, paper, photo, rule, specRows, stars, tag } from './mag';
 import type { ThemeId } from './themes';
-import { inside, panel, text, type Rect } from './ui';
+import { focusRing, inside, panel, text, type Focusable, type FocusSet, type Rect } from './ui';
 import { formatTime } from './util';
 
 const THEME_NAME: Record<ThemeId, string> = {
@@ -33,7 +33,7 @@ export const money = (v: number) => `$${Math.round(v).toLocaleString('pt-BR')}`;
 
 // estado da interface da carreira (não vai para o save)
 // demo: oficina de preparação aberta fora da carreira (catálogo): id do carro em vista; nada é comprado
-export const ui = { demo: '', demoBack: 'title' as ScreenId, prep: false, prepRow: 0, prepView: {} as Build, revT0: -9, region: 0, event: 0, dealer: 0, garage: 0, gFocus: 6, msg: '', msgT: 0, filter: null as ClassFilter };
+export const ui = { demo: '', demoBack: 'title' as ScreenId, prep: false, prepRow: 0, prepView: {} as Build, revT0: -9, region: 0, event: 0, dealer: 0, garage: 0, gFocus: 6, rimPick: false, rimView: '', msg: '', msgT: 0, filter: null as ClassFilter };
 export function flash(s: AppState, msg: string) {
   ui.msg = msg;
   ui.msgT = s.t + 2.2;
@@ -52,14 +52,15 @@ export function topBar(c: CanvasRenderingContext2D, s: AppState, title: string, 
 }
 
 // aviso curto por cima de tudo (compra, falta de dinheiro etc.)
-export function toast(c: CanvasRenderingContext2D, s: AppState) {
+// y: onde o aviso cai (na oficina fica abaixo da foto, para não tapar as rodas do carro)
+export function toast(c: CanvasRenderingContext2D, s: AppState, y = 96) {
   if (!ui.msg || s.t >= ui.msgT) return;
   const x = ox();
   c.fillStyle = INK;
-  c.fillRect(x + 24, 96, SAFE_W - 48, 22);
+  c.fillRect(x + 24, y, SAFE_W - 48, 22);
   c.fillStyle = YELLOW;
-  c.fillRect(x + 24, 96, 4, 22);
-  text(c, ui.msg, view.w / 2, 104, 5, '#fff', 'center', null);
+  c.fillRect(x + 24, y, 4, 22);
+  text(c, ui.msg, view.w / 2, y + 8, 5, '#fff', 'center', null);
 }
 
 // retrato do piloto: capacete na cor do carro dele, com a viseira e o número
@@ -234,11 +235,15 @@ const garageButtons = () => {
     use: { x: x + 110, y: 211, w: 100, h: 15 }, back: { x: x + 4, y: 211, w: 100, h: 15 }, dealer: { x: x + 216, y: 211, w: 100, h: 15 },
   };
 };
-// itens da oficina que o teclado percorre (cima/baixo): a preparação, os 3 ajustes, usar,
-// classificados e voltar
+// itens da oficina que as setas percorrem (em 2D): a preparação, os 3 ajustes, usar,
+// classificados, voltar, a paleta de pintura e as setas de trocar de carro
+const paletteRect = (): Rect => {
+  const sw = swatchRects();
+  return { x: sw[0].x - 2, y: sw[0].y - 2, w: sw[sw.length - 1].x + sw[0].w - sw[0].x + 4, h: sw[0].h + 4 };
+};
 const garageFocusRects = (): Rect[] => {
   const b = garageButtons();
-  return [prepBox(), ...setupTags(), b.use, b.dealer, b.back];
+  return [prepBox(), ...setupTags(), b.use, b.dealer, b.back, paletteRect(), b.prev, b.next];
 };
 const ownedCars = (cs: CareerSave) => CARS.filter((c) => cs.owned.includes(c.id));
 
@@ -262,7 +267,8 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   const active = car.id === cs.car;
   const st = setupOf(cs, car.id);
   if (ui.prep) return drawPrep(c, s, car);
-  const tuned = tunedFor(car, levels(cs, car.id), st, buildOf(cs, car.id));
+  // escolhendo a cor das rodas: a foto já mostra a cor em vista
+  const tuned = tunedFor(car, levels(cs, car.id), ui.rimPick ? { ...st, rims: ui.rimView } : st, buildOf(cs, car.id));
   kicker(c, active ? 'EM USO' : `${ui.garage + 1} DE ${cars.length} NA GARAGEM`, x + 4, 20, active ? '#1a6a2a' : INK, '#fff');
   headline(c, car.name.toUpperCase(), x + 4, 33, 8, INK);
   // classe com as melhorias instaladas (as melhorias podem subir o carro de classe)
@@ -291,6 +297,11 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
     c.fillRect(r.x, r.y, r.w, r.h);
   });
   // peças instaladas (preparação): resumo; tocar abre o catálogo
+  if (ui.rimPick) {
+    drawRimPick(c);
+    toast(c, s, 141);
+    return;
+  }
   const pb = prepBox();
   c.fillStyle = '#f6efdd';
   c.fillRect(pb.x, pb.y, pb.w, pb.h);
@@ -309,7 +320,7 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
     ink(c, pt.name, cx + 62, cy, fs, pt.id ? RED : INK);
   });
   const nParts = Object.values(buildOf(cs, car.id)).filter(Boolean).length;
-  const lab = [`MARCHAS ${RATIO_LABEL[st.ratio + 1]}`, nParts ? `PREPARAÇÃO (${nParts}) ▶` : 'PREPARAÇÃO ▶', `RODAS ${st.rims ? RIMS[st.rims].label : 'ORIGINAIS'}`];
+  const lab = [`MARCHAS ${RATIO_LABEL[st.ratio + 1]}`, nParts ? `PREPARAÇÃO (${nParts}) ▶` : 'PREPARAÇÃO ▶', 'COR DAS RODAS ▶'];
   setupTags().forEach((r, i) => {
     const changed = i === 0 ? st.ratio !== 0 : i === 1 ? nParts > 0 : !!st.rims;
     c.fillStyle = changed ? '#fff1c8' : '#f6efdd';
@@ -324,12 +335,57 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   tag(c, b.dealer, 'CLASSIFICADOS ▶');
   // teclado: o item escolhido com as setas fica marcado
   const kf = garageFocusRects()[ui.gFocus % garageFocusRects().length];
-  if (kf && !touch.ui) {
-    c.strokeStyle = YELLOW;
-    c.lineWidth = 2;
-    c.strokeRect(kf.x - 1.5, kf.y - 1.5, kf.w + 3, kf.h + 3);
-  }
-  toast(c, s);
+  if (kf && lastDevice.kind !== 'touch') focusRing(c, kf);
+  toast(c, s, 141);
+}
+
+// ---- cor das rodas (de graça): painel com as cores, a foto mostra a escolhida ----
+const RIM_IDS = () => ['', ...Object.keys(RIMS)];
+const rimLabel = (id: string) => (id ? RIMS[id].label : 'ORIGINAIS');
+const rimChips = (): Rect[] => RIM_IDS().map((_, i, all) => {
+  const w = Math.floor((SAFE_W - 8 - (all.length - 1) * 4) / all.length);
+  return { x: ox() + 4 + i * (w + 4), y: 160, w, h: 22 };
+});
+const rimButtons = () => ({ back: { x: ox() + 4, y: 211, w: 100, h: 15 } as Rect, ok: { x: ox() + 216, y: 211, w: 100, h: 15 } as Rect });
+function drawRimPick(c: CanvasRenderingContext2D) {
+  const x = ox(), pb = prepBox();
+  c.fillStyle = '#f6efdd';
+  c.fillRect(pb.x, pb.y, pb.w, 88);
+  ink(c, 'COR DAS RODAS', x + 9, 143, 5, RED);
+  ink(c, 'escolha e confirme (sem custo)', x + SAFE_W - 9, 143, 4, GREY, 'right');
+  rimChips().forEach((r, i) => {
+    const id = RIM_IDS()[i], on = id === ui.rimView;
+    c.fillStyle = on ? '#fff1c8' : '#efe6d2';
+    c.fillRect(r.x, r.y, r.w, r.h);
+    c.strokeStyle = on ? RED : 'rgba(26,22,20,0.35)';
+    c.lineWidth = on ? 2 : 1;
+    c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+    // amostra da cor (as originais: aro de alumínio)
+    c.fillStyle = id ? RIMS[id].color : '#c8ccd2';
+    c.beginPath();
+    c.arc(r.x + 9, r.y + r.h / 2, 5, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = '#1a1614';
+    c.beginPath();
+    c.arc(r.x + 9, r.y + r.h / 2, 1.5, 0, Math.PI * 2);
+    c.fill();
+    ink(c, rimLabel(id), r.x + 18, r.y + 8, 5, on ? RED : INK);
+  });
+  const b = rimButtons();
+  tag(c, b.back, '◀ VOLTAR');
+  tag(c, b.ok, 'USAR ESTA COR', true);
+}
+function rimStep(d: number) {
+  const ids = RIM_IDS();
+  ui.rimView = ids[(ids.indexOf(ui.rimView) + d + ids.length) % ids.length];
+}
+function rimConfirm(s: AppState) {
+  const cs = s.career!, car = ownedCars(cs)[ui.garage];
+  const st = setupOf(cs, car.id);
+  cs.setup = { ...(cs.setup ?? {}), [car.id]: { ...st, rims: ui.rimView } };
+  saveCareer(cs);
+  ui.rimPick = false;
+  flash(s, `Rodas ${rimLabel(ui.rimView).toLowerCase()}`);
 }
 
 function tapGarage(s: AppState, a: Actions, x: number, y: number) {
@@ -337,6 +393,13 @@ function tapGarage(s: AppState, a: Actions, x: number, y: number) {
   const cars = ownedCars(cs);
   const car = cars[ui.garage];
   if (ui.prep) return tapPrep(s, car, x, y);
+  if (ui.rimPick) {
+    const rb = rimButtons();
+    if (inside(x, y, rb.back)) ui.rimPick = false;
+    else if (inside(x, y, rb.ok)) rimConfirm(s);
+    else rimChips().forEach((r, i) => inside(x, y, r) && (ui.rimView = RIM_IDS()[i]));
+    return;
+  }
   const b = garageButtons();
   if (inside(x, y, b.prev) && cars.length > 1) ui.garage = (ui.garage + cars.length - 1) % cars.length;
   else if (inside(x, y, b.next) && cars.length > 1) ui.garage = (ui.garage + 1) % cars.length;
@@ -353,6 +416,12 @@ function tapGarage(s: AppState, a: Actions, x: number, y: number) {
       const st = setupOf(cs, car.id);
       const rims = ['', ...Object.keys(RIMS)];
       if (i === 1) return openPrep(cs, car);
+      // cor das rodas: abre o painel de cores (escolhe vendo na foto e confirma)
+      if (i === 2) {
+        ui.rimPick = true;
+        ui.rimView = st.rims;
+        return;
+      }
       if (i === 0) st.ratio = st.ratio >= 1 ? -1 : st.ratio + 1;
       else st.rims = rims[(rims.indexOf(st.rims) + 1) % rims.length];
       cs.setup = { ...(cs.setup ?? {}), [car.id]: st };
@@ -482,7 +551,7 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   }
   const b = prepButtons();
   tag(c, b.back, ui.demo ? '◀ VOLTAR' : '◀ OFICINA');
-  tag(c, b.rev, 'OUVIR O RONCO', true);
+  tag(c, b.rev, 'OUVIR O RONCO'); // (sem o vermelho fixo: parecia o item escolhido; o foco é o contorno amarelo)
   // catálogo: passa pelos carros do showroom; carreira: troca entre os carros da garagem (só se houver outro)
   if (ui.demo) tag(c, b.stock, 'OUTRO CARRO ▶');
   else if (ownedCars(cs).length > 1) tag(c, b.stock, 'TROCAR CARRO ▶');
@@ -517,7 +586,7 @@ function prepInstall(s: AppState, car: CarSpec, slot: SlotId) {
   }
   cs.builds = { ...(cs.builds ?? {}), [car.id]: { ...buildOf(cs, car.id), [slot]: p.id } };
   saveCareer(cs);
-  flash(s, p.id ? `${p.name} instalado!` : 'Peça original de volta');
+  flash(s, p.id ? partInstalledMsg(car, slot, p) : 'Peça original de volta');
 }
 function prepRev(s: AppState, car: CarSpec) {
   const cs = s.career!;
@@ -803,7 +872,7 @@ export function drawCareerEnd(c: CanvasRenderingContext2D, s: AppState) {
   rule(c, t.x + 6, t.y + 70, t.w - 12, RED);
   ink(c, 'TOTAL', t.x + 6, t.y + 77, 8, INK);
   ink(c, (res.total < 0 ? '-' : '') + money(Math.abs(res.total)), t.x + t.w - 6, t.y + 77, 8, res.total < 0 ? RED : '#1a6a2a', 'right');
-  const car = carById(cs.car);
+  const car = s.playerCar?.id === cs.car ? s.playerCar : carById(cs.car); // com as peças da oficina
   photo(c, { x: x + 214, y: 64, w: 102, h: 62 }, () => drawCarSide(c, x + 218, 120, 94, car, paintHex(car.id)));
   let note = `Saldo: ${money(cs.money)}`;
   if (res.firstWin && ev.boss) {
@@ -839,7 +908,7 @@ function drawCareerMenu(c: CanvasRenderingContext2D, s: AppState) {
     c.fillStyle = '#f8f2e2';
     c.fillRect(r.x, r.y, r.w, r.h);
   };
-  const hot = (i: number) => !touch.ui && s.sel % 2 === i;
+  const hot = (i: number) => lastDevice.kind !== 'touch' && s.sel % 2 === i;
   // correr: o carro em uso na estrada e a região mais avançada
   frame(run, hot(0));
   const ph: Rect = { x: run.x + 4, y: run.y + 4, w: run.w - 8, h: 92 };
@@ -944,6 +1013,7 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
     case 'showroom': return keyShowroom(s, a, k);
     case 'prepDemo':
       if (k === 'back') return closeDemo(a);
+      if (k === 'prevTab' || k === 'nextTab') return demoStep(k === 'nextTab' ? 1 : -1);
       return keyPrep(s, k);
     case 'careerMenu':
       if (k === 'left' || k === 'right' || k === 'up' || k === 'down') s.sel = 1 - (s.sel % 2);
@@ -964,19 +1034,20 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
       return;
     case 'garage': {
       if (ui.prep) return keyPrep(s, k);
-      const n = garageFocusRects().length;
-      if (k === 'left') b(garageButtons().prev);
-      if (k === 'right') b(garageButtons().next);
-      if (k === 'up') ui.gFocus = (ui.gFocus + n - 1) % n;
-      if (k === 'down') ui.gFocus = (ui.gFocus + 1) % n;
-      if (k === 'ok') b(garageFocusRects()[ui.gFocus % n]);
+      if (ui.rimPick) {
+        if (k === 'back') ui.rimPick = false;
+        return;
+      }
+      // (setas e A ficam com o foco em 2D: careerFocusables) LB/RB trocam de carro da garagem
+      if (k === 'prevTab') b(garageButtons().prev);
+      if (k === 'nextTab') b(garageButtons().next);
       if (k === 'back') a.go('career');
       return;
     }
     case 'dealer':
       if (k === 'left') b(dealerButtons().prev);
       if (k === 'right') b(dealerButtons().next);
-      if (k === 'up' || k === 'down') setDealerFilter(nextFilter(ui.filter, k === 'down' ? 1 : -1, (c2) => filtered(DEALER_CARS, c2).length > 0));
+      if (k === 'up' || k === 'down' || k === 'prevTab' || k === 'nextTab') setDealerFilter(nextFilter(ui.filter, k === 'down' || k === 'nextTab' ? 1 : -1, (c2) => filtered(DEALER_CARS, c2).length > 0));
       if (k === 'ok') b(dealerButtons().buy);
       if (k === 'back') a.go(cs.owned.length ? 'career' : 'careerMenu');
       return;
@@ -984,9 +1055,68 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
       if (k === 'ok' || k === 'back') a.go('career');
       return;
     case 'collection':
-      if (k === 'left') b(collectionButtons().prev);
-      if (k === 'right') b(collectionButtons().next);
-      if (k === 'ok') a.go('garage');
+      if (k === 'prevTab') b(collectionButtons().prev);
+      if (k === 'nextTab') b(collectionButtons().next);
       if (k === 'back') a.go('careerMenu');
   }
+}
+
+// ---------- foco (setas, A/Enter e mouse) das telas da carreira, da oficina e do catálogo ----------
+export function careerFocusables(s: AppState, a: Actions): FocusSet | null {
+  const cs = s.career;
+  if (!cs && s.screen !== 'showroom') return null;
+  const sel = (i: number, r: Rect, extra: Partial<Focusable> = {}): Focusable => ({ r, is: () => s.sel === i, pick: () => { s.sel = i; }, ...extra });
+  // catálogo de peças (oficina da carreira e o de fora dela): as vagas são a "linha" da tela
+  const prep = (car: CarSpec, demo: boolean): FocusSet => {
+    const slots = prepSel(car), pb = prepBar(), bt = prepButtons();
+    const rows = prepRows(slots.length).map((r, i): Focusable => ({ r, is: () => ui.prepRow === i, pick: () => { ui.prepRow = i; }, lr: (d) => prepStep(car, slots[i].id, d), act: () => prepInstall(s, car, slots[i].id) }));
+    const items: Focusable[] = [{ r: pb.prev }, { r: pb.name }, { r: pb.next }, { r: pb.buy }, ...rows, { r: bt.back }, { r: bt.rev }, { r: bt.stock }];
+    if (demo) items.unshift({ r: { x: ox() + 4, y: 35, w: 198, h: 59 }, lr: demoStep, act: () => demoStep(1) });
+    return { key: `prep:${demo}`, items, def: items.indexOf(rows[0]) };
+  };
+  switch (s.screen) {
+    case 'showroom': return showroomFocusables(s, a);
+    case 'prepDemo': return prep(demoCar(), true);
+    case 'careerMenu': return { key: 'careerMenu', items: [...careerTiles().map((r, i) => sel(i, r, { act: () => careerMenuPick(s, a, i) })), { r: careerMenuBack() }] };
+    case 'career': {
+      const b = hubButtons();
+      const reg = (d: number) => { ui.region = (ui.region + REGIONS.length + d) % REGIONS.length; };
+      return { key: 'career', def: 2, items: [{ r: b.prev, act: () => reg(-1) }, { r: b.next, act: () => reg(1) }, ...hubRows().map((r, i) => sel(i, r, { lr: reg, act: () => pickEvent(s, a, i) })), { r: b.collection }, { r: b.garage }, { r: b.dealer }, { r: b.back }] };
+    }
+    case 'event': {
+      const b = eventButtons();
+      return { key: 'event', def: 1, items: [{ r: b.back }, { r: b.go, act: () => goEvent(s, a) }] };
+    }
+    case 'garage': {
+      const cars = ownedCars(cs!);
+      if (ui.prep) return prep(cars[ui.garage], false);
+      if (ui.rimPick) {
+        const rb = rimButtons();
+        const chips = rimChips().map((r, i): Focusable => ({ r, is: () => ui.rimView === RIM_IDS()[i], pick: () => { ui.rimView = RIM_IDS()[i]; }, lr: rimStep, act: () => rimConfirm(s) }));
+        return { key: 'garage:rims', items: [...chips, { r: rb.back }, { r: rb.ok }] };
+      }
+      const rects = garageFocusRects();
+      const car = () => cars[ui.garage];
+      const paint = (d: number) => setPaint(car().id, ((paintIdx(car().id) ?? nearestPaint(car().color)) + d + PAINTS.length) % PAINTS.length);
+      return {
+        key: 'garage', items: rects.map((r, i): Focusable => ({
+          r, is: () => ui.gFocus % rects.length === i, pick: () => { ui.gFocus = i; },
+          ...(i === 7 ? { lr: paint, act: () => paint(1) } : {}),
+        })),
+      };
+    }
+    case 'dealer': {
+      const b = dealerButtons();
+      const step = (d: number) => tapCareerScreen(s, a, (d < 0 ? b.prev : b.next).x + 3, (d < 0 ? b.prev : b.next).y + 3);
+      const items: Focusable[] = [...dealerFilterRects().map((r) => ({ r })), { r: { x: b.prev.x, y: 46, w: b.next.x + b.next.w - b.prev.x, h: 90 }, lr: step, act: () => step(1) }, { r: b.back }, { r: b.buy }];
+      return { key: 'dealer', items, def: items.length - 1 };
+    }
+    case 'collection': {
+      const cars = ownedCars(cs!), b = collectionButtons();
+      const pages = Math.max(1, Math.ceil(cars.length / COL_PER_PAGE));
+      const cards = collectionCards().map((r, i) => ({ r, i })).filter((q) => cars[colPage * COL_PER_PAGE + q.i]).map((q) => ({ r: q.r }));
+      return { key: 'collection', items: [...cards, { r: b.back }, ...(pages > 1 ? [{ r: b.prev }, { r: b.next }] : []), { r: b.garage }] };
+    }
+  }
+  return null;
 }

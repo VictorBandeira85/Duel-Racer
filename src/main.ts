@@ -151,7 +151,7 @@ const actions: Actions = {
       savePrefs({ sfxPct: v });
       setSfxVolume(v / 100);
     } else {
-      savePrefs({ musPct: v });
+      savePrefs({ musPct: v, musSet: true });
       setMusicVolume(v / 100);
     }
   },

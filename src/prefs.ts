@@ -3,13 +3,13 @@
 // sfxPct/musPct: volume dos efeitos e da música, de 0 (mudo) a 100%, em passos de 10;
 // sfxPrev/musPrev: o volume de antes do atalho de mudo da pausa (para voltar a ele)
 // view: VISÃO DO PAINEL (0 perto, como sempre foi; 1 normal; 2 longe: cabe o painel inteiro)
-export interface Prefs { view: number; auto: boolean; hints: boolean; fps: boolean; fps30: boolean; sfxPct: number; musPct: number; sfxPrev: number; musPrev: number }
+export interface Prefs { musSet: boolean; view: number; auto: boolean; hints: boolean; fps: boolean; fps30: boolean; sfxPct: number; musPct: number; sfxPrev: number; musPrev: number }
 const KEY = 'duel-racer:ajustes';
 // versões antigas: sound/music (ligado/desligado) + sfxVol/musVol (índice em 25/50/75/100%)
 const OLD_VOLS = [25, 50, 75, 100];
 const step10 = (v: number) => Math.max(0, Math.min(100, Math.round(v / 10) * 10));
 export const prefs: Prefs = (() => {
-  const d: Prefs = { view: 0, auto: true, hints: true, fps: false, fps30: false, sfxPct: 100, musPct: 100, sfxPrev: 100, musPrev: 100 };
+  const d: Prefs = { musSet: false, view: 0, auto: true, hints: true, fps: false, fps30: false, sfxPct: 100, musPct: 50, sfxPrev: 100, musPrev: 50 }; // música começa em 50% (pedido do Victor)
   let saved: Record<string, unknown> = {};
   try {
     saved = JSON.parse(localStorage.getItem(KEY) || '{}');
@@ -22,21 +22,30 @@ export const prefs: Prefs = (() => {
     const pct = OLD_VOLS[Math.max(0, Math.min(3, Number(idx ?? fallback)))] ?? 100;
     return { pct: on === false ? 0 : pct, prev: pct };
   };
+  // musSet: o jogador já escolheu o volume da música (as versões 0.51/0.52 gravavam 100% sem ele escolher)
+  if (saved.musSet !== true && typeof saved.musPct === 'number') {
+    p.musPct = d.musPct;
+    p.musPrev = d.musPrev;
+  }
   if (typeof saved.sfxPct !== 'number') {
     const o = old(saved.sound, saved.sfxVol, 3);
     p.sfxPct = o.pct;
     p.sfxPrev = o.prev;
   }
   if (typeof saved.musPct !== 'number') {
-    let legacy = 3;
+    let legacy: string | null = null;
     try {
-      legacy = Number(localStorage.getItem('duel-racer:volume-musica') ?? 3);
+      legacy = localStorage.getItem('duel-racer:volume-musica');
     } catch {
       /* sem armazenamento */
     }
-    const o = old(saved.music, saved.musVol, Number.isFinite(legacy) ? legacy : 3);
-    p.musPct = o.pct;
-    p.musPrev = o.prev;
+    // só migra quem já tinha mexido no som numa versão antiga; quem nunca escolheu fica nos 50% do padrão
+    if (saved.music !== undefined || saved.musVol !== undefined || legacy !== null) {
+      const n = Number(legacy ?? 3);
+      const o = old(saved.music, saved.musVol, Number.isFinite(n) ? n : 3);
+      p.musPct = o.pct;
+      p.musPrev = o.prev;
+    }
   }
   p.view = Math.max(0, Math.min(2, Math.round(p.view)));
   p.sfxPct = step10(p.sfxPct);

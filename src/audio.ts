@@ -705,17 +705,24 @@ function startMusic(id: string) {
     musicGain.connect(master);
     music = new Synthwave(ctx, musicGain);
   }
-  musicGain.gain.setTargetAtTime(musicOn ? musicVol : 0, ctx.currentTime, 0.05);
-  if (current === id) return;
+  if (current === id) return applyMusicVol();
   current = id;
+  applyMusicVol();
   const i = trackFor(id);
   if (playFile(i)) music!.stop();
   else music!.play(i);
 }
 export const musicTitle = () => (fileIdx >= 0 ? `${FILE_TRACKS[fileIdx].title} - ${FILE_TRACKS[fileIdx].artist}` : music?.title ?? '');
-let musicVol = 0.5;
-export function setMusicVolume(v: number) {
-  musicVol = 0.5 * v;
+// volumes separados: música dos menus ('menu') e das corridas ('race:', faixas escolhidas 't:')
+let musicVol = 0.25, menuVol = 0.25, raceVol = 0.25;
+const volFor = (id: string | null) => (id === 'menu' ? menuVol : raceVol);
+export function setMusicVolume(menu: number, race: number) {
+  menuVol = 0.5 * menu;
+  raceVol = 0.5 * race;
+  applyMusicVol();
+}
+function applyMusicVol() {
+  musicVol = volFor(current ?? pendingMusic);
   if (ctx && musicGain) musicGain.gain.setTargetAtTime(musicOn ? musicVol : 0, ctx.currentTime, 0.05);
   // 0% = mudo de verdade: a faixa em arquivo também cala no próprio elemento (WebView antiga
   // que não passa o <audio> pelo Web Audio continuaria tocando)

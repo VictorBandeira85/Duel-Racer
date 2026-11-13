@@ -3,13 +3,13 @@
 // sfxPct/musPct: volume dos efeitos e da música, de 0 (mudo) a 100%, em passos de 10;
 // sfxPrev/musPrev: o volume de antes do atalho de mudo da pausa (para voltar a ele)
 // view: VISÃO DO PAINEL (0 perto, como sempre foi; 1 normal; 2 longe: cabe o painel inteiro)
-export interface Prefs { musSet: boolean; view: number; auto: boolean; hints: boolean; fps: boolean; fps30: boolean; sfxPct: number; musPct: number; sfxPrev: number; musPrev: number }
+export interface Prefs { menuPct: number; menuPrev: number; musSet: boolean; view: number; auto: boolean; hints: boolean; fps: boolean; fps30: boolean; sfxPct: number; musPct: number; sfxPrev: number; musPrev: number }
 const KEY = 'duel-racer:ajustes';
 // versões antigas: sound/music (ligado/desligado) + sfxVol/musVol (índice em 25/50/75/100%)
 const OLD_VOLS = [25, 50, 75, 100];
 const step10 = (v: number) => Math.max(0, Math.min(100, Math.round(v / 10) * 10));
 export const prefs: Prefs = (() => {
-  const d: Prefs = { musSet: false, view: 0, auto: true, hints: true, fps: false, fps30: false, sfxPct: 100, musPct: 50, sfxPrev: 100, musPrev: 50 }; // música começa em 50% (pedido do Victor)
+  const d: Prefs = { menuPct: 50, menuPrev: 50, musSet: false, view: 0, auto: true, hints: true, fps: false, fps30: false, sfxPct: 100, musPct: 50, sfxPrev: 100, musPrev: 50 }; // música começa em 50% (pedido do Victor)
   let saved: Record<string, unknown> = {};
   try {
     saved = JSON.parse(localStorage.getItem(KEY) || '{}');

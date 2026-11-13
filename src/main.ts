@@ -145,14 +145,18 @@ const actions: Actions = {
     else startStage(state.results.length);
   },
   // volumes da música e dos efeitos (0 = mudo, até 100%, de 10 em 10), separados
-  setVolume(kind: 'sfx' | 'music', pct: number) {
+  // music: música das corridas; menu: música dos menus (volumes separados)
+  setVolume(kind: 'sfx' | 'music' | 'menu', pct: number) {
     const v = Math.max(0, Math.min(100, Math.round(pct / 10) * 10));
     if (kind === 'sfx') {
       savePrefs({ sfxPct: v });
       setSfxVolume(v / 100);
+    } else if (kind === 'menu') {
+      savePrefs({ menuPct: v });
+      setMusicVolume(prefs.menuPct / 100, prefs.musPct / 100);
     } else {
       savePrefs({ musPct: v, musSet: true });
-      setMusicVolume(v / 100);
+      setMusicVolume(prefs.menuPct / 100, prefs.musPct / 100);
     }
   },
 };
@@ -640,11 +644,11 @@ $('restart').addEventListener('click', () => {
   if (race) startStage(race.stageIdx);
 });
 // ajustes durante a corrida (os mesmos do menu principal, e mais o volume e a faixa)
-setMusicVolume(prefs.musPct / 100);
+setMusicVolume(prefs.menuPct / 100, prefs.musPct / 100);
 setSfxVolume(prefs.sfxPct / 100);
 function settingsLabels() {
   const lab: Record<string, [string, string]> = {
-    volume: ['VOL. MÚSICA', `◀ ${volLabel(prefs.musPct)} ▶`],
+    volume: ['MÚSICA CORRIDA', `◀ ${volLabel(prefs.musPct)} ▶`],
     sfxvol: ['VOL. EFEITOS', `◀ ${volLabel(prefs.sfxPct)} ▶`],
     track: ['FAIXA ▶', musicTitle() || '-'],
     gear: ['CÂMBIO', state.auto ? 'AUTOMÁTICO' : 'MANUAL'],

@@ -73,7 +73,7 @@ export interface Actions {
   go: (s: ScreenId) => void;
   startCourse: () => void;
   nextStage: () => void;
-  setVolume: (kind: 'sfx' | 'music', pct: number) => void;
+  setVolume: (kind: 'sfx' | 'music' | 'menu', pct: number) => void;
   startEvent: (region: number, event: number) => void;
   resumeCourse: () => void;
 }
@@ -438,7 +438,11 @@ function activateTitle(s: AppState, i: number, a: Actions) {
 }
 
 // ---------- opções ----------
-const optionRects = () => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((i): Rect => ({ x: ox() + 40, y: 31 + i * 16, w: 240, h: 14 }));
+const optionRects = () => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i): Rect => ({ x: ox() + 40, y: 31 + i * 15, w: 240, h: 13.5 }));
+// itens de volume dos ajustes: 1 efeitos, 2 música na corrida, 3 música do menu
+const VOL_KIND = { 1: 'sfx', 2: 'music', 3: 'menu' } as const;
+const isVolItem = (i: number) => i >= 1 && i <= 3;
+const volOf = (k: 'sfx' | 'music' | 'menu') => (k === 'sfx' ? prefs.sfxPct : k === 'music' ? prefs.musPct : prefs.menuPct);
 // tamanho dos botões de toque (direção, acelerador, freio, marchas), salvo no aparelho
 const BTN_SIZES = [{ label: 'PEQUENOS', k: 0.8 }, { label: 'MÉDIOS', k: 1 }, { label: 'GRANDES', k: 1.22 }, { label: 'ENORMES', k: 1.45 }];
 const BTN_KEY = 'duel-racer:botoes';
@@ -470,19 +474,19 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
   kicker(c, 'EXPEDIENTE', x + 4, 22, RED, '#fff');
   ink(c, 'Toque num item para mudar', x + 70, 24, 5, GREY);
   const items: [string, string][] = [
-    ['CÂMBIO', s.auto ? 'AUTOMÁTICO' : 'MANUAL'], ['VOLUME DOS EFEITOS', `◀ ${volLabel(prefs.sfxPct)} ▶`], ['VOLUME DA MÚSICA', `◀ ${volLabel(prefs.musPct)} ▶`],
+    ['CÂMBIO', s.auto ? 'AUTOMÁTICO' : 'MANUAL'], ['VOLUME DOS EFEITOS', `◀ ${volLabel(prefs.sfxPct)} ▶`], ['MÚSICA NA CORRIDA', `◀ ${volLabel(prefs.musPct)} ▶`], ['MÚSICA DO MENU', `◀ ${volLabel(prefs.menuPct)} ▶`],
     ['BOTÕES', BTN_SIZES[btnSizeIdx()].label], ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'],
     ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')], ['DICAS NA TELA', prefs.hints ? 'LIGADAS' : 'DESLIGADAS'], ['MOSTRAR FPS', prefs.fps ? 'SIM' : 'NÃO'], ['QUADROS', prefs.fps30 ? '30 FPS' : '60 FPS'], ['VISÃO DO PAINEL', VIEW_LEVELS[prefs.view].label], ['CONTROLES', 'TECLAS ▶'], ['', ''],
   ];
   optionRects().forEach((r, i) => {
     const hot = s.sel === i;
-    if (i === 11) return tag(c, { x: r.x + 60, y: r.y + 1, w: r.w - 120, h: 13 }, '◀ VOLTAR À CAPA', hot, 5);
+    if (i === 12) return tag(c, { x: r.x + 60, y: r.y + 0.5, w: r.w - 120, h: 12.5 }, '◀ VOLTAR À CAPA', hot, 5);
     c.fillStyle = hot ? '#fff8e4' : '#f6efdd';
     c.fillRect(r.x, r.y, r.w, r.h);
     c.strokeStyle = hot ? RED : 'rgba(26,22,20,0.35)';
     c.lineWidth = hot ? 2 : 1;
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
-    ink(c, items[i][0], r.x + 10, r.y + 3, 8, INK);
+    ink(c, items[i][0], r.x + 10, r.y + 2.5, 8, INK);
     ink(c, items[i][1], r.x + r.w - 10, r.y + 4, 5, hot ? RED : BLUE, 'right');
   });  // créditos da trilha, discretos no rodapé
   MUSIC_CREDIT_LINES.forEach((l, i) => ink(c, l, x + SAFE_W / 2, Math.min(view.h - 13, 227) + i * 6, 4, 'rgba(26,22,20,0.45)', 'center'));
@@ -525,7 +529,8 @@ function activateControl(s: AppState, a: Actions, i: number) {
 }
 
 function stepVolume(a: Actions, i: number, dir: number) {
-  a.setVolume(i === 1 ? 'sfx' : 'music', (i === 1 ? prefs.sfxPct : prefs.musPct) + dir * 10);
+  const k = VOL_KIND[i as 1 | 2 | 3];
+  a.setVolume(k, volOf(k) + dir * 10);
 }
 function activateOption(s: AppState, a: Actions, i: number) {
   if (i === 0) {
@@ -534,18 +539,18 @@ function activateOption(s: AppState, a: Actions, i: number) {
   }
   // volumes (efeitos e música): Enter/A aumenta 10% e, passando de 100%, volta ao mudo;
   // esquerda/direita e o toque nas metades do item diminuem/aumentam (stepVolume)
-  else if (i === 1 || i === 2) {
-    const cur = i === 1 ? prefs.sfxPct : prefs.musPct;
-    a.setVolume(i === 1 ? 'sfx' : 'music', cur >= 100 ? 0 : cur + 10);
+  else if (isVolItem(i)) {
+    const k = VOL_KIND[i as 1 | 2 | 3], cur = volOf(k);
+    a.setVolume(k, cur >= 100 ? 0 : cur + 10);
   }
-  else if (i === 3) setBtnSize((btnSizeIdx() + 1) % BTN_SIZES.length);
-  else if (i === 4) setGhostOn(!ghostOn());
-  else if (i === 5) setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]);
-  else if (i === 6) savePrefs({ hints: !prefs.hints });
-  else if (i === 7) savePrefs({ fps: !prefs.fps });
-  else if (i === 8) savePrefs({ fps30: !prefs.fps30 });
-  else if (i === 9) savePrefs({ view: (prefs.view + 1) % VIEW_LEVELS.length });
-  else if (i === 10) a.go('controls');
+  else if (i === 4) setBtnSize((btnSizeIdx() + 1) % BTN_SIZES.length);
+  else if (i === 5) setGhostOn(!ghostOn());
+  else if (i === 6) setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]);
+  else if (i === 7) savePrefs({ hints: !prefs.hints });
+  else if (i === 8) savePrefs({ fps: !prefs.fps });
+  else if (i === 9) savePrefs({ fps30: !prefs.fps30 });
+  else if (i === 10) savePrefs({ view: (prefs.view + 1) % VIEW_LEVELS.length });
+  else if (i === 11) a.go('controls');
   else a.go('title');
 }
 
@@ -1573,7 +1578,7 @@ export function focusables(s: AppState): FocusSet | null {
     case 'title':
       return { key: 'title', items: [...titleSigns().map((r, i) => sel(i, r)), { r: coverRect() }] };
     case 'options':
-      return { key: 'options', items: optionRects().map((r, i) => sel(i, r, i === 1 || i === 2 ? { lr: (d: number) => stepVolume(a, i, d) } : {})) };
+      return { key: 'options', items: optionRects().map((r, i) => sel(i, r, isVolItem(i) ? { lr: (d: number) => stepVolume(a, i, d) } : {})) };
     case 'controls':
       if (binding.action) return null;
       return { key: 'controls', items: ctrlRects().map((r, i) => sel(i, r)) };
@@ -1695,7 +1700,7 @@ function drawLegend(c: CanvasRenderingContext2D, s: AppState) {
   else {
     if (sc === 'car' || sc === 'dealer' || sc === 'collection') items.push('◀▶: carro');
     if (sc === 'course') items.push('◀▶: horário');
-    if (sc === 'options' && (s.sel === 1 || s.sel === 2)) items.push('◀▶: volume');
+    if (sc === 'options' && isVolItem(s.sel)) items.push('◀▶: volume');
     if ((sc === 'garage' && !careerUi.prep) || sc === 'prepDemo') items.push(`${cls}: carro`);
     items.push(`${ok}: ${sc === 'showroom' && !detail ? 'ver' : sc === 'dealer' ? 'comprar' : 'escolher'}`);
     if (sc !== 'title' || DESKTOP_UA) items.push(`${back}: ${sc === 'title' ? 'sair' : 'voltar'}`);
@@ -1751,7 +1756,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
       optionRects().forEach((r, i) => {
         if (!inside(x, y, r)) return;
         // volumes: metade esquerda do item diminui, direita aumenta
-        if (i === 1 || i === 2) {
+        if (isVolItem(i)) {
           s.sel = i;
           stepVolume(a, i, x < r.x + r.w / 2 ? -1 : 1);
         } else activateOption(s, a, i);
@@ -1859,7 +1864,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (navKey(s, a, k)) return;
   if (CAREER_SCREENS.includes(s.screen)) return keyCareerScreen(s, a, k);
-  const counts: Partial<Record<ScreenId, number>> = { title: 5, options: 12, opponent: oppList(s).length, course: COURSES.length };
+  const counts: Partial<Record<ScreenId, number>> = { title: 5, options: 13, opponent: oppList(s).length, course: COURSES.length };
   // percursos: cima/baixo escolhem, esquerda/direita trocam a hora (dia, entardecer, amanhecer, noite)
   if (s.screen === 'course' && (k === 'left' || k === 'right')) {
     const order: ArcadeTime[] = ['day', 'sunset', 'dawn', 'night'];
@@ -1902,7 +1907,7 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
     return;
   }
   if (!n) return;
-  if (s.screen === 'options' && (s.sel === 1 || s.sel === 2) && (k === 'left' || k === 'right')) return stepVolume(a, s.sel, k === 'right' ? 1 : -1);
+  if (s.screen === 'options' && isVolItem(s.sel) && (k === 'left' || k === 'right')) return stepVolume(a, s.sel, k === 'right' ? 1 : -1);
   const grid = s.screen === 'opponent';
   // adversário: LB/RB (Q/E) trocam a classe, como nos classificados
   if (grid && (k === 'prevTab' || k === 'nextTab')) {

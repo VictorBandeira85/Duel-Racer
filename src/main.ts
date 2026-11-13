@@ -1,3 +1,4 @@
+import { preloadScenery } from './sprites';
 import { preloadBgArt } from './bgart';
 import { carSwapWatch } from './carswap';
 import { freeBudget, newFrame } from './svgsprites';
@@ -29,6 +30,7 @@ import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
 preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.sideMask, c.rear.img, c.rear.imgMask, c.rear.frontImg, c.rear.frontMask]).filter((s): s is string => !!s), ...TRAFFIC_IMAGES);
 import { preloadPhotos } from './photos';
 preloadPhotos();
+preloadScenery();
 preloadBgArt(); // fundos desenhados (relevo do horizonte): prontos antes da primeira corrida
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;

@@ -8,7 +8,7 @@ import { adsReady } from './billboards';
 import { drawGlow, type Stops } from './glowsprite';
 import { beginLights, finishNight, pushCarBeam, pushOccluder, sirenGlow, sirenWash, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, LAMP_H, inCone, type Pass, type RoadPt } from './nightlight';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
-import { SPRITES } from './sprites';
+import { SPRITES, sceneryKey } from './sprites';
 import { FOG_COLOR, type BgLayer } from './themes';
 import type { Point, Segment } from './track';
 import { dither } from './ui';
@@ -625,7 +625,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       let drawn = null as ReturnType<typeof drawCrisp>;
       // na neblina: o sprite já tingido sai do cache (antes cada objeto passava por uma camada
       // extra a cada quadro, o que derrubava os quadros por segundo)
-      drawn = drawCrisp(c, `${sp.kind}${seed}${sp.kind === 'billboard' && !adsReady(seed) ? 'w' : ''}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed), 96, fk >= 0.02 ? [fogRgb, fk] : undefined);
+      drawn = drawCrisp(c, `${sp.kind}${seed}${sceneryKey(sp.kind)}${sp.kind === 'billboard' && !adsReady(seed) ? 'w' : ''}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed), 96, fk >= 0.02 ? [fogRgb, fk] : undefined);
       // tapa o farol dos carros que estão atrás deste objeto
       // (mureta, postes e balizas são baixos e finos: não escondem o clarão do farol)
       const dr = drawn as ReturnType<typeof drawCrisp>;

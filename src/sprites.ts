@@ -884,3 +884,37 @@ export const SPRITES: Record<SpriteKind, { w: number; h: number; draw: Draw; sol
   snowchalet: { w: 2800, h: 2600, draw: snowchalet, solid: true },
   snowman: { w: 700, h: 1000, draw: snowman, solid: true },
 };
+
+// Objetos desenhados pelo Victor (tools/ref/scenery_sprite.py: arte do gerador na grade nativa, recortada):
+// quando a imagem do tipo existe, ela substitui o desenho vetorial, na mesma base e altura; a largura segue
+// a proporção da arte (SCENERY_SIZE, em pixels do sprite). Enquanto carrega, vale o desenho vetorial.
+const SCENERY_ART = import.meta.glob('./assets/scenery/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+const SCENERY_SIZE: Partial<Record<SpriteKind, [number, number]>> = { tree: [66, 64], pine: [47, 70], snowpine: [53, 74], bush: [59, 25] };
+const sceneryImgs = new Map<SpriteKind, HTMLImageElement>();
+function sceneryImg(kind: SpriteKind): HTMLImageElement | null {
+  const src = SCENERY_ART[`./assets/scenery/${kind}.png`];
+  if (!src) return null;
+  let im = sceneryImgs.get(kind);
+  if (!im) {
+    im = new Image();
+    im.src = src;
+    sceneryImgs.set(kind, im);
+  }
+  return im.complete && im.naturalWidth ? im : null;
+}
+// parte da chave do cache do sprite: muda quando a arte termina de carregar (troca o desenho vetorial)
+export const sceneryKey = (kind: SpriteKind) => (sceneryImg(kind) ? 'a' : '');
+export const preloadScenery = () => (Object.keys(SCENERY_SIZE) as SpriteKind[]).forEach((k) => sceneryImg(k));
+for (const [kind, size] of Object.entries(SCENERY_SIZE) as [SpriteKind, [number, number]][]) {
+  if (!SCENERY_ART[`./assets/scenery/${kind}.png`]) continue;
+  const def = SPRITES[kind], vector = def.draw;
+  def.w = Math.round((def.h * size[0]) / size[1]);
+  def.draw = (c, x, y, w, h, seed) => {
+    const im = sceneryImg(kind);
+    if (!im) return vector(c, x, y, w, h, seed);
+    const sm = c.imageSmoothingEnabled;
+    c.imageSmoothingEnabled = false;
+    c.drawImage(im, x - w / 2, y - h, w, h);
+    c.imageSmoothingEnabled = sm;
+  };
+}

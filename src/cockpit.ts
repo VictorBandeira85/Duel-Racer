@@ -880,8 +880,9 @@ COCKPIT_ART['br-pumagtb'] = {
 // do óleo 0-3-5 kg/cm², temperatura do óleo 40-100-120, temperatura do motor (a ar) e combustível R-1/2-C.
 // Ponteiros brancos em barra que passam por cima do eixo (disco escuro embaixo), como na foto. Luzes apagadas
 // no fundo; o jogo acende: farol alto e neblina e a seta no velocímetro, bateria e óleo no conta-giros e a
-// lanterna (lente verde entre os dois). À noite o fundo continua preto e acendem números, marcações, ícones
-// e filetes em branco morno (br-pumagte-cluster-lit por cima do apagado, na medida do escuro da cabine).
+// lanterna (lente verde entre os dois). À noite, como na foto do quadro real aceso, o fundo continua preto e
+// acendem números, marcações e ícones em verde-menta claro, com um halo verde suave (br-pumagte-cluster-lit
+// por cima do apagado, na medida do escuro da cabine), e os ponteiros acendem vermelhos.
 const PG = { x: VG_X(76), y: VG_Y(38), w: (252 * 464) / 460, h: (58 * 128) / 124 }; // placa dos mostradores (onca_gte_gauges.py: 76, 38, 252 x 58)
 const PG_FACE = cp('br-pumagte-cluster'), PG_LIT = cp('br-pumagte-cluster-lit'), PG_LAMPS = cp('br-pumagte-lamps');
 // luzes-espia (centro e lado da casa, pixels do painel; onca_gte_gauges.py imprime)
@@ -908,6 +909,9 @@ function pumaCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   const art = COCKPIT_ART['br-pumagte'];
   const X = (x: number) => ox + VG_X(x), Y = (y: number) => ART_TOP + VG_Y(y); // medidas do painel -> tela
   const k = r.def ? Math.min(1, cabinDark(r) / 0.6) : 0;
+  // ponteiros: brancos de dia, vermelhos acesos à noite (foto do quadro real aceso)
+  art.needle = k > 0.5 ? '#ff4636' : '#eeeae0';
+  art.hub = k > 0.5 ? '#1c1414' : '#2c2c30';
   const sm = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = true;
   if (k > 0.02) {
@@ -949,7 +953,7 @@ function pumaCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   const [sx, sy, sr] = PG_SPEED;
   const drums = (v: number, n: number, cy: number, last: boolean) => {
     const s = String(Math.floor(v) % 10 ** n).padStart(n, '0');
-    for (let i = 0; i < n; i++) pix(c, s[i], X(sx + (i - (n - 1) / 2) * 0.115 * sr), Y(sy + cy * sr * PIX_Y), last && i === n - 1 ? '#18181a' : k > 0.3 ? '#efe2c4' : '#e2e0d8', 0.45);
+    for (let i = 0; i < n; i++) pix(c, s[i], X(sx + (i - (n - 1) / 2) * 0.115 * sr), Y(sy + cy * sr * PIX_Y), last && i === n - 1 ? '#18181a' : k > 0.3 ? '#8ef0bc' : '#e2e0d8', 0.45);
   };
   drums(16380 + km, 5, -0.24, false);
   drums((281.7 + km) * 10, 4, 0.22, true);
@@ -968,11 +972,11 @@ function pumaCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   let red = r.car.engine ? redlines.get(r.car.id) : 5600; // foto da revista: carro sem ficha
   if (!red) redlines.set(r.car.id, red = engineSpec(r.car.engine, r.car.id).redline);
   needle(c, X(PG_TACH[0]) - 0.5, Y(PG_TACH[1]) - 0.5, PG_TACH[2] * 0.62 + 2, pgTachA((Math.min(1, r.rpm) * red * (r.car.soundMods?.rev ?? 1)) / 1000) * VG_DEG, art);
-  // clarão morno do quadro aceso
+  // halo verde suave do quadro aceso
   if (k > 0.02) {
     c.save();
     c.globalCompositeOperation = 'lighter';
-    for (const [gx, gy, gr] of [PG_SPEED, PG_TACH, PG_OILP, PG_OILT, PG_TEMP, PG_FUEL]) drawGlow(c, X(gx), Y(gy), gr * 1.4, gr * 1.4, '255,226,180', 0.035 * k, GLOW_STOPS);
+    for (const [gx, gy, gr] of [PG_SPEED, PG_TACH, PG_OILP, PG_OILT, PG_TEMP, PG_FUEL]) drawGlow(c, X(gx), Y(gy), gr * 1.25, gr * 1.25, '80,230,150', 0.05 * k, GLOW_STOPS);
     c.restore();
   }
 }
@@ -988,7 +992,7 @@ COCKPIT_ART['br-pumagte'] = {
   speedMax: 200, speedRest: 18, tachReal: true,
   needle: '#eeeae0', needleW: 1.15, needleTail: 3.4, needleFine: true, needleTip: 0.7, hubUnder: true, hub: '#2c2c30', hubR: 2.4,
   faces: [{ src: PG_FACE, x: PG.x, y: PG.y, w: PG.w, h: PG.h }],
-  glow: '255,226,180', glowK: 0.35,
+  glow: '80,230,150', glowK: 0.45,
   aux: [],
   under: pumaUnder, extra: pumaCluster,
 };

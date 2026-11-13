@@ -17,8 +17,9 @@ quatro pequenos à direita, cada um no aro cromado da arte, que fica):
 - a lente verde entre os dois grandes (a da arte, lanterna acesa) também fica apagada aqui
 Sem marca nenhuma no mostrador (nada de VDO, nem o felino da Puma).
 O jogo desenha os ponteiros brancos em barra (o eixo com o disco escuro embaixo), os algarismos dos
-tambores e acende as luzes (pumaCluster em cockpit.ts). À noite o fundo continua preto e acendem
-números, marcações, ícones e filetes em branco morno (lâmpadas por trás, como nos VDO da época).
+tambores e acende as luzes (pumaCluster em cockpit.ts). À noite (foto do quadro real aceso) o fundo
+continua preto e acendem números, marcações e ícones em verde-menta claro, o filete do fim da escala do
+verde ao amarelo-esverdeado; os ponteiros acendem vermelhos (cockpit.ts).
 Saídas (4 px por pixel do jogo; placa X0..X1 x Y0..Y1 em pixels do painel, linhas 8:7):
   br-pumagte-cluster.png      de dia
   br-pumagte-cluster-lit.png  aceso (noite e túnel)
@@ -66,8 +67,10 @@ NUM_R, TICK_R0, TICK_R1 = 0.74, 0.50, 0.62     # grandes: centro dos números e 
 SNUM_R, STICK_R0, STICK_R1 = 0.66, 0.40, 0.52  # pequenos
 DAY = dict(face=(12, 12, 14), ink=(234, 230, 220), dim=(150, 148, 142), tan=(196, 168, 118), red=(204, 44, 34), orange=(222, 118, 40),
            lens_red=(70, 16, 14), lens_green=(18, 46, 26), icon_off=(70, 70, 72), drum=(16, 16, 18), white=(214, 212, 204))
-LIT = dict(face=(9, 9, 11), ink=(255, 240, 206), dim=(214, 200, 170), tan=(236, 196, 128), red=(255, 70, 46), orange=(255, 150, 60),
-           lens_red=(32, 8, 7), lens_green=(9, 22, 13), icon_off=(34, 34, 36), drum=(9, 9, 10), white=(150, 146, 136))
+# aceso (foto do quadro real à noite): números, marcações e ícones verde-menta claros sobre o preto, o filete do
+# fim da escala do verde ao amarelo-esverdeado, a reserva do combustível em vermelho
+LIT = dict(face=(8, 12, 12), ink=(84, 230, 162), dim=(60, 186, 136), tan=(80, 226, 146), red=(190, 232, 84), orange=(240, 70, 50), warn=(240, 70, 50),
+           lens_red=(32, 8, 7), lens_green=(9, 22, 13), icon_off=(26, 44, 36), drum=(8, 10, 10), white=(120, 150, 134))
 # luzes-espia: centro relativo ao mostrador (em R), meio-lado da casa (em R), cor acesa
 LAMPS = [('beam', SPEED, -0.62, 0.25, 0.11, (80, 150, 255)), ('fog', SPEED, -0.42, 0.49, 0.11, (70, 230, 90)),
          ('turn', SPEED, -0.22, 0.65, 0.09, (70, 240, 90)), ('batt', TACH, -0.66, 0.24, 0.11, (255, 56, 40)),
@@ -236,7 +239,7 @@ def small(im, d, pal, g, fa, marks, labels, unit=None, icon=None, red=None, oran
     R = g['R']
     face(d, g, pal)
     if red:
-        arc_band(d, g, fa(red[0]), fa(red[1]), R * 0.36, R * 0.42, pal['red'])
+        arc_band(d, g, fa(red[0]), fa(red[1]), R * 0.36, R * 0.42, pal.get('warn', pal['red']))  # marca de alerta: vermelha também acesa
     if orange:
         arc_band(d, g, fa(orange[0]), fa(orange[1]), R * 0.36, R * 0.42, pal['orange'])
     for v in marks:

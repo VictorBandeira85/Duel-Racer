@@ -12,8 +12,9 @@
   (Voyage LS 1986: voyage_sprites.py, voyage_cockpit.py, voyage_gauges.py, voyage_photos.py). O Ímola de
   quatro portas saiu do jogo (a cabine do cupê continua nos arquivos br-monzasedan-*).
   O Silber 95 (959) está atualizado: exterior, capas e cabine completa (painel da arte sem volante,
-  volante da arte com volante; tools/ref/silber_cockpit.py e silber_gauges.py). O Toro LP5 (Countach 5000 QV) está em atualização: exterior novo (tools/ref/countach_sprites.py, frente com
-  faróis escamoteáveis em countach-front-up), cabine e quadro em andamento. Os demais (ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Passat, Pumas) ficam como estão
+  volante da arte com volante; tools/ref/silber_cockpit.py e silber_gauges.py). O Toro LP5 (Countach 5000 QV) está atualizado: exterior novo (tools/ref/countach_sprites.py, frente com
+  faróis escamoteáveis em countach-front-up), cabine (lp5_cockpit.py: painel da arte sem volante, volante da com volante) e
+  quadro das fotos reais (lp5_cluster.py, aceso em verde à noite). Os demais (ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Passat, Pumas) ficam como estão
   até a arte nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
   Na dúvida, perguntar.
 

@@ -1273,34 +1273,156 @@ COCKPIT_ART.testarossa = {
 };
 
 
-// Toro LP5 (Countach): interior do Victor (com e sem volante, tools/ref/lp5_cockpit.py), couro
-// vermelho e o quadro Jaeger de verdade: óleo, bateria, velocímetro 0-320 com hodômetro,
-// conta-giros 0-90 (× 100) com faixa amarela e vermelha, combustível e água; números verdes
-const LP5_INK = '#bfe8cc';
+// Toro LP5 (Countach 5000 QV): interior novo do Victor (couro caramelo, tools/ref/lp5_cockpit.py: a arte
+// inteira cabe nas 460 colunas do painel, vidros por geometria, retrovisor esquerdo da arte com o vidro
+// transparente, forro construído no alto e o painel atrás do volante reconstruído) e o quadro Jaeger da
+// FOTO DO QUADRO REAL (tools/ref/lp5_cluster.py): placa prata, sete mostradores pretos de números
+// verde-claros — temperatura do óleo e voltímetro, velocímetro 0-320 km/h (com mph dentro), pressão do
+// óleo, conta-giros 0-90 "Giri x 100" (listrado, amarelo e vermelho no fim), combustível e água —, os
+// pequenos mais altos, com as caixas das luzes-espia embaixo. Ponteiros laranja afinados com rabicho curto,
+// passando por cima do disco escuro do eixo (foto); nos pequenos o ponteiro é uma barra que sai do eixo
+// na linha vertical, à direita, e a escala fica à esquerda. À noite os números e marcações acendem em
+// VERDE vivo sobre o preto (foto de noite) e os ponteiros ficam laranja-amarelados.
+const LP = { x: VG_X(37), y: VG_Y(27), w: (206 * 464) / 460, h: (38 * 128) / 124 }; // placa (lp5_cluster.py: 37, 27, 206 x 38)
+const LP_FACE = cp('countach-cluster'), LP_LIT = cp('countach-cluster-lit'), LP_LAMPS = cp('countach-lamps');
+const LP_DEG = Math.PI / 180;
+// mostradores (centro e raio do aro, pixels do painel; lp5_cluster.py imprime)
+const LP_SPEED = [110.67, 46.5, 14.8], LP_TACH = [168.17, 46.5, 14.8];
+const LP_SMALL = { oilt: [49.87, 40.58], volt: [78.75, 40.58], oilp: [139.56, 40.58], fuel: [200.36, 40.58], water: [229.24, 40.58] } as const;
+const LP_RS = 8.3;
+// luzes-espia (centro, largura e altura da janelinha), nas caixas embaixo dos pequenos de fora
+const LP_LAMP = {
+  left: [49.42, 57.16], beam: [64.31, 57.16], batt: [79.2, 57.16], oil: [199.91, 57.16], brake: [214.8, 57.16], right: [229.69, 57.16],
+} as const;
+const LP_LAMP_W = 14.89, LP_LAMP_H = 7.78;
+const LP_LAMP_RGB: Record<keyof typeof LP_LAMP, string> = { left: '60,240,90', right: '60,240,90', beam: '70,230,110', batt: '255,60,40', oil: '255,60,40', brake: '255,60,40' };
+// luzes-espia do painel de baixo (arte sem volante, apagadas no painel): lente de cada uma (x0, y0, x1, y1,
+// pixels do painel) e a cor; a acesa vem do recorte countach-dashlamps (canto 31, 78; lp5_cockpit.py imprime)
+const LP_DLAMPS = cp('countach-dashlamps');
+const LP_DLAMP = {
+  mil: [33.36, 80.49, 43.54, 88.35, '255,50,40'], temp: [45.46, 80.49, 56.74, 88.35, '255,50,40'], farol: [32.81, 91.18, 44.09, 99.99, '60,240,90'],
+  freio: [45.19, 91.18, 57.02, 99.99, '60,240,90'], porta: [58.67, 91.18, 70.5, 99.99, '255,50,40'], alto: [72.43, 91.18, 84.26, 99.99, '60,240,90'],
+} as const;
+function lp5Under(c: CanvasRenderingContext2D, ox: number, r: Race) {
+  // ponteiros: laranja de dia; à noite acesos, laranja-amarelados (foto de noite)
+  COCKPIT_ART.countach.needle = r.def && cabinDark(r) > 0.3 ? '#ffb238' : '#ff7a26';
+  if (!r.def) { // foto da revista (sem corrida): o fundo do quadro entra aqui
+    const im = faceImg(LP_FACE);
+    if (im) c.drawImage(im, ox + LP.x, ART_TOP + LP.y, LP.w, LP.h);
+  }
+}
+function lp5Cluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
+  const art = COCKPIT_ART.countach;
+  const X = (x: number) => ox + VG_X(x), Y = (y: number) => ART_TOP + VG_Y(y); // medidas do painel -> tela
+  const k = r.def ? Math.min(1, cabinDark(r) / 0.6) : 0;
+  const sm = c.imageSmoothingEnabled;
+  c.imageSmoothingEnabled = true;
+  if (k > 0.02) {
+    const im = faceImg(LP_LIT);
+    if (im) {
+      c.globalAlpha = k;
+      c.drawImage(im, ox + LP.x, ART_TOP + LP.y, LP.w, LP.h);
+      c.globalAlpha = 1;
+    }
+  }
+  // luzes-espia (apagadas no fundo): setas (verdes, com o relé; pisca-alerta na batida), farol (verde, à
+  // noite), bateria (motor parado), óleo (motor parado ou batido) e alerta do freio (batida)
+  // motor parado: só antes da largada (na corrida, parado no sinal, o motor está em marcha lenta)
+  const off = r.rpm < 0.05 && r.state !== 'drive', crash = r.state === 'crash', hurt = (r.damage ?? 0) > 0.6 || crash;
+  const blink = blinkOn();
+  const on: Record<keyof typeof LP_LAMP, boolean> = {
+    left: (r.signal < 0 || crash) && blink, right: (r.signal > 0 || crash) && blink, beam: !!r.def?.night, batt: off, oil: off || hurt, brake: hurt,
+  };
+  const lamps = Object.values(on).some(Boolean) ? faceImg(LP_LAMPS) : null;
+  if (lamps) {
+    const kx = lamps.naturalWidth / 206, ky = lamps.naturalHeight / 38;
+    const w = LP_LAMP_W - 0.5, h = LP_LAMP_H - 0.4;
+    for (const [n, [x, y]] of Object.entries(LP_LAMP)) {
+      if (!on[n as keyof typeof LP_LAMP]) continue;
+      const x0 = x - w / 2, y0 = y - h / 2;
+      c.drawImage(lamps, (x0 - 37) * kx, (y0 - 27) * ky, w * kx, h * ky, X(x0), Y(y0), X(x0 + w) - X(x0), Y(y0 + h) - Y(y0));
+    }
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (const [n, [x, y]] of Object.entries(LP_LAMP)) {
+      if (on[n as keyof typeof LP_LAMP]) drawGlow(c, X(x), Y(y), 6, 5, LP_LAMP_RGB[n as keyof typeof LP_LAMP], 0.3, GLOW_STOPS);
+    }
+    c.restore();
+  }
+  c.imageSmoothingEnabled = sm;
+  // painel de baixo: MIL (motor parado ou batido), TEMP vermelha (água quente ou motor parado), a verde do
+  // farol (à noite), FREIO (freio de mão: motor parado), PORTA (teste das lâmpadas, motor parado); a
+  // última verde não tem função na corrida
+  const don: Record<keyof typeof LP_DLAMP, boolean> = { mil: off || hurt, temp: off || gauges.water > 0.72, farol: !!r.def?.night, freio: off, porta: off, alto: false };
+  const dl = Object.values(don).some(Boolean) ? faceImg(LP_DLAMPS) : null;
+  if (dl) {
+    for (const [n, [x0, y0, x1, y1]] of Object.entries(LP_DLAMP)) {
+      if (!don[n as keyof typeof LP_DLAMP]) continue;
+      const a = Math.floor(x0), b = Math.floor(y0), w = Math.ceil(x1) - a, h = Math.ceil(y1) - b;
+      c.drawImage(dl, a - 31, b - 78, w, h, X(a), Y(b), X(a + w) - X(a), Y(b + h) - Y(b));
+    }
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (const [n, [x0, y0, x1, y1, rgb]] of Object.entries(LP_DLAMP))
+      if (don[n as keyof typeof LP_DLAMP]) drawGlow(c, X((x0 + x1) / 2), Y((y0 + y1) / 2), 7, 6, rgb, 0.28, GLOW_STOPS);
+    c.restore();
+  }
+  // tambores do hodômetro (seis) e do parcial (quatro, com décimos: o último é claro de algarismo preto)
+  const km = r.track ? Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600) : 0;
+  const [sx, sy, sr] = LP_SPEED;
+  const F = sr * 0.86;
+  const drums = (v: number, n: number, cy: number, last: boolean) => {
+    const s = String(Math.floor(v) % 10 ** n).padStart(n, '0');
+    for (let i = 0; i < n; i++) pix(c, s[i], X(sx + (i - (n - 1) / 2) * 0.105 * F), Y(sy + cy * F * PIX_Y), last && i === n - 1 ? '#141416' : k > 0.3 ? '#9cffb4' : '#e6eee8', 0.36);
+  };
+  drums(31842 + km, 6, -0.27, false);
+  drums((128.6 + km) * 10, 4, 0.27, true);
+  // pequenos: a barra laranja sai do eixo (na linha vertical, à direita e abaixo do centro) até o arco
+  // das marcações, que tem o centro à direita do mostrador (lp5_cluster.py: SM_Q, SM_RR, SM_A, SM_P)
+  const motor = !off;
+  const saved = needleTip;
+  needleTip = 0.7;
+  const bar = (g: readonly [number, number], f: number) => {
+    const [gx, gy] = g, R = LP_RS;
+    const a = (157 + 46 * clamp(f, -0.06, 1.06)) * LP_DEG;
+    const px = gx + 0.15 * R, py = gy + 0.17 * R * PIX_Y;
+    const tx = gx + (0.5 + Math.cos(a) * 0.86 * 0.95) * R, ty = gy + Math.sin(a) * 0.86 * 0.95 * R * PIX_Y;
+    const dx = tx - px, dy = (ty - py) / PIX_Y;
+    fineNeedle(c, X(px), Y(py), Math.hypot(dx, dy), Math.atan2(dy, dx), 0.75, art.needle, art.hub, 0, 0);
+  };
+  const oilT = motor ? 50 + clamp((gauges.oiltemp - 0.25) / 0.35, 0, 1) * 45 : 45; // °C (escala 50 / 90 / 150)
+  bar(LP_SMALL.oilt, oilT <= 90 ? (oilT - 50) / 80 : 0.5 + (oilT - 90) / 120);
+  bar(LP_SMALL.volt, ((motor ? 13.4 + (gauges.volt - 0.55) * 10 : 12.2) - 10) / 6); // 10-16 V
+  bar(LP_SMALL.oilp, motor ? (1.5 + clamp((gauges.oil - 0.3) / 0.35, 0, 1.2) * 4.5) / 10 : -0.05); // 0-10 bar
+  bar(LP_SMALL.fuel, gauges.fuel);
+  bar(LP_SMALL.water, motor ? gauges.water : 0.1); // 40-120 °C
+  needleTip = saved;
+  // clarão verde do quadro aceso
+  if (k > 0.02) {
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    for (const [gx, gy, gr] of [LP_SPEED, LP_TACH, [...LP_SMALL.oilt, LP_RS], [...LP_SMALL.volt, LP_RS], [...LP_SMALL.oilp, LP_RS], [...LP_SMALL.fuel, LP_RS], [...LP_SMALL.water, LP_RS]])
+      drawGlow(c, X(gx), Y(gy), gr * 1.3, gr * 1.3, '90,255,120', 0.05 * k, GLOW_STOPS);
+    c.restore();
+  }
+}
 COCKPIT_ART.countach = {
-  glass: { at: [28, 68], thr: 256 }, // retrovisor esquerdo desenhado (tools/qa/add_mirror.py)
-  glow: '120,230,150',
+  tells: null, // setas nas caixas de luzes-espia (lp5Cluster)
   dash: cp('countach-dash'), top: cp('countach-top'), wheel: cp('countach-wheel'),
-  pivot: [128, 104], wheelTop: 8, speedMax: 320, needle: '#ff7a1a', needleW: 1.5, needleTail: 3, hub: '#1a1a1c', radar: [196, 4],
-  speed: { x: 84.5, y: 46.6, r: 25.4, max: 320, labels: [0, 40, 80, 120, 160, 200, 240, 280, 320], tick: 10, red: 999, labelScale: 0.7, ink: LP5_INK, bg: '#0a0b0b' },
-  tach: { x: 173.4, y: 46.6, r: 24.8, max: 9, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], labelMul: 10, tick: 0.5, yellow: 7, red: 7.5, labelScale: 0.7, redLabels: false, ink: LP5_INK, bg: '#0a0b0b' },
-  // como no carro (tools/ref/lp5_cluster.py): à esquerda temperatura do óleo e bateria,
-  // no meio a pressão do óleo, à direita combustível e temperatura da água
-  aux: [
-    { x: 14.2, y: 42, r: 13.2, kind: 'single', show: ['oiltemp'], icon: 'temp', labels: ['50', '100', '150'], labelIn: 4, ink: LP5_INK },
-    { x: 43.1, y: 42, r: 13.2, kind: 'single', show: ['volt'], icon: 'volt', labels: ['10', '13', '16'], labelIn: 4, ink: LP5_INK },
-    { x: 128.9, y: 42, r: 13.2, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '5', '10'], labelIn: 4, ink: LP5_INK },
-    { x: 213.9, y: 42, r: 13.2, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1/2', '1'], labelIn: 4, ink: LP5_INK },
-    { x: 242.4, y: 42, r: 13.2, kind: 'single', show: ['water'], icon: 'temp', labels: ['40', '80', '120'], labelIn: 4, ink: LP5_INK },
-  ],
-  extra: (c, ox, r) => {
-    odometer(c, ox, r, { x: 78.5, y: 39.6, w: 12, h: 3.5 }, 24600, 6, 0.5);
-    odometer(c, ox, r, { x: 80.5, y: 51.9, w: 8, h: 3.5 }, 12.8, 4, 0.5, true);
-    // escudo da marca embaixo, no velocímetro e no conta-giros
-    drawLogo(c, brandOf('toro-lp5'), ox + 82.5, ART_TOP + 61, 0.5);
-    drawLogo(c, brandOf('toro-lp5'), ox + 171.4, ART_TOP + 61, 0.5);
-  },
+  glass: { at: [36, 96], thr: 256 }, // retrovisor esquerdo da arte (vidro transparente, fechado pela carcaça)
+  // o volante acompanha o painel esticado (464 x 128): 2 colunas à direita e 2,6 linhas abaixo
+  pivot: [129.65, 80.49], wheelTop: 10, wheelDx: 2, wheelDy: 2.6,
+  pod: { x: 263, y: 22, r: 7.5, face: 'black', bezel: 'black', needle: '#ff7a26', lit: 'green' }, radar: [212, 14], // relógios em copos no alto do painel, à direita do quadro (antes da saída de ar)
+  speedMax: 320, speedRest: 7, tachReal: true,
+  needle: '#ff7a26', needleW: 1.05, needleTail: 2.8, needleFine: true, needleTip: 0.3, hubUnder: true, hub: '#2a2c2c', hubR: 1.8,
+  speed: { x: VG_X(LP_SPEED[0]) - 0.5, y: VG_Y(LP_SPEED[1]) - 0.5, r: 13, max: 320, labels: [], tick: 20, red: 999, face: false, a0: 135 * LP_DEG, sweep: 270 * LP_DEG },
+  tach: { x: VG_X(LP_TACH[0]) - 0.5, y: VG_Y(LP_TACH[1]) - 0.5, r: 13, max: 9, labels: [], tick: 1, red: 999, face: false, a0: 147.6 * LP_DEG, sweep: 245 * LP_DEG },
+  faces: [{ src: LP_FACE, x: LP.x, y: LP.y, w: LP.w, h: LP.h }],
+  glow: '90,255,120', glowK: 0.35,
+  aux: [],
+  under: lp5Under, extra: lp5Cluster,
 };
+queueMicrotask(() => faceImg(LP_FACE)); // a foto da revista (interiorPhoto) precisa do fundo do quadro já carregado
 
 // Kaze NX (NSX): interior do Victor espelhado para volante à esquerda (tools/ref/nsx_cockpit.py);
 // quadro como o do carro: painel cinza escovado, conta-giros 0-9 (faixa vermelha a partir de 8) e
@@ -1378,7 +1500,7 @@ const artImages = (a: CockpitArt) => [a.dash, a.top, a.wheel, a.dashMask, a.topM
 export const hasCockpitArt = (dash: string) => !!COCKPIT_ART[dash];
 // quadros acesos e luzes-espia desenhados à parte (carregados junto com a cabine)
 const EXTRA_FACES: Record<string, string[]> = {
-  'br-voyage': [VG_LIT, VG_LAMPS], 'br-voyagesport': [VS_LIT, VS_LAMPS], 'br-santana': [SN_LIT, SN_LAMPS], '959': [SB_LIT, SB_LAMPS],
+  'br-voyage': [VG_LIT, VG_LAMPS], 'br-voyagesport': [VS_LIT, VS_LAMPS], 'br-santana': [SN_LIT, SN_LAMPS], '959': [SB_LIT, SB_LAMPS], countach: [LP_LIT, LP_LAMPS, LP_DLAMPS],
 };
 const faceList = (dash: string, a: CockpitArt) => [...(a.faces ?? []).map((f) => f.src), ...(EXTRA_FACES[dash] ?? [])].filter(Boolean);
 export function preloadCockpit(dash: string) {

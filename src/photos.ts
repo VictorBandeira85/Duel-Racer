@@ -98,6 +98,14 @@ export const PS_PHOTOS: Photo[] = ([
   { src: ph('ps-historia'), kicker: 'HISTÓRIA', kc: '#1a6a2a', title: 'A ERA GTS', sub: 'De 1983 a 1986, a evolução do esportivo da Ipê', inside: ['Do 1.6 ao motor 1.8', 'Bancos de concha listrados', 'A faixa que virou marca'], box: [8, 8, 552, 307] },
   { src: ph('ps-emblema'), kicker: 'USADOS', kc: '#1a1614', title: 'GTS DE GARAGEM', sub: 'Como achar um Passeio 1.8 inteiro e original', inside: ['Lanterna e emblemas certos', 'Ferrugem: onde olhar', 'Quanto pagar hoje'], box: [90, 20, 470, 240] },
 ] as Photo[]).filter((p) => !!p.src);
+// Onça GTE (Puma GTE): tools/ref/pumagte_photos.py
+export const PG_PHOTOS: Photo[] = ([
+  { src: ph('pg-rio'), kicker: 'CLÁSSICOS', kc: '#d01f26', title: 'ONÇA GTE', sub: 'O esportivo de fibra feito no Brasil, de frente para o Pão de Açúcar', inside: ['Boxer 1.6 a ar atrás', 'Só 680 kg de carro', 'Rodas de liga de série'], box: [33, 98, 530, 286] },
+  { src: ph('pg-sucesso'), kicker: 'EXPORTAÇÃO', kc: '#1e4fb8', title: 'SUCESSO LÁ FORA', sub: 'O cupê de fibra que conquistou estradas do mundo inteiro', inside: ['Carroceria de fibra de vidro', 'Chassi de tubo reforçado', 'Quem compra lá fora'], box: [72, 36, 542, 302] },
+  { src: ph('pg-especiais'), kicker: 'FORA DE SÉRIE', kc: '#1a6a2a', title: 'OS ESPECIAIS', sub: 'O Onça, o jipe e o bugue: carros de fibra feitos à mão no Brasil', inside: ['Pequenas fábricas, grandes ideias', 'Mecânica a ar de sedã', 'Quanto custam hoje'], box: [6, 6, 554, 309] },
+  { src: ph('pg-teste'), kicker: 'TESTE', kc: '#d01f26', title: 'NOVAS LINHAS', sub: 'O Onça GTE verde na pista de testes: 170 km/h e 0 a 100 em 11 s', inside: ['Painel com cinco relógios', 'Consumo na estrada', 'Volante esportivo de três raios'], box: [4, 4, 556, 311] },
+  { src: ph('pg-mosaico'), kicker: 'DETALHES', kc: '#1a1614', title: 'GTE PEÇA POR PEÇA', sub: 'Faróis, grade, rodas e lanternas do esportivo de fibra', inside: ['Como achar um original', 'Peças que ainda se acham', 'GTE, GTB ou conversível?'], box: [3, 29, 557, 285] },
+] as Photo[]).filter((p) => !!p.src);
 // Silber 95 (Porsche 959): tools/ref/silber_photos.py
 export const P9_PHOTOS: Photo[] = ([
   { src: ph('p9-floresta'), kicker: 'LENDA', kc: '#1a1614', title: 'SILBER 95', sub: 'Boxer 6 biturbo de 2,85 L e 450 cv, com tração integral', inside: ['317 km/h de máxima', 'Kevlar e alumínio', 'Rodas de magnésio'], box: [118, 118, 431, 240] },
@@ -124,7 +132,7 @@ export const PC_PHOTOS: Photo[] = [
   { src: ph('pc-kitturbo'), kicker: 'PREPARAÇÃO', kc: '#d01f26', title: 'KIT TURBO', sub: 'Peça por peça, o que vai no seu motor', inside: ['Downpipe de 2,5 ou 3,5 pol', 'Qual turbina escolher', 'Monte o seu na oficina'], box: [10, 5, 550, 310] },
   { src: ph('pc-coletor'), kicker: 'PREPARAÇÃO', kc: '#1a1614', title: 'ADMISSÃO DE CORRIDA', sub: 'Coletor de dutos longos e pressão de sobra', inside: ['Turbo ou supercharger?', 'Polia menor, mais pressão', 'Visite a oficina'], box: [95, 40, 465, 280] },
 ].filter((p) => !!p.src);
-export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...VG_PHOTOS, ...VS_PHOTOS, ...SN_PHOTOS, ...PS_PHOTOS, ...P9_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
+export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...VG_PHOTOS, ...VS_PHOTOS, ...SN_PHOTOS, ...PS_PHOTOS, ...PG_PHOTOS, ...P9_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
 
 // Enquadramento: a foto cobre o quadro e a caixa do carro (p.box) fica inteira e centrada na área
 // livre (sem a faixa vermelha de baixo, 'bottom' px), com uma aproximação lenta (u: 0..1) que nunca

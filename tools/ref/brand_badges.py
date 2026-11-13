@@ -54,9 +54,10 @@ WHEELS = {
   'f40': (128, 117, 15, 0), '959': (128.5, 97, 13, 10), 'patrol': (129, 121, 11, 0),
   'diablo': (128.7, 131, 15, 0), 'br-vectra': (129, 108, 13, 0), 'br-golgti': (128, 135, 13, 0),
   'br-kadett': (128, 104, 11, 0), 'br-uno': (128, 106, 11, 7), 'br-corsa': (127, 112, 13, 8),
-  'br-passat': (129, 112, 13, 8), 'br-pumagtb': (128.5, 127, 13, 9), 'br-pumagte': (128.5, 116, 13, 10),
+  'br-pumagtb': (128.5, 127, 13, 9), 'br-pumagte': (128.5, 116, 13, 10),
   'zr1': (128, 90, 13, 0), 'testarossa': (128, 117, 15, 0), 'nsx': (129.1, 115.9, 21, 0),
   'viper': (131, 125, 17, 0), 'countach': (131.6, 92.4, 13, 0),  # lp5_cockpit.py (arte nova)
+  # br-passat: o volante da arte nova já sai com o emblema (passat_cockpit2.py)
 }
 ZR1_CLEAR = (128, 90, 15, 13)  # elipse do emblema largo do C4
 ELL = {'zr1': ZR1_CLEAR, 'testarossa': (128, 117, 13.6, 15.8), 'f40': (128, 117, 13.6, 15.8), 'diablo': (128.7, 132, 14.5, 17)}  # emblemas apagados por uma elipse

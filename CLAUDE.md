@@ -14,7 +14,9 @@
   O Silber 95 (959) está atualizado: exterior, capas e cabine completa (painel da arte sem volante,
   volante da arte com volante; tools/ref/silber_cockpit.py e silber_gauges.py). O Toro LP5 (Countach 5000 QV) está atualizado: exterior novo (tools/ref/countach_sprites.py, frente com
   faróis escamoteáveis em countach-front-up), cabine (lp5_cockpit.py: painel da arte sem volante, volante da com volante) e
-  quadro das fotos reais (lp5_cluster.py, aceso em verde à noite). Os demais (ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Passat, Pumas) ficam como estão
+  quadro das fotos reais (lp5_cluster.py, aceso em verde à noite). Passeio GTS (Passat): cabine nova (tools/ref/passat_cockpit2.py:
+  painel da arte sem volante, volante da com volante, emblema da Ipê) com o quadro do Savana GLS por decisão do Victor
+  (passatPlate em cockpit.ts); o exterior e as capas do Passat seguem à parte. Os demais (ZR1, Patrol, Vectra, Kadett, Corsa, Uno, Pumas) ficam como estão
   até a arte nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
   Na dúvida, perguntar.
 
@@ -70,7 +72,8 @@
   (um em cima do outro, mesmo tamanho) e só publicar quando baterem a forma dos mostradores (redondos,
   cortados, em painel), o lado do pivô e do arco de cada mostrador pequeno, a posição dos números em
   relação às marcações, o formato do ponteiro (barra ou afinado: `needleTip`) e as luzes-espia.
-  Quadros só ficam parecidos entre carros que usam o mesmo quadro de verdade (Ímola hatch/sedã/cupê).
+  Quadros só ficam parecidos entre carros que usam o mesmo quadro de verdade (Ímola hatch/sedã/cupê;
+  Passeio GTS usa o quadro do Savana GLS por decisão do Victor).
 - Ponteiros: conferir parado e acelerando (print dos dois). O conta-giros mostra o giro de verdade na
   escala do mostrador (`tachReal`), o velocímetro descansa onde o real descansa (`speedRest`), e o
   formato vem da foto. **Olhar o centro do ponteiro na foto ampliada**: na Fúria TR a barra atravessa o

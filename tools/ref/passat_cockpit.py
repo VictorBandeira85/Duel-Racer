@@ -1,4 +1,6 @@
-"""Acabamento da cabine do Passeio GTS (depois de import_cockpit.py br-passat e de
+"""SUBSTITUÍDO por passat_cockpit2.py (arte nova do Victor, com e sem volante): não rodar mais.
+
+Acabamento da cabine do Passeio GTS (depois de import_cockpit.py br-passat e de
 gtb_rim_fix.py ... ceu):
 - branco preso entre a porta e o retrovisor (o vidro lateral visto na arte): transparente (céu)
 - volante: o emblema da marca vira o fictício

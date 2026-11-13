@@ -600,7 +600,7 @@ function santanaUnder(c: CanvasRenderingContext2D, ox: number, r: Race) {
     if (im) c.drawImage(im, ox + SN.x, ART_TOP + SN.y, SN.w, SN.h);
   }
 }
-function santanaCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
+function santanaCluster(c: CanvasRenderingContext2D, ox: number, r: Race, switches = true) {
   const art = COCKPIT_ART['br-santana'];
   const X = (x: number) => ox + VG_X(x), Y = (y: number) => ART_TOP + VG_Y(y); // medidas da arte -> tela
   const k = r.def ? Math.min(1, cabinDark(r) / 0.6) : 0;
@@ -615,7 +615,7 @@ function santanaCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
     }
   }
   // interruptores à esquerda do quadro (apagados na arte): desembaçador traseiro na chuva, farol de neblina na neblina
-  const sw = [r.def?.weather === 'rain', r.def?.weather === 'fog'];
+  const sw = switches ? [r.def?.weather === 'rain', r.def?.weather === 'fog'] : [false, false]; // o Passeio (mesmo quadro) não tem os interruptores
   const swi = sw.some(Boolean) ? faceImg(SN_SWITCH_ON) : null;
   if (swi) {
     const half = swi.naturalHeight * (8.5 / 17.1);
@@ -1069,56 +1069,38 @@ COCKPIT_ART['br-corsa'] = {
   },
 };
 
-// Passeio GTS: quadro VDO como o do carro — velocímetro 20-220 com hodômetro e parcial,
-// conta-giros 0-7 com faixa vermelha e, embaixo dele, água e combustível; no meio a coluna de
-// luzes-espia (seta, bateria, óleo, farol alto, freio de mão) e o relógio digital
+// Passeio GTS (Passat GTS Pointer 1985): interior novo do Victor (tools/ref/passat_cockpit2.py, no molde do
+// Savana: painel da arte sem volante, volante de quatro raios da arte com volante e centrado no quadro,
+// emblema da Ipê na almofada, vidros e limpadores recortados, retrovisor interno fora, retrovisor esquerdo
+// da arte com o vidro do jogo, friso da coluna na cor do carro). O quadro é O MESMO do Savana GLS (decisão
+// do Victor: o Passat e o Santana usam o mesmo VDO): a janela do quadro da arte virou a placa cinza lisa e
+// o quadro do Savana (fundos, ponteiros, escalas, luzes-espia, hodômetros, relógio e o aceso oliva) é
+// desenhado nela, escalado (PS_K) e centrado: santanaUnder/santanaCluster com a tela transformada.
+const PS_K = 1.06; // quadro do Savana na janela do Passeio (passat_cockpit2.py: janela 67,82..188,18 x 41,83..93,9)
+const PS = { x: VG_X(128 - (105.4 * PS_K) / 2), y: VG_Y(67.87 - (48.19 * PS_K) / 2), w: SN.w * PS_K, h: SN.h * PS_K };
+// leva o que santanaUnder/santanaCluster desenham na placa do Savana para a janela do Passeio
+function passatPlate(c: CanvasRenderingContext2D, ox: number, draw: () => void) {
+  c.save();
+  c.translate(ox + PS.x - (ox + SN.x) * PS_K, ART_TOP + PS.y - (ART_TOP + SN.y) * PS_K);
+  c.scale(PS_K, PS_K);
+  draw();
+  c.restore();
+}
 COCKPIT_ART['br-passat'] = {
+  tells: null,
   dash: cp('br-passat-dash'), top: cp('br-passat-top'), wheel: cp('br-passat-wheel'),
-  pivot: [128.1, 103.8], wheelDx: 10, speedMax: 220, needle: '#f0e0b8', needleW: 1.5, needleTail: 3, hub: '#161618', radar: [206, 4],
-  glass: { at: [30, 100] }, tells: null,
-  speed: { x: 105.3, y: 61.2, r: 20.5, max: 220, labels: [20, 60, 100, 140, 180, 220], tick: 10, boldTicks: true, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, bg: '#101113' },
-  tach: { x: 171.8, y: 61.2, r: 20.5, max: 7, labels: [1, 2, 3, 4, 5, 6, 7], tick: 0.5, boldTicks: true, red: 6, a0: Math.PI * 0.75, sweep: Math.PI * 1.25, labelScale: 0.7, redLabels: false, redInk: '#ff6a1a', bg: '#101113' },
+  dashMask: cp('br-passat-dash-mask'), topMask: cp('br-passat-top-mask'),
+  glass: { at: [33, 128], thr: 256 }, // vidro do retrovisor esquerdo da arte (transparente)
+  pivot: [128, 104], wheelTop: 2, wheelDy: 14, // o volante fica onde está na arte, 14 linhas abaixo do pivô do painel
+  // relógios da preparação na coluna, rente à borda do para-brisa (medida no topo: coluna opaca até x 97 na
+  // linha 24, 101 na 59); radar em cima do painel, à direita da caixa do quadro (borda do painel na linha 42)
+  pod: { x: -14, y: -52, r: 7.5, dx: 2.4, dy: 17.5, pillar: '#1c1b22', face: 'black', bezel: 'black', lit: 'green' }, radar: [226, 36],
+  speedMax: 220, needle: '#f0ecd8', needleW: 1.0, needleTail: 2.3, needleFine: true, needleTip: 0.4, hubUnder: true, hub: '#232326', hubR: 2.1,
+  faces: [{ src: SN_FACE, x: PS.x, y: PS.y, w: PS.w, h: PS.h }],
+  glow: '150,170,60', glowK: 0.5,
   aux: [],
-  extra: (c, ox, r) => {
-    const T = ART_TOP;
-    odometer(c, ox, r, { x: 102, y: 53, w: 8, h: 3 }, 14387, 5, 0.5);
-    odometer(c, ox, r, { x: 102.3, y: 68.5, w: 6, h: 3 }, 26.4, 3, 0.5, true);
-    // água e combustível como no VDO do carro: dois arcos curtos na parte de baixo do
-    // conta-giros, cada um com seu ponteiro creme; marca branca no começo, laranja no fim
-    // (água quente / reserva) e o ícone embaixo
-    const mini = (cx: number, cy: number, a0: number, a1: number, v: number, warnEnd: boolean, icon: 'temp' | 'fuel') => {
-      const R = 7;
-      const at = (a: number, rr: number): [number, number] => [ox + cx + Math.cos(a) * rr, T + cy + Math.sin(a) * rr * PIX_Y];
-      for (let i = 0; i <= 4; i++) {
-        const a = a0 + ((a1 - a0) * i) / 4;
-        const [x, y] = at(a, R);
-        c.fillStyle = i === 0 ? '#f0f0f0' : i === 4 ? '#ff7a1a' : '#c8c8c8';
-        c.fillRect(Math.round(x * 2) / 2 - 0.25, Math.round(y * 2) / 2 - 0.25, i === 0 || i === 4 ? 1 : 0.5, i === 0 || i === 4 ? 1 : 0.5);
-      }
-      const a = a0 + (a1 - a0) * clamp(warnEnd ? v : 1 - v, 0, 1);
-      hand(c, ox + cx, T + cy, a, R - 0.5, '#f0e0b8');
-      drawIcon(c, icon, ox + cx + (icon === 'temp' ? -9 : 7), T + cy - 1.5, '#d8d8d8'); // embaixo, por fora do arco
-    };
-    mini(166, 79.5, Math.PI * 1.12, Math.PI * 1.42, gauges.water, true, 'temp');
-    mini(177.5, 79.5, Math.PI * 1.88, Math.PI * 1.58, gauges.fuel, false, 'fuel');
-    // coluna de luzes: duas fileiras de cinco (apagadas escuras na cor) e o relógio
-    const blink = r.signal !== 0 && blinkOn();
-    const wreck = r.state === 'crash' || r.damage > 0.6;
-    const lamps: [string, string, boolean][] = [
-      ['#123a18', '#3cf048', blink], ['#3a0e0c', '#ff3020', wreck], ['#3a2a0c', '#ffb020', gauges.oil < 0.36 || wreck], ['#0e1a40', '#4a7cff', !!r.def?.night], ['#3a0e0c', '#ff3020', r.state === 'ticket'],
-    ];
-    // centrados na coluna do meio do quadro (colunas 131-145 da arte, meio em 138,5)
-    const CX = 138;
-    lamps.forEach(([off, on, lit], i) => {
-      const row = Math.floor(i / 3), n = row ? 2 : 3, k = i % 3;
-      const x = ox + CX - (n * 2.5 + (n - 1) * 1.5) / 2 + k * 4, y = T + 47 + row * 4.5;
-      rect(c, x, y, 2.5, 3, lit ? on : off);
-    });
-    rect(c, ox + CX - 5, T + 66, 10, 5.5, '#9aa88a');
-    rect(c, ox + CX - 5, T + 66, 10, 0.5, '#c4d0b4');
-    const now = new Date();
-    pix(c, `${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, '0')}`, ox + CX, T + 68.75, '#1c2418', 0.5);
-  },
+  under: (c, ox, r) => passatPlate(c, ox, () => santanaUnder(c, ox, r)),
+  extra: (c, ox, r) => passatPlate(c, ox, () => santanaCluster(c, ox, r, false)),
 };
 
 // Corvette C4: arte do Victor com os visores de LCD redesenhados funcionando
@@ -1500,7 +1482,7 @@ const artImages = (a: CockpitArt) => [a.dash, a.top, a.wheel, a.dashMask, a.topM
 export const hasCockpitArt = (dash: string) => !!COCKPIT_ART[dash];
 // quadros acesos e luzes-espia desenhados à parte (carregados junto com a cabine)
 const EXTRA_FACES: Record<string, string[]> = {
-  'br-voyage': [VG_LIT, VG_LAMPS], 'br-voyagesport': [VS_LIT, VS_LAMPS], 'br-santana': [SN_LIT, SN_LAMPS], '959': [SB_LIT, SB_LAMPS], countach: [LP_LIT, LP_LAMPS, LP_DLAMPS],
+  'br-voyage': [VG_LIT, VG_LAMPS], 'br-voyagesport': [VS_LIT, VS_LAMPS], 'br-santana': [SN_LIT, SN_LAMPS], 'br-passat': [SN_LIT, SN_LAMPS], '959': [SB_LIT, SB_LAMPS], countach: [LP_LIT, LP_LAMPS, LP_DLAMPS],
 };
 const faceList = (dash: string, a: CockpitArt) => [...(a.faces ?? []).map((f) => f.src), ...(EXTRA_FACES[dash] ?? [])].filter(Boolean);
 export function preloadCockpit(dash: string) {

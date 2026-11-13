@@ -659,6 +659,7 @@ function settingsLabels() {
     fps30: ['QUADROS', prefs.fps30 ? '30 FPS' : '60 FPS'],
     fx: ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')],
     view: ['VISÃO DO PAINEL', VIEW_LEVELS[prefs.view].label],
+    hud: ['PAINEL DIGITAL', prefs.hud ? 'LIGADO' : 'DESLIGADO'],
   };
   document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b) => {
     const [k, v] = lab[b.dataset.set!];
@@ -695,6 +696,7 @@ document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b)
     case 'fps': savePrefs({ fps: !prefs.fps }); break;
     case 'fps30': savePrefs({ fps30: !prefs.fps30 }); break;
     case 'view': savePrefs({ view: (prefs.view + 1) % VIEW_LEVELS.length }); resize(); break;
+    case 'hud': savePrefs({ hud: !prefs.hud }); break;
     case 'fx': setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]); resize(); break;
   }
   settingsLabels();

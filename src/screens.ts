@@ -438,7 +438,7 @@ function activateTitle(s: AppState, i: number, a: Actions) {
 }
 
 // ---------- opções ----------
-const optionRects = () => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i): Rect => ({ x: ox() + 40, y: 31 + i * 15, w: 240, h: 13.5 }));
+const optionRects = () => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((i): Rect => ({ x: ox() + 40, y: 31 + i * 14, w: 240, h: 12.5 }));
 // itens de volume dos ajustes: 1 efeitos, 2 música na corrida, 3 música do menu
 const VOL_KIND = { 1: 'sfx', 2: 'music', 3: 'menu' } as const;
 const isVolItem = (i: number) => i >= 1 && i <= 3;
@@ -476,17 +476,17 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
   const items: [string, string][] = [
     ['CÂMBIO', s.auto ? 'AUTOMÁTICO' : 'MANUAL'], ['VOLUME DOS EFEITOS', `◀ ${volLabel(prefs.sfxPct)} ▶`], ['MÚSICA NA CORRIDA', `◀ ${volLabel(prefs.musPct)} ▶`], ['MÚSICA DO MENU', `◀ ${volLabel(prefs.menuPct)} ▶`],
     ['BOTÕES', BTN_SIZES[btnSizeIdx()].label], ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'],
-    ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')], ['DICAS NA TELA', prefs.hints ? 'LIGADAS' : 'DESLIGADAS'], ['MOSTRAR FPS', prefs.fps ? 'SIM' : 'NÃO'], ['QUADROS', prefs.fps30 ? '30 FPS' : '60 FPS'], ['VISÃO DO PAINEL', VIEW_LEVELS[prefs.view].label], ['CONTROLES', 'TECLAS ▶'], ['', ''],
+    ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')], ['DICAS NA TELA', prefs.hints ? 'LIGADAS' : 'DESLIGADAS'], ['MOSTRAR FPS', prefs.fps ? 'SIM' : 'NÃO'], ['QUADROS', prefs.fps30 ? '30 FPS' : '60 FPS'], ['VISÃO DO PAINEL', VIEW_LEVELS[prefs.view].label], ['PAINEL DIGITAL', prefs.hud ? 'LIGADO' : 'DESLIGADO'], ['CONTROLES', 'TECLAS ▶'], ['', ''],
   ];
   optionRects().forEach((r, i) => {
     const hot = s.sel === i;
-    if (i === 12) return tag(c, { x: r.x + 60, y: r.y + 0.5, w: r.w - 120, h: 12.5 }, '◀ VOLTAR À CAPA', hot, 5);
+    if (i === 13) return tag(c, { x: r.x + 60, y: r.y + 0.5, w: r.w - 120, h: 11.5 }, '◀ VOLTAR À CAPA', hot, 5);
     c.fillStyle = hot ? '#fff8e4' : '#f6efdd';
     c.fillRect(r.x, r.y, r.w, r.h);
     c.strokeStyle = hot ? RED : 'rgba(26,22,20,0.35)';
     c.lineWidth = hot ? 2 : 1;
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
-    ink(c, items[i][0], r.x + 10, r.y + 2.5, 8, INK);
+    ink(c, items[i][0], r.x + 10, r.y + 2, 8, INK);
     ink(c, items[i][1], r.x + r.w - 10, r.y + 4, 5, hot ? RED : BLUE, 'right');
   });  // créditos da trilha, discretos no rodapé
   MUSIC_CREDIT_LINES.forEach((l, i) => ink(c, l, x + SAFE_W / 2, Math.min(view.h - 13, 227) + i * 6, 4, 'rgba(26,22,20,0.45)', 'center'));
@@ -550,7 +550,8 @@ function activateOption(s: AppState, a: Actions, i: number) {
   else if (i === 8) savePrefs({ fps: !prefs.fps });
   else if (i === 9) savePrefs({ fps30: !prefs.fps30 });
   else if (i === 10) savePrefs({ view: (prefs.view + 1) % VIEW_LEVELS.length });
-  else if (i === 11) a.go('controls');
+  else if (i === 11) savePrefs({ hud: !prefs.hud });
+  else if (i === 12) a.go('controls');
   else a.go('title');
 }
 
@@ -1864,7 +1865,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (navKey(s, a, k)) return;
   if (CAREER_SCREENS.includes(s.screen)) return keyCareerScreen(s, a, k);
-  const counts: Partial<Record<ScreenId, number>> = { title: 5, options: 13, opponent: oppList(s).length, course: COURSES.length };
+  const counts: Partial<Record<ScreenId, number>> = { title: 5, options: 14, opponent: oppList(s).length, course: COURSES.length };
   // percursos: cima/baixo escolhem, esquerda/direita trocam a hora (dia, entardecer, amanhecer, noite)
   if (s.screen === 'course' && (k === 'left' || k === 'right')) {
     const order: ArcadeTime[] = ['day', 'sunset', 'dawn', 'night'];

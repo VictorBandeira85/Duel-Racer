@@ -37,19 +37,25 @@
     </div>
     <div id="settings" class="hidden">
       <b>AJUSTES</b>
+      <div class="tabs">
+        <button data-tab="0"></button>
+        <button data-tab="1"></button>
+        <button data-tab="2"></button>
+        <button data-tab="3"></button>
+      </div>
       <div class="grid">
-        <button data-set="volume"></button>
-        <button data-set="sfxvol"></button>
-        <button data-set="track"></button>
-        <button data-set="gear"></button>
-        <button data-set="buttons"></button>
-        <button data-set="ghost"></button>
-        <button data-set="fx"></button>
-        <button data-set="hints"></button>
-        <button data-set="fps"></button>
-        <button data-set="fps30"></button>
-        <button data-set="view"></button>
-        <button data-set="hud"></button>
+        <button data-set="gear" data-in="0"></button>
+        <button data-set="buttons" data-in="0"></button>
+        <button data-set="fx" data-in="1"></button>
+        <button data-set="fps30" data-in="1"></button>
+        <button data-set="fps" data-in="1"></button>
+        <button data-set="view" data-in="1"></button>
+        <button data-set="sfxvol" data-in="2"></button>
+        <button data-set="volume" data-in="2"></button>
+        <button data-set="track" data-in="2"></button>
+        <button data-set="hud" data-in="3"></button>
+        <button data-set="hints" data-in="3"></button>
+        <button data-set="ghost" data-in="3"></button>
       </div>
       <button id="setBack">◀ VOLTAR</button>
       <small id="credits"></small>

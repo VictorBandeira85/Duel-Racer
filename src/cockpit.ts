@@ -3147,72 +3147,84 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   else if (!r.auto && (!touch.ui || pad.connected)) drawGearHud(c, r);
 }
 
-// Painel digital (estilo dos jogos de corrida de 16 bits): no canto de cima à direita do para-brisa,
-// a barra de giro em arco (segmentos verdes, amarelos e vermelhos, que acendem com o giro de verdade),
-// a velocidade em algarismos de sete segmentos vermelhos com "km/h", a marcha e o cronômetro.
-// Liga e desliga em PAINEL DIGITAL (ajustes); ligado por padrão.
+// Painel digital (estilo dos jogos de corrida de 16 bits, como o Top Racer): no canto de cima à direita do
+// para-brisa, a barra de giro que sobe reta à esquerda, faz a curva e segue reta por cima (segmentos
+// grossos em faixa preta: verdes, amarelos e vermelhos, apagados em tom escuro da mesma cor), a velocidade
+// em algarismos de sete segmentos ITÁLICOS vermelhos numa caixa preta com "km/h", o cronômetro em
+// algarismos brancos grossos com contorno preto (00'32"55) e a marcha. PAINEL DIGITAL nos ajustes.
 const HUD7 = ['abcdef', 'bc', 'abged', 'abgcd', 'fgbc', 'afgcd', 'afgedc', 'abc', 'abcdefg', 'abfgcd'];
 function hudSeg7(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, d: number, on: string, off: string) {
-  const t = 2, hh = (h - t) / 2, s = d < 0 ? '' : HUD7[d];
-  const bar = (k: string, bx: number, by: number, bw: number, bh: number) => {
+  const t = 2.8, hh = h / 2, sl = 0.22, s = d < 0 ? '' : HUD7[d];
+  // segmento como paralelogramo inclinado (itálico): x desloca com a altura
+  const q = (k: string, pts: number[]) => {
     c.fillStyle = s.includes(k) ? on : off;
-    c.fillRect(bx, by, bw, bh);
+    c.beginPath();
+    for (let i = 0; i < pts.length; i += 2) {
+      const px = x + pts[i] + (h - pts[i + 1]) * sl, py = y + pts[i + 1];
+      if (i) c.lineTo(px, py);
+      else c.moveTo(px, py);
+    }
+    c.fill();
   };
-  bar('a', x + 1, y, w - 2, t);
-  bar('g', x + 1, y + hh, w - 2, t);
-  bar('d', x + 1, y + h - t, w - 2, t);
-  bar('f', x, y + 1, t, hh);
-  bar('b', x + w - t, y + 1, t, hh);
-  bar('e', x, y + hh + 1, t, hh);
-  bar('c', x + w - t, y + hh + 1, t, hh);
+  const g = 0.6; // folga entre segmentos
+  q('a', [g + t / 2, 0, w - g - t / 2, 0, w - g - t, t, g + t, t]);
+  q('g', [g + t / 2, hh, g + t, hh - t / 2, w - g - t, hh - t / 2, w - g - t / 2, hh, w - g - t, hh + t / 2, g + t, hh + t / 2]);
+  q('d', [g + t, h - t, w - g - t, h - t, w - g - t / 2, h, g + t / 2, h]);
+  q('f', [0, g + t / 2, t, g + t, t, hh - g - t / 2, 0, hh - g]);
+  q('b', [w - t, g + t, w, g + t / 2, w, hh - g, w - t, hh - g - t / 2]);
+  q('e', [0, hh + g, t, hh + g + t / 2, t, h - g - t, 0, h - g - t / 2]);
+  q('c', [w - t, hh + g + t / 2, w, hh + g, w, h - g - t / 2, w - t, h - g - t]);
 }
+const hudTime = (sec: number) => {
+  const m = Math.floor(sec / 60), s2 = Math.floor(sec % 60), cs = Math.floor((sec * 100) % 100);
+  return `${String(m).padStart(2, '0')}'${String(s2).padStart(2, '0')}"${String(cs).padStart(2, '0')}`;
+};
 function drawDigitalHud(c: CanvasRenderingContext2D, r: Race, totalTime: number, vp: Viewport) {
-  const W = 92, x0 = Math.round(vp.x + vp.w - W - 3), y0 = Math.round(vp.y + 3);
-  // fundo escuro discreto (lê sobre o céu claro e sobre a noite)
-  c.fillStyle = 'rgba(8,8,12,0.55)';
-  c.beginPath();
-  c.roundRect(x0, y0, W, 37, 3);
-  c.fill();
-  // barra de giro: sobe em quarto de círculo à esquerda e segue reta para a direita
-  const N = 26, rpm = clamp(r.rpm, 0, 1.05), redFrom = 0.85;
-  const cx = x0 + 12, cy = y0 + 15, R = 9, straight = W - 16;
-  const arcLen = (Math.PI / 2) * R, total = arcLen + straight - cx + x0 + 4;
+  const W = 104, x0 = Math.round(vp.x + vp.w - W - 3), y0 = Math.round(vp.y + 3);
+  // barra de giro: trecho reto subindo à esquerda, quarto de círculo e trecho reto por cima
+  const N = 30, rpm = clamp(r.rpm, 0, 1.05), redFrom = 0.8, yelFrom = 0.55;
+  const cx = x0 + 14, cy = y0 + 13, R = 8, up = 10, top = W - 18;
+  const L = up + (Math.PI / 2) * R + top;
+  const at = (d: number): [number, number, number] => {
+    if (d < up) return [cx - R, cy + up - d, Math.PI]; // subindo
+    d -= up;
+    const arc = (Math.PI / 2) * R;
+    if (d < arc) { const an = Math.PI + d / R; return [cx + Math.cos(an) * R, cy + Math.sin(an) * R, an]; }
+    return [cx + (d - arc), cy - R, Math.PI * 1.5];
+  };
+  // faixa preta por baixo de todos os segmentos
+  c.fillStyle = '#000';
+  for (let k = 0; k <= 60; k++) {
+    const [px, py, an] = at((k / 60) * L);
+    c.save(); c.translate(px, py); c.rotate(an + Math.PI / 2); c.fillRect(-1.6, -4.4, 3.2, 8.8); c.restore();
+  }
   for (let i = 0; i < N; i++) {
     const f = i / (N - 1);
-    const d = (i + 0.5) / N * total;
-    let px: number, py: number, ang: number;
-    if (d < arcLen) {
-      ang = Math.PI + d / R; // de 180° (esquerda) a 270° (em cima)
-      px = cx + Math.cos(ang) * R;
-      py = cy + Math.sin(ang) * R;
-    } else {
-      ang = Math.PI * 1.5;
-      px = cx + (d - arcLen);
-      py = cy - R;
-    }
-    const col = f >= redFrom ? ['#ff2a1a', '#4a0c08'] : f >= 0.6 ? ['#ffd21a', '#3e3408'] : ['#38e040', '#0c3a10'];
+    const [px, py, an] = at(((i + 0.5) / N) * L);
+    // degradê do verde ao amarelo e ao vermelho, como no original; apagado = a mesma cor bem escura
+    const col = f >= redFrom ? ['#ff2418', '#4a0e0a'] : f >= yelFrom ? (f < (yelFrom + redFrom) / 2 ? ['#c8e020', '#33380a'] : ['#f0b818', '#3e2c08']) : ['#30e038', '#0a3a10'];
     const lit = rpm >= f - 0.001 && r.rpm > 0.02;
-    c.save();
-    c.translate(px, py);
-    c.rotate(ang + Math.PI / 2);
-    c.fillStyle = '#000';
-    c.fillRect(-1.6, -3.4, 3.2, 6.8);
+    c.save(); c.translate(px, py); c.rotate(an + Math.PI / 2);
     c.fillStyle = lit ? col[0] : col[1];
-    c.fillRect(-1, -2.8, 2, 5.6);
+    c.fillRect(-1.1, -3.6, 2.2, 7.2);
     c.restore();
   }
-  // velocidade: três algarismos de sete segmentos e km/h
+  // caixa preta da velocidade
+  const bx = x0 + 22, by = y0 + 11, bw = W - 22, bh = 19;
+  c.fillStyle = '#000';
+  c.fillRect(bx, by, bw, bh);
   const kmh = Math.min(999, Math.round(r.speed * KMH));
   const digits = String(kmh).padStart(3, ' ').split('').map((ch) => (ch === ' ' ? -1 : Number(ch)));
-  digits.forEach((dg, i) => hudSeg7(c, x0 + 28 + i * 11, y0 + 12, 8, 13, dg, '#ff3a22', 'rgba(70,12,8,0.45)'));
-  text(c, 'km/h', x0 + 63, y0 + 19, 4, '#ff5a3a', 'left', null);
-  // marcha: número grande à esquerda (N parado; no automático com "A" pequeno)
+  digits.forEach((dg, i) => hudSeg7(c, bx + 4 + i * 15, by + 2, 11, 15, dg, '#ff3020', '#2a0604'));
+  text(c, 'km/h', bx + bw - 2, by + bh - 7, 5, '#ff1e14', 'right', null);
+  // marcha (N parado; pisca na troca; AT no automático)
   const g = r.speed < 1 && !r.throttle ? 'N' : String(r.gear + 1);
   const shifting = r.pt.shiftT > 0 && Math.floor(performance.now() / 70) % 2 === 0;
-  pix(c, g, x0 + 15, y0 + 19, shifting ? '#7a5418' : '#ffb030', 2);
-  if (r.auto) text(c, 'AUT', x0 + 15, y0 + 28, 4, '#c08a30', 'center', null);
-  // cronômetro do percurso
-  pix(c, formatTime(totalTime + r.time), x0 + W / 2 + 6, y0 + 31, '#f2f2f2');
+  // na linha do cronômetro, à esquerda, bem abaixo do começo da barra de giro (folga de ~7 px)
+  text(c, g, x0 + 7, y0 + 32, 8, shifting ? '#7a5418' : '#ffffff', 'center', '#000');
+  if (r.auto) text(c, 'AT', x0 + 14, y0 + 36, 4, '#ffffff', 'left', '#000');
+  // cronômetro: branco grosso com contorno preto, embaixo da caixa
+  text(c, hudTime(totalTime + r.time), bx + bw / 2, by + bh + 2, 8, '#ffffff', 'center', '#000');
 }
 
 // Marcha engatada (câmbio manual): visor pequeno no teto, à direita do retrovisor, como um

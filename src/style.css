@@ -67,15 +67,27 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
   background: rgba(20,14,8,0.86); font-size: 6vh; z-index: 30;
 }
 #settings b {
-  background: #d01f26; color: #ffd21a; padding: 1.6vh 5vh; text-shadow: 0.5vh 0.5vh 0 #1a1614;
+  background: #d01f26; color: #ffd21a; padding: 1.4vh 5vh; font-size: 5vh; text-shadow: 0.5vh 0.5vh 0 #1a1614;
   box-shadow: 0 0 0 0.6vh #efe6d2, 1vh 1vh 0 0.6vh rgba(0,0,0,0.4);
 }
-#settings .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.6vh 2vh; }
+/* abas (fichas de fichário) presas no alto da página; a escolhida em vermelho com o filete amarelo */
+#settings .tabs { display: flex; gap: 1vh; margin-bottom: -2.2vh; position: relative; z-index: 1; }
+#settings .tabs button {
+  min-width: 22vh; text-align: center; padding: 1.5vh 1.6vh 1.3vh; font-size: 2.5vh; background: #e9dfc8; color: #1a1614;
+  border: 0.4vh solid #1a1614; border-bottom: 0; box-shadow: none;
+}
+#settings .tabs button.on { background: #d01f26; color: #ffd21a; box-shadow: inset 0 0.6vh 0 #ffd21a; }
+/* página da aba: só os itens dela, numa coluna larga */
+#settings .grid {
+  display: grid; grid-template-columns: 1fr; gap: 1.6vh; padding: 2.4vh 3vh; background: #fbf6e8;
+  border: 0.4vh solid #1a1614; box-shadow: 1vh 1vh 0 rgba(0,0,0,0.35); min-width: 96vh;
+}
 #settings button {
   background: #f6efdd; color: #1a1614; border: 0; border-bottom: 0.7vh solid #d01f26; padding: 1.8vh 3vh; font-size: 2.8vh;
   box-shadow: 0.8vh 0.8vh 0 rgba(0,0,0,0.35); min-width: 52vh; text-align: left;
 }
-#settings button span { float: right; color: #1f4fd0; max-width: 28vh; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 2.4vh; line-height: 2.8vh; }
+#settings .grid button { padding: 2.1vh 3vh; font-size: 3.2vh; box-shadow: 0.5vh 0.5vh 0 rgba(0,0,0,0.25); border: 0.2vh solid rgba(26,22,20,0.35); border-bottom: 0.7vh solid #d01f26; }
+#settings button span { float: right; color: #1f4fd0; max-width: 44vh; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 3vh; line-height: 3.2vh; }
 #settings #setBack { background: #1a1614; color: #fff; text-align: center; min-width: 40vh; }
 #settings #credits { font-size: 1.7vh; color: rgba(255,255,255,0.4); text-align: center; max-width: 92vw; line-height: 1.6; }
 #settings button:active { background: #d01f26; color: #ffd21a; }

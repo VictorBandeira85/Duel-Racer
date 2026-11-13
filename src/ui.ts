@@ -138,7 +138,8 @@ export function speckle(c: CanvasRenderingContext2D, base: string, dots: [string
 // toque no meio do item). lr: esquerda/direita mudam o valor do item (volume, cor, carro) em
 // vez de andar. edge: o que fazer quando a seta não acha vizinho (virar página, rolar a lista)
 export interface Focusable { r: Rect; is?: () => boolean; pick?: () => void; act?: () => void; lr?: (d: number) => void }
-export interface FocusSet { key: string; items: Focusable[]; def?: number; edge?: (k: 'up' | 'down' | 'left' | 'right') => boolean }
+// jump: vizinho escolhido pela própria tela antes da busca por posição (-1 = usar a busca)
+export interface FocusSet { key: string; items: Focusable[]; def?: number; edge?: (k: 'up' | 'down' | 'left' | 'right') => boolean; jump?: (k: 'up' | 'down' | 'left' | 'right', cur: number) => number }
 // vizinho na direção: a linha (ou coluna) mais próxima daquele lado e, nela, o mais alinhado;
 // -1 = não há
 export function spatialStep(rs: Rect[], cur: number, k: 'up' | 'down' | 'left' | 'right') {

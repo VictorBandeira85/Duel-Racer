@@ -437,11 +437,23 @@ function activateTitle(s: AppState, i: number, a: Actions) {
   a.go((['car', 'careerMenu', 'showroom', 'scores', 'options'] as ScreenId[])[i]);
 }
 
-// ---------- opções ----------
-const optionRects = () => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((i): Rect => ({ x: ox() + 40, y: 31 + i * 14, w: 240, h: 12.5 }));
-// itens de volume dos ajustes: 1 efeitos, 2 música na corrida, 3 música do menu
-const VOL_KIND = { 1: 'sfx', 2: 'music', 3: 'menu' } as const;
-const isVolItem = (i: number) => i >= 1 && i <= 3;
+// ---------- opções: quatro abas (fichas no alto da página) ----------
+export const OPT_TABS = ['CONTROLES', 'GRÁFICOS', 'ÁUDIO', 'INTERFACE'];
+// aba escolhida: a mesma nos ajustes do menu e nos da pausa, enquanto o jogo estiver aberto
+export const optTab = { i: 0 };
+type OptId = 'gear' | 'buttons' | 'keys' | 'fx' | 'fps30' | 'fps' | 'view' | 'sfx' | 'music' | 'menu' | 'hud' | 'hints' | 'ghost' | 'back';
+const OPT_ITEMS: OptId[][] = [['gear', 'buttons', 'keys'], ['fx', 'fps30', 'fps', 'view'], ['sfx', 'music', 'menu'], ['hud', 'hints', 'ghost']];
+// itens da aba atual (o último é sempre VOLTAR À CAPA); s.sel é o índice nesta lista, -1 = foco nas abas
+const optItems = (): OptId[] => [...OPT_ITEMS[optTab.i], 'back'];
+const optTabRects = () => OPT_TABS.map((_, i): Rect => ({ x: ox() + 22 + i * 70, y: 21, w: 66, h: 13 }));
+const optionRects = () => optItems().map((id, i): Rect => (id === 'back' ? { x: ox() + 100, y: 197, w: 120, h: 14 } : { x: ox() + 28, y: 44 + i * 36, w: SAFE_W - 56, h: 30 }));
+export function setOptTab(i: number) {
+  optTab.i = (i + OPT_TABS.length) % OPT_TABS.length;
+}
+// itens de volume dos ajustes: efeitos, música na corrida, música do menu
+const VOL_KIND: Partial<Record<OptId, 'sfx' | 'music' | 'menu'>> = { sfx: 'sfx', music: 'music', menu: 'menu' };
+const volKindAt = (i: number) => { const id = optItems()[i]; return id ? VOL_KIND[id] : undefined; };
+const isVolItem = (i: number) => !!volKindAt(i);
 const volOf = (k: 'sfx' | 'music' | 'menu') => (k === 'sfx' ? prefs.sfxPct : k === 'music' ? prefs.musPct : prefs.menuPct);
 // tamanho dos botões de toque (direção, acelerador, freio, marchas), salvo no aparelho
 const BTN_SIZES = [{ label: 'PEQUENOS', k: 0.8 }, { label: 'MÉDIOS', k: 1 }, { label: 'GRANDES', k: 1.22 }, { label: 'ENORMES', k: 1.45 }];
@@ -471,24 +483,62 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
   const x = ox();
   paper(c);
   masthead(c, 'AJUSTES DO LEITOR');
-  kicker(c, 'EXPEDIENTE', x + 4, 22, RED, '#fff');
-  ink(c, 'Toque num item para mudar', x + 70, 24, 5, GREY);
-  const items: [string, string][] = [
-    ['CÂMBIO', s.auto ? 'AUTOMÁTICO' : 'MANUAL'], ['VOLUME DOS EFEITOS', `◀ ${volLabel(prefs.sfxPct)} ▶`], ['MÚSICA NA CORRIDA', `◀ ${volLabel(prefs.musPct)} ▶`], ['MÚSICA DO MENU', `◀ ${volLabel(prefs.menuPct)} ▶`],
-    ['BOTÕES', BTN_SIZES[btnSizeIdx()].label], ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'],
-    ['GRÁFICOS', FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '')], ['DICAS NA TELA', prefs.hints ? 'LIGADAS' : 'DESLIGADAS'], ['MOSTRAR FPS', prefs.fps ? 'SIM' : 'NÃO'], ['QUADROS', prefs.fps30 ? '30 FPS' : '60 FPS'], ['VISÃO DO PAINEL', VIEW_LEVELS[prefs.view].label], ['PAINEL DIGITAL', prefs.hud ? 'LIGADO' : 'DESLIGADO'], ['CONTROLES', 'TECLAS ▶'], ['', ''],
-  ];
+  // página da aba (papel com contorno de tinta) e as fichas por cima, a escolhida em vermelho
+  const pg: Rect = { x: x + 16, y: 34, w: SAFE_W - 32, h: 156 };
+  c.fillStyle = 'rgba(40,30,20,0.25)';
+  c.fillRect(pg.x + 3, pg.y + 3, pg.w, pg.h);
+  c.fillStyle = '#fbf6e8';
+  c.fillRect(pg.x, pg.y, pg.w, pg.h);
+  c.strokeStyle = INK;
+  c.lineWidth = 1;
+  c.strokeRect(pg.x + 0.5, pg.y + 0.5, pg.w - 1, pg.h - 1);
+  optTabRects().forEach((r, i) => {
+    const on = optTab.i === i;
+    c.fillStyle = INK;
+    c.fillRect(r.x - 1, r.y - 1, r.w + 2, r.h + (on ? 2 : 1));
+    c.fillStyle = on ? RED : '#e9dfc8';
+    c.fillRect(r.x, r.y, r.w, r.h + (on ? 1 : 0));
+    if (on) {
+      c.fillStyle = YELLOW;
+      c.fillRect(r.x, r.y, r.w, 2);
+    }
+    ink(c, OPT_TABS[i], r.x + r.w / 2 + 0.5, r.y + 5, 5, on ? YELLOW : INK, 'center');
+  });
+  const fx = FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '');
+  const info: Record<Exclude<OptId, 'back'>, [string, string, string]> = {
+    gear: ['CÂMBIO', s.auto ? 'AUTOMÁTICO' : 'MANUAL', 'Automático troca sozinho; manual na sua mão'],
+    buttons: ['BOTÕES', BTN_SIZES[btnSizeIdx()].label, 'Tamanho dos botões de toque na corrida'],
+    keys: ['TECLAS', 'TROCAR ▶', 'Teclas do teclado e mapa do controle'],
+    fx: ['GRÁFICOS', fx, 'Automático vira econômico se o jogo pesar'],
+    fps30: ['QUADROS', prefs.fps30 ? '30 FPS' : '60 FPS', '30 por segundo para aparelhos mais fracos'],
+    fps: ['MOSTRAR FPS', prefs.fps ? 'SIM' : 'NÃO', 'Contador de quadros no canto da tela'],
+    view: ['VISÃO DO PAINEL', VIEW_LEVELS[prefs.view].label, 'Quanto da pista aparece na cabine'],
+    sfx: ['EFEITOS', `◀ ${volLabel(prefs.sfxPct)} ▶`, 'Motor, pneus, trânsito e buzinas'],
+    music: ['MÚSICA NA CORRIDA', `◀ ${volLabel(prefs.musPct)} ▶`, 'Trilha que toca durante a corrida'],
+    menu: ['MÚSICA DO MENU', `◀ ${volLabel(prefs.menuPct)} ▶`, 'Trilha da capa e das páginas da revista'],
+    hud: ['PAINEL DIGITAL', prefs.hud ? 'LIGADO' : 'DESLIGADO', 'Giro, velocidade e marcha no canto da tela'],
+    hints: ['DICAS NA TELA', prefs.hints ? 'LIGADAS' : 'DESLIGADAS', 'Lembrete das teclas na largada (teclado)'],
+    ghost: ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO', 'Seu melhor tempo correndo junto'],
+  };
+  const ids = optItems();
   optionRects().forEach((r, i) => {
-    const hot = s.sel === i;
-    if (i === 13) return tag(c, { x: r.x + 60, y: r.y + 0.5, w: r.w - 120, h: 11.5 }, '◀ VOLTAR À CAPA', hot, 5);
+    const hot = s.sel === i, id = ids[i];
+    if (id === 'back') return tag(c, r, '◀ VOLTAR À CAPA', hot, 5);
+    const [k, v, h] = info[id];
     c.fillStyle = hot ? '#fff8e4' : '#f6efdd';
     c.fillRect(r.x, r.y, r.w, r.h);
     c.strokeStyle = hot ? RED : 'rgba(26,22,20,0.35)';
     c.lineWidth = hot ? 2 : 1;
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
-    ink(c, items[i][0], r.x + 10, r.y + 2, 8, INK);
-    ink(c, items[i][1], r.x + r.w - 10, r.y + 4, 5, hot ? RED : BLUE, 'right');
-  });  // créditos da trilha, discretos no rodapé
+    if (hot) {
+      c.fillStyle = RED;
+      c.fillRect(r.x, r.y, 3, r.h);
+    }
+    ink(c, k, r.x + 9, r.y + 6, 8, INK);
+    ink(c, v, r.x + r.w - 8, r.y + 6, 8, hot ? RED : BLUE, 'right');
+    ink(c, h, r.x + 9, r.y + 19, 5, GREY);
+  });
+  // créditos da trilha, discretos no rodapé
   MUSIC_CREDIT_LINES.forEach((l, i) => ink(c, l, x + SAFE_W / 2, Math.min(view.h - 13, 227) + i * 6, 4, 'rgba(26,22,20,0.45)', 'center'));
 }
 // ---------- controles: teclas do teclado (trocáveis) e o mapa do controle ----------
@@ -525,34 +575,46 @@ function drawControls(c: CanvasRenderingContext2D, s: AppState) {
 function activateControl(s: AppState, a: Actions, i: number) {
   if (i < ACTIONS.length) binding.action = ACTIONS[i].id;
   else if (i === ACTIONS.length) resetBinds();
-  else a.go('options');
+  else backToOptions(s, a);
+}
+// volta aos ajustes já no item TECLAS (aba CONTROLES)
+function backToOptions(s: AppState, a: Actions) {
+  a.go('options');
+  s.sel = Math.max(0, optItems().indexOf('keys'));
 }
 
 function stepVolume(a: Actions, i: number, dir: number) {
-  const k = VOL_KIND[i as 1 | 2 | 3];
-  a.setVolume(k, volOf(k) + dir * 10);
+  const k = volKindAt(i);
+  if (k) a.setVolume(k, volOf(k) + dir * 10);
+}
+// troca de aba (LB/RB, Q/E, PageUp/PageDown, toque na ficha): o foco vai para o primeiro item,
+// ou fica nas abas se já estava nelas
+function switchOptTab(s: AppState, i: number) {
+  setOptTab(i);
+  s.sel = s.sel < 0 ? -1 : 0;
 }
 function activateOption(s: AppState, a: Actions, i: number) {
-  if (i === 0) {
+  const id = optItems()[i], vk = volKindAt(i);
+  if (id === 'gear') {
     s.auto = !s.auto;
     savePrefs({ auto: s.auto });
   }
   // volumes (efeitos e música): Enter/A aumenta 10% e, passando de 100%, volta ao mudo;
   // esquerda/direita e o toque nas metades do item diminuem/aumentam (stepVolume)
-  else if (isVolItem(i)) {
-    const k = VOL_KIND[i as 1 | 2 | 3], cur = volOf(k);
-    a.setVolume(k, cur >= 100 ? 0 : cur + 10);
+  else if (vk) {
+    const cur = volOf(vk);
+    a.setVolume(vk, cur >= 100 ? 0 : cur + 10);
   }
-  else if (i === 4) setBtnSize((btnSizeIdx() + 1) % BTN_SIZES.length);
-  else if (i === 5) setGhostOn(!ghostOn());
-  else if (i === 6) setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]);
-  else if (i === 7) savePrefs({ hints: !prefs.hints });
-  else if (i === 8) savePrefs({ fps: !prefs.fps });
-  else if (i === 9) savePrefs({ fps30: !prefs.fps30 });
-  else if (i === 10) savePrefs({ view: (prefs.view + 1) % VIEW_LEVELS.length });
-  else if (i === 11) savePrefs({ hud: !prefs.hud });
-  else if (i === 12) a.go('controls');
-  else a.go('title');
+  else if (id === 'buttons') setBtnSize((btnSizeIdx() + 1) % BTN_SIZES.length);
+  else if (id === 'ghost') setGhostOn(!ghostOn());
+  else if (id === 'fx') setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]);
+  else if (id === 'hints') savePrefs({ hints: !prefs.hints });
+  else if (id === 'fps') savePrefs({ fps: !prefs.fps });
+  else if (id === 'fps30') savePrefs({ fps30: !prefs.fps30 });
+  else if (id === 'view') savePrefs({ view: (prefs.view + 1) % VIEW_LEVELS.length });
+  else if (id === 'hud') savePrefs({ hud: !prefs.hud });
+  else if (id === 'keys') a.go('controls');
+  else if (id === 'back') a.go('title');
 }
 
 // ---------- escolha do carro ----------
@@ -1124,7 +1186,8 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   // rodas girando conforme o carro anda (para a esquerda: giro anti-horário), paradas na bomba
   const wr = (car.wheels?.[0]?.[2] ?? 0.07) * 170;
   const carX = Math.round(x + 80 + 320 * (1 - arr.pos));
-  drawCarSide(c, carX, 176 + arr.dip, 170, car, paintHex(car.id), (-320 * arr.pos) / wr);
+  // à noite chega de faróis acesos (escamoteáveis levantados: <arte>-side-up)
+  drawCarSide(c, carX, 176 + arr.dip, 170, car, paintHex(car.id), (-320 * arr.pos) / wr, night);
   // frentista: espera ao lado da bomba, vai até o carro com a mangueira e abastece
   // (o tanque fica na traseira do carro, à direita: ele para ali, de frente para o carro)
   const walk = Math.max(0, Math.min(1, (t - GAS_STOP - 0.2) / 0.7));
@@ -1578,8 +1641,17 @@ export function focusables(s: AppState): FocusSet | null {
   switch (s.screen) {
     case 'title':
       return { key: 'title', items: [...titleSigns().map((r, i) => sel(i, r)), { r: coverRect() }] };
-    case 'options':
-      return { key: 'options', items: optionRects().map((r, i) => sel(i, r, isVolItem(i) ? { lr: (d: number) => stepVolume(a, i, d) } : {})) };
+    case 'options': {
+      // fichas das abas (alcançadas com cima a partir do primeiro item): esquerda/direita trocam
+      // de aba ali mesmo, A/Enter também; depois os itens da aba
+      const tabs: Focusable[] = optTabRects().map((r, t) => ({ r, pick: () => { s.sel = -1; }, lr: (d: number) => switchOptTab(s, optTab.i + d), act: () => switchOptTab(s, t) }));
+      const rows = optionRects().map((r, i) => sel(i, r, isVolItem(i) ? { lr: (d: number) => stepVolume(a, i, d) } : {}));
+      // a chave muda com a aba: o foco guardado de uma aba não vale na outra
+      // cima no primeiro item sobe para a ficha da aba atual; baixo numa ficha desce ao primeiro item
+      const nt = OPT_TABS.length;
+      const jump = (k: string, cur: number) => (k === 'up' && cur === nt ? optTab.i : k === 'down' && cur < nt ? nt : -1);
+      return { key: `options${optTab.i}`, items: [...tabs, ...rows], def: s.sel < 0 ? optTab.i : nt, jump };
+    }
     case 'controls':
       if (binding.action) return null;
       return { key: 'controls', items: ctrlRects().map((r, i) => sel(i, r)) };
@@ -1664,7 +1736,8 @@ function navKey(s: AppState, a: Actions, k: MenuKey) {
     f.lr(k === 'right' ? 1 : -1);
     return true;
   }
-  const j = spatialStep(fs.items.map((q) => q.r), i, k);
+  const jj = fs.jump?.(k, i) ?? -1;
+  const j = jj >= 0 ? jj : spatialStep(fs.items.map((q) => q.r), i, k);
   if (j >= 0) setFocus(fs, j);
   else if (!fs.edge?.(k)) setFocus(fs, i);
   return true;
@@ -1689,7 +1762,7 @@ export function hoverScreen(s: AppState, a: Actions, x: number, y: number) {
 }
 // Legenda dos botões no pé das telas de menu, conforme o último jeito de jogar (controle ou
 // teclado; no toque, nada): só os comandos que valem naquela tela
-const LEGEND_Y: Partial<Record<ScreenId, number>> = {};
+const LEGEND_Y: Partial<Record<ScreenId, number>> = { options: 215 }; // ajustes: entre o VOLTAR e os créditos da trilha
 function drawLegend(c: CanvasRenderingContext2D, s: AppState) {
   const dev = lastDevice.kind;
   if (dev === 'touch' || s.screen === 'loading' || s.screen === 'race') return;
@@ -1702,6 +1775,7 @@ function drawLegend(c: CanvasRenderingContext2D, s: AppState) {
     if (sc === 'car' || sc === 'dealer' || sc === 'collection') items.push('◀▶: carro');
     if (sc === 'course') items.push('◀▶: horário');
     if (sc === 'options' && isVolItem(s.sel)) items.push('◀▶: volume');
+    if (sc === 'options') items.push(`${cls}: aba`);
     if ((sc === 'garage' && !careerUi.prep) || sc === 'prepDemo') items.push(`${cls}: carro`);
     items.push(`${ok}: ${sc === 'showroom' && !detail ? 'ver' : sc === 'dealer' ? 'comprar' : 'escolher'}`);
     if (sc !== 'title' || DESKTOP_UA) items.push(`${back}: ${sc === 'title' ? 'sair' : 'voltar'}`);
@@ -1754,6 +1828,9 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
   switch (s.screen) {
     case 'title': return tapTitle(s, a, x, y);
     case 'options':
+      optTabRects().forEach((r, t) => {
+        if (inside(x, y, { x: r.x, y: r.y - 3, w: r.w, h: r.h + 3 })) switchOptTab(s, t);
+      });
       optionRects().forEach((r, i) => {
         if (!inside(x, y, r)) return;
         // volumes: metade esquerda do item diminui, direita aumenta
@@ -1865,7 +1942,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (navKey(s, a, k)) return;
   if (CAREER_SCREENS.includes(s.screen)) return keyCareerScreen(s, a, k);
-  const counts: Partial<Record<ScreenId, number>> = { title: 5, options: 14, opponent: oppList(s).length, course: COURSES.length };
+  const counts: Partial<Record<ScreenId, number>> = { title: 5, options: optItems().length, opponent: oppList(s).length, course: COURSES.length };
   // percursos: cima/baixo escolhem, esquerda/direita trocam a hora (dia, entardecer, amanhecer, noite)
   if (s.screen === 'course' && (k === 'left' || k === 'right')) {
     const order: ArcadeTime[] = ['day', 'sunset', 'dawn', 'night'];
@@ -1897,7 +1974,7 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
     if (k === 'up') s.sel = (s.sel + n - 1) % n;
     if (k === 'down') s.sel = (s.sel + 1) % n;
     if (k === 'ok') activateControl(s, a, s.sel);
-    if (k === 'back') a.go('options');
+    if (k === 'back') backToOptions(s, a);
     return;
   }
   if (s.screen === 'scores') {
@@ -1909,6 +1986,8 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   }
   if (!n) return;
   if (s.screen === 'options' && isVolItem(s.sel) && (k === 'left' || k === 'right')) return stepVolume(a, s.sel, k === 'right' ? 1 : -1);
+  // ajustes: LB/RB (Q/E, PageUp/PageDown) trocam de aba
+  if (s.screen === 'options' && (k === 'prevTab' || k === 'nextTab')) return switchOptTab(s, optTab.i + (k === 'nextTab' ? 1 : -1));
   const grid = s.screen === 'opponent';
   // adversário: LB/RB (Q/E) trocam a classe, como nos classificados
   if (grid && (k === 'prevTab' || k === 'nextTab')) {

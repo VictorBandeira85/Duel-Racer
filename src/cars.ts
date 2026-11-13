@@ -67,6 +67,7 @@ export interface LampDef {
   sigRed?: boolean; // pisca vermelho atrás (carros americanos)
   podColor?: string; // cor da tampa do farol (senão a da carroceria)
   popLit?: [number, number]; // com frontUpImg: centro do farol aceso (u, f); o jogo só acende o brilho
+  popSide?: [number, number]; // na lateral levantada (<arte>-side-up): borda da lente acesa (u, f)
 }
 
 export interface CarSpec {
@@ -115,6 +116,8 @@ export interface CarSpec {
   svgSide?: string; // arte vetorial do perfil (viewBox com chão na base)
   imgSide?: string; // sprite do perfil (pixel art)
   sideMask?: string;
+  imgSideUp?: string; // lateral com os faróis escamoteáveis levantados e acesos (tools/ref/popup_side.py)
+  sideUpMask?: string;
   sideVariants?: Record<string, string>; // pinturas com arte própria: cor da paleta -> lateral
   wheels?: number[][]; // rodas na lateral: [u, v, raio] (frações do sprite)
   art?: string; // prefixo dos sprites em assets/cars (<art>-side/-rear/-front.png e máscaras)
@@ -334,13 +337,13 @@ export const DEALER_CARS = CARS.filter((c) => !c.arcadeOnly);
 const VARIANT_PAINT: Record<string, string> = { nero: 'Deep Black', rosso: 'Rosso Lucido', blu: 'Blu Le Mans', verde: 'Verde Ithaca', giallo: 'Giallo' };
 
 const LAMPS: Record<string, LampDef> = {
-  diablo: { pop: [0.14, 0.485, 0.3, 0.6], sigRear: [0.106, 0.43, 0.04], sigFront: [0.113, 0.7, 0.175, 0.75] },
-  patrolsv: { pop: [0.14, 0.495, 0.3, 0.608], podColor: '#1c1c1e', sigRear: [0.106, 0.458, 0.04], sigFront: [0.113, 0.706, 0.175, 0.755] }, // Diablo novo + giroflex (patrolsv_sprites.py)
-  f40: { head: [0.195, 0.613, 0.03], sigRear: [0.138, 0.446, 0.04], sigFront: [0.105, 0.595, 0.165, 0.649] },
+  diablo: { pop: [0.14, 0.485, 0.3, 0.6], popSide: [0.106, 0.389], sigRear: [0.106, 0.43, 0.04], sigFront: [0.113, 0.7, 0.175, 0.75] },
+  patrolsv: { pop: [0.14, 0.495, 0.3, 0.608], podColor: '#1c1c1e', popSide: [0.106, 0.436], sigRear: [0.106, 0.458, 0.04], sigFront: [0.113, 0.706, 0.175, 0.755] }, // Diablo novo + giroflex (patrolsv_sprites.py)
+  f40: { head: [0.195, 0.613, 0.03], popSide: [0.085, 0.489], sigRear: [0.138, 0.446, 0.04], sigFront: [0.105, 0.595, 0.165, 0.649] },
   zr1: { pop: [0.105, 0.385, 0.29, 0.505], sigRear: [0.135, 0.39, 0.045], sigRed: true, sigFront: [0.03, 0.66, 0.07, 0.73] },
-  testarossa: { pop: [0.067, 0.424, 0.256, 0.534], popLit: [0.126, 0.472], sigRear: [0.08, 0.42, 0.182, 0.556], sigFront: [0.061, 0.636, 0.228, 0.686] },
-  nsx: { pop: [0.1, 0.36, 0.28, 0.47], sigRear: [0.05, 0.37, 0.2, 0.47], sigFront: [0.09, 0.628, 0.14, 0.678] },
-  countach: { pop: [0.083, 0.383, 0.281, 0.577], popLit: [0.181, 0.503], sigRear: [0.065, 0.4, 0.127, 0.478], sigFront: [0.119, 0.617, 0.192, 0.664] }, // Countach 5000 QV (countach_sprites.py)
+  testarossa: { pop: [0.067, 0.424, 0.256, 0.534], popLit: [0.126, 0.472], popSide: [0.089, 0.379], sigRear: [0.08, 0.42, 0.182, 0.556], sigFront: [0.061, 0.636, 0.228, 0.686] },
+  nsx: { pop: [0.1, 0.36, 0.28, 0.47], popSide: [0.075, 0.406], sigRear: [0.05, 0.37, 0.2, 0.47], sigFront: [0.09, 0.628, 0.14, 0.678] },
+  countach: { pop: [0.083, 0.383, 0.281, 0.577], popLit: [0.181, 0.503], popSide: [0.111, 0.374], sigRear: [0.065, 0.4, 0.127, 0.478], sigFront: [0.119, 0.617, 0.192, 0.664] }, // Countach 5000 QV (countach_sprites.py)
   viper: { head: [0.147, 0.52, 0.06], sigRear: [0.07, 0.55, 0.24, 0.6], sigFront: [0.035, 0.635, 0.075, 0.68] },
   '959': { head: [0.153, 0.543, 0.06], sigRear: [0.026, 0.548, 0.115, 0.632], sigFront: [0.053, 0.691, 0.157, 0.769] }, // Silber 95 (silber_sprites.py)
   'br-passat': { head: [0.111, 0.567, 0.046], sigRear: [0.026, 0.509, 0.149, 0.565], sigFront: [0.07, 0.783, 0.207, 0.835] }, // Passat GTS Pointer (passat_sprites2.py)
@@ -409,6 +412,8 @@ for (const car of CARS) {
   if (!k) continue;
   car.imgSide = png(`${k}-side`) ?? car.imgSide;
   car.sideMask = png(`${k}-side-mask`);
+  car.imgSideUp = png(`${k}-side-up`);
+  car.sideUpMask = png(`${k}-side-up-mask`);
   car.rear.img = png(`${k}-rear`) ?? car.rear.img;
   car.rear.imgMask = png(`${k}-rear-mask`);
   car.rear.frontImg = png(`${k}-front`) ?? car.rear.frontImg;
@@ -1447,15 +1452,20 @@ function bodyLayer(spr: HTMLCanvasElement, wheels: number[][]) {
   return b;
 }
 export const sideScale = (car: CarSpec) => Math.min(1.06, (LENGTH_M[car.id] ?? 4.5) / 4.5);
-export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string, spin?: number) {
+// lit: faróis acesos (posto à noite); quem tem escamoteáveis aparece com eles levantados (<arte>-side-up)
+export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string, spin?: number, lit?: boolean) {
   // mesma escala para todos, centrado no espaço reservado
   const k = sideScale(car);
   x += (len * (1 - k)) / 2;
   len *= k;
   if (car.imgSide) {
-    const img = (paint && car.sideVariants?.[paint]) || car.imgSide;
+    const variant = paint && car.sideVariants?.[paint];
+    const up = !!(lit && car.imgSideUp && !variant);
+    const base = up ? car.imgSideUp! : car.imgSide;
+    const img = variant || base;
+    const mask = up ? car.sideUpMask : car.sideMask;
     const aspect = spriteAspect(img);
-    const tint = paint && car.sideMask && img === car.imgSide ? { mask: car.sideMask, color: paint } : undefined;
+    const tint = paint && mask && img === base ? { mask, color: paint } : undefined;
     // na resolução real da tela (o canvas tem RES pixels por pixel do jogo): reduzir a arte
     // na resolução do jogo e depois ampliar apagava linhas e colunas de pixels (traço quebrado)
     const spr = aspect ? svgSprite(img, len * RES, len * aspect * RES, tint) : null;
@@ -1508,6 +1518,16 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
         }
       }
       if (!drop) drawRims(c, car, L, T, W, H, spin);
+      // farol levantado aceso: brilho pequeno na lente e um facho curto para a frente (esquerda)
+      const ps = up ? car.rear.lamps?.popSide : undefined;
+      if (ps) {
+        const lx = L + ps[0] * W, ly = T + ps[1] * H + drop;
+        c.save();
+        c.globalCompositeOperation = 'lighter';
+        drawGlow(c, lx - W * 0.065, ly + H * 0.01, W * 0.065, H * 0.045, '255,240,200', 0.2);
+        drawGlow(c, lx - W * 0.004, ly, W * 0.011, W * 0.011, '255,248,215', 0.45);
+        c.restore();
+      }
       // rodas trocadas na oficina: o aro (sem o pneu) ganha o acabamento escolhido
       const rim = car.rims ? RIMS[car.rims] : undefined;
       if (rim && car.wheels) {

@@ -18,7 +18,7 @@ import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
 import { CHALLENGE_PRIZE, checkChallenge, partialStats, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
 import { paintHex } from './paint';
 import { VIEW_EXTRA_CAP, cockpitReady, preloadCockpit, renderCockpit } from './cockpit';
-import { applyBtnSize, beginLoading, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, focusInfo, hoverScreen, keyScreen, setScreenActions, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
+import { OPT_TABS, applyBtnSize, beginLoading, optTab, setOptTab, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, focusInfo, hoverScreen, keyScreen, setScreenActions, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { binding, binds, input, lastDevice, pad, pollGamepad, releaseAll, setBind, setupInput, touch } from './input';
 import { MUSIC_CREDITS } from './tracks';
 import { audioCtx, audioState, gainLevels, resumeAudio, sfxLevel, synthReady, setSfxVolume, initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicVolume, setSiren, setTires } from './audio';
@@ -464,11 +464,25 @@ function panelStep(bs: HTMLButtonElement[], from: number, k: MenuKey) {
   return from + sign;
 }
 const VOL_SET: Record<string, 'sfx' | 'music'> = { volume: 'music', sfxvol: 'sfx' };
+const settingsOpen = () => !$('settings').classList.contains('hidden');
+// primeiro item da aba nos ajustes (depois das quatro fichas)
+const firstSetIdx = () => Math.max(0, panelButtons().findIndex((b) => !!b.dataset.set));
 function panelKey(k: MenuKey) {
   const bs = panelButtons();
   const cur = bs[((focusIdx % bs.length) + bs.length) % bs.length];
   const vol = cur && VOL_SET[cur.dataset.set ?? ''];
-  if (vol && (k === 'left' || k === 'right')) {
+  const onTab = !!cur?.dataset.tab;
+  // ajustes: LB/RB (Q/E, PageUp/PageDown) trocam de aba; o foco fica nas fichas se estava nelas,
+  // senão vai ao primeiro item; esquerda/direita numa ficha também trocam de aba
+  if (settingsOpen() && !quitOpen() && (k === 'prevTab' || k === 'nextTab' || (onTab && (k === 'left' || k === 'right')))) {
+    setOptTab(optTab.i + (k === 'nextTab' || k === 'right' ? 1 : -1));
+    settingsLabels();
+    focusIdx = onTab ? optTab.i : firstSetIdx();
+  } else if (settingsOpen() && !quitOpen() && onTab && (k === 'down' || k === 'up')) {
+    if (k === 'down') focusIdx = firstSetIdx(); // acima das fichas não há nada
+  }
+  else if (settingsOpen() && !quitOpen() && k === 'up' && cur && bs.indexOf(cur) === firstSetIdx()) focusIdx = optTab.i; // do primeiro item sobe para a ficha da aba atual
+  else if (vol && (k === 'left' || k === 'right')) {
     // nos volumes, esquerda/direita diminuem/aumentam 10%
     actions.setVolume(vol, (vol === 'sfx' ? prefs.sfxPct : prefs.musPct) + (k === 'right' ? 10 : -10));
     settingsLabels();
@@ -477,7 +491,7 @@ function panelKey(k: MenuKey) {
     // continua no mesmo botão (ligar/desligar música); trocou de painel, começa do primeiro
     const before = panelButtons()[0];
     bs[((focusIdx % bs.length) + bs.length) % bs.length]?.click();
-    if (panelButtons()[0] !== before) focusIdx = 0;
+    if (panelButtons()[0] !== before) focusIdx = settingsOpen() && !quitOpen() ? firstSetIdx() : 0;
   } else if (k === 'back') {
     if (quitOpen()) closeQuit();
     else if (!$('settings').classList.contains('hidden')) $('setBack').click();
@@ -664,8 +678,22 @@ function settingsLabels() {
   document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b) => {
     const [k, v] = lab[b.dataset.set!];
     b.innerHTML = `${capsHtml(k)}<span>${capsHtml(v)}</span>`;
+    b.classList.toggle('hidden', Number(b.dataset.in) !== optTab.i); // só os itens da aba escolhida
+  });
+  // abas (as mesmas dos ajustes do menu, e a escolhida também)
+  document.querySelectorAll<HTMLButtonElement>('#settings [data-tab]').forEach((b) => {
+    const i = Number(b.dataset.tab);
+    b.innerHTML = capsHtml(OPT_TABS[i]);
+    b.classList.toggle('on', i === optTab.i);
   });
 }
+document.querySelectorAll<HTMLButtonElement>('#settings [data-tab]').forEach((b) => b.addEventListener('click', () => {
+  setOptTab(Number(b.dataset.tab));
+  settingsLabels();
+  // teclado/controle: o foco continua na ficha tocada
+  focusIdx = optTab.i;
+  if (document.querySelector('.kfocus')) showFocus();
+}));
 let trackStep = 0;
 // volume: toque na metade esquerda diminui, na direita aumenta (10%); Enter/A sem ponto de
 // toque aumenta e, passando de 100%, volta ao mudo

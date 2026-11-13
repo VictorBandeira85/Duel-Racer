@@ -101,6 +101,9 @@
 ## Carros novos
 - A vista lateral de todo carro fica com a **frente para a esquerda** (como os demais). Se a arte vier
   virada para a direita, espelhar a lateral e a máscara e espelhar as rodas em `WHEELS` (x -> 1 - x).
+- Carro com faróis escamoteáveis: além da frente levantada (front-up), construir a lateral com os faróis
+  levantados (`<arte>-side-up` + máscara, `tools/ref/popup_side.py`, e `popSide` em LAMPS); na tela do
+  posto à noite o carro chega com eles levantados e acesos.
 
 - Arte que vem com cenário (não recortada): seguir `tools/ref/monza_sprites.py` (fundo inundado a partir
   das bordas, o contorno preto do carro segura; sombra e asfalto de baixo saem por geometria) e

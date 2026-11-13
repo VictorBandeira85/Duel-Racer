@@ -21,6 +21,8 @@ let lastS = 0;
 const CELL = 3;
 let film = new Float32Array(0);
 let filmW = 0, filmH = 0, filmY0 = 0;
+const filmCv = document.createElement('canvas');
+let filmImg: ImageData | null = null;
 let raceRef: Race | null = null;
 
 // topo do painel em cada coluna da tela (para pôr o eixo escondido e a palheta deitada)
@@ -195,22 +197,26 @@ export function drawWipers(c: CanvasRenderingContext2D, r: Race, vp: Viewport, d
   c.beginPath();
   c.rect(vp.x, vp.y, vp.w, view.h - vp.y);
   c.clip();
-  // película: desenhada em faixas por linha, com a opacidade em 6 níveis
+  // película: uma imagem com um pixel por célula, ampliada com suavização (antes eram faixas de
+  // células de 3 px em 6 níveis: na neve a borda da área limpa virava escada e o vidro todo
+  // ficava com listras claras por cima da pista)
   if (w && film.length) {
-    const base = w === 'rain' ? [170, 190, 215, 0.16] : [235, 240, 250, 0.22];
-    for (let j = 0; j < filmH; j++) {
-      let i = 0;
-      while (i < filmW) {
-        const q = Math.round(film[j * filmW + i] * 5);
-        let k = i + 1;
-        while (k < filmW && Math.round(film[j * filmW + k] * 5) === q) k++;
-        if (q > 0) {
-          c.fillStyle = `rgba(${base[0]},${base[1]},${base[2]},${(base[3] * q) / 5})`;
-          c.fillRect(i * CELL, filmY0 + j * CELL, (k - i) * CELL, CELL);
-        }
-        i = k;
-      }
+    const base = w === 'rain' ? [170, 190, 215, 0.16] : [235, 240, 250, 0.18];
+    if (filmCv.width !== filmW || filmCv.height !== filmH) { filmCv.width = filmW; filmCv.height = filmH; filmImg = null; }
+    const fg = filmCv.getContext('2d')!;
+    filmImg = filmImg ?? fg.createImageData(filmW, filmH);
+    const d = filmImg.data, a = 255 * base[3];
+    for (let i = 0, o = 0; i < film.length; i++, o += 4) {
+      d[o] = base[0];
+      d[o + 1] = base[1];
+      d[o + 2] = base[2];
+      d[o + 3] = film[i] * a;
     }
+    fg.putImageData(filmImg, 0, 0);
+    const sm = c.imageSmoothingEnabled;
+    c.imageSmoothingEnabled = true;
+    c.drawImage(filmCv, 0, filmY0, filmW * CELL, filmH * CELL);
+    c.imageSmoothingEnabled = sm;
   }
   for (const p of parts) {
     const x = Math.round(p.x * 2) / 2, y = Math.round(p.y * 2) / 2;

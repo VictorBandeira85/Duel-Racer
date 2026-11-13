@@ -49,6 +49,30 @@ export function laneCenter(track: Track, lane: number) {
 
 const TUNNELS: Partial<Record<string, number>> = { mountain: 2, alpine: 2, alpinesnow: 1, coast: 1, canyon: 1 };
 
+// Relevo de um trecho: a inclinação sobe por igual até um máximo, fica nele e volta a zero no fim
+// (rampa de RAMP_K por segmento). Antes era uma curva em S de ponta a ponta: em morros altos a
+// descida passava de 40° e a crista era longa e arredondada, e do topo a pista descendo ficava
+// escondida atrás dela (o jogador não via para onde ia). Com a crista curta e a descida limitada
+// (SLOPE_MAX <= raiz(2 x altura do olho x RAMP_K)), do topo sempre se vê a descida inteira; a
+// crista continua fechada o bastante para o carro decolar em alta velocidade (saltos).
+// Devolve a altura (em segmentos) a n segmentos do começo; height: o desnível pedido (segmentos),
+// limitado ao que cabe no trecho com essa inclinação.
+const SLOPE_MAX = 0.3, RAMP_K = 0.025;
+export function relief(total: number, height: number) {
+  const H = Math.abs(height), sg = Math.sign(height);
+  if (H < 1e-6 || total < 1) return () => 0;
+  // inclinação S para o desnível: S·(total − S/K) = H (com rampa de S/K segmentos em cada ponta)
+  const disc = total * total - (4 * H) / RAMP_K;
+  let S = disc >= 0 ? ((total - Math.sqrt(disc)) * RAMP_K) / 2 : (total * RAMP_K) / 2;
+  S = Math.min(S, SLOPE_MAX);
+  const L = Math.min(S / RAMP_K, total / 2); // comprimento de cada rampa
+  // altura a t segmentos do começo (integral da inclinação em trapézio)
+  const up = (t: number) => (t <= L ? (S * t * t) / (2 * L) : (S * L) / 2 + S * (t - L));
+  const full = 2 * up(total / 2);
+  const at = (t: number) => (t <= total / 2 ? up(t) : full - up(total - t));
+  return (n: number) => sg * at(Math.max(0, Math.min(total, n)));
+}
+
 export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
   const rand = rng(seed);
   const roadW = (def.lanes * LANE_W) / 2;
@@ -60,27 +84,24 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
     segments.push({ index: n, p1: point(lastY(), n * SEG_LEN), p2: point(y, (n + 1) * SEG_LEN), curve, sprites: [], cars: [], clip: 0 });
   };
 
+  const curves: { first: number; curve: number }[] = [];
   const addRoad = (enter: number, hold: number, leave: number, curve: number, height: number) => {
     const startY = lastY();
-    const endY = startY + height * SEG_LEN;
     const total = enter + hold + leave;
+    const yAt = relief(total, height);
     const first = segments.length;
-    for (let n = 0; n < enter; n++) addSegment(easeIn(0, curve, n / enter), easeInOut(startY, endY, n / total));
-    for (let n = 0; n < hold; n++) addSegment(curve, easeInOut(startY, endY, (enter + n) / total));
-    for (let n = 0; n < leave; n++) addSegment(easeInOut(curve, 0, n / leave), easeInOut(startY, endY, (enter + hold + n) / total));
+    for (let n = 0; n < enter; n++) addSegment(easeIn(0, curve, n / enter), startY + yAt(n + 1) * SEG_LEN);
+    for (let n = 0; n < hold; n++) addSegment(curve, startY + yAt(enter + n + 1) * SEG_LEN);
+    for (let n = 0; n < leave; n++) addSegment(easeInOut(curve, 0, n / leave), startY + yAt(enter + hold + n + 1) * SEG_LEN);
     // guarda-corpo do lado de fora das curvas mais fechadas
     if (Math.abs(curve) >= 2.5) {
       const side = curve > 0 ? -1 : 1;
       for (let n = first + Math.floor(enter / 2); n < first + total - Math.floor(leave / 2); n += 2)
         segments[n].sprites.push({ kind: 'rail', x: side * (roadW + 700), seed: 0 });
     }
-    // aviso antes da curva, no acostamento da direita: curva suave ou acentuada, para o lado dela
-    if (Math.abs(curve) >= 1 && first > 70) {
-      const sharp = Math.abs(curve) >= 2.5;
-      const kind: SpriteKind = sharp ? (curve > 0 ? 'sharpR' : 'sharpL') : curve > 0 ? 'warnR' : 'warnL';
-      const at = segments[first - 55];
-      if (!at.sprites.some((sp) => sp.x > 0 && Math.abs(sp.x - (roadW + 1300)) < 1500)) at.sprites.push({ kind, x: roadW + 1300, seed: 0 });
-    }
+    // aviso antes da curva: colocado no fim, depois dos postes, das placas do posto e dos túneis
+    // (antes os postes de luz e os túneis apagavam muitos avisos)
+    if (Math.abs(curve) >= 1 && first > 70) curves.push({ first, curve });
     // curvas fechadas: placas de chevrons ao longo do lado de fora
     if (Math.abs(curve) >= 2.5) {
       const x = (roadW + 1400) * (curve > 0 ? -1 : 1);
@@ -182,6 +203,41 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
     for (let i = a - 8; i < a; i++) segments[i].sprites = segments[i].sprites.filter((sp) => sp.kind === 'post');
     for (let i = b; i < b + 4; i++) segments[i].sprites = segments[i].sprites.filter((sp) => sp.kind === 'post');
     k++;
+  }
+
+  // placas de aviso antes de toda curva média e forte, no acostamento da direita (refletivas: o
+  // farol acende de noite): curva suave ou acentuada, para o lado dela, ~55 segmentos antes. Se
+  // entre o aviso e a curva há uma crista (a curva fica escondida atrás do topo), vai outra placa
+  // antes da subida, onde ainda se vê a placa sem a curva. Só sprites: o traçado não muda.
+  const wy = (i: number) => segments[Math.max(0, Math.min(segments.length - 1, i))].p1.world.y;
+  const signAt = (i: number, kind: SpriteKind) => {
+    // o lugar livre mais perto (fora de túnel e da boca dele, sem outra placa ou poste ali)
+    // (curva dentro ou logo depois de um túnel: a placa fica antes da boca dele)
+    const tries = [0, -3, 3, -6, 6, -10, 10, -15];
+    for (let d = -18; d > -200; d -= 3) tries.push(d);
+    for (const d of tries) {
+      const k = i + d, sg = segments[k];
+      if (!sg || k < 20 || sg.tunnel || segments.slice(k, k + 9).some((g) => g.tunnel)) continue;
+      if (sg.sprites.some((sp) => sp.x > 0 && Math.abs(sp.x - (roadW + 1300)) < 1500 && sp.kind !== 'lamp')) continue;
+      sg.sprites = sg.sprites.filter((sp) => !(sp.kind === 'lamp' && Math.abs(sp.x - (roadW + 1300)) < 1500));
+      sg.sprites.push({ kind, x: roadW + 1300, seed: 0 });
+      return k;
+    }
+    return -1;
+  };
+  for (const { first, curve } of curves) {
+    if (first >= finishIndex - 20) continue;
+    const sharp = Math.abs(curve) >= 2.5;
+    const kind: SpriteKind = sharp ? (curve > 0 ? 'sharpR' : 'sharpL') : curve > 0 ? 'warnR' : 'warnL';
+    const w = signAt(first - 55, kind);
+    // crista entre o aviso (ou um pouco antes) e a curva: topo mais alto que os vizinhos, com subida
+    // antes e descida depois
+    for (let k = first - 8; k > Math.max(20, first - 110); k--) {
+      const top = wy(k);
+      if (top < wy(k - 4) || top < wy(k + 4) || top - wy(k - 30) < 250 || top - wy(k + 30) < 250) continue;
+      if (w < 0 || w > k - 25) signAt(k - 45, kind); // aviso também antes da subida
+      break;
+    }
   }
 
   // pontos onde a polícia fica escondida

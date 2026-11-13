@@ -1,12 +1,12 @@
 import { drawPerson } from './people';
 import { drawSmoke } from './smoke';
 import { drawCrisp } from './crisp';
-import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, POLICE_W, SEG_LEN, TRUCK_W } from './config';
+import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { CARS, drawCar } from './cars';
 import { lowFx, fxMode } from './perf';
 import { adsReady } from './billboards';
 import { drawGlow, type Stops } from './glowsprite';
-import { beginLights, finishNight, pushCarBeam, pushOccluder, sirenGlow, sirenWash, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, type Pass, type RoadPt } from './nightlight';
+import { beginLights, finishNight, pushCarBeam, pushOccluder, sirenGlow, sirenWash, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, LAMP_H, inCone, type Pass, type RoadPt } from './nightlight';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
 import { SPRITES } from './sprites';
 import { FOG_COLOR, type BgLayer } from './themes';
@@ -531,6 +531,11 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   // altura da câmera: o chão logo abaixo do motorista
   // (no salto, o chão fica lá embaixo: a câmera sobe com o carro)
   const playerY = lerp(base.p1.world.y, base.p2.world.y, basePct) + r.lift;
+  // altura do chão da pista num z qualquer (interpolando dentro do segmento)
+  const yAt = (z: number) => {
+    const sg = segs[Math.max(0, Math.min(segs.length - 1, Math.floor(z / SEG_LEN)))];
+    return lerp(sg.p1.world.y, sg.p2.world.y, Math.max(0, Math.min(1, z / SEG_LEN - sg.index)));
+  };
   // distância de desenho: menor no econômico, bem maior no MÁXIMO
   const far = fxMode() === 'alto' ? 1.4 : lowFx() ? 0.65 : 1;
   const far0 = far; // (o facho dos carros à frente usa `far` para outra coisa)
@@ -566,7 +571,9 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
     drawSegment(c, s, r, vp, ground, fog ? fogAt(i - base.index) : 0);
     maxy = s.p1.screen.y;
     // chão visível à frente, para o facho dos faróis seguir subidas e descidas
-    if (i - base.index <= 120) road.push({ d: i - base.index, x: s.p1.screen.x, y: s.p1.screen.y, w: s.p1.screen.w });
+    // (z: distância contínua em segmentos, para o brilho do facho cair sem saltos com o movimento)
+    // h: altura do chão em relação ao farol do carro (para o cone do facho)
+    if (i - base.index <= 120) road.push({ d: i - base.index, x: s.p1.screen.x, y: s.p1.screen.y, w: s.p1.screen.w, z: s.p1.camera.z / SEG_LEN, h: s.p1.world.y - playerY - LAMP_H });
     roadAll.push({ d: i - base.index, x: s.p1.screen.x, y: s.p1.screen.y, w: s.p1.screen.w });
   }
 
@@ -589,7 +596,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       c.rect(vp.x, vp.y, vp.w, s.clip - vp.y);
       c.clip();
     }
-    setLightClip(s.clip);
+    setLightClip(s.clip, i);
     const dist = i - base.index;
     if (s.tunnel) {
       tunnelSlice(c, s, vp, roadW, dist);
@@ -629,42 +636,58 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       if (lit && !behindTun && REFLECT.has(sp.kind)) pushReflector(sp.kind, sx, s.p1.screen.y, sw, sh, dist);
       if (lit && !behindTun && sp.kind === 'lamp') pushStreetLight(sx - sw * 1.3, s.p1.screen.y - sh + sw * 0.5, sw * 9, dist, (sx - sw * 1.3 - s.p1.screen.x) / Math.max(1, s.p1.screen.w), s.p1.screen.y, i);
     }
-    // farol de quem vai na mesma mão, à nossa frente: luz no asfalto adiante dele. Posições
+    // farol dos outros carros: luz no asfalto à frente de cada um, na faixa dele. Posições
     // calculadas pelo z contínuo do carro (interpolando dentro do segmento): o facho acompanha o
     // carro suavemente, sem pular de segmento em segmento nem piscar.
-    // len: em segmentos, da traseira desenhada até onde a luz começa (logo à frente do carro)
     const proj = (z: number) => {
       const idx = Math.max(base.index, Math.min(end - 2, Math.floor(z / SEG_LEN)));
       const sg = segs[idx], t = Math.max(0, Math.min(1, z / SEG_LEN - idx));
       return { x: lerp(sg.p1.screen.x, sg.p2.screen.x, t), y: lerp(sg.p1.screen.y, sg.p2.screen.y, t), sc: lerp(sg.p1.screen.scale, sg.p2.screen.scale, t), idx };
     };
-    const beamAhead = (ez: number, ex: number, w: number, len = 4) => {
+    // len: em segmentos, da traseira desenhada até onde a luz começa (logo à frente do carro);
+    // toward: quem vem de frente (o facho vem na nossa direção, entre o carro e nós)
+    const beamAhead = (ez: number, ex: number, w: number, len = 4, toward = false) => {
       if (!lit) return;
-      const z0 = ez + len * SEG_LEN;
+      const dir = toward ? -1 : 1;
+      const z0 = toward ? ez - SEG_LEN * 0.3 : ez + len * SEG_LEN;
       const a = proj(z0);
       // túnel: com a boca do túnel entre nós e o carro a luz não aparece; o facho para na boca
       const inT = !!segs[i].tunnel;
       for (let k = base.index; k < a.idx; k++) if (!!segs[k].tunnel !== inT) return;
-      let zEnd = z0 + 40 * SEG_LEN;
-      for (let k = a.idx + 1; k <= Math.min(end - 2, Math.floor(zEnd / SEG_LEN)); k++) if (!!segs[k].tunnel !== inT) { zEnd = k * SEG_LEN; break; }
-      zEnd = Math.min(zEnd, (end - 2) * SEG_LEN);
-      if (zEnd <= z0 + SEG_LEN) return;
-      const f = proj(zEnd);
-      const xa = a.x + a.sc * ex * vp.K;
+      let zEnd = toward ? Math.max(z0 - 30 * SEG_LEN, r.position + 4 * SEG_LEN) : Math.min(z0 + 40 * SEG_LEN, (end - 2) * SEG_LEN);
+      if (toward) {
+        for (let k = a.idx - 1; k >= Math.floor(zEnd / SEG_LEN); k--) if (!!segs[k].tunnel !== inT) { zEnd = (k + 1) * SEG_LEN; break; }
+      } else {
+        for (let k = a.idx + 1; k <= Math.floor(zEnd / SEG_LEN); k++) if (!!segs[k].tunnel !== inT) { zEnd = k * SEG_LEN; break; }
+      }
+      const span = (zEnd - z0) * dir;
+      if (span <= SEG_LEN) return;
       // de longe o facho tem só 1 ou 2 pixels: ganha um tamanho mínimo (como as lanternas)
       const far = Math.max(0, Math.min(1, (16 - w) / 13)); // 1 = bem longe
-      const ha = Math.max(CAR_W * a.sc * vp.K * 0.38, 2.5 * far);
-      const lift = Math.max(2.5, 8 * far);
-      let xf = xa, yf = a.y - lift, hf = Math.max(ha * 1.6, 5 * far);
-      if (f.y < a.y - lift) {
-        xf = f.x + f.sc * ex * vp.K;
-        yf = f.y;
-        hf = Math.max(1, CAR_W * 2.3 * f.sc * vp.K, 5 * far);
+      // o caminho do facho de trecho em trecho da pista (de dois em dois segmentos), na faixa do
+      // carro: abre de ~meia largura do carro junto ao para-choque até pouco mais que a faixa dele
+      // no fim (sem acender as outras faixas); para onde a pista some (crista ou curva escondida)
+      // o farol é um cone preso ao carro (eixo pela inclinação do chão embaixo dele): a pista que
+      // sobe acima do topo do cone (rampa à frente) ou cai abaixo dele não acende
+      const yl = yAt(z0) + LAMP_H, pitch = (yAt(z0 + dir * 600) - yAt(z0 - dir * 600)) / 1200;
+      const p: number[] = [];
+      const n = Math.max(2, Math.ceil(span / (SEG_LEN * 2)));
+      for (let k = 0; k <= n; k++) {
+        const t = k / n, zk = z0 + dir * span * t, q = k ? proj(zk) : a;
+        if (k && q.y > segs[q.idx].clip + 1) break; // atrás da crista: dali em diante não se vê
+        if (k && !inCone((yAt(zk) - yl) / (span * t), pitch)) break;
+        const hw = Math.max(CAR_W * (0.4 + 0.85 * t) * q.sc * vp.K, (2.5 + 2.5 * t) * far);
+        p.push(q.x + q.sc * ex * vp.K, q.y, hw);
+      }
+      if (p.length < 6) {
+        // só o começo aparece: um toco curto à frente do carro (o clarão continua)
+        const lift = Math.max(2.5, 8 * far) * (toward ? -1 : 1);
+        p.push(p[0], p[1] - lift, Math.max(p[2] * 1.6, 5 * far));
       }
       // longe: o facho acende aos poucos conforme o carro se aproxima (sem surgir de repente)
       const dist = (ez - r.position) / SEG_LEN, lim = DRAW_DIST * far0;
       const fade = Math.max(0, Math.min(1, (lim - dist) / (lim * 0.8)));
-      pushCarBeam([xa - ha, a.y, xa + ha, a.y, xf + hf, yf, xf - hf, yf], s.clip, Math.floor(zEnd / SEG_LEN), fade * fade);
+      pushCarBeam(p, s.clip, toward ? i : Math.floor(zEnd / SEG_LEN), fade * fade * (toward ? 0.8 : 1));
     };
     for (const e of s.cars) {
       if (e.z - r.position < 450) continue; // colado no para-brisa: some sob o painel
@@ -699,7 +722,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         const t = e as TrafficCar;
         const tw = (t.truck ? TRUCK_W : CAR_W) * sc * vp.K;
         fogged(c, fk, cx - tw, cy - tw * 1.6, tw * 2, tw * 1.6 + 4, (g) => drawCar(g, cx, cy, tw, trafficLook(t, t.base < 0, night || fog || !!s.tunnel, t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0)));
-        if (t.base > 0) beamAhead(e.z, ex, tw, t.truck ? 12 : 4);
+        beamAhead(e.z, ex, tw, t.truck ? 12 : 4, t.base < 0);
         // batido: fumaça saindo do motor (frente: em cima do capô; de trás: por cima do carro)
         if (t.smoke > 0) drawSmoke(c, cx, cy - tw * (t.base < 0 ? 0.35 : 0.55), tw, t.smoke, Math.round(t.base));
       }
@@ -719,7 +742,9 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   }
   setLightClip(Infinity);
   // escuridão pela intensidade da noite (entra e sai aos poucos no pôr do sol e no amanhecer)
-  finishNight(c, vp, Math.max(r.nightK, r.inTunnel > 0.5 ? 0.45 * r.inTunnel : 0), passers, SEG_LEN, road, roadAll);
+  // inclinação do carro (o eixo do farol): a do chão embaixo dele, da traseira à frente; no ar, a do voo
+  const carPitch = r.airborne ? r.pitch : (yAt(r.position + PLAYER_Z) - yAt(r.position - 400)) / (PLAYER_Z + 400);
+  finishNight(c, vp, Math.max(r.nightK, r.inTunnel > 0.5 ? 0.45 * r.inTunnel : 0), passers, SEG_LEN, road, roadAll, r.steer, carPitch);
   c.restore();
 }
 

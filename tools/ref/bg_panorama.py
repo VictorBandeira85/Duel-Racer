@@ -29,8 +29,14 @@ def main():
     mag = (a[..., 0] > 170) & (a[..., 1] < 110) & (a[..., 2] > 170)
     g = cv2.cvtColor(a.astype(np.uint8), cv2.COLOR_RGB2GRAY).astype(float)
     top = int(np.where((~mag).any(1))[0].min())
-    py, phy = period_phase(np.abs(np.diff(g, axis=0))[top:].sum(1), 9.5, 18)  # blocos quase quadrados (~12 px)
-    phy += top
+    # grade: período pelas bordas verticais (colunas), o mesmo nas linhas (pixel quadrado); só a fase
+    # das linhas é procurada (a detecção solta nas linhas errava em artes com muitas faixas horizontais)
+    px0 = float(os.environ.get('PIX', a.shape[1] * reps / W))  # tamanho do pixel do desenho (as artes do gerador vêm com ~12-13 px)
+    py = px0
+    ey = np.abs(np.diff(g, axis=0))[top:].sum(1)
+    ey = ey - ey.mean()
+    k = np.arange(len(ey))
+    phy = (-np.angle((ey * np.exp(2j * np.pi * k / py)).sum()) / (2 * np.pi) * py) % py + top
     hh, ww = a.shape[:2]
     rows = []
     y = phy + py / 2
@@ -38,7 +44,7 @@ def main():
         if y >= top - py and y < hh:
             rows.append(y)
         y += py
-    px = ww * reps / W  # período de amostragem em x (próximo do período da arte)
+    px = px0  # um pixel do desenho por coluna; a faixa de 1024 vai e volta pela arte (espelhada)
     o = np.zeros((H, W, 4), np.uint8)
     r = max(1, int(min(px, py) * 0.22))
     y0 = H - len(rows)

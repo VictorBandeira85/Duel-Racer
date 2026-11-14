@@ -893,8 +893,8 @@ const SCENERY_SIZE: Partial<Record<SpriteKind, [number, number]>> = {
   tree: [66, 64], pine: [47, 70], snowpine: [53, 74], bush: [59, 25],
   cactus: [47, 89], rock: [74, 47], snowrock: [62, 40], palm: [71, 99], autumn: [62, 67],
   acacia: [110, 66], banana: [96, 102], spire: [82, 86], snowman: [62, 75],
-  house: [125, 68], barn: [100, 75], building: [86, 165], factory: [126, 97], silo: [94, 76], chalet: [98, 82],
-  snowchalet: [100, 84], kiosk: [116, 91], umbrella: [74, 71], lighthouse: [86, 145], station: [128, 67],
+  house: [166, 95], barn: [100, 75], building: [90, 155], factory: [142, 95], silo: [94, 76], chalet: [142, 101],
+  snowchalet: [168, 123], kiosk: [138, 65], umbrella: [74, 71], lighthouse: [74, 126], station: [145, 64],
 };
 const sceneryImgs = new Map<string, HTMLImageElement>();
 // arte por nome de arquivo ('<tipo>', '<tipo>-2' = segundo modelo, '<tipo>-night' = luzes acesas)
@@ -931,7 +931,9 @@ for (const [kind, size] of Object.entries(SCENERY_SIZE) as [SpriteKind, [number,
     if (!im) return vector(c, x, y, w, h, seed);
     const sm = c.imageSmoothingEnabled;
     c.imageSmoothingEnabled = false;
-    c.drawImage(im, x - w / 2, y - h, w, h);
+    // cada arte na própria proporção (a de dia e a acesa podem ter larguras diferentes), na mesma altura
+    const dw = (h * im.naturalWidth) / im.naturalHeight;
+    c.drawImage(im, x - dw / 2, y - h, dw, h);
     c.imageSmoothingEnabled = sm;
   };
 }

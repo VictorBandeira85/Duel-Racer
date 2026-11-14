@@ -8,10 +8,11 @@ isolados, em grupos de 1 a 3 px cercados de outra cor, e a franja clara que sobr
 - franja: pixel opaco encostado no transparente, claro e pouco saturado, mais claro que a peça ao
   lado (grupo de até 6 px na borda); vira transparente se está do lado de fora do contorno, senão
   recebe a cor da peça
+- cor: pixel de cor viva (até 3 px) solto numa peça neutra (cromado, moldura do retrovisor, coluna)
 - máscara: pixel de máscara solto (1-2 px marcados no meio do vazio, ou furo de 1-2 px na máscara)
 Correção: cor dominante do anel (a cor da própria paleta mais próxima da mediana), ou transparente.
 Áreas protegidas: mostradores (os fundos/ponteiros são do código e os números ficam), letreiros.
-Uso: python3 tools/qa/stray_pixels.py <saída_dir> [alvo ...]       -> relatório + folha ampliada
+Uso: python3 tools/qa/stray_pixels.py [--only=cor] <saída_dir> [alvo ...]       -> relatório + folha ampliada
      python3 tools/qa/stray_pixels.py --fix <saída_dir> [alvo ...]  -> corrige e grava folha antes/depois
      --mask junto com --fix corrige também os pixels soltos das máscaras (por padrão só relata)
 Alvos: id da cabine (viper, br-golgti...) ou car:<arte> (sprites externos). Sem alvos: os atualizados.
@@ -103,7 +104,16 @@ def body_ring(c, rg):
     return True
 
 
+ONLY = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--only=')), None)
+
+
 def keep(name, found):
+    if ONLY:
+        found = [f for f in found if f[0] == ONLY]
+    return _keep(name, found)
+
+
+def _keep(name, found):
     ok = KEEP.get(name, [])
     box = KEEP_BOX.get(name, [])
     inb = lambda y, x: any(x0 <= x <= x1 and y0 <= y <= y1 for x0, y0, x1, y1 in box)
@@ -186,6 +196,27 @@ def find(a, protect=None):
         if L[m].min() < lum(rmed) + 50:  # só o que é mais claro que a área (o branco que aparece)
             continue
         found.append(('destoa', list(zip(*np.nonzero(m))), pick(a[rg][:, :3].astype(int))))
+        taken |= m
+
+    # cor: pixel de cor viva (laranja, vermelho, verde...) solto numa peça neutra (cromado, moldura
+    # cinza/preta do retrovisor, coluna, borracha): resto de outra cor que a máscara ou a redução deixou
+    viva = op & ~taken & ~protect & (sat > 55)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(viva.astype(np.uint8), connectivity=8)
+    for i in range(1, n):
+        if st[i, 4] > 3:
+            continue
+        m = lab == i
+        rg = ring_of(m) & op
+        if rg.sum() < 4 or (ring_of(m) & protect).any():
+            continue
+        if np.median(sat[rg]) > 28 or np.percentile(sat[rg], 90) > 45:  # a peça em volta tem de ser neutra
+            continue
+        # outra mancha de cor parecida a 3 px: é desenho (luz, parafuso colorido, letreiro)
+        ys_, xs_ = np.nonzero(m)
+        y0_, y1_, x0_, x1_ = max(0, ys_.min() - 3), ys_.max() + 4, max(0, xs_.min() - 3), xs_.max() + 4
+        if (viva[y0_:y1_, x0_:x1_] & ~m[y0_:y1_, x0_:x1_]).sum() > 1:
+            continue
+        found.append(('cor', list(zip(*np.nonzero(m))), pick(a[rg][:, :3].astype(int))))
         taken |= m
 
     # franja clara na borda do recorte
@@ -293,7 +324,7 @@ def sheet(name, before, after, found, path, z=6, cell=15):
     s = max(1, min(4, 1400 // W))
     over = Image.fromarray(fb).resize((W * s, H * s), Image.NEAREST)
     dr = ImageDraw.Draw(over)
-    cols = {'miolo': (255, 0, 255), 'destoa': (255, 160, 0), 'franja': (0, 255, 0), 'mascara': (255, 255, 0)}
+    cols = {'miolo': (255, 0, 255), 'destoa': (255, 160, 0), 'franja': (0, 255, 0), 'mascara': (255, 255, 0), 'cor': (0, 200, 255)}
     for kind, pts, _ in found:
         ys = [p[0] for p in pts]; xs = [p[1] for p in pts]
         dr.rectangle([min(xs) * s - 3, min(ys) * s - 3, (max(xs) + 1) * s + 2, (max(ys) + 1) * s + 2], outline=cols[kind])
@@ -341,7 +372,7 @@ def run(target, outdir, fix):
             if os.path.exists(mp):
                 mim = Image.open(mp)
                 mk = np.array(mim.convert('L')) > 127
-                fm = find_mask(mk, b[..., 3] >= 128)
+                fm = [] if ONLY else find_mask(mk, b[..., 3] >= 128)
                 f_all = f + fm
             else:
                 fm, f_all = [], f
@@ -369,7 +400,7 @@ def run(target, outdir, fix):
     if all(os.path.exists(m) for m in masks):
         mt, md = (np.array(Image.open(m).convert('L')) for m in masks)
         mk = np.concatenate([mt, md], axis=0) > 127
-        fm = find_mask(mk, b[..., 3] >= 128)
+        fm = [] if ONLY else find_mask(mk, b[..., 3] >= 128)
     report.append((f'{dash} cabine', f + fm))
     if f or fm:
         sheet(f'{dash} cabine', st, b, f + fm, os.path.join(outdir, f'{dash}-cabine.png'))
@@ -386,7 +417,7 @@ def run(target, outdir, fix):
                         mm[yy, x] = val
             Image.fromarray(mm, 'L').save(m, optimize=True)
     w = rgba(wp)
-    fw = [x for x in find(w) if x[0] == 'franja']  # o couro do volante tem pontilhado claro de propósito
+    fw = [x for x in find(w) if x[0] == 'franja' and (not ONLY or ONLY == 'franja')]  # o couro do volante tem pontilhado claro de propósito
     bw = apply(w, fw)
     report.append((f'{dash} volante', fw))
     if fw:
@@ -399,7 +430,7 @@ def run(target, outdir, fix):
 def main():
     args = sys.argv[1:]
     fix = '--fix' in args
-    args = [x for x in args if x not in ('--fix', '--mask')]
+    args = [x for x in args if x not in ('--fix', '--mask') and not x.startswith('--only=')]
     outdir = args[0]
     os.makedirs(outdir, exist_ok=True)
     targets = args[1:] or DASHES + [f'car:{a}' for a in ARTS]

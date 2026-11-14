@@ -179,6 +179,8 @@
 - Máscara feita só pela cor "cheia" deixa de fora o contorno escuro e os reflexos da lataria: com outra
   cor sobram pixels da cor de fábrica nas bordas (Kaze NX). Conferir com `python3 tools/qa/paint_leftover.py
   <prefixo> <saída.png>` (pinta de branco e marca os restos) e corrigir como `tools/ref/nx_paint_edges.py`.
+  Varredura geral (cabines e sprites de todos os atualizados): `python3 tools/qa/paint_edges.py <pasta> [--fix]`
+  (moldura do retrovisor, borda do capô e frisos que sobravam da cor de fábrica). Rodar em todo carro novo.
 - Arte que vem com uma cor diferente da de fábrica numa vista: converter pelo brilho da outra vista.
 - Quadro de instrumentos: medir os ângulos de início/fim das escalas na foto; números grandes e
   negritos; nada de texto improvisado no lugar de ícone (desenhar o pictograma).

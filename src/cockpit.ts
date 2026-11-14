@@ -120,41 +120,59 @@ const CPNG = import.meta.glob('./assets/cockpit/*.png', { eager: true, import: '
 function cp(n: string) {
   return CPNG[`./assets/cockpit/${n}.png`];
 }
+// Fúria F4: o quadro e o console de hoje (medidas da cabine antiga) levados para a cabine nova, em escala
+const f4Map = (x0: number, y0: number, k: number, nx: number, ny: number) => {
+  const xy = (x: number, y: number): [number, number] => [nx + (x - x0) * k, ny + (y - y0) * k];
+  return {
+    xy,
+    pt: (x: number, y: number) => { const [a, b] = xy(x, y); return { x: a, y: b }; },
+    r: (v: number) => v * k,
+    box: (x: number, y: number, w: number, h: number) => { const [a, b] = xy(x, y); return { x: a, y: b, w: w * k, h: h * k }; },
+  };
+};
+// a face (169 x 84 a partir de 44,5; 7,5) centrada nos mostradores da arte nova (108,7 e 154,6 na linha 72,9);
+// o console: o primeiro relógio (253,8; 72) no da arte (226,3; 79,5), passo 34 -> 24,36
+const F4Q = f4Map(44.5, 7.5, 0.8, 131.64 - 85.2 * 0.8, 72.92 - 38.4 * 0.8);
+const F4C = f4Map(253.8, 72, 24.36 / 34, 226.28, 79.5);
 const COCKPIT_ART: Record<string, CockpitArt> = {
-  // Furia F4 (F40): interior novo do Victor (tools/ref/f40_cockpit2.py) e o quadro Veglia Borletti
-  // de verdade (foto do Victor, tools/ref/f40_gauges.py): velocímetro 0-360 com hodômetros,
-  // conta-giros 0-100 x100 com marcas vermelhas, água e turbo embaixo, luzes vermelhas; ponteiros brancos
-  f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, pivot: [128, 105], wheelTop: 12, tells: null,
-    glass: { at: [22, 101], thr: 256 }, pod: { x: 235, y: 23, r: 10, face: 'black', bezel: 'black', lit: 'green' }, radar: [222, 6] /* retrovisor em gota na cor da carroceria, por fora (a moldura fica na frente): tools/ref/f40_left_redo.py */, glow: '110,230,140', glowK: 0.5, // lado esquerdo refeito (tools/ref/f40_left_redo.py)
+  // Furia F4 (F40): cabine nova do Victor (com e sem volante, tools/ref/f40_cockpit2.py) com o quadro
+  // Veglia Borletti de hoje (foto do Victor, tools/ref/f40_gauges.py): velocímetro 0-360 com hodômetros,
+  // conta-giros 0-100 x100 com marcas vermelhas, água e turbo embaixo, luzes vermelhas; ponteiros
+  // brancos. A face do quadro entra a 0,8 do tamanho (F4Q), centrada nos dois mostradores da arte,
+  // e a do console a 0,7165 (F4C), com o passo dos três relógios da arte
+  f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, dashMask: cp('f40-dash-mask'), topMask: cp('f40-top-mask'),
+    pivot: [128, 99], wheelTop: 2, tells: null,
+    glass: { at: [42, 111], thr: 256 }, pod: { x: 250, y: 30, r: 9, face: 'black', bezel: 'black', lit: 'green' }, radar: [204, 32], glow: '110,230,140', glowK: 0.5,
     // à noite números e marcações acendem em verde (o fundo preto continua preto), ponteiros também
     facesLit: '110,236,140', litNeedles: true,
-    faces: [{ src: cp('f40-cluster'), src2: cp('f40-cluster-2x'), x: 44.5, y: 7.5, w: 169, h: 84 },
-      { src: cp('f40-console'), src2: cp('f40-console-2x'), x: 238.5, y: 55.5, w: 100, h: 35 }],
+    faces: [{ src: cp('f40-cluster'), src2: cp('f40-cluster-2x'), ...F4Q.box(44.5, 7.5, 169, 84) },
+      { src: cp('f40-console'), src2: cp('f40-console-2x'), ...F4C.box(238.5, 55.5, 100, 35) }],
     // Veglia: a seta é a primeira lente embaixo do velocímetro (farol de neblina e alto ao lado)
-    turnDot: { x: 98.3, y: 68.6, others: [[103.7, 68.6], [109.1, 68.6]] },
-    speed: { x: 104.2, y: 45.9, r: 24.5, max: 360, labels: [], tick: 20, red: 999, face: false, a0: 128 * (Math.PI / 180), sweep: 284 * (Math.PI / 180) },
-    tach: { x: 155.2, y: 45.9, r: 24.5, max: 10, labels: [], tick: 1, red: 999, face: false, a0: 128 * (Math.PI / 180), sweep: 284 * (Math.PI / 180) },
-    tachReal: true, speedMax: 360, needle: '#f4f4f0', needleW: 1.2, needleTail: 0.6, needleFine: true, needleTip: 0.4, hubUnder: true, hub: '#0e0e0f', hubR: 0,
+    turnDot: { ...F4Q.pt(98.3, 68.6), others: [F4Q.xy(103.7, 68.6), F4Q.xy(109.1, 68.6)] },
+    speed: { ...F4Q.pt(104.2, 45.9), r: F4Q.r(24.5), max: 360, labels: [], tick: 20, red: 999, face: false, a0: 128 * (Math.PI / 180), sweep: 284 * (Math.PI / 180) },
+    tach: { ...F4Q.pt(155.2, 45.9), r: F4Q.r(24.5), max: 10, labels: [], tick: 1, red: 999, face: false, a0: 128 * (Math.PI / 180), sweep: 284 * (Math.PI / 180) },
+    tachReal: true, speedMax: 360, needle: '#f4f4f0', needleW: 1.0, needleTail: 0.5, needleFine: true, needleTip: 0.4, hubUnder: true, hub: '#0e0e0f', hubR: 0,
     aux: [
-      { x: 68.5, y: 66.1, r: 11, kind: 'single', show: ['water'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
-      { x: 189.2, y: 67.3, r: 11, kind: 'single', show: ['boost'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
+      { ...F4Q.pt(68.5, 66.1), r: F4Q.r(11), kind: 'single', show: ['water'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
+      { ...F4Q.pt(189.2, 67.3), r: F4Q.r(11), kind: 'single', show: ['boost'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
       // console: pressão do óleo, temperatura do óleo e bateria
-      { x: 253.8, y: 72, r: 11, kind: 'single', show: ['oil'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
-      { x: 287.8, y: 72, r: 11, kind: 'single', show: ['oiltemp'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
-      { x: 321.5, y: 72, r: 11, kind: 'single', show: ['volt'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
+      { ...F4C.pt(253.8, 72), r: F4C.r(11), kind: 'single', show: ['oil'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
+      { ...F4C.pt(287.8, 72), r: F4C.r(11), kind: 'single', show: ['oiltemp'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
+      { ...F4C.pt(321.5, 72), r: F4C.r(11), kind: 'single', show: ['volt'], arc: [200 * (Math.PI / 180), 340 * (Math.PI / 180)], needleOnly: true },
     ],
     extra: (c, ox, r) => {
-      odometer(c, ox, r, { x: 98.2, y: 37.5, w: 12, h: 3.5 }, 18373, 6, 0.5);
-      odometer(c, ox, r, { x: 100.2, y: 52, w: 8, h: 3.5 }, 425.7, 4, 0.5, true);
+      odometer(c, ox, r, F4Q.box(98.2, 37.5, 12, 3.5), 18373, 6, 0.4);
+      odometer(c, ox, r, F4Q.box(100.2, 52, 8, 3.5), 425.7, 4, 0.4, true);
       // luzes vermelhas da placa: "slow down" piscam no corte de giro, óleo e água acendem nos problemas
-      const lit = (x: number, y: number, on: boolean) => {
+      const lit = (x0: number, y0: number, on: boolean) => {
         if (!on) return;
+        const { x, y } = F4Q.pt(x0, y0), rr = F4Q.r(2.4);
         c.fillStyle = '#ff3a26';
         c.beginPath();
-        c.ellipse(ox + x, ART_TOP + y, 2.4, 2.4 * PIX_Y, 0, 0, Math.PI * 2);
+        c.ellipse(ox + x, ART_TOP + y, rr, rr * PIX_Y, 0, 0, Math.PI * 2);
         c.fill();
         c.fillStyle = '#ffb4a0';
-        c.fillRect(ox + x - 1, ART_TOP + y - 1.5, 1, 1);
+        c.fillRect(ox + x - 1, ART_TOP + y - 1.2, 1, 1);
       };
       const slow = r.rpm > 0.97 && Math.floor(performance.now() / 160) % 2 === 0;
       lit(61.5, 40, slow);

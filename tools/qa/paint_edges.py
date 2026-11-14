@@ -18,7 +18,7 @@ from PIL import Image
 ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
 COCK = os.path.join(ROOT, 'src/assets/cockpit')
 CARS = os.path.join(ROOT, 'src/assets/cars')
-CABS = ['viper', 'diablo', 'nsx', 'br-golgti', 'br-monza', 'br-passat', 'br-pumagte']
+CABS = ['viper', 'diablo', 'f40', 'nsx', 'br-golgti', 'br-monza', 'br-passat', 'br-pumagte']
 ARTS = ['viper', 'diablo', 'diablosv', 'testarossa', 'f40', 'nsx', 'br-golgti', 'br-monza', 'br-monzacoupe',
         'br-voyage', 'br-voyagesport', 'br-santana', '959', 'countach', 'br-passat', 'br-pumagte']
 

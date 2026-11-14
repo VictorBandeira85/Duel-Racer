@@ -52,6 +52,7 @@ export const TR_PHOTOS: Photo[] = [
 ].filter((p) => !!p.src);
 export const F4_PHOTOS: Photo[] = [
   { src: ph('f4-pista'), kicker: 'ENSAIO', kc: '#d01f26', title: 'FURIA F4', sub: 'Dois turbos e nenhum luxo', inside: ['V8 biturbo de 478 cv', 'Carroceria de kevlar', '340 km/h na pista'], box: [35, 55, 525, 232] },
+  { src: ph('f4-guindaste'), kicker: 'BASTIDORES', kc: '#1e4fb8', title: 'F4 NAS ALTURAS', sub: 'Embarque no porto rumo ao novo dono', inside: ['Como se iça uma F4', 'Frete e seguro marítimo', 'Kevlar: leve até no guindaste'], box: [100, 140, 460, 282] },
   { src: ph('f4-raiox'), kicker: 'RAIO-X', kc: '#1a1614', title: 'POR DENTRO DA F4', sub: 'Tubos, kevlar e dois turbos', inside: ['Gaiola e chassi tubular', 'Motor atrás dos bancos', 'Peso: 1.100 kg'], box: [25, 40, 540, 290] },
 ].filter((p) => !!p.src);
 export const DIA_PHOTOS: Photo[] = [

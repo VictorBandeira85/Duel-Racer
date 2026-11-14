@@ -1,7 +1,7 @@
 """Fotos da revista da Furia F4 (F40, pixel art do Victor): o escudo/cavalinho vira o escudo da Fúria,
 textos e títulos reais saem (recorte); reduz para 560 x 315. As artes com marcas reais em toda parte
 (capas de revista, salão da FIAT, carro de corrida com patrocínios) não são usadas.
-Uso: python3 tools/ref/f40_photos.py <pasta com ph-*.png> <src/assets/photos>
+Uso: python3 tools/ref/f40_photos.py <pasta com ph-*.png> <src/assets/photos> [conjunto ...]
 """
 import os
 import sys
@@ -17,12 +17,16 @@ SETS = {
     'raiox': {'emb': [(1405, 318, 16, 22, 26), (1048, 262, 12, 12, 14)], 'txt': [(272, 676, 338, 702)], 'crop': None, 'out': 'f4-raiox'},
     'spectacular': {'emb': [(568, 395, 14, 20, 24), (1308, 497, 9, 7, 12)], 'txt': [], 'crop': None, 'out': 'f4-pista',
                     'fill': [(0, 92, 92)], 'inpaint': (684, 941)},  # título de cima: repete o céu; o de baixo: letras claras refeitas
+    'guindaste': {'emb': [(852, 663, 14, 19, 24), (423, 722, 12, 12, 14)], 'txt': [], 'crop': None, 'out': 'f4-guindaste'},  # içada na marina
 }
 
 
 def main():
     src, out = sys.argv[1], sys.argv[2]
+    only = sys.argv[3:]
     for k, c in SETS.items():
+        if only and k not in only:
+            continue
         a = np.array(Image.open(os.path.join(src, f'ph-{k}.png')).convert('RGB'))
         H, W = a.shape[:2]
         yy, xx = np.mgrid[0:H, 0:W]

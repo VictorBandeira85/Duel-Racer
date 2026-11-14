@@ -125,7 +125,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
   // de verdade (foto do Victor, tools/ref/f40_gauges.py): velocímetro 0-360 com hodômetros,
   // conta-giros 0-100 x100 com marcas vermelhas, água e turbo embaixo, luzes vermelhas; ponteiros brancos
   f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, pivot: [128, 105], wheelTop: 12, tells: null,
-    glass: { at: [20, 105], thr: 256 }, pod: { x: 235, y: 23, r: 10, face: 'black', bezel: 'black', lit: 'green' }, radar: [222, 6] /* por fora: a coluna e a porta ficam na frente dele (tools/ref/f40_mirror_fix.py) */, glow: '110,230,140', glowK: 0.5, // retrovisor desenhado (tools/qa/add_mirror.py)
+    glass: { at: [22, 101], thr: 256 }, pod: { x: 235, y: 23, r: 10, face: 'black', bezel: 'black', lit: 'green' }, radar: [222, 6] /* retrovisor em gota na cor da carroceria, por fora (a moldura fica na frente): tools/ref/f40_left_redo.py */, glow: '110,230,140', glowK: 0.5, // lado esquerdo refeito (tools/ref/f40_left_redo.py)
     // à noite números e marcações acendem em verde (o fundo preto continua preto), ponteiros também
     facesLit: '110,236,140', litNeedles: true,
     faces: [{ src: cp('f40-cluster'), src2: cp('f40-cluster-2x'), x: 44.5, y: 7.5, w: 169, h: 84 },

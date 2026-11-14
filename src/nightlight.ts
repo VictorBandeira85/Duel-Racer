@@ -39,26 +39,27 @@ function facades(c: CanvasRenderingContext2D, strength: number) {
     c.rect(x - w * 2, y - h * 2, w * 4, Math.min(h * 2, f.clip + 1 - (y - h * 2)));
     c.clip();
     if (f.kind === 'station') {
-      const L = x - w / 2, cw = w * 0.56;
-      blob(c, L + cw / 2, y - h * 0.85, Math.max(cw * 0.9, 8), Math.max(h * 0.35, 4), '255,250,230', 0.22 * strength);
-      c.fillStyle = `rgba(255,255,245,${(0.75 * strength).toFixed(3)})`;
-      c.fillRect(L, y - h * 0.92, cw, h * 0.09);
-      c.fillStyle = `rgba(255,60,40,${(0.7 * strength).toFixed(3)})`;
-      c.fillRect(L, y - h * 0.83, cw, h * 0.05);
+      // geometria do posto desenhado pelo Victor (src/assets/scenery/station*.png): cobertura com o
+      // letreiro em toda a largura no alto, três luminárias embaixo dela, loja no meio
+      const L = x - w * 0.47, cw = w * 0.94;
+      blob(c, x, y - h * 0.7, Math.max(w * 0.9, 8), Math.max(h * 0.4, 4), '255,250,230', 0.22 * strength);
+      // letreiro aceso (só clareia: as letras e faixas da arte continuam)
+      c.fillStyle = `rgba(255,240,230,${(0.28 * strength).toFixed(3)})`;
+      c.fillRect(L, y - h * 0.86, cw, h * 0.2);
       // luz descendo da cobertura até o chão das bombas
       c.fillStyle = `rgba(255,250,225,${(0.16 * strength).toFixed(3)})`;
       c.beginPath();
-      c.moveTo(L + cw * 0.04, y - h * 0.78);
-      c.lineTo(L + cw * 0.96, y - h * 0.78);
-      c.lineTo(L + cw * 1.12, y);
-      c.lineTo(L - cw * 0.12, y);
+      c.moveTo(L + cw * 0.08, y - h * 0.6);
+      c.lineTo(L + cw * 0.92, y - h * 0.6);
+      c.lineTo(L + cw * 1.04, y);
+      c.lineTo(L - cw * 0.04, y);
       c.closePath();
       c.fill();
       c.fillStyle = `rgba(255,250,225,${(0.28 * strength).toFixed(3)})`;
-      c.fillRect(L - cw * 0.15, y - h * 0.04, cw * 1.3, h * 0.06);
-      // vitrine da loja
-      c.fillStyle = `rgba(200,230,255,${(0.55 * strength).toFixed(3)})`;
-      c.fillRect(x + w * 0.14, y - h * 0.38, w * 0.2, h * 0.2);
+      c.fillRect(L - cw * 0.06, y - h * 0.05, cw * 1.12, h * 0.06);
+      // vitrine e porta da loja
+      c.fillStyle = `rgba(255,225,150,${(0.4 * strength).toFixed(3)})`;
+      c.fillRect(x - w * 0.18, y - h * 0.5, w * 0.36, h * 0.3);
     } else {
       blob(c, x, y - h * 0.78, Math.max(w * 0.9, 6), Math.max(h * 0.35, 4), '140,170,255', 0.28 * strength);
       // a placa iluminada por dentro: o painel clareia, mantendo o desenho (letras e faixas)

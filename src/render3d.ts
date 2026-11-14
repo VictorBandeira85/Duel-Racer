@@ -8,7 +8,7 @@ import { adsReady } from './billboards';
 import { drawGlow, type Stops } from './glowsprite';
 import { beginLights, finishNight, pushCarBeam, pushOccluder, sirenGlow, sirenWash, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, LAMP_H, inCone, type Pass, type RoadPt } from './nightlight';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
-import { SPRITES, sceneryKey } from './sprites';
+import { SPRITES, sceneryKey, setSceneryNight } from './sprites';
 import { FOG_COLOR, type BgLayer } from './themes';
 import type { Point, Segment } from './track';
 import { dither } from './ui';
@@ -525,6 +525,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   beginLights();
   // escuro: noite ou dentro do túnel (faróis acesos, ofuscam no retrovisor)
   const lit = night || r.nightK > 0.15 || r.inTunnel > 0.5; // postes e faróis acendem já no lusco-fusco
+  setSceneryNight(lit); // construções com as janelas acesas
 
   const base = r.findSegment(r.position);
   const basePct = (r.position % SEG_LEN) / SEG_LEN;

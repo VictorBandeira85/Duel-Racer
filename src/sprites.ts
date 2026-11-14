@@ -893,28 +893,41 @@ const SCENERY_SIZE: Partial<Record<SpriteKind, [number, number]>> = {
   tree: [66, 64], pine: [47, 70], snowpine: [53, 74], bush: [59, 25],
   cactus: [47, 89], rock: [74, 47], snowrock: [62, 40], palm: [71, 99], autumn: [62, 67],
   acacia: [110, 66], banana: [96, 102], spire: [82, 86], snowman: [62, 75],
+  house: [125, 68], barn: [100, 75], building: [86, 165], factory: [126, 97], silo: [94, 76], chalet: [98, 82],
+  snowchalet: [100, 84], kiosk: [116, 91], umbrella: [74, 71], lighthouse: [86, 145], station: [128, 67],
 };
-const sceneryImgs = new Map<SpriteKind, HTMLImageElement>();
-function sceneryImg(kind: SpriteKind): HTMLImageElement | null {
-  const src = SCENERY_ART[`./assets/scenery/${kind}.png`];
+const sceneryImgs = new Map<string, HTMLImageElement>();
+// arte por nome de arquivo ('<tipo>', '<tipo>-2' = segundo modelo, '<tipo>-night' = luzes acesas)
+function artImg(name: string): HTMLImageElement | null {
+  const src = SCENERY_ART[`./assets/scenery/${name}.png`];
   if (!src) return null;
-  let im = sceneryImgs.get(kind);
+  let im = sceneryImgs.get(name);
   if (!im) {
     im = new Image();
     im.src = src;
-    sceneryImgs.set(kind, im);
+    sceneryImgs.set(name, im);
   }
   return im.complete && im.naturalWidth ? im : null;
 }
+const hasArt = (name: string) => !!SCENERY_ART[`./assets/scenery/${name}.png`];
+// à noite (e no lusco-fusco/túnel) as construções usam a arte com as luzes acesas
+let sceneryNight = false;
+export const setSceneryNight = (v: boolean) => { sceneryNight = v; };
+const artName = (kind: SpriteKind, seed: number) => {
+  const base = seed % 2 && hasArt(`${kind}-2`) ? `${kind}-2` : kind;
+  return sceneryNight && hasArt(`${base}-night`) ? `${base}-night` : base;
+};
+const sceneryImg = (kind: SpriteKind, seed = 0) => artImg(artName(kind, seed));
 // parte da chave do cache do sprite: muda quando a arte termina de carregar (troca o desenho vetorial)
-export const sceneryKey = (kind: SpriteKind) => (sceneryImg(kind) ? 'a' : '');
-export const preloadScenery = () => (Object.keys(SCENERY_SIZE) as SpriteKind[]).forEach((k) => sceneryImg(k));
+// e quando acende (noite)
+export const sceneryKey = (kind: SpriteKind) => (sceneryImg(kind) ? (sceneryNight && hasArt(`${kind}-night`) ? 'an' : 'a') : '');
+export const preloadScenery = () => Object.keys(SCENERY_ART).forEach((p) => artImg(p.slice(17, -4)));
 for (const [kind, size] of Object.entries(SCENERY_SIZE) as [SpriteKind, [number, number]][]) {
   if (!SCENERY_ART[`./assets/scenery/${kind}.png`]) continue;
   const def = SPRITES[kind], vector = def.draw;
   def.w = Math.round((def.h * size[0]) / size[1]);
   def.draw = (c, x, y, w, h, seed) => {
-    const im = sceneryImg(kind);
+    const im = sceneryImg(kind, seed);
     if (!im) return vector(c, x, y, w, h, seed);
     const sm = c.imageSmoothingEnabled;
     c.imageSmoothingEnabled = false;

@@ -3112,8 +3112,9 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   } else if (r.state === 'drive' && r.time < 1 && r.crashes === 0) {
     text(c, 'VAI!', w / 2, vp.y + 28, 16, '#30e060', 'center');
   }
-  // chegada: placa grande com a seta para a direita, piscando, indicando a entrada do posto
-  if (r.state === 'arrived' && Math.floor(performance.now() / 300) % 2 === 0) {
+  // chegada: placa grande com a seta para a direita, piscando, indicando a entrada do posto; aparece
+  // desde que o carro começa a frear sozinho para parar na bomba, não só depois da linha
+  if ((r.state === 'arrived' || (r.state === 'drive' && r.autoStop)) && Math.floor(performance.now() / 300) % 2 === 0) {
     const cx = w / 2 - 8, cy = vp.y + 30;
     c.fillStyle = '#1a1614';
     c.fillRect(cx - 41, cy - 13, 100, 28);

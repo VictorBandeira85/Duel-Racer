@@ -889,7 +889,11 @@ export const SPRITES: Record<SpriteKind, { w: number; h: number; draw: Draw; sol
 // quando a imagem do tipo existe, ela substitui o desenho vetorial, na mesma base e altura; a largura segue
 // a proporção da arte (SCENERY_SIZE, em pixels do sprite). Enquanto carrega, vale o desenho vetorial.
 const SCENERY_ART = import.meta.glob('./assets/scenery/*.png', { eager: true, import: 'default' }) as Record<string, string>;
-const SCENERY_SIZE: Partial<Record<SpriteKind, [number, number]>> = { tree: [66, 64], pine: [47, 70], snowpine: [53, 74], bush: [59, 25] };
+const SCENERY_SIZE: Partial<Record<SpriteKind, [number, number]>> = {
+  tree: [66, 64], pine: [47, 70], snowpine: [53, 74], bush: [59, 25],
+  cactus: [47, 89], rock: [74, 47], snowrock: [62, 40], palm: [71, 99], autumn: [62, 67],
+  acacia: [110, 66], banana: [96, 102], spire: [82, 86], snowman: [62, 75],
+};
 const sceneryImgs = new Map<SpriteKind, HTMLImageElement>();
 function sceneryImg(kind: SpriteKind): HTMLImageElement | null {
   const src = SCENERY_ART[`./assets/scenery/${kind}.png`];

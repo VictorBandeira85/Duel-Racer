@@ -130,19 +130,20 @@ const f4Map = (x0: number, y0: number, k: number, nx: number, ny: number) => {
     box: (x: number, y: number, w: number, h: number) => { const [a, b] = xy(x, y); return { x: a, y: b, w: w * k, h: h * k }; },
   };
 };
-// a face (169 x 84 a partir de 44,5; 7,5) centrada nos mostradores da arte nova (108,7 e 154,6 na linha 72,9);
-// o console: o primeiro relógio (253,8; 72) no da arte (226,3; 79,5), passo 34 -> 24,36
-const F4Q = f4Map(44.5, 7.5, 0.8, 131.64 - 85.2 * 0.8, 72.92 - 38.4 * 0.8);
-const F4C = f4Map(253.8, 72, 24.36 / 34, 226.28, 79.5);
+// a face (169 x 84 a partir de 44,5; 7,5) a 0,72, centrada entre os mostradores da arte (94 e 150,6; meio
+// em 122,3) com o alto no alto do miolo do capuz (linha 59,2); o console: o primeiro relógio (253,8; 72)
+// no da arte (220,6; 89,9), passo 34 -> 26,32
+const F4Q = f4Map(44.5, 7.5, 0.72, 122.28 - 85.2 * 0.72, 59.2);
+const F4C = f4Map(253.8, 72, 26.32 / 34, 220.56, 89.92);
 const COCKPIT_ART: Record<string, CockpitArt> = {
   // Furia F4 (F40): cabine nova do Victor (com e sem volante, tools/ref/f40_cockpit2.py) com o quadro
   // Veglia Borletti de hoje (foto do Victor, tools/ref/f40_gauges.py): velocímetro 0-360 com hodômetros,
   // conta-giros 0-100 x100 com marcas vermelhas, água e turbo embaixo, luzes vermelhas; ponteiros
-  // brancos. A face do quadro entra a 0,8 do tamanho (F4Q), centrada nos dois mostradores da arte,
-  // e a do console a 0,7165 (F4C), com o passo dos três relógios da arte
+  // brancos. A face do quadro entra a 0,72 do tamanho (F4Q), centrada entre os dois mostradores da arte,
+  // e a do console a 0,774 (F4C), com o passo dos três relógios da arte
   f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, dashMask: cp('f40-dash-mask'), topMask: cp('f40-top-mask'),
-    pivot: [128, 99], wheelTop: 2, tells: null,
-    glass: { at: [42, 111], thr: 256 }, pod: { x: 250, y: 30, r: 9, face: 'black', bezel: 'black', lit: 'green' }, radar: [204, 32], glow: '110,230,140', glowK: 0.5,
+    pivot: [119.2, 120], wheelTop: 0, tells: null,
+    glass: { at: [32, 119], thr: 256 }, pod: { x: 228, y: 33, r: 9, face: 'black', bezel: 'black', lit: 'green' }, radar: [205, 35], glow: '110,230,140', glowK: 0.5,
     // à noite números e marcações acendem em verde (o fundo preto continua preto), ponteiros também
     facesLit: '110,236,140', litNeedles: true,
     faces: [{ src: cp('f40-cluster'), src2: cp('f40-cluster-2x'), ...F4Q.box(44.5, 7.5, 169, 84) },

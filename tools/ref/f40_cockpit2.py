@@ -1,23 +1,27 @@
 """Cabine da Fúria F4 (Ferrari F40) a partir das duas artes novas do Victor (com e sem volante, com cenário
-pelos vidros), no molde de passat_cockpit2.py, mantendo o quadro Veglia de hoje (f40_gauges.py: faces
-f40-cluster e o console reespaçado aqui, luz verde à noite):
-- escala 0,28 (pixel 8:7): a arte inteira (1672 px) cabe na largura empilhada (460 colunas); o centro do
-  aro (819, 545,5 da arte sem volante) cai no pivô (128, 99) e a linha 0 do teto cai no alto da arte
-- painel, colunas, porta e retrovisores da arte sem volante; volante da arte com volante (1 px mais
-  baixa): aro por duas elipses medidas, raios e placa do miolo por polígonos medidos
-- vidros por geometria medida: para-brisa entre a borda do forro (inundação a partir do céu, a haste do
-  retrovisor interno interpolada), a coluna e a borda de cima do painel (DASH_TOP); a palheta do
-  limpador e o retrovisor interno ficam dentro e somem (o jogo desenha os dele); a base do retrovisor
-  interno no forro vira forro. Janela da porta por polígono, menos a carcaça e o braço do retrovisor
-  externo; o vidro dele (retângulo de cantos redondos) fica transparente (glass.at)
-- retrovisor externo: no celular (932 x 430) só aparece da coluna 18 em diante; como em
-  passat_cockpit2.py a moldura esquerda e o começo do vidro andam MIR_K colunas para dentro
-- quadro: o desenho da arte fica embaixo das faces de hoje (f40-cluster a 0,8 do tamanho, centrada nos
-  dois mostradores da arte, que ela cobre inteiros); os três relógios do console da arte são apagados
-  (vira o fundo da caixa) e o jogo desenha os três de hoje no lugar (f40-console a 0,7165: o passo
-  dos relógios fica o da arte)
-- máscara de pintura: moldura vermelha da janela, carcaça e braço do retrovisor, porta e os dois
-  painéis vermelhos com saída de ar em cima do painel; estofado vermelho (banco) fica fora (nem entra)
+pelos vidros; segunda versão, mais fiel ao carro), no molde de passat_cockpit2.py, mantendo o quadro
+Veglia de antes (f40_gauges.py: faces f40-cluster e f40-console, luz verde à noite):
+- escala 0,28 (pixel 8:7): a arte inteira (1672 px) cobre as 460 colunas empilhadas sem esticar nada
+  (x 0 da arte cai na coluna 0); o centro do aro (790, 612) cai no pivô (119,2; 120): o volante fica
+  à esquerda do meio, como na arte, e a linha 0 da arte cai no alto do teto empilhado
+- painel, colunas, porta, retrovisores, console e pedais da arte sem volante; volante da arte com volante
+  (as duas estão alinhadas): aro por duas elipses medidas, raios, placa e raio de baixo por polígonos
+- vidros: para-brisa por geometria (borda do forro pela inundação do céu, coluna e borda de cima do
+  painel medidas); limpador e retrovisor interno ficam dentro e somem (o jogo desenha os dele) e a base
+  do retrovisor interno no forro vira forro. Janelas da porta (o triângulo entre a coluna e a moldura,
+  o vidro à esquerda da moldura e o vão embaixo do retrovisor) por inundação a partir de sementes (o
+  contorno preto segura), com as ilhas escuras do cenário fechadas
+- retrovisor externo: a arte o corta na borda esquerda (sem a moldura esquerda). Como em
+  mirror_complete.py flip, a moldura direita (do começo da curva dos cantos até a borda de fora) é
+  refletida e vira a moldura esquerda com a borda de fora na coluna MIR_X0 (no celular, 932 x 430, a
+  tela começa na coluna 18); o vidro entre as duas continua o da arte (transparente: glass.at); à esquerda
+  da moldura nova vira janela, menos a barra escura da moldura da porta
+- quadro: o miolo preto do capuz é limpo (mostradores, números, ponteiros e luzes pintados da arte saem)
+  e o jogo desenha por cima a face de antes (f40-cluster) a 0,72, centrada entre os dois mostradores da
+  arte, com o alto no alto do miolo; nos três relógios do console da arte fica o aro preto e o mostrador
+  de dentro vira fundo preto: o jogo desenha os de antes (f40-console) a 0,7765, no passo dos da arte
+- máscara de pintura: porta, retrovisor e braço (tudo que é vermelho à esquerda da coluna), os dois
+  painéis vermelhos com saída de ar e a faixa vermelha entre eles no alto do painel; bancos ficam fora
 - o cavalinho do miolo do volante vira o escudo da Fúria (brand_badges.py) num botão escuro
 Uso: python3 tools/ref/f40_cockpit2.py <pasta com cab-wheel.png e cab-nowheel.png> <src/assets/cockpit>
      (DBG=<pasta> grava as máscaras para conferência)
@@ -34,70 +38,78 @@ import brand_badges  # noqa: E402
 
 S = 0.28
 PXW, PXH = 1 / S, (1 / S) / (8 / 7)
-PIV = (819.0, 545.5)            # centro do aro na arte sem volante (a com volante é 1 px mais baixa)
-PIV_W = (819.0, 546.5)          # centro do aro na arte com volante
-PIV_N = (128.0, 99.0)
+PIV = (790.0, 612.0)            # centro do aro (as duas artes estão alinhadas)
+PIV_N = (790.0 * S - 102.0, 120.0)  # x 0 da arte na coluna 0 do empilhado
 ROWS, EXT, PAD = 124, 76, 102
-WTOP, WROWS = 2, 200
-RIM_OUT = (819.0, 546.5, 276.0, 258.0)
-RIM_IN = (819.0, 547.0, 219.0, 201.0)
-# raios e placa do miolo (arte com volante)
+WTOP, WROWS = 0, 212
+RIM_OUT = (790.0, 612.0, 281.0, 276.0)
+RIM_IN = (790.0, 610.0, 246.0, 243.0)
 SPOKES = [
-    [(594, 520), (717, 520), (717, 577), (594, 577)],
-    [(944, 518), (1046, 518), (1046, 578), (944, 578)],
-    [(712, 524), (949, 524), (949, 579), (925, 583), (900, 589), (880, 598), (867, 611), (861, 628), (861, 762),
-     (804, 762), (804, 628), (798, 611), (786, 599), (765, 591), (740, 585), (712, 580)],
+    [(505, 578), (662, 578), (662, 642), (505, 642)],
+    [(923, 578), (1078, 578), (1078, 642), (923, 642)],
+    [(655, 575), (700, 567), (760, 560), (793, 557), (830, 560), (885, 567), (932, 575), (932, 640),
+     (902, 648), (872, 662), (847, 682), (832, 705), (826, 730), (828, 880), (758, 880), (762, 730),
+     (757, 705), (742, 682), (715, 662), (685, 648), (655, 640)],
 ]
-EMB = (833.0, 567.0, 41)        # cavalinho: centro e raio (com o aro preto)
+EMB = (792.5, 622.5, 42)        # cavalinho: centro e raio (com o aro preto)
 # borda de cima do painel (primeira linha do contorno preto) e coluna (borda do para-brisa)
-DASH_TOP = [(455, 353), (470, 350), (500, 345), (530, 336), (560, 330), (600, 327), (650, 325), (700, 320),
-            (750, 317), (800, 316), (900, 316), (925, 320), (945, 328), (965, 338), (985, 346), (1000, 347),
-            (1405, 347), (1415, 343), (1430, 336), (1450, 330), (1500, 327), (1600, 325), (1672, 322)]
-PILLAR = [(432, 0), (432, 100), (436, 150), (444, 200), (450, 250), (457, 300), (466, 350), (466, 360)]
+DASH_TOP = [(300, 392), (310, 388), (350, 370), (400, 357), (450, 350), (500, 347), (600, 347), (650, 350),
+            (690, 352), (720, 344), (900, 344), (930, 348), (955, 356), (1390, 356), (1400, 357), (1425, 346),
+            (1450, 342), (1500, 339), (1550, 340), (1600, 344), (1672, 348)]
+PILLAR = [(286, 0), (284, 100), (288, 200), (298, 300), (306, 350), (312, 392)]
 SKY_SEED = (700, 60)
-STALK = (1212, 1302)            # colunas da haste do retrovisor interno (o forro é interpolado)
-# janela da porta (até o contorno preto da moldura e da coluna) e o retrovisor externo
-DOOR = [(0, 8), (50, 24), (100, 37), (150, 52), (185, 72), (210, 92), (230, 122), (250, 157), (265, 197),
-        (282, 237), (295, 277), (306, 300), (315, 330), (321, 380), (326, 430), (318, 441), (240, 453),
-        (200, 459), (150, 468), (100, 477), (50, 488), (0, 499)]
-HOUSING = [(45, 270), (250, 270), (264, 284), (264, 416), (250, 431), (45, 431), (28, 416), (28, 284)]
-DOOR_GROW = [(0, 8), (300, 260), (322, 282), (338, 350), (352, 430), (326, 447), (0, 505)]  # até onde o cenário pode crescer
-# vãos entre o braço do retrovisor e a coluna (meio-fio e asfalto): janela, menos o contorno preto
-POCKETS = [[(275, 305), (300, 300), (325, 305), (334, 330), (337, 372), (331, 372), (300, 338), (276, 314)],
-           [(288, 410), (302, 410), (320, 431), (318, 434), (294, 434)]]
-ARM = [(246, 279), (292, 298), (320, 328), (334, 370), (334, 412), (320, 442), (302, 457), (236, 457), (230, 424)]
-GLASS = (62, 297, 232, 396, 16)  # vidro do retrovisor externo: retângulo de cantos redondos
-MIR_K, MIR_M = 12, 40           # quanto a moldura esquerda anda para dentro e até que coluna
-# relógios do console da arte (centro, raio com o aro) e a caixa onde ficam
-CONSOLE = [(1170, 484), (1258, 486), (1344, 484)]
-CONSOLE_R = 50
-# máscara de pintura: tudo que é vermelho à esquerda da coluna e os dois painéis com saída de ar
-PAINT_X = 470
-VENTS = [[(468, 312), (722, 308), (722, 412), (468, 412)], [(1398, 312), (1672, 306), (1672, 404), (1398, 404)]]
+STALK = (1190, 1305)            # colunas da haste do retrovisor interno (o forro é interpolado)
+WIN_SEEDS = [(112, 120), (95, 170), (100, 230), (100, 265), (150, 280), (15, 150), (20, 250), (100, 470), (40, 470)]  # janelas da porta
+TRI = [(115, 50), (122, 100), (153, 200), (178, 290), (52, 290), (63, 250), (75, 200), (98, 100)]  # triângulo da porta (por dentro dos contornos)
+FAR = [(0, 0), (70, 0), (48, 100), (26, 200), (5, 300), (0, 300)]  # vidro à esquerda da moldura da porta
+MIR_SEED = (100, 370)           # vidro do retrovisor externo
+MIR_GLASS = (25, 322, 171, 427, 12)  # o vidro (cantos redondos), medido
+MIR_ROWS = (95, 143)            # retrovisor no empilhado (do contorno de cima ao de baixo)
+MIR_FRAME_B = 141               # última linha vermelha da moldura de baixo (abaixo é o braço)
+MIR_A, MIR_R = 44, 52           # moldura direita: do começo da curva dos cantos (a) à borda de fora (R)
+MIR_X0 = 20                     # borda de fora da moldura nova (no celular a tela começa na coluna 18)
+BAR = [(45, 300), (32, 375), (18, 450), (10, 470)]  # borda direita da barra escura da moldura da porta (arte)
+# miolo preto do capuz do quadro e os relógios do console
+HOOD = [(600, 428), (630, 418), (975, 418), (1000, 428), (1015, 440), (1030, 470), (1040, 500), (1040, 565),
+        (1032, 581), (568, 581), (558, 568), (555, 500), (565, 470), (585, 440)]
+CONSOLE = [(1152, 518), (1246, 518), (1340, 520)]
+CONSOLE_R = 33
+# máscara de pintura: vermelho à esquerda da coluna, os dois painéis com saída de ar e a faixa entre eles
+PAINT_X = 305
+REDTOP = [[(305, 330), (700, 330), (700, 420), (305, 420)], [(955, 345), (1672, 320), (1672, 410), (955, 392)]]
 
 
 def poly(shape, pts):
     return cv2.fillPoly(np.zeros(shape, np.uint8), [np.array(pts, np.int32)], 1) > 0
 
 
-def rrect(shape, x0, y0, x1, y1, r):
-    m = np.zeros(shape, np.uint8)
-    cv2.rectangle(m, (x0 + r, y0), (x1 - r, y1), 1, -1)
-    cv2.rectangle(m, (x0, y0 + r), (x1, y1 - r), 1, -1)
-    for cx, cy in ((x0 + r, y0 + r), (x1 - r, y0 + r), (x0 + r, y1 - r), (x1 - r, y1 - r)):
-        cv2.circle(m, (cx, cy), r, 1, -1)
-    return m > 0
+def flood(lum, seeds, thr=45):
+    n, lab = cv2.connectedComponents((lum >= thr).astype(np.uint8), connectivity=4)
+    out = np.zeros(lum.shape, bool)
+    for x, y in seeds:
+        if lab[y, x]:
+            out |= lab == lab[y, x]
+    return out
+
+
+def fill_islands(m, limit):
+    """buracos (ilhas escuras do cenário) fechados por dentro de m, até limit px, entram em m"""
+    n, lab, st, _ = cv2.connectedComponentsWithStats((~m).astype(np.uint8), connectivity=4)
+    H, W = m.shape
+    for i in range(1, n):
+        x, y, w, h, a = st[i]
+        if a <= limit and x > 0 and y > 0 and x + w < W and y + h < H:
+            m |= lab == i
+    return m
 
 
 def glass_mask(nw):
     H, W = nw.shape[:2]
     yy, xx = np.mgrid[0:H, 0:W]
     lum = nw.astype(int).mean(axis=2)
-    # borda do forro: primeira linha do céu (inundado a partir de uma semente, o contorno preto segura)
-    n, lab = cv2.connectedComponents((lum >= 45).astype(np.uint8), connectivity=4)
-    sky = lab == lab[SKY_SEED[1], SKY_SEED[0]]
+    sky = flood(lum, [SKY_SEED])
     roof = np.full(W, np.nan)
-    for x in range(420, W):
+    for x in range(280, W):
         ys = np.nonzero(sky[:200, x])[0]
         if len(ys):
             roof[x] = ys[0]
@@ -110,38 +122,44 @@ def glass_mask(nw):
     lx, ly = zip(*PILLAR)
     left = np.interp(np.arange(H), ly, lx)
     ws = (yy >= roof[xx]) & (yy < top[xx]) & (xx >= left[yy])
-    solid = poly((H, W), HOUSING) | poly((H, W), ARM)
-    door = poly((H, W), DOOR) & ~solid
-    mir = rrect((H, W), *GLASS)
-    # cantos redondos da carcaça e borda do braço: o cenário que sobrou dentro dos polígonos (o que não
-    # é vermelho nem contorno escuro, encostado na janela) também é janela
+    win = flood(lum, WIN_SEEDS) & (xx < 330)
+    win = fill_islands(win, 3000) | poly((H, W), TRI) | poly((H, W), FAR)
+    x0, y0, x1, y1, r = MIR_GLASS
+    mm = np.zeros((H, W), np.uint8)
+    cv2.rectangle(mm, (x0, y0 + r), (x1, y1 - r), 1, -1)
+    cv2.rectangle(mm, (x0, y0), (x1 - r, y1), 1, -1)
+    for cx, cy in ((x1 - r, y0 + r), (x1 - r, y1 - r)):
+        cv2.circle(mm, (cx, cy), r, 1, -1)
+    mir = mm > 0
+    g = ws | win | mir
+    # restos do cenário grudados nos contornos (galhos, céu, grama, cerca): cores saturadas que não são
+    # o vermelho da lataria, encostadas no vidro, à esquerda do painel
     hsv = cv2.cvtColor(nw, cv2.COLOR_RGB2HSV_FULL).astype(int)
     hue = hsv[..., 0] * 360 / 256
-    redish = ((hue < 22) | (hue > 330)) & (hsv[..., 1] > 25)
-    scene_dark = (hsv[..., 1] > 60) & (hue > 60) & (hue < 260)   # verde/azul escuro do cenário (o contorno é cinza)
-    cand = poly((H, W), DOOR_GROW) & ~redish & ((lum >= 70) | scene_dark) & ~(cv2.dilate(mir.astype(np.uint8), np.ones((9, 9), np.uint8)) > 0)
-    for _ in range(20):
-        door |= (cv2.dilate(door.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0) & cand
-    for pk in POCKETS:
-        door |= poly((H, W), pk) & (lum >= 45)
-    return ws | door | mir, mir, roof
+    scene = (hsv[..., 1] > 70) & (hsv[..., 2] > 50) & (hue > 25) & (hue < 260) & (yy < top[xx] + 2) & (xx < 340)
+    for _ in range(12):
+        g |= (cv2.dilate(g.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0) & scene
+    return g, mir, roof
 
 
 def clean(nw, roof):
-    """base do retrovisor interno no forro: vira o forro de 100 colunas à esquerda; relógios do console
-    apagados com o fundo da caixa em volta"""
     out = nw.copy()
     x0, x1 = STALK
     for x in range(x0, x1):
         y1 = int(np.ceil(roof[x])) + 2
-        out[:y1, x] = nw[:y1, x - 100]
+        out[:y1, x] = nw[:y1, x - 80]
     H, W = nw.shape[:2]
     yy, xx = np.mgrid[0:H, 0:W]
-    for cx, cy in CONSOLE:
+    # miolo do capuz: preto liso (a face do quadro é desenhada por cima)
+    hood = poly((H, W), HOOD)
+    inner = cv2.erode(hood.astype(np.uint8), np.ones((15, 15), np.uint8)) > 0
+    lum = nw.astype(int).mean(axis=2)
+    col = np.median(nw[inner & (lum < 30)], axis=0)
+    out[hood] = col
+    for cx, cy in CONSOLE:  # o aro preto da arte fica; o mostrador de dentro vira fundo preto
         d = np.hypot(xx - cx, yy - cy)
-        ring = (d >= CONSOLE_R + 2) & (d < CONSOLE_R + 7)
-        col = np.median(nw[ring], axis=0)
-        out[d <= CONSOLE_R] = col
+        face = d <= CONSOLE_R
+        out[face] = np.median(nw[face & (lum < 30)], axis=0)
     return out
 
 
@@ -154,8 +172,8 @@ def red_mask(rgb, al):
     return core | (al & near & redh & (hsv[..., 1] > 40) & (hsv[..., 2] > 28))
 
 
-def grid(y0, rows, x0n=-PAD, cols=256 + 2 * PAD, piv=PIV):
-    xs = piv[0] + (np.arange(cols) + x0n + 0.5 - PIV_N[0]) * PXW
+def grid(y0, rows, cols=256 + 2 * PAD):
+    xs = PIV[0] + (np.arange(cols) - PAD + 0.5 - PIV_N[0]) * PXW
     ys = y0 + (np.arange(rows) + 0.5) * PXH
     return xs, ys
 
@@ -177,7 +195,7 @@ def main():
     H, W = nw.shape[:2]
     paint_zone = np.zeros((H, W), bool)
     paint_zone[:, :PAINT_X] = True
-    for v in VENTS:
+    for v in REDTOP:
         paint_zone |= poly((H, W), v)
     if dbg:
         v = nw.copy()
@@ -186,21 +204,19 @@ def main():
         Image.fromarray(v).save(os.path.join(dbg, 'cab-alpha.png'))
     y0d = PIV[1] - PIV_N[1] * PXH
     xs, ys = grid(y0d, ROWS)
-    xs, yt = grid(y0d - EXT * PXH, EXT)
+    _, yt = grid(y0d - EXT * PXH, EXT)
     st_rgb = np.concatenate([sample(nw, xs, yt), sample(nw, xs, ys)], axis=0)
     st_al = np.concatenate([sample(A, xs, yt), sample(A, xs, ys)], axis=0)
     st_mir = np.concatenate([sample(mir, xs, yt), sample(mir, xs, ys)], axis=0)
     st_pz = np.concatenate([sample(paint_zone, xs, yt), sample(paint_zone, xs, ys)], axis=0)
-    # farpas de 1 px espetadas no vidro saem
-    for _ in range(6):
+    for _ in range(6):  # farpas de 1 px espetadas no vidro
         nb = np.zeros(st_al.shape, int)
         nb[1:] += st_al[:-1]; nb[:-1] += st_al[1:]; nb[:, 1:] += st_al[:, :-1]; nb[:, :-1] += st_al[:, 1:]
         spur = st_al & (nb <= 1)
         spur[[0, -1]] = False; spur[:, [0, -1]] = False
         st_al &= ~spur
-    # furinhos de até 12 px fecham com a cor do vizinho (o vidro do retrovisor fica)
     n, lab, stt, _ = cv2.connectedComponentsWithStats((~st_al).astype(np.uint8), connectivity=4)
-    for i in range(1, n):
+    for i in range(1, n):  # furinhos de até 12 px fecham com a cor do vizinho (o vidro do retrovisor fica)
         if stt[i, cv2.CC_STAT_AREA] <= 12 and not st_mir[lab == i].any():
             for y, x in zip(*np.nonzero(lab == i)):
                 nb = [(yy_, xx_) for yy_ in range(y - 1, y + 2) for xx_ in range(x - 1, x + 2)
@@ -208,22 +224,61 @@ def main():
                 if nb:
                     st_rgb[y, x] = np.median([st_rgb[q] for q in nb], axis=0)
             st_al[lab == i] = True
-    # ilhas opacas soltas no vidro (até 40 px) somem
     n, lab, stt, _ = cv2.connectedComponentsWithStats(st_al.astype(np.uint8), connectivity=8)
-    for i in range(1, n):
+    for i in range(1, n):  # ilhas opacas soltas no vidro (até 40 px)
         if stt[i, cv2.CC_STAT_AREA] <= 40:
             st_al[lab == i] = False
-    # retrovisor externo para dentro (celular): linhas da carcaça
-    ya = int(EXT + (HOUSING[0][1] - y0d) / PXH) - 1
-    yb = int(EXT + (HOUSING[4][1] - y0d) / PXH) + 1
-    st_rgb[ya:yb + 1, MIR_K:MIR_M + 1] = st_rgb[ya:yb + 1, 0:MIR_M + 1 - MIR_K].copy()
-    st_al[ya:yb + 1, MIR_K:MIR_M + 1] = st_al[ya:yb + 1, 0:MIR_M + 1 - MIR_K].copy()
-    st_pz[ya:yb + 1, MIR_K:MIR_M + 1] = st_pz[ya:yb + 1, 0:MIR_M + 1 - MIR_K].copy()
-    st_al[ya:yb + 1, :MIR_K] = False
+    # retrovisor externo: moldura esquerda nova, refletida da direita (mirror_complete.py flip); só a
+    # moldura (a..R), sem o braço que sai dela mais à direita
+    if os.environ.get('NOFLIP') is None:
+        ya, yb = MIR_ROWS
+        rows = slice(ya, yb + 1)
+        o_rgb, o_al, o_pz = st_rgb.copy(), st_al.copy(), st_pz.copy()
+        # à esquerda da moldura nova o retrovisor da arte (moldura de cima e de baixo) vira janela; a
+        # barra escura da moldura da porta fica (borda direita medida na arte)
+        bx, by = zip(*BAR)
+        for y in range(ya, yb + 1):
+            yart = (y + 0.5) * PXH + (y0d - EXT * PXH)
+            c0 = int(np.ceil(np.interp(yart, by, bx) * S + 0.5))
+            st_al[y, c0:MIR_X0] = False
+        hsv0 = cv2.cvtColor(np.ascontiguousarray(st_rgb[rows, :MIR_X0]), cv2.COLOR_RGB2HSV_FULL).astype(int)
+        h0 = hsv0[..., 0] * 360 / 256
+        st_al[rows, :MIR_X0] &= ~(((h0 < 20) | (h0 > 335)) & (hsv0[..., 1] > 60))  # pontas da moldura velha
+        # só a moldura vermelha e o contorno escuro colado nela (a coluna e o braço ficam de fora)
+        hsv = cv2.cvtColor(np.ascontiguousarray(o_rgb), cv2.COLOR_RGB2HSV_FULL).astype(int)
+        hue = hsv[..., 0] * 360 / 256
+        red = o_al & ((hue < 20) | (hue > 335)) & (hsv[..., 1] > 60) & (hsv[..., 2] > 40)
+        red[MIR_FRAME_B + 1:] = False
+        red[MIR_FRAME_B - 1:, MIR_R - 3:] = False  # a ponta do braço que encosta no canto de baixo
+        frame = cv2.dilate(red.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+        for x in range(MIR_A, MIR_R + 1):
+            c = MIR_X0 + (MIR_R - x)
+            for y in range(ya, yb + 1):
+                if frame[y, x]:
+                    st_rgb[y, c] = o_rgb[y, x] if red[y, x] else (16, 15, 18)
+                    st_al[y, c], st_pz[y, c] = True, red[y, x]
+                else:
+                    st_al[y, c] = False
+        # canto de baixo: o contorno do braço refletido (pontinha escura fora da curva) sai
+        for y in range(MIR_FRAME_B - 1, yb + 1):
+            for c in range(MIR_X0, MIR_X0 + 3):
+                if not st_pz[y, c] and not st_pz[y, c + 1]:
+                    st_al[y, c] = False
+        # embaixo da moldura de baixo só fica o contorno que encosta no vermelho logo acima
+        nr = MIR_R - MIR_A + 1
+        for y in range(MIR_FRAME_B + 1, yb + 1):
+            for c in range(MIR_X0, MIR_X0 + nr):
+                if st_al[y, c] and not st_pz[y - 1, c] and not (st_al[y - 1, c] and y - 1 <= MIR_FRAME_B + 1):
+                    st_al[y, c] = False
     pm = red_mask(st_rgb, st_al) & st_pz
     for name, sl in (('top', slice(0, EXT)), ('dash', slice(EXT, None))):
         Image.fromarray(np.dstack([st_rgb[sl], st_al[sl].astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, f'f40-{name}.png'), optimize=True)
         Image.fromarray((pm[sl] * 255).astype(np.uint8), 'L').save(os.path.join(out, f'f40-{name}-mask.png'), optimize=True)
+    if dbg:
+        v = np.dstack([st_rgb, st_al.astype(np.uint8) * 255])
+        bg = Image.new('RGBA', (v.shape[1], v.shape[0]), (0, 160, 255, 255))
+        bg.alpha_composite(Image.fromarray(v, 'RGBA'))
+        bg.resize((v.shape[1] * 3, v.shape[0] * 3), Image.NEAREST).save(os.path.join(dbg, 'stacked.png'))
 
     # volante (arte com volante)
     Hh, Wh = ww.shape[:2]
@@ -235,31 +290,27 @@ def main():
     if dbg:
         v = ww.copy()
         v[~wheel] = (v[~wheel] * 0.35 + np.array([0, 160, 0]) * 0.65).astype(np.uint8)
-        Image.fromarray(v[270:820, 520:1120]).save(os.path.join(dbg, 'wheel-mask.png'))
-    xs = PIV_W[0] + (np.arange(256) + 0.5 - PIV_N[0]) * PXW
-    ys = PIV_W[1] + (np.arange(WROWS) + 0.5 - (PIV_N[1] + WTOP)) * PXH
-    w_rgb, w_al = sample(ww, xs, ys), sample(wheel, xs, ys) & ((ys >= 0) & (ys < Hh))[:, None]
+        Image.fromarray(v[300:920, 480:1100]).save(os.path.join(dbg, 'wheel-mask.png'))
+    wx = PIV[0] + (np.arange(256) + 0.5 - PIV_N[0]) * PXW
+    wy = PIV[1] + (np.arange(WROWS) + 0.5 - (PIV_N[1] + WTOP)) * PXH
+    w_rgb, w_al = sample(ww, wx, wy), sample(wheel, wx, wy) & ((wy >= 0) & (wy < Hh))[:, None]
     wimg = np.dstack([w_rgb, w_al.astype(np.uint8) * 255])
-    hub = (PIV_N[0] + (EMB[0] - PIV_W[0]) * S, PIV_N[1] + WTOP + (EMB[1] - PIV_W[1]) / PXH)
+    hub = (PIV_N[0] + (EMB[0] - PIV[0]) * S, PIV_N[1] + WTOP + (EMB[1] - PIV[1]) / PXH)
     yy, xx = np.mgrid[0:WROWS, 0:256]
     e = np.hypot(xx + 0.5 - hub[0], (yy + 0.5 - hub[1]) * (8 / 7))
     R = EMB[2] * S
-    plate = np.median(wimg[(e > R + 1) & (e < R + 3) & (wimg[..., 3] > 0)][:, :3], axis=0)
-    wimg[(e <= R + 0.6) & (wimg[..., 3] > 0), :3] = plate                       # cavalinho apagado
     wimg[(e <= R - 0.2) & (e > R - 1.3), :3] = (14, 13, 18)                    # aro do botão
     wimg[e <= R - 1.3, :3] = (30, 28, 36)                                     # botão escuro
     wimg[(e <= R - 1.3) & (e > R - 2.3) & (yy + 0.5 < hub[1]), :3] = (48, 46, 58)  # luz em cima
     brand_badges.stamp(wimg, None, 'furia', (round(hub[0]), round(hub[1]), 14, 0))
     Image.fromarray(wimg, 'RGBA').save(os.path.join(out, 'f40-wheel.png'), optimize=True)
 
-    spacing = (CONSOLE[2][0] - CONSOLE[0][0]) / 2 * S
     nat = lambda p: (PIV_N[0] + (p[0] - PIV[0]) * S, PIV_N[1] + (p[1] - PIV[1]) / PXH)
     r2 = lambda p: tuple(round(float(v), 2) for v in p)
-    print('y0d', round(y0d, 1), 'miolo do volante', r2(hub))
-    print('mostradores da arte', [r2(nat(p)) for p in ((750, 464), (914, 464))])
-    print('console', [r2(nat(p)) for p in CONSOLE], 'passo', round(spacing, 2))
-    gl = nat(((GLASS[0] + GLASS[2]) / 2, (GLASS[1] + GLASS[3]) / 2))
-    print('vidro do retrovisor (empilhado)', (round(PAD + gl[0]), round(EXT + gl[1])))
+    print('pivô', r2(PIV_N), 'y0d', round(y0d, 1), 'miolo do volante', r2(hub))
+    print('mostradores da arte', [r2(nat(p)) for p in ((700, 512), (902, 512))], 'alto do miolo', r2(nat((801, 421))))
+    print('console', [r2(nat(p)) for p in CONSOLE], 'passo', round((CONSOLE[2][0] - CONSOLE[0][0]) / 2 * S, 2))
+    print('vidro do retrovisor (empilhado): coluna', (MIR_X0 + MIR_A) // 2, 'linha', round(EXT + nat(MIR_SEED)[1]))
 
 
 if __name__ == '__main__':

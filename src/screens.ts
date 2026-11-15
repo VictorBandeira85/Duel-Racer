@@ -1206,10 +1206,10 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
     c.fillStyle = 'rgb(44,40,28)';
     oval(hx - 58, hy + 5, 66, 13);
     oval(hx - 44, hy + 6, 44, 9);
-    // poça no chão, em degraus: começa no para-choque, mais forte um pouco à frente e some ao longe
+    // poça no chão, em degraus: começa no para-choque (nose), mais forte um pouco à frente e some ao longe
     c.globalCompositeOperation = 'source-over';
     c.fillStyle = 'rgba(255,214,130,0.17)';
-    for (let i = 0; i < 4; i++) oval(hx - 62 + i * 10, GY - 1, 84 - i * 18, 8.5 - i * 1.7);
+    for (let i = 0; i < 4; i++) oval(lamps.nose - 80 + i * 10, GY - 1, 84 - i * 18, 8.5 - i * 1.7);
     c.globalCompositeOperation = 'lighter';
     // lanternas: vermelho fraco no chão, atrás
     c.fillStyle = 'rgba(255,40,24,0.06)';

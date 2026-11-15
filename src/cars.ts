@@ -69,7 +69,16 @@ export interface LampDef {
   sigRed?: boolean; // pisca vermelho atrás (carros americanos)
   podColor?: string; // cor da tampa do farol (senão a da carroceria)
   popLit?: [number, number]; // com frontUpImg: centro do farol aceso (u, f); o jogo só acende o brilho
-  popSide?: [number, number]; // na lateral levantada (<arte>-side-up): borda da lente acesa (u, f)
+}
+
+// Farol e lanterna na vista LATERAL (posto à noite: lente acesa, poça de luz no chão e o vermelho atrás),
+// em frações da lateral <arte>-side.png (u da esquerda, f do alto; frente para a esquerda).
+// head: centro da lente do farol dianteiro (nos escamoteáveis, a lente do farol LEVANTADO na
+// <arte>-side-up.png, com pop: true); tail: a lanterna traseira (ou a borda da traseira na altura dela).
+export interface SideLamp {
+  head: [number, number];
+  tail: [number, number];
+  pop?: boolean; // escamoteável: à noite usa <arte>-side-up e o brilho sai do farol levantado
 }
 
 export interface CarSpec {
@@ -118,6 +127,7 @@ export interface CarSpec {
   svgSide?: string; // arte vetorial do perfil (viewBox com chão na base)
   imgSide?: string; // sprite do perfil (pixel art)
   sideMask?: string;
+  sideLamp?: SideLamp; // farol e lanterna na lateral (SIDE_LAMPS)
   imgSideUp?: string; // lateral com os faróis escamoteáveis levantados e acesos (tools/ref/popup_side.py)
   sideUpMask?: string;
   sideVariants?: Record<string, string>; // pinturas com arte própria: cor da paleta -> lateral
@@ -339,13 +349,13 @@ export const DEALER_CARS = CARS.filter((c) => !c.arcadeOnly);
 const VARIANT_PAINT: Record<string, string> = { nero: 'Deep Black', rosso: 'Rosso Lucido', blu: 'Blu Le Mans', verde: 'Verde Ithaca', giallo: 'Giallo' };
 
 const LAMPS: Record<string, LampDef> = {
-  diablo: { pop: [0.14, 0.485, 0.3, 0.6], popSide: [0.106, 0.389], sigRear: [0.106, 0.43, 0.04], sigFront: [0.113, 0.7, 0.175, 0.75] },
-  patrolsv: { pop: [0.14, 0.495, 0.3, 0.608], podColor: '#1c1c1e', popSide: [0.106, 0.436], sigRear: [0.106, 0.458, 0.04], sigFront: [0.113, 0.706, 0.175, 0.755] }, // Diablo novo + giroflex (patrolsv_sprites.py)
-  f40: { head: [0.195, 0.613, 0.03], popSide: [0.085, 0.489], sigRear: [0.138, 0.446, 0.04], sigFront: [0.105, 0.595, 0.165, 0.649] },
+  diablo: { pop: [0.14, 0.485, 0.3, 0.6], sigRear: [0.106, 0.43, 0.04], sigFront: [0.113, 0.7, 0.175, 0.75] },
+  patrolsv: { pop: [0.14, 0.495, 0.3, 0.608], podColor: '#1c1c1e', sigRear: [0.106, 0.458, 0.04], sigFront: [0.113, 0.706, 0.175, 0.755] }, // Diablo novo + giroflex (patrolsv_sprites.py)
+  f40: { head: [0.195, 0.613, 0.03], sigRear: [0.138, 0.446, 0.04], sigFront: [0.105, 0.595, 0.165, 0.649] },
   zr1: { pop: [0.105, 0.385, 0.29, 0.505], sigRear: [0.135, 0.39, 0.045], sigRed: true, sigFront: [0.03, 0.66, 0.07, 0.73] },
-  testarossa: { pop: [0.067, 0.424, 0.256, 0.534], popLit: [0.126, 0.472], popSide: [0.089, 0.379], sigRear: [0.08, 0.42, 0.182, 0.556], sigFront: [0.061, 0.636, 0.228, 0.686] },
-  nsx: { pop: [0.1, 0.36, 0.28, 0.47], popSide: [0.075, 0.406], sigRear: [0.05, 0.37, 0.2, 0.47], sigFront: [0.09, 0.628, 0.14, 0.678] },
-  countach: { pop: [0.083, 0.383, 0.281, 0.577], popLit: [0.181, 0.503], popSide: [0.111, 0.374], sigRear: [0.065, 0.4, 0.127, 0.478], sigFront: [0.119, 0.617, 0.192, 0.664] }, // Countach 5000 QV (countach_sprites.py)
+  testarossa: { pop: [0.067, 0.424, 0.256, 0.534], popLit: [0.126, 0.472], sigRear: [0.08, 0.42, 0.182, 0.556], sigFront: [0.061, 0.636, 0.228, 0.686] },
+  nsx: { pop: [0.1, 0.36, 0.28, 0.47], sigRear: [0.05, 0.37, 0.2, 0.47], sigFront: [0.09, 0.628, 0.14, 0.678] },
+  countach: { pop: [0.083, 0.383, 0.281, 0.577], popLit: [0.181, 0.503], sigRear: [0.065, 0.4, 0.127, 0.478], sigFront: [0.119, 0.617, 0.192, 0.664] }, // Countach 5000 QV (countach_sprites.py)
   viper: { head: [0.147, 0.52, 0.06], sigRear: [0.07, 0.55, 0.24, 0.6], sigFront: [0.035, 0.635, 0.075, 0.68] },
   '959': { head: [0.153, 0.543, 0.06], sigRear: [0.026, 0.548, 0.115, 0.632], sigFront: [0.053, 0.691, 0.157, 0.769] }, // Silber 95 (silber_sprites.py)
   'br-passat': { head: [0.111, 0.567, 0.046], sigRear: [0.026, 0.509, 0.149, 0.565], sigFront: [0.07, 0.783, 0.207, 0.835] }, // Passat GTS Pointer (passat_sprites2.py)
@@ -362,6 +372,35 @@ const LAMPS: Record<string, LampDef> = {
   'br-voyagesport': { head: [0.17, 0.548, 0.06], sigRear: [0.243, 0.462, 0.289, 0.517], sigFront: [0.029, 0.488, 0.079, 0.607] }, // Voyage Sport 1992 (voyagesport_sprites.py)
   'br-santana': { head: [0.107, 0.562, 0.05], sigRear: [0.034, 0.461, 0.107, 0.567], sigFront: [0.048, 0.697, 0.166, 0.74] }, // Santana GLS 1990 (santana_sprites.py)
   patrol: { head: [0.145, 0.53, 0.07], sigRear: [0.035, 0.503, 0.26, 0.568], sigRed: true, sigFront: [0.05, 0.6, 0.24, 0.645] },
+};
+
+// Medido carro por carro na arte lateral (recortes da frente e da traseira ampliados 4-16x, com grade de
+// 10 px: centro da lente/lanterna em pixels / tamanho da arte); escamoteáveis: lente do farol levantado
+// impressa por tools/ref/popup_side.py. Conferir no posto: node tools/qa/gas_shots.cjs <pasta>
+const SIDE_LAMPS: Record<string, SideLamp> = {
+  f40: { head: [0.092, 0.461], tail: [0.993, 0.47], pop: true }, // escamoteáveis atrás dos fixos do acrílico
+  '959': { head: [0.04, 0.55], tail: [0.99, 0.565] }, // lente carenada no para-lama; faixa de luz atrás
+  diablo: { head: [0.106, 0.369], tail: [0.985, 0.33], pop: true },
+  patrolsv: { head: [0.106, 0.417], tail: [0.985, 0.375], pop: true },
+  zr1: { head: [0.02, 0.66], tail: [0.985, 0.42] }, // sem lateral levantada (arte antiga): luz do para-choque
+  testarossa: { head: [0.092, 0.343], tail: [0.986, 0.43], pop: true }, // lanterna atrás da grade
+  countach: { head: [0.106, 0.342], tail: [0.97, 0.4], pop: true },
+  nsx: { head: [0.082, 0.365], tail: [0.975, 0.38], pop: true },
+  viper: { head: [0.075, 0.54], tail: [0.975, 0.53] },
+  patrol: { head: [0.04, 0.58], tail: [0.97, 0.55] },
+  'br-vectra': { head: [0.045, 0.54], tail: [0.97, 0.42] },
+  'br-uno': { head: [0.04, 0.55], tail: [0.975, 0.46] },
+  'br-golgti': { head: [0.033, 0.593], tail: [0.98, 0.6] },
+  'br-kadett': { head: [0.04, 0.54], tail: [0.975, 0.45] },
+  'br-corsa': { head: [0.04, 0.565], tail: [0.975, 0.46] },
+  'br-monza': { head: [0.035, 0.537], tail: [0.975, 0.5] },
+  'br-monzacoupe': { head: [0.03, 0.54], tail: [0.98, 0.52] },
+  'br-voyage': { head: [0.02, 0.53], tail: [0.975, 0.53] }, // farol na face: na altura do pisca lateral
+  'br-voyagesport': { head: [0.02, 0.535], tail: [0.975, 0.5] },
+  'br-santana': { head: [0.03, 0.52], tail: [0.975, 0.47] },
+  'br-pumagtb': { head: [0.035, 0.54], tail: [0.975, 0.47] },
+  'br-passat': { head: [0.025, 0.53], tail: [0.975, 0.525] },
+  'br-pumagte': { head: [0.075, 0.46], tail: [0.985, 0.57] }, // farol carenado; lanterna acima do para-choque
 };
 
 // Rodas na lateral (u, v do centro e raio, em frações da largura/altura e da largura do sprite). O
@@ -423,6 +462,7 @@ for (const car of CARS) {
   car.rear.frontUpImg = png(`${k}-front-up`);
   car.rear.frontUpMask = png(`${k}-front-up-mask`);
   car.rear.lamps = LAMPS[k];
+  car.sideLamp = SIDE_LAMPS[k];
   if (PLATE_BOX[k]) car.rear.plate = frac(PLATE_BOX[k]);
   car.wheels = WHEELS[k];
   // <art>-side-<cor>.png: a arte daquela pintura (usada no lugar da repintura pela máscara)
@@ -1499,8 +1539,12 @@ export function sideLamps(x: number, y: number, len: number, car: CarSpec, paint
   const aspect = spriteAspect(variant || (up ? car.imgSideUp! : car.imgSide));
   if (!aspect) return null;
   const L = Math.round(x), W = Math.round(len), H = Math.round(len * aspect), T = Math.round(y - len * aspect);
-  const ps = up ? car.rear.lamps?.popSide : undefined;
-  return { head: ps ? [L + ps[0] * W, T + ps[1] * H] : [L + 0.03 * W, T + 0.5 * H], tail: [L + 0.985 * W, T + 0.47 * H], pop: !!ps, W };
+  // farol e lanterna medidos na arte (SIDE_LAMPS); sem medida, o palpite antigo (meia altura)
+  const sl = car.sideLamp;
+  const pop = !!(up && sl?.pop);
+  const hd = sl && (pop || !sl.pop) ? sl.head : [0.03, 0.5];
+  const tl = sl?.tail ?? [0.985, 0.47];
+  return { head: [L + hd[0] * W, T + hd[1] * H], tail: [L + tl[0] * W, T + tl[1] * H], nose: L, pop, W };
 }
 // lit: faróis acesos (posto à noite); quem tem escamoteáveis aparece com eles levantados (<arte>-side-up)
 export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string, spin?: number, lit?: boolean) {
@@ -1569,13 +1613,13 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
       }
       if (!drop) drawRims(c, car, L, T, W, H, spin);
       // farol levantado aceso: brilho pequeno na lente e um facho curto para a frente (esquerda)
-      const ps = up ? car.rear.lamps?.popSide : undefined;
+      const ps = up && car.sideLamp?.pop ? car.sideLamp.head : undefined;
       if (ps) {
         const lx = L + ps[0] * W, ly = T + ps[1] * H + drop;
         c.save();
         c.globalCompositeOperation = 'lighter';
-        drawGlow(c, lx - W * 0.065, ly + H * 0.01, W * 0.065, H * 0.045, '255,240,200', 0.2);
-        drawGlow(c, lx - W * 0.004, ly, W * 0.011, W * 0.011, '255,248,215', 0.45);
+        drawGlow(c, lx - W * 0.07, ly + H * 0.01, W * 0.075, H * 0.05, '255,240,200', 0.26);
+        drawGlow(c, lx - W * 0.004, ly, W * 0.026, W * 0.022, '255,248,215', 0.85);
         c.restore();
       }
       // rodas trocadas na oficina: o aro (sem o pneu) ganha o acabamento escolhido

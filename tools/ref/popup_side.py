@@ -32,12 +32,15 @@ CARS = os.path.join(ROOT, 'src', 'assets', 'cars')
 # x0, h: caixas baixas e largas no Diablo/LP5 (Countach), fina no Testarossa, larga e baixa no NSX,
 # pequena na F40 (logo atrás dos faróis fixos sob o acrílico)
 SPEC = {
-    'diablo': dict(x0=50, h=13),
-    'patrolsv': dict(x0=50, h=13, mask=False),  # viatura: frente preta, sem máscara de pintura
-    'countach': dict(x0=44, h=13),
-    'testarossa': dict(x0=31, h=7),
-    'nsx': dict(x0=22, h=7),
-    'f40': dict(x0=25, h=6),
+    # caixa fechada (style box) em todos: a cunha fina antiga sumia na tela do posto (lente de 1 px)
+    'diablo': dict(x0=48, h=16, style='box', depth=28, lift=4),
+    'patrolsv': dict(x0=48, h=16, style='box', depth=28, lift=4, mask=False),  # viatura: sem máscara de pintura
+    # LP5: caixa fechada e alta (como na countach-front-up: dois faróis redondos numa moldura preta),
+    # com face da lente de 2 px acesa, moldura preta, traseira reta e o vão preto embaixo (levantada)
+    'countach': dict(x0=40, h=19, style='box', depth=29, lift=5),
+    'testarossa': dict(x0=30, h=11, style='box', depth=24, lift=3),
+    'nsx': dict(x0=22, h=11, style='box', depth=26, lift=3),
+    'f40': dict(x0=25, h=9, style='box', depth=18, lift=2),
 }
 
 LENS = (255, 246, 214)  # borda da lente acesa (branco quente)
@@ -139,6 +142,67 @@ def build(art, spec):
     return O, MO, (round((x0 + 0.5) / W, 3), round(lens_v / H, 3)), pal, (x0, x1, yt)
 
 
+def build_box(art, spec):
+    """Caixa levantada fechada (LP5): face da frente com aro cromado, lente acesa de 2 px e moldura
+    preta; lateral na cor da carroceria com brilho em cima e sombra embaixo; traseira reta; embaixo da
+    caixa, o vão preto do alojamento (a caixa subiu: entre ela e o capô aparece o buraco), que some
+    junto da dobradiça atrás."""
+    S = np.array(Image.open(os.path.join(CARS, f'{art}-side.png')).convert('RGBA'))
+    mpath = os.path.join(CARS, f'{art}-side-mask.png')
+    M = np.array(Image.open(mpath).convert('RGBA')) if spec.get('mask', True) and os.path.exists(mpath) else None
+    H, W = S.shape[:2]
+    top = [int(np.argmax(S[:, x, 3] > 0)) if S[:, x, 3].any() else H for x in range(W)]
+    x0, h, D, lift = spec['x0'], spec['h'], spec['depth'], spec['lift']
+    x1 = x0 + D
+    yt = top[x0] - h
+    pal = palette(S, M, top, x0, x1)
+    O = S.copy()
+    MO = M.copy() if M is not None else None
+
+    def put(x, y, c, paint=False):
+        O[y, x, :3] = c
+        O[y, x, 3] = 255
+        if MO is not None:
+            MO[y, x, :3] = 255 if paint else 0
+            MO[y, x, 3] = 255
+
+    def bottom(x):  # fundo da caixa: `lift` px acima do capô na frente, encosta no capô na dobradiça
+        k = (x - x0) / D
+        return int(round(top[x0] - lift + k * (top[x1] - (top[x0] - lift))))
+
+    CAV = (12, 12, 16)
+    for x in range(x0 - 1, x1 + 2):
+        yb = bottom(min(max(x, x0), x1))
+        for y in range(yt - 1, max(yb, top[x]) + 1):
+            if y >= top[x] and y > yb:
+                break
+            edge = x in (x0 - 1, x1 + 1) or y in (yt - 1, yb)
+            if y > yb:  # vão do alojamento, entre a caixa e o capô
+                put(x, y, CAV)
+            elif edge:
+                put(x, y, pal['out'])
+            elif x == x0:  # aro cromado da face
+                put(x, y, CHROME)
+            elif x0 + 1 <= x <= x0 + 3:  # lente acesa (aro em cima e embaixo), larga para ler no celular
+                put(x, y, CHROME if y in (yt, yb - 1) else LENS)
+            elif x in (x0 + 4, x0 + 5):  # moldura preta dos faróis
+                put(x, y, HOUSING)
+            elif y == yt:
+                put(x, y, pal['hi'], True)
+            elif y == yt + 1:
+                put(x, y, pal['mid2'], True)
+            elif y >= yb - 2:
+                put(x, y, pal['lo'], True)
+            else:
+                put(x, y, pal['mid'], True)
+        # o vão continua até o capô (embaixo da caixa)
+        if x0 <= x <= x1:
+            for y in range(bottom(x) + 1, top[x]):
+                put(x, y, CAV)
+    lens_v = (yt + bottom(x0)) / 2
+    return O, MO, (round((x0 + 2.5) / W, 3), round(lens_v / H, 3)), pal, (x0, x1, yt)
+
+
 def main():
     args = sys.argv[1:]
     prev = None
@@ -148,7 +212,7 @@ def main():
         del args[i:i + 2]
         os.makedirs(prev, exist_ok=True)
     for art in args or list(SPEC):
-        O, MO, lens, pal, box = build(art, SPEC[art])
+        O, MO, lens, pal, box = (build_box if SPEC[art].get('style') == 'box' else build)(art, SPEC[art])
         Image.fromarray(O).save(os.path.join(CARS, f'{art}-side-up.png'))
         if MO is not None:
             Image.fromarray(MO).save(os.path.join(CARS, f'{art}-side-up-mask.png'))

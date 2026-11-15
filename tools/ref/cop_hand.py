@@ -7,6 +7,8 @@ transparente) + hand.json com, em pixels do PNG:
 A coluna 0 do PNG é a manga cortada na borda da arte: o jogo encosta ela na borda esquerda da tela.
 O bloco sai da altura do papel: a folha (com a borda) fica com PH blocos de altura (padrão 93, cabe no
 para-brisa); a grade começa no canto do papel para a borda preta cair inteira em blocos.
+Mão fechada (2.ª arte): punho de frente com os quatro dedos na frente da borda esquerda do papel; "thumb" vira a
+caixa dos dedos e as colunas vazias à esquerda saem. <classe> com F = versão feminina (CF, BF).
 Uso: python3 tools/ref/cop_hand.py <arte.png> <classe> [PH]
   ex.: python3 tools/ref/cop_hand.py ~/uploads/e854b99e-image.png D
 """
@@ -102,6 +104,10 @@ def main():
             pc[jj, kk] = [*(ink if onb else paperw), 255]
     o[py0:py0 + PH, px0:px0 + PW] = pc
     o = o[py0:py0 + PH, :px0 + PW]  # só até a folha (a mão fica dentro da altura dela)
+    # mão fechada (arte nova): corta as colunas vazias à esquerda do punho
+    cut = int(np.argmax(o[..., 3].max(0) > 0))
+    o = o[:, cut:]
+    px0 -= cut
     ny, nx = o.shape[:2]
     py0 = 0
     Image.fromarray(o).save(os.path.join(OUT, f'hand-{cls}.png'), optimize=True)

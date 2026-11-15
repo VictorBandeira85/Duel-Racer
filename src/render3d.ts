@@ -825,6 +825,8 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       } else if ('phase' in e) {
         // o policial também tapa as luzes do que está atrás dele (e recebe a luz do nosso farol por inteiro);
         // mostrando a multa em primeiro plano, a arte grande da tela da multa toma o lugar dele na pista
+        // onde ele está na tela (pés e altura): a mão com a multa sai dali
+        (e as Officer & { scr?: number[] }).scr = [cx, cy, OFFICER_H * sc * vp.K];
         if (!((e as Officer).phase === 'show' && (e as Officer & { big?: boolean }).big)) {
           const od = drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, e as Officer);
           if (lit && od) pushOccluder({ ...od, idx: i, clip: s.clip, d: dist, bx: cx });

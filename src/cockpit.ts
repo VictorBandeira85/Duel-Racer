@@ -3729,30 +3729,49 @@ function rim(c: CanvasRenderingContext2D, cx: number, cy: number, R: number, thi
   disc(c, cx, cy - R + thick * 0.4, 3, '#f0d020');
 }
 
-// Papel da multa mostrado pelo policial: a mão direita dele (arte do Victor por classe, D/C/B/A/S, a mesma
-// para os dois policiais da classe; tools/ref/cop_hand.py) sobe segurando a folha em pé, o auto de infração
-// é escrito na folha da arte e o polegar volta por cima do texto; sem a arte, o papel antigo
+// Papel da multa mostrado pelo policial: a mão fechada dele (arte do Victor por classe, D/C/B/A/S, com versão
+// feminina CF/BF; tools/ref/cop_hand.py) estica em nossa direção segurando a folha em pé, o auto de infração
+// é escrito na folha da arte e os dedos voltam por cima do texto; sem a arte, o papel antigo
 const HAND_PNG = import.meta.glob('./assets/people/hand-*.png', { eager: true, import: 'default' }) as Record<string, string>;
 type HandMeta = { w: number; h: number; paper: number[]; thumb: number[] };
 const HAND_META = handMeta as unknown as Record<string, HandMeta>;
 const fineImgs = new Map<string, HTMLImageElement>();
-function fineImg(cop: string): HTMLImageElement | null {
+// policiais mulheres (C1, B2, A2, S1): mão feminina da classe quando existe (hand-CF, hand-BF);
+// A e S usam luva, a mesma mão para os dois
+const COP_FEM = new Set(['C1', 'B2', 'A2', 'S1']);
+const handKey = (cop: string) => {
   const cls = cop.charAt(0);
-  const src = HAND_PNG[`./assets/people/hand-${cls}.png`];
-  if (!src || !HAND_META[cls]) return null;
-  let im = fineImgs.get(cls);
-  if (!im) { im = new Image(); im.src = src; fineImgs.set(cls, im); need(im); }
+  return COP_FEM.has(cop) && HAND_META[cls + 'F'] && HAND_PNG[`./assets/people/hand-${cls}F.png`] ? cls + 'F' : cls;
+};
+function fineImg(cop: string): HTMLImageElement | null {
+  const key = handKey(cop);
+  const src = HAND_PNG[`./assets/people/hand-${key}.png`];
+  if (!src || !HAND_META[key]) return null;
+  let im = fineImgs.get(key);
+  if (!im) { im = new Image(); im.src = src; fineImgs.set(key, im); need(im); }
   return im.complete && im.naturalWidth ? im : null;
 }
 function drawFineArt(c: CanvasRenderingContext2D, r: Race, vp: Viewport, im: HTMLImageElement, m: HandMeta) {
   const f = r.fine!;
   const t = r.officer!.t;
-  // a manga, cortada na borda esquerda da arte, encosta na borda esquerda da tela (a mão entra pela borda);
-  // a folha inteira no para-brisa, na altura toda dele; sobe da borda de baixo
-  const x0 = Math.floor(vp.x);
-  const y0 = Math.round(vp.y + (vp.h - m.h) / 2 + (1 - Math.min(1, t * 3)) * 110);
+  // a mão sai de onde o policial está (ele estica o braço em nossa direção): o punho fica na altura do peito
+  // dele e cresce dali até o tamanho cheio; a folha inteira dentro do para-brisa
+  const scr = (r.officer as { scr?: number[] }).scr;
+  const fx = m.thumb[2] * 0.5, fy = (m.thumb[1] + m.thumb[3]) / 2; // meio do punho na arte
+  const sx = scr ? scr[0] : vp.x + vp.w * 0.3, sy = scr ? scr[1] - scr[2] * 0.62 : vp.y + vp.h / 2;
+  const x0 = Math.round(Math.max(vp.x + 2, Math.min(vp.x + vp.w - m.w - 2, sx - fx)));
+  const y0 = Math.round(Math.max(vp.y + 2, Math.min(vp.y + vp.h - m.h - 2, sy - fy)));
+  const k = Math.min(1, t * 3.5), grow = 0.25 + 0.75 * (1 - (1 - k) ** 3);
   const sm = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = false;
+  c.save();
+  if (grow < 1) {
+    // do tamanho do policial ao tamanho cheio, saindo do punho dele
+    const ax = sx - x0, ay = sy - y0;
+    c.translate(x0 + fx + (ax - fx) * (1 - grow), y0 + fy + (ay - fy) * (1 - grow));
+    c.scale(grow, grow);
+    c.translate(-(x0 + fx), -(y0 + fy));
+  }
   c.drawImage(im, x0, y0);
   // texto dentro da folha (margem de 3), sem passar embaixo do polegar
   const pl = x0 + m.paper[0], pt = y0 + m.paper[1], pr = x0 + m.paper[2];
@@ -3795,6 +3814,7 @@ function drawFineArt(c: CanvasRenderingContext2D, r: Race, vp: Viewport, im: HTM
   // os dedos por cima de tudo
   const [hx0, hy0, hx1, hy1] = m.thumb;
   c.drawImage(im, hx0, hy0, hx1 - hx0, hy1 - hy0, x0 + hx0, y0 + hy0, hx1 - hx0, hy1 - hy0);
+  c.restore();
   c.imageSmoothingEnabled = sm;
   if (t > 1.2 && Math.floor(t * 2) % 2) text(c, 'ACELERE PARA SEGUIR', vp.x + vp.w * 0.86, vp.y + vp.h / 2, 5, '#ffd400', 'center');
 }
@@ -3804,7 +3824,7 @@ function drawFine(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   const cop = r.officer!.cop ?? '';
   const fim = fineImg(cop);
   (r.officer as { big?: boolean }).big = !!fim; // com a mão de perto, a pista não desenha o policial pequeno
-  if (fim) return drawFineArt(c, r, vp, fim, HAND_META[cop.charAt(0)]);
+  if (fim) return drawFineArt(c, r, vp, fim, HAND_META[handKey(cop)]);
   const pw = 150, ph = 86;
   const px = vp.x + vp.w / 2 - pw / 2 - 16;
   const py = vp.y + 5 + (1 - Math.min(1, t * 3)) * 80;

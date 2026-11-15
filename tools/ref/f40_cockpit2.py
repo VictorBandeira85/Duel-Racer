@@ -64,12 +64,11 @@ TRI = [(115, 50), (122, 100), (153, 200), (178, 290), (52, 290), (63, 250), (75,
 FAR = [(0, 0), (70, 0), (48, 100), (26, 200), (5, 300), (0, 300)]  # vidro à esquerda da moldura da porta
 MIR_SEED = (100, 370)           # vidro do retrovisor externo
 MIR_GLASS = (25, 322, 171, 427, 12)  # o vidro (cantos redondos), medido
-OLD_K = 0.54                    # escala do retrovisor antigo em relação à cabine (carcaça + vidro cabem até a coluna)
-OLD_HOUSING_LT = (28, 270)      # canto de cima à esquerda da carcaça na arte antiga
-OLD_GLASS = (62, 297, 232, 396, 16)   # vidro do retrovisor na arte antiga
-OLD_FRAME_SEED = (40, 350)      # um ponto da moldura vermelha na arte antiga
-FOOT = [(45, 137), (60, 135), (60, 160), (41, 160), (43, 156), (46, 150), (47, 143)]  # pé (col, linha do empilhado)
-OLD_MIR_AT = (19, 113)          # onde cai o canto da carcaça no empilhado (coluna, linha)
+VM_ORG, VM_SX, VM_SY = (-202.0, -665.0), 12.3, 11.2   # print do Victor: x = org + coluna * sx, y = org + linha * sy
+VM_AT, VM_SIZE = (16, 110), (50, 52)   # janela do recorte no empilhado (coluna, linha) e tamanho
+VM_SEED = (60, 700)             # um ponto da moldura vermelha no print
+VM_GLASS = (76, 662, 418, 864)  # vidro do retrovisor no print (a vista de trás do jogo)
+VM_DOOR_Y, VM_MAX_X = 1108, 585   # abaixo disto é a porta; à direita, a coluna
 MIR_MAX_COL = 100                # não passa daqui (à direita da coluna é o para-brisa)
 WS_PROBE = (200, 60)            # um ponto do para-brisa (col, linha)
 MIR_ERASE_TOP = 288             # o retrovisor da arte nova começa aqui (arte)
@@ -183,27 +182,49 @@ def mir_glass(H, W):
     return mm > 0
 
 
-def old_mirror(old):
-    """retrovisor esquerdo da arte anterior: carcaça e braço vermelhos (componente que contém a moldura),
-    o contorno escuro colado neles e o vidro (retângulo de cantos redondos medido)"""
-    H, W = old.shape[:2]
-    yy, xx = np.mgrid[0:H, 0:W]
-    hsv = cv2.cvtColor(old, cv2.COLOR_RGB2HSV_FULL).astype(int)
+def victor_cut(art, pal, out):
+    """recorte nativo do retrovisor desenhado pelo Victor: peça vermelha (carcaça, haste, sapata) pelo
+    componente vermelho que contém a moldura, o contorno escuro colado nela e o vidro (retângulo medido)"""
+    H, W = art.shape[:2]
+    c0, r0 = VM_AT
+    cols, rows = VM_SIZE
+    part = np.zeros((rows, cols), bool)
+    dark = np.zeros((rows, cols), bool)
+    rgb = np.zeros((rows, cols, 3), np.uint8)
+    hsv = cv2.cvtColor(art, cv2.COLOR_RGB2HSV_FULL).astype(int)
     hue = hsv[..., 0] * 360 / 256
-    red = ((hue < 22) | (hue > 330)) & (hsv[..., 1] > 60) & (hsv[..., 2] > 30)
-    box = (xx < 345) & (yy > 262) & (yy < 462)
-    n, lab = cv2.connectedComponents((red & box).astype(np.uint8), connectivity=8)
-    part = lab == lab[OLD_FRAME_SEED[1], OLD_FRAME_SEED[0]]
-    x0, y0, x1, y1, r = OLD_GLASS
-    g = np.zeros((H, W), np.uint8)
-    cv2.rectangle(g, (x0 + r, y0), (x1 - r, y1), 1, -1)
-    cv2.rectangle(g, (x0, y0 + r), (x1, y1 - r), 1, -1)
-    for cx, cy in ((x0 + r, y0 + r), (x1 - r, y0 + r), (x0 + r, y1 - r), (x1 - r, y1 - r)):
-        cv2.circle(g, (cx, cy), r, 1, -1)
-    glass = g > 0
-    dark = old.astype(int).mean(axis=2) < 70
-    ring = (cv2.dilate((part | glass).astype(np.uint8), np.ones((9, 9), np.uint8)) > 0) & dark & box
-    return (part | ring) & ~glass, glass
+    red = ((hue < 25) | (hue > 330)) & (hsv[..., 1] > 70) & (hsv[..., 2] > 60)
+    yy, xx = np.mgrid[0:H, 0:W]
+    red &= (yy < VM_DOOR_Y) & (xx < VM_MAX_X)
+    n, lab = cv2.connectedComponents(red.astype(np.uint8), connectivity=8)
+    comp = lab == lab[VM_SEED[1], VM_SEED[0]]
+    lum = art.astype(int).mean(axis=2)
+    for j in range(rows):
+        for i in range(cols):
+            ax = int(VM_ORG[0] + (c0 + i + 0.5) * VM_SX)
+            ay = int(VM_ORG[1] + (r0 + j + 0.5) * VM_SY)
+            if not (1 <= ax < W - 1 and 1 <= ay < H - 1):
+                continue
+            blk = (slice(ay - 1, ay + 2), slice(ax - 1, ax + 2))
+            rgb[j, i] = np.median(art[blk].reshape(-1, 3), axis=0)
+            part[j, i] = comp[blk].mean() > 0.5
+            dark[j, i] = lum[blk].mean() < 45
+    gx0, gy0, gx1, gy1 = VM_GLASS
+    jj, ii = np.mgrid[0:rows, 0:cols]
+    cx = VM_ORG[0] + (c0 + ii + 0.5) * VM_SX
+    cy = VM_ORG[1] + (r0 + jj + 0.5) * VM_SY
+    glass = (cx > gx0) & (cx < gx1) & (cy > gy0) & (cy < gy1)
+    part &= ~glass
+    ring = (cv2.dilate((part | glass).astype(np.uint8), np.ones((3, 3), np.uint8)) > 0) & dark & ~part & ~glass & (cx < VM_MAX_X) & (cy < VM_DOOR_Y)
+    o = np.zeros((rows, cols, 4), np.uint8)
+    for j, i in zip(*np.nonzero(part)):
+        c = rgb[j, i].astype(int)
+        o[j, i, :3] = pal[np.argmin(((pal - c) ** 2).sum(axis=1))]
+        o[j, i, 3] = 255
+    o[ring, :3] = (16, 15, 18)
+    o[ring, 3] = 255
+    o[glass, 3] = 1
+    Image.fromarray(o, 'RGBA').save(out, optimize=True)
 
 
 def clean(nw, roof):
@@ -293,47 +314,26 @@ def main():
     for i in range(1, n):  # ilhas opacas soltas no vidro (até 40 px)
         if stt[i, cv2.CC_STAT_AREA] <= 40:
             st_al[lab == i] = False
-    # retrovisor externo: o da cabine anterior (arte cab-old.png = ca1dd71f, v0.53.7), reamostrado da arte
-    # a OLD_K da escala da cabine para a carcaça e o vidro caberem entre a borda do celular (coluna 18) e
-    # a coluna. Fica do LADO DE FORA: só entra onde é janela da porta, então a coluna, a borracha da janela
-    # e a porta passam na frente do braço e do pé (o braço aparece saindo de trás da coluna)
-    old = np.array(Image.open(os.path.join(d, 'cab-old.png')).convert('RGB'))
-    opart, oglass = old_mirror(old)
-    n, lab = cv2.connectedComponents((~st_al).astype(np.uint8), connectivity=4)
-    winreg = (lab > 0) & (lab != lab[WS_PROBE[1], WS_PROBE[0]])   # janelas da porta (não o para-brisa)
-    step_x, step_y = PXW / OLD_K, PXH / OLD_K
-    ax0, ay0 = OLD_HOUSING_LT                 # canto de cima à esquerda da carcaça, na arte antiga
-    c0, r0 = OLD_MIR_AT                       # onde ele cai no empilhado (coluna, linha)
-    H0, W0 = old.shape[:2]
-    for y in range(st_al.shape[0]):
-        for x in range(MIR_MAX_COL):
-            if not winreg[y, x]:
-                continue
-            ax = int(ax0 + (x - c0 + 0.5) * step_x)
-            ay = int(ay0 + (y - r0 + 0.5) * step_y)
-            if not (0 <= ax < W0 and 0 <= ay < H0):
-                continue
-            if oglass[ay, ax]:
+    # retrovisor externo: o que o Victor redesenhou sobre um print ampliado do jogo (victor-mirror.png):
+    # carcaça com vidro, haste cilíndrica inclinada e sapata assentada na borda de cima da porta. O print
+    # é alinhado com a cabine (VM_ORG, VM_SX, VM_SY, achados casando a coluna e a porta) e cada bloco é
+    # amostrado no miolo e levado à paleta de vermelhos da cabine; o recorte nativo fica em
+    # f40_mirror_victor.png (alfa 255 = peça, 1 = vidro) para o script rodar sem o print
+    cut_path = os.path.join(os.path.dirname(__file__), 'f40_mirror_victor.png')
+    vm_path = os.path.join(d, 'victor-mirror.png')
+    if os.path.exists(vm_path):
+        pal = np.unique(st_rgb[red_mask(st_rgb, st_al) & st_pz].reshape(-1, 3), axis=0).astype(int)
+        victor_cut(np.array(Image.open(vm_path).convert('RGB')), pal, cut_path)
+    vm = np.array(Image.open(cut_path).convert('RGBA'))
+    c0, r0 = VM_AT
+    for j in range(vm.shape[0]):
+        for i in range(vm.shape[1]):
+            y, x = r0 + j, c0 + i
+            if vm[j, i, 3] == 255:
+                st_rgb[y, x], st_al[y, x] = vm[j, i, :3], True
+                st_pz[y, x] = int(vm[j, i, 0]) > int(vm[j, i, 1]) + 50
+            elif vm[j, i, 3] == 1:
                 st_al[y, x], st_pz[y, x], st_mir[y, x] = False, False, True
-            elif opart[ay, ax]:
-                st_rgb[y, x], st_al[y, x] = old[ay, ax], True
-                st_pz[y, x] = True
-    # pé do retrovisor: base triangular que desce da carcaça até a borda de cima da porta (o braço da arte
-    # antiga some atrás da coluna e ficava no ar); só onde é janela, então a coluna fica na frente dele.
-    # Sombreado como a carcaça: contorno escuro à esquerda, filete claro, vermelho e sombra à direita
-    foot = cv2.fillPoly(np.zeros(st_al.shape, np.uint8), [np.array(FOOT, np.int32)], 1) > 0
-    pal = [(16, 15, 18), (255, 96, 84), (226, 24, 22), (196, 14, 14), (150, 8, 10)]
-    for y in range(st_al.shape[0]):
-        xs = np.nonzero(foot[y])[0]
-        if not len(xs):
-            continue
-        xl = xs.min()
-        for x in xs:
-            if st_al[y, x] or not winreg[y, x]:
-                continue
-            k = x - xl
-            col = pal[0] if k == 0 else pal[1] if k == 1 else pal[2] if k <= 4 else pal[3] if k <= 6 else pal[4]
-            st_rgb[y, x], st_al[y, x], st_pz[y, x] = col, True, k > 0
     pm = red_mask(st_rgb, st_al) & st_pz
     for name, sl in (('top', slice(0, EXT)), ('dash', slice(EXT, None))):
         Image.fromarray(np.dstack([st_rgb[sl], st_al[sl].astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, f'f40-{name}.png'), optimize=True)

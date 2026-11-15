@@ -3756,7 +3756,9 @@ function drawFineArt(c: CanvasRenderingContext2D, r: Race, vp: Viewport, im: HTM
   c.drawImage(im, x0, y0);
   // texto dentro da folha (margem de 3), sem passar embaixo do polegar
   const pl = x0 + m.paper[0], pt = y0 + m.paper[1], pr = x0 + m.paper[2];
-  const tr = x0 + m.thumb[2] + 1; // primeira coluna livre à direita do polegar
+  const tr = x0 + m.thumb[2] + 1; // primeira coluna livre à direita dos dedos
+  // linha de texto que cruza a altura dos dedos começa depois deles
+  const lx = (y: number) => (y + 6 > m.thumb[1] && y < m.thumb[3] ? tr + 2 : pl + 3);
   const mid = (pl + pr) / 2;
   const ink = '#1c1c1c', navy = '#1c2a6a', rule = '#c8c0a8';
   const bold = (s: string, x: number, y: number, al: CanvasTextAlign) => {
@@ -3776,11 +3778,11 @@ function drawFineArt(c: CanvasRenderingContext2D, r: Race, vp: Viewport, im: HTM
   c.fillRect(tr, pt + 32, pr - 2 - tr, 1);
   text(c, 'VELOCIDADE', tr + 2, pt + 35, 4, ink, 'left', null);
   text(c, `${f.kmh} KM/H`, pr - 3, pt + 41, 4, ink, 'right', null);
-  text(c, 'LIMITE', pl + 3, pt + 49, 4, ink, 'left', null);
+  text(c, 'LIMITE', lx(m.paper[1] + 49), pt + 49, 4, ink, 'left', null);
   text(c, `${f.limit} KM/H`, pr - 3, pt + 55, 4, ink, 'right', null);
   c.fillStyle = rule;
   c.fillRect(pl + 2, pt + 63, pr - pl - 4, 1);
-  bold('MULTA', pl + 3, pt + 66, 'left');
+  bold('MULTA', lx(m.paper[1] + 66), pt + 66, 'left');
   text(c, `$ ${f.value}`, pr - 3, pt + 73, 8, '#c01818', 'right', null);
   // assinatura do policial
   c.strokeStyle = navy;
@@ -3790,7 +3792,7 @@ function drawFineArt(c: CanvasRenderingContext2D, r: Race, vp: Viewport, im: HTM
   c.stroke();
   c.fillStyle = rule;
   c.fillRect(pr - 40, pt + 88, 37, 1);
-  // o polegar por cima de tudo
+  // os dedos por cima de tudo
   const [hx0, hy0, hx1, hy1] = m.thumb;
   c.drawImage(im, hx0, hy0, hx1 - hx0, hy1 - hy0, x0 + hx0, y0 + hy0, hx1 - hx0, hy1 - hy0);
   c.imageSmoothingEnabled = sm;

@@ -26,54 +26,75 @@ export interface EngineSpec {
   cam?: number; // came bravo: marcha lenta irregular que vai sumindo com o giro (0..1)
   intake?: number; // ronco de admissão (carburadores, borboletas individuais) sob carga
   whine?: number; // zunido de engrenagens/comando (agudo fraco que acompanha o giro)
+  intakeHz?: number; // tom do ronco de sucção (caixa de ar/cornetas): ressonância que os pulsos excitam sob carga
+  burble?: number; // borbulhar ao tirar o pé (V8 de escape solto): explosões desiguais no alívio (0..1)
+  cut?: number; // corte de giro em rajadas (Hz): ignição que corta e volta ("ratatá"); sem isso, falhas aleatórias
+  cabin?: number; // som ouvido de dentro: passa-baixas final (Hz). Só o carro do jogador (engineSpec(..., true))
+  whistle?: number; // quanto o assobio do turbo aparece (1 = normal); usado em audio.ts
+  bov?: number; // força do chiado da válvula de alívio (1 = normal); usado em audio.ts
+  horn?: string; // tipo de buzina (horn.ts)
 }
 
 // assinatura de cada carro (o motor de verdade de cada um), por cima do tipo de motor
 const CAR_SOUND: Record<string, Partial<EngineSpec>> = {
-  // F40: V8 2.9 biturbo de virabrequim plano, rouco e seco, escapamento quase direto
-  'furia-f4': { redline: 7750, idle: 1000, drive: 2.4, rasp: 0.16, low: 950, fb: 0.38, pops: 0.7, vol: 0.85 },
-  // Testarossa: boxer 12 de 4.9, liso e aveludado, ronco grave que abre só em cima
-  'furia-tr': { redline: 6800, idle: 850, drive: 1.6, rasp: 0.06, low: 780, res: [[100, 1.1, 1.2], [460, 1.9, 0.7], [1550, 2.8, 0.28]], jitter: 0.03 },
-  // Diablo SV: V12 5.7 de 48v, uivo agressivo e metálico em giro alto
-  'toro-v12': { redline: 7100, drive: 2.1, rasp: 0.1, low: 900, res: [[110, 1.1, 1.1], [480, 1.8, 0.75], [1650, 2.6, 0.4]], intake: 0.15 },
-  'patrol-sv': { redline: 7100, drive: 2.1, rasp: 0.1, low: 900, res: [[110, 1.1, 1.1], [480, 1.8, 0.75], [1650, 2.6, 0.4]], intake: 0.15 },
-  // Countach: V12 com seis carburadores duplos: ronco de admissão forte, marcha lenta um pouco solta
-  'toro-lp5': { redline: 7500, idle: 950, drive: 2.0, rasp: 0.12, intake: 0.4, cam: 0.25, pops: 0.6, jitter: 0.06 },
-  // 959: boxer 6 biturbo sequencial, rosnado grave e o chiado dos turbos
-  'silber-95': { redline: 7600, intake: 0.08 },
-  // ZR-1 (LT5 32v): V8 de quatro comandos, menos batuque e gira mais que um V8 americano comum
-  'vortex-zr': { redline: 7000, idle: 750, pulse: 2.4, jitter: 0.06, low: 820, whine: 0.25, res: [[100, 1, 1.1], [420, 1.8, 0.62], [1450, 3, 0.3]] },
-  // viatura: V8 de sedã grande, preguiçoso e grave
-  patrol: { redline: 5200, idle: 650, pulse: 3.2, low: 600, drive: 1.8, jitter: 0.08, pops: 0.25 },
-  // NSX: V6 3.0 VTEC: liso embaixo, vira de came lá pelas 5.800 rpm e grita até 8.000
-  'kaze-nx': { redline: 8000, idle: 800, vtec: 0.72, rasp: 0.12, low: 1000, drive: 1.8, intake: 0.2, res: [[135, 1.2, 0.95], [720, 2.2, 0.62], [2200, 3, 0.36]] },
-  // Viper: V10 8.0 de origem de caminhão, intervalos desiguais, grave e rouco, gira pouco
-  'serpe-v10': { redline: 6000, idle: 700, events: [0, 90, 144, 234, 288, 378, 432, 522, 576, 666], pulse: 2.6, drive: 2.5, low: 750, jitter: 0.1, res: [[90, 1, 1.25], [400, 1.8, 0.7], [1500, 3, 0.32]] },
-  // nacionais com o mesmo tipo de motor, cada um com o seu jeito
-  'br-maverick': { cam: 0.8, idle: 650, redline: 5600, pops: 0.8, jitter: 0.12 }, // 302 V8 de came bravo: "cocota"
-  'br-charger': { cam: 0.5, idle: 650, redline: 5200, pulse: 3.2, low: 620 }, // 318 V8: grave e cheio
-  'br-omega': { redline: 6000, rasp: 0.05, jitter: 0.02, low: 950, whine: 0.1 }, // 6 em linha 3.0 alemão, refinado
-  'br-opala': { cam: 0.3, redline: 4600 }, // 4.1 de 12v: pastoso
-  'br-pumagtb': { cam: 0.35, redline: 4800, intake: 0.15 },
-  'br-vectra': { redline: 7200, intake: 0.15, whine: 0.15 }, // 2.0 16v (C20XE): agudo e afiado
-  'br-corsa': { redline: 7000, whine: 0.12 },
-  'br-gol16v': { redline: 7200, intake: 0.12 },
-  'br-tipo16v': { redline: 7000, whine: 0.1 },
-  'br-golgti': { redline: 6400, intake: 0.1 }, // AP 2.0: rouco e cheio
-  'br-passat': { redline: 6300, jitter: 0.08 },
-  'br-xr3': { redline: 6200, rasp: 0.12 },
-  'br-kadett': { redline: 6300 },
-  'br-monza': { redline: 6000, low: 760 },
-  'br-santana': { redline: 6200, intake: 0.1, jitter: 0.03, low: 760 }, // AP 2.0 carburado, mais macio
-  'br-voyagesport': { redline: 6400, intake: 0.14, jitter: 0.04, low: 800 }, // AP 1.8 carburado
-  'br-voyage': { redline: 6200, intake: 0.12, jitter: 0.05 }, // AP 1.6 a álcool, carburado
-  'br-monzacoupe': { redline: 6000, low: 760 },
-  'br-chevette': { redline: 5800, rasp: 0.13, jitter: 0.09 },
-  'br-147': { redline: 6000, rasp: 0.14, jitter: 0.1 },
-  'br-uno': { redline: 6200, rasp: 0.13 }, // 1.4 turbo: assobio com pouco motor
-  'br-tempra': { redline: 6200 },
-  'br-sp2': { cam: 0.2, redline: 5200 },
-  'br-pumagte': { redline: 5600 },
+  // ---- importados ----
+  // F40: V8 2.9 biturbo de virabrequim plano: rouco e seco, escape quase direto, turbos assobiando e a
+  // válvula de alívio chiando; cabine nua (quase sem forro), corte de giro em rajadas
+  'furia-f4': { redline: 7750, idle: 1000, drive: 2.4, rasp: 0.16, low: 950, fb: 0.38, pops: 0.7, vol: 0.85, jitter: 0.05, res: [[125, 1.1, 1.1], [520, 1.9, 0.72], [1700, 2.6, 0.3]], whistle: 1.5, bov: 1.4, cut: 14, cabin: 3500 },
+  // Testarossa: 12 cilindros a 180° de 4.9 com injeção mecânica: liso e aveludado, ronco grave que abre só
+  // em cima, zunido das correias do comando
+  'furia-tr': { redline: 6800, idle: 850, drive: 1.6, rasp: 0.06, low: 780, res: [[100, 1.1, 1.2], [460, 1.9, 0.7], [1550, 2.8, 0.28]], jitter: 0.03, intake: 0.12, intakeHz: 340, whine: 0.12, pops: 0.3, cabin: 3000 },
+  // Diablo SV: V12 5.7 de 48v com injeção: uivo agressivo e metálico em giro alto
+  'toro-v12': { redline: 7100, drive: 2.1, rasp: 0.1, low: 900, res: [[110, 1.1, 1.1], [480, 1.8, 0.75], [1650, 2.6, 0.4]], intake: 0.18, intakeHz: 380, pops: 0.5, cut: 16, cabin: 3100 },
+  'patrol-sv': { redline: 7100, drive: 2.1, rasp: 0.1, low: 900, res: [[110, 1.1, 1.1], [480, 1.8, 0.75], [1650, 2.6, 0.4]], intake: 0.18, intakeHz: 380, pops: 0.5, cut: 16, cabin: 3100 },
+  // Countach 5000 QV: V12 com seis carburadores duplos verticais: ronco de sucção forte atrás da cabeça,
+  // marcha lenta um pouco solta, estalos e borbulho ao tirar o pé
+  'toro-lp5': { redline: 7500, idle: 950, drive: 2.0, rasp: 0.12, intake: 0.5, intakeHz: 300, cam: 0.25, pops: 0.7, burble: 0.3, jitter: 0.06, cabin: 3300 },
+  // 959: boxer 6 biturbo sequencial (cabeçotes a água, cilindros a ar): rosnado grave, a ventoinha e o
+  // assobio dos turbos bem presente
+  'silber-95': { redline: 7600, intake: 0.08, intakeHz: 300, rasp: 0.14, whine: 0.18, whistle: 1.6, bov: 1.2, cabin: 2900 },
+  // ZR-1 (LT5 32v): V8 de virabrequim cruzado e quatro comandos: batuque de V8, mas gira e uiva em cima;
+  // borbulha de leve ao aliviar
+  'vortex-zr': { redline: 7000, idle: 750, pulse: 2.4, jitter: 0.06, low: 820, whine: 0.25, res: [[100, 1, 1.1], [420, 1.8, 0.62], [1450, 3, 0.3]], burble: 0.35, intake: 0.12, intakeHz: 260, cabin: 2800 },
+  // viatura: V8 de sedã grande, preguiçoso e grave, bem isolado
+  patrol: { redline: 5200, idle: 650, pulse: 3.2, low: 600, drive: 1.8, jitter: 0.08, pops: 0.25, burble: 0.4, cabin: 2500 },
+  // NSX: V6 3.0 VTEC: liso embaixo, vira de came lá pelas 5.800 rpm e grita até 8.000; a admissão canta
+  // logo atrás do banco
+  'kaze-nx': { redline: 8000, idle: 800, vtec: 0.72, rasp: 0.12, low: 1000, drive: 1.8, intake: 0.28, intakeHz: 420, res: [[135, 1.2, 0.95], [720, 2.2, 0.62], [2200, 3, 0.36]], pops: 0.2, cut: 18, cabin: 3000 },
+  // Viper: V10 8.0 de origem de caminhão, intervalos desiguais (90° e 54°), grave e rouco, gira pouco;
+  // escapes laterais borbulhando no alívio, carro aberto
+  'serpe-v10': { redline: 6000, idle: 700, events: [0, 90, 144, 234, 288, 378, 432, 522, 576, 666], pulse: 2.6, drive: 2.5, low: 750, jitter: 0.1, res: [[90, 1, 1.25], [400, 1.8, 0.7], [1500, 3, 0.32]], burble: 0.5, intake: 0.1, intakeHz: 240, cabin: 3600 },
+  // ---- nacionais ----
+  // V8 americanos: came bravo e escape solto ("cocota" na lenta, borbulho no alívio)
+  'br-maverick': { cam: 0.8, idle: 650, redline: 5600, pops: 0.8, jitter: 0.12, burble: 0.7, intake: 0.2, intakeHz: 230, cabin: 2900 }, // 302 V8
+  'br-charger': { cam: 0.5, idle: 650, redline: 5200, pulse: 3.2, low: 620, burble: 0.6, intake: 0.15, intakeHz: 210, cabin: 2700 }, // 318 V8: grave e cheio
+  // 6 em linha
+  'br-omega': { redline: 6000, rasp: 0.05, jitter: 0.02, low: 950, whine: 0.1, intake: 0.06, cabin: 2400 }, // 3.0 alemão, refinado e bem isolado
+  'br-opala': { cam: 0.3, redline: 4600, burble: 0.25, intake: 0.18, intakeHz: 220, cabin: 2600 }, // 4.1: pastoso, grave e redondo
+  'br-pumagtb': { cam: 0.35, redline: 4800, burble: 0.3, intake: 0.22, intakeHz: 230, pops: 0.5, cabin: 3000 }, // 4.1 em carroceria de fibra: mais ronco dentro
+  // Família II (Monza, Kadett, Vectra): mais redondo e cheio que o AP, menos metálico
+  'br-monza': { redline: 6000, low: 760, res: [[115, 1.1, 1.1], [480, 2, 0.62], [1500, 2.8, 0.22]], rasp: 0.08, drive: 1.6, intake: 0.2, intakeHz: 290, cabin: 2700 }, // 2.0 carburador duplo
+  'br-monzacoupe': { redline: 6000, low: 740, res: [[115, 1.1, 1.1], [480, 2, 0.62], [1500, 2.8, 0.22]], rasp: 0.07, drive: 1.5, intake: 0.12, intakeHz: 290, jitter: 0.04, cabin: 2500 }, // Classic: mais silencioso
+  'br-kadett': { redline: 6300, res: [[118, 1.1, 1.1], [500, 2, 0.64], [1550, 2.8, 0.24]], rasp: 0.09, drive: 1.7, intake: 0.12, intakeHz: 310, jitter: 0.04, cut: 15, cabin: 2800 }, // 2.0 injeção
+  'br-vectra': { redline: 7200, intake: 0.18, intakeHz: 380, whine: 0.15, cut: 16, cabin: 2700 }, // 2.0 16v (C20XE): agudo e afiado em cima
+  'br-corsa': { redline: 7000, whine: 0.12, intake: 0.12, intakeHz: 400, res: [[160, 1.2, 0.9], [800, 2.2, 0.6], [2300, 3.2, 0.3]], cut: 16, cabin: 2800 }, // 1.6 16v: motor pequeno, mais fino
+  // AP (Gol, Voyage, Santana, Passat, Escort): seco e metálico, ronca rouco em carga
+  'br-golgti': { redline: 6400, pulse: 2.3, rasp: 0.15, drive: 2.0, low: 860, res: [[125, 1.1, 1.05], [560, 2.2, 0.66], [1750, 3, 0.3]], intake: 0.14, intakeHz: 300, cut: 15, cabin: 2900 }, // 2.0 injeção
+  'br-gol16v': { redline: 7200, rasp: 0.17, drive: 1.8, intake: 0.16, intakeHz: 360, cut: 16, cabin: 2900 }, // 2.0 16v
+  'br-xr3': { redline: 6200, pulse: 2.3, rasp: 0.14, drive: 1.9, low: 840, res: [[125, 1.1, 1.05], [560, 2.2, 0.64], [1750, 3, 0.28]], intake: 0.12, intakeHz: 300, cut: 15, cabin: 2800 }, // AP 2.0i
+  'br-santana': { redline: 6200, pulse: 2.4, rasp: 0.11, low: 760, res: [[122, 1.1, 1.08], [540, 2.1, 0.62], [1700, 3, 0.24]], intake: 0.22, intakeHz: 280, jitter: 0.04, cabin: 2500 }, // AP 2.0 carburado, sedã macio
+  'br-voyagesport': { redline: 6400, pulse: 2.3, rasp: 0.14, low: 820, res: [[128, 1.1, 1.05], [570, 2.2, 0.65], [1780, 3, 0.28]], intake: 0.22, intakeHz: 310, jitter: 0.05, pops: 0.4, cabin: 2700 }, // AP 1.8 carburado
+  'br-voyage': { redline: 6200, pulse: 2.3, rasp: 0.14, low: 820, res: [[132, 1.1, 1.0], [590, 2.2, 0.64], [1820, 3, 0.28]], intake: 0.2, intakeHz: 330, jitter: 0.06, cam: 0.08, cabin: 2800 }, // AP 1.6 a álcool: lenta um pouco irregular
+  'br-passat': { redline: 6300, pulse: 2.3, rasp: 0.15, low: 840, res: [[128, 1.1, 1.05], [570, 2.2, 0.66], [1780, 3, 0.3]], intake: 0.24, intakeHz: 310, jitter: 0.07, pops: 0.45, cabin: 2800 }, // AP 1.8 S carburador duplo: o mais rouco dos AP
+  // Fiat de comando no cabeçote: agudo e áspero
+  'br-uno': { redline: 6200, rasp: 0.17, pulse: 2.0, jitter: 0.08, res: [[150, 1.2, 0.95], [680, 2.2, 0.68], [2000, 3, 0.34]], whistle: 1.8, bov: 1.6, pops: 0.5, cabin: 3000 }, // 1.4 turbo: assobio com pouco motor e alívio forte
+  'br-tempra': { redline: 6200, rasp: 0.15, pulse: 2.1, jitter: 0.06, res: [[140, 1.2, 1.0], [640, 2.2, 0.66], [1900, 3, 0.3]], whistle: 1.5, bov: 1.4, cabin: 2600 }, // 2.0 turbo
+  'br-tipo16v': { redline: 7000, whine: 0.1, rasp: 0.18, res: [[150, 1.2, 0.92], [740, 2.2, 0.66], [2200, 3.2, 0.34]], intake: 0.15, intakeHz: 380, cabin: 2800 },
+  'br-147': { redline: 6000, rasp: 0.17, jitter: 0.1, pulse: 2.0, res: [[155, 1.2, 0.95], [700, 2.2, 0.68], [2050, 3, 0.34]], intake: 0.16, intakeHz: 350, cabin: 3100 }, // 1.3 de carro leve e pouco forrado
+  'br-chevette': { redline: 5800, rasp: 0.13, jitter: 0.09, intake: 0.15, intakeHz: 300, low: 780, cabin: 2900 }, // 1.6 carburado
+  // boxer a ar da VW (Onça GTE, Ponto SP2): batida de Fusca, ventoinha e carburadores duplos logo atrás
+  'br-pumagte': { redline: 5600, intake: 0.25, intakeHz: 260, whine: 0.2, cabin: 3300 },
+  'br-sp2': { cam: 0.2, redline: 5200, intake: 0.16, intakeHz: 250, whine: 0.2, cabin: 3200 },
 };
 
 // ângulos igualmente espaçados num ciclo de 720°
@@ -112,7 +133,7 @@ const BASE: Record<string, Omit<EngineSpec, 'name' | 'turbo'>> = {
 };
 
 // tipo de motor pela ficha ("V8 biturbo", "Boxer 6 biturbo", "12 cil. boxer", "4 cil. turbo"...)
-export function engineSpec(desc: string, carId = ''): EngineSpec {
+export function engineSpec(desc: string, carId = '', inside = false): EngineSpec {
   const d = desc.toLowerCase();
   const turbo = d.includes('turbo');
   const boxer = d.includes('boxer');
@@ -147,7 +168,11 @@ export function engineSpec(desc: string, carId = ''): EngineSpec {
   if (b !== BASE[k]) k += d.includes('16v') ? '-16v' : d.includes('8v') ? '-8v' : d.includes('a ar') ? '-ar' : '-12v';
   const out: EngineSpec = turbo ? { ...b, name: k + 'turbo', turbo: true, low: b.low * 0.8, fb: b.fb * 0.85, pops: b.pops * 1.3 } : { ...b, name: k, turbo: false };
   const own = CAR_SOUND[carId];
-  return own ? { ...out, ...own, name: out.name + ':' + carId } : out;
+  const sp: EngineSpec = own ? { ...out, ...own, name: out.name + ':' + carId } : out;
+  // de dentro do carro o som chega abafado (forro, vidros); de fora (trânsito, rival) não
+  if (inside) return { ...sp, cabin: sp.cabin ?? 2900, name: sp.name + ':in' };
+  const { cabin: _c, ...outside } = sp;
+  return outside;
 }
 
 // processador (roda na thread de áudio): carregado de um Blob, sem arquivo separado
@@ -169,7 +194,7 @@ class Biquad {
   }
 }
 class Engine extends AudioWorkletProcessor {
-  constructor() {
+  constructor(options) {
     super();
     this.spec = null; this.rpm = 0; this.load = 0; this.on = 0; this.boost = 0; this.pitch = 1;
     this.rpmS = 0; this.loadS = 0; this.onS = 0; this.theta = 0;
@@ -179,6 +204,10 @@ class Engine extends AudioWorkletProcessor {
       if (m.spec) this.setSpec(m.spec);
       if (m.rpm !== undefined) { this.rpm = m.rpm; this.load = m.load; this.on = m.on; this.boost = m.boost; this.pitch = m.pitch ?? 1; }
     };
+    // estado inicial pelas opções (renderização fora do tempo real: medidas em tools/qa/sound_check.cjs)
+    const o = options && options.processorOptions;
+    if (o && o.spec) { this.setSpec(o.spec); this.rpm = o.rpm || 0; this.load = o.load || 0; this.on = o.on ?? 1; this.boost = o.boost || 0; if (o.snap) { this.rpmS = this.rpm; this.loadS = this.load; this.onS = this.on; } }
+    this.sw = o && o.sweep ? o.sweep : null; // [[t, rpm, carga], ...]: roteiro para a medida (rampa, troca, corte, alívio)
   }
   rand() { this.seed = (this.seed * 16807) % 2147483647; return this.seed / 2147483647; }
   setSpec(s) {
@@ -187,6 +216,7 @@ class Engine extends AudioWorkletProcessor {
     this.pipe = [0, 1].map(() => ({ buf: new Float32Array(N), i: 0 }));
     this.res = [0, 1].map(() => s.res.map(() => new Biquad()));
     this.lp = [new Biquad(), new Biquad()];
+    this.inq = new Biquad(); this.cab = [new Biquad(), new Biquad()]; this.cutPh = 0;
     this.cylGain = s.events.map(() => 1 + (this.rand() * 2 - 1) * s.jitter);
     this.next = 0;
     this.retune = 0;
@@ -197,6 +227,13 @@ class Engine extends AudioWorkletProcessor {
     if (!s) { out.fill(0); return true; }
     const sr = sampleRate, n = out.length;
     const ev = s.events, E = ev.length;
+    if (this.sw) {
+      const t = currentTime, w = this.sw;
+      let j = 0;
+      while (j < w.length - 2 && t >= w[j + 1][0]) j++;
+      const a = w[j], b = w[j + 1], u = Math.min(1, Math.max(0, (t - a[0]) / Math.max(1e-6, b[0] - a[0])));
+      this.rpm = a[1] + (b[1] - a[1]) * u; this.load = a[2]; this.on = 1;
+    }
     // ajustes suaves (sem degraus no som)
     const k = 1 - Math.exp(-n / (sr * 0.03));
     this.rpmS += (this.rpm - this.rpmS) * k;
@@ -218,6 +255,9 @@ class Engine extends AudioWorkletProcessor {
         s.res.forEach((r, j) => this.res[b][j].band(r[0] * (1 + 0.15 * this.rpmS) * (b ? 1.04 : 1), r[1], sr));
         this.lp[b].low(lpf, 0.8, sr);
       }
+      // ronco de sucção: sobe um pouco com o giro; cabine: abre um pouco com o pé no fundo
+      if (s.intake) this.inq.band((s.intakeHz || 320) * (1 + 0.3 * this.rpmS), 2.2, sr);
+      if (s.cabin) { const cf = s.cabin * (0.78 + 0.3 * load + 0.12 * this.rpmS); this.cab[0].low(cf, 0.62, sr); this.cab[1].low(cf * 1.25, 0.62, sr); }
     }
     const degPerSample = (rpm / 60) * 360 / sr * this.pitch; // pitch: efeito Doppler (carros passando)
     const interval = 720 / E / degPerSample; // amostras entre explosões
@@ -226,6 +266,10 @@ class Engine extends AudioWorkletProcessor {
     const drive = 1 + s.drive * load * (1 + 0.35 * this.vtS);
     const camJ = (s.cam || 0) * Math.pow(Math.max(0, 1 - this.rpmS * 1.6), 2); // marcha lenta irregular
     const intake = (s.intake || 0) * load * (0.3 + this.rpmS);
+    const intakeG = (s.intake || 0) * load * (0.5 + 0.8 * this.rpmS) * 1.6;
+    const burble = (s.burble || 0) * (load < 0.15 && this.rpmS > 0.18 ? 1 : 0);
+    // corte de giro em rajadas: corta tudo numa parte do ciclo (fase avança no relógio de áudio)
+    if (limiter && s.cut) this.cutPh = (this.cutPh + s.cut * n / sr) % 1;
     const fb = s.fb;
     const pd = [s.pipeMs[0] * sr / 1000, s.pipeMs[1] * sr / 1000];
     const resG = s.res.map((r, j) => r[2] * (j === s.res.length - 1 ? 1 + 0.8 * this.vtS : 1));
@@ -240,7 +284,9 @@ class Engine extends AudioWorkletProcessor {
         // came bravo: explosões fracas e fortes alternando na marcha lenta ("cocota")
         if (camJ > 0) a *= 1 + (this.rand() * 2 - 1) * camJ * 0.9 - (this.rand() < camJ * 0.25 ? 0.7 : 0);
         // corte de giro: falha metade das explosões; aliviando em giro alto, estalos ocasionais
-        if (limiter && this.rand() < 0.55) a = 0;
+        if (limiter && (s.cut ? this.cutPh < 0.55 : this.rand() < 0.55)) a = 0;
+        // borbulhar no alívio: explosões fracas e fortes misturadas, algumas falhando
+        if (burble > 0 && a > 0) a *= this.rand() < burble * 0.3 ? 0.15 : 0.6 + this.rand() * burble * 1.5;
         let pop = 0;
         if (load < 0.15 && this.rpmS > 0.45 && this.rand() < s.pops * 0.05) pop = 2.2 + this.rand() * 1.5;
         if (a > 0 || pop) this.pulses.push({ t: 0, len: pulseLen * (pop ? 1.8 : 1), a: pop ? amp * pop + 0.25 * this.onS : a, b: s.banks[this.next], noise: pop ? 1 : s.rasp * (0.4 + load) + intake });
@@ -273,10 +319,12 @@ class Engine extends AudioWorkletProcessor {
         for (let j = 0; j < R.length; j++) z += R[j].run(w) * resG[j];
         y += this.lp[b].run(z);
       }
+      if (intakeG > 0) y += this.inq.run(x0 + x1) * intakeG;
       // zunido do comando/engrenagens: senoide fraca a 3x o giro
       if (s.whine) { this.wph = ((this.wph || 0) + rpm / 60 * 3 / sr * this.pitch) % 1; y += Math.sin(this.wph * 2 * Math.PI) * s.whine * 0.04 * (0.3 + this.rpmS) * this.onS; }
       // saturação (sob carga o som "rasga")
       y = Math.tanh(y * drive * 1.2) / Math.tanh(drive * 1.2);
+      if (s.cabin) y = this.cab[1].run(this.cab[0].run(y));
       out[i] = y * s.vol;
     }
     return true;

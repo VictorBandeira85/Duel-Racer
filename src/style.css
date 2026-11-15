@@ -31,6 +31,9 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
 #controls .brake { background: rgba(255,60,60,0.25); font-size: calc(2.6vh * var(--btn, 1)); }
 #gearBtns { display: flex; flex-direction: column; align-items: center; gap: 1vh; }
 #controls .small { width: calc(14vh * var(--btn, 1)); height: calc(14vh * var(--btn, 1)); font-size: calc(4vh * var(--btn, 1)); }
+/* buzina: botão pequeno acima do acelerador (não tapa retrovisor nem quadro) */
+#controls .side { position: relative; }
+#hornBtn { position: absolute; right: calc(3.5vh * var(--btn, 1)); bottom: calc(22vh * var(--btn, 1) + 2vh); display: flex; align-items: center; justify-content: center; background: rgba(255,210,26,0.2); }
 /* marcha engatada entre os botões (câmbio manual), como a bola do câmbio */
 #gearNum {
   min-width: calc(9vh * var(--btn, 1)); padding: 0.4vh 1vh; border-radius: 1vh; text-align: center;

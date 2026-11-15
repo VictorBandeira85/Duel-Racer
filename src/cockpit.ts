@@ -17,6 +17,7 @@ import { imageReady, preloadSvg, spriteAspect, svgSprite } from './svgsprites';
 import { drawWipers, type DashTop } from './wipers';
 import { drawSideMirror, findGlass } from './sidemirror';
 import { drawSmoke } from './smoke';
+import { drawCrashFx, drawGlass } from './damage';
 import { blinkOn } from './cars';
 import { engineSpec } from './enginesynth';
 // cabines em pixel art (tools/ref/import_cockpit.py)
@@ -2544,8 +2545,6 @@ export const CORE_W = 256;
 const HORIZON_Y = 65;
 
 let wheelAngle = 0;
-let crackKey = -1;
-let cracks: number[][] = [];
 const drops: { x: number; y: number; v: number }[] = [];
 
 const coreX = () => Math.floor((view.w - CORE_W) / 2);
@@ -2682,92 +2681,19 @@ function radarLeds(c: CanvasRenderingContext2D, x: number, y: number, w: number,
   }
 }
 
-function drawCracks(c: CanvasRenderingContext2D, r: Race, vp: Viewport, alpha: number) {
-  if (crackKey !== r.crashes) {
-    crackKey = r.crashes;
-    const rand = rng(r.crashes * 77 + 3);
-    cracks = [];
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2 + rand() * 0.3;
-      const line = [0, 0];
-      let px = 0, py = 0;
-      const len = 40 + rand() * 120;
-      for (let d = 0; d < len; d += 8 + rand() * 10) {
-        px += Math.cos(a + (rand() - 0.5) * 0.6) * 12;
-        py += Math.sin(a + (rand() - 0.5) * 0.6) * 9;
-        line.push(px, py);
-      }
-      cracks.push(line);
-    }
+// faróis de quem vem de frente (e a chuva espalhando a luz) acendendo as trincas à noite
+function glassGlow(r: Race) {
+  if (!r.glass.length) return 0;
+  const dark = Math.max(r.nightK, r.inTunnel > 0.5 ? 0.7 : 0);
+  if (dark < 0.3) return 0;
+  let near = 0;
+  for (const t of r.traffic) {
+    if (t.speed >= 0) continue;
+    const dz = t.z - r.playerZ;
+    if (dz > 0 && dz < SEG_LEN * 40) near = Math.max(near, 1 - dz / (SEG_LEN * 40));
   }
-  const ox = vp.x + vp.w * r.crashPoint.x, oy = vp.y + vp.h * r.crashPoint.y;
-  c.save();
-  c.globalAlpha = alpha;
-  c.fillStyle = 'rgba(220,230,240,0.25)';
-  c.fillRect(vp.x, vp.y, vp.w, vp.h);
-  c.strokeStyle = '#ffffff';
-  c.lineWidth = 1;
-  for (const l of cracks) {
-    c.beginPath();
-    for (let i = 0; i < l.length; i += 2) c.lineTo(ox + l[i], oy + l[i + 1]);
-    c.stroke();
-  }
-  for (const rr of [10, 22, 38]) {
-    c.beginPath();
-    c.ellipse(ox, oy, rr * 1.3, rr, 0, 0, Math.PI * 2);
-    c.stroke();
-  }
-  c.restore();
+  return dark * Math.min(1, near * 1.2 + (r.def.weather === 'rain' ? 0.25 : 0));
 }
-
-// marcas que ficam no para-brisa: estrelinha de pedra (pontinho com raios curtos e um
-// halo leitoso) e trinca de batida (raios longos e tortos, com um anel em volta); cada traço
-// tem a sombra escura embaixo para aparecer contra o céu claro
-function drawGlassMarks(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
-  if (!r.glass.length) return;
-  for (const g of r.glass) {
-    const rand = rng(g.seed);
-    const ox = Math.round(vp.x + vp.w * g.x), oy = Math.round(vp.y + vp.h * g.y);
-    const n = g.star ? 5 + Math.floor(rand() * 3) : 7 + Math.floor(rand() * 5);
-    const lines: number[][] = [];
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2 + rand() * 0.5;
-      const len = (g.star ? 3 + rand() * 4 : 12 + rand() * 40) * (0.5 + g.size);
-      const pts = [0, 0];
-      let px = 0, py = 0;
-      for (let d = 0; d < len; d += g.star ? 2 : 5 + rand() * 5) {
-        const aa = a + (rand() - 0.5) * (g.star ? 0.3 : 0.7);
-        px += Math.cos(aa) * (g.star ? 2 : 6);
-        py += Math.sin(aa) * (g.star ? 1.6 : 4.5);
-        pts.push(px, py);
-      }
-      lines.push(pts);
-    }
-    c.save();
-    c.lineWidth = 1;
-    for (const [col, off] of [['rgba(20,24,30,0.35)', 1], ['rgba(240,246,252,0.8)', 0]] as [string, number][]) {
-      c.strokeStyle = col;
-      for (const l of lines) {
-        c.beginPath();
-        for (let i = 0; i < l.length; i += 2) c.lineTo(ox + Math.round(l[i]) + 0.5, oy + Math.round(l[i + 1]) + 0.5 + off);
-        c.stroke();
-      }
-    }
-    if (!g.star) {
-      c.strokeStyle = 'rgba(240,246,252,0.55)';
-      for (const rr of [5, 11].map((v) => v * (0.5 + g.size))) {
-        c.beginPath();
-        c.ellipse(ox + 0.5, oy + 0.5, rr * 1.3, rr, 0, rand() * 6, rand() * 6 + 3.5);
-        c.stroke();
-      }
-    }
-    // miolo esbranquiçado (o vidro moído no ponto do impacto)
-    c.fillStyle = 'rgba(235,240,245,0.7)';
-    c.fillRect(ox - 1, oy - 1, 3, 2);
-    c.restore();
-  }
-}
-
 function weather(c: CanvasRenderingContext2D, r: Race, vp: Viewport, dt: number) {
   const w = r.def.weather;
   if (!w || w === 'fog') return;
@@ -3039,24 +2965,39 @@ function drawDamage(c: CanvasRenderingContext2D, r: Race, vp: Viewport, art: Coc
       c.fillRect(x, y0 - h, 1, 1);
     }
   }
-  if (r.smoke > 0.02) drawSmoke(c, cx, top(cx) + 2, vp.w * 0.5, r.smoke, r.crashes + 1);
-}
-
-// estilhaços (vidro e lata) voando do ponto do impacto
-function drawDebris(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
-  const t = r.impactT;
-  if (t > 1.1) return;
-  const rand = rng(r.crashes * 31 + 5);
-  const ox = vp.x + vp.w * r.crashPoint.x, oy = vp.y + vp.h * r.crashPoint.y;
-  const body = paintHex(r.car.id) ?? r.car.color;
-  for (let i = 0; i < 28; i++) {
-    const a = rand() * Math.PI * 2, sp = 50 + rand() * 150;
-    const x = ox + Math.cos(a) * sp * t, y = oy + Math.sin(a) * sp * t * 0.8 + 160 * t * t;
-    const glass = rand() < 0.6;
-    c.fillStyle = glass ? `rgba(225,238,248,${(1 - t / 1.1).toFixed(2)})` : body;
-    const s = rand() < 0.3 ? 2 : 1;
-    c.fillRect(Math.round(x), Math.round(y), s, s);
+  if (grow > 0) {
+    // nível do amassado: 1 = ondulado, 2 = vincos fundos, 3 = lata rasgada com a tinta descascada
+    const level = r.state === 'crash' ? 3 : r.damage > 0.75 ? 3 : r.damage > 0.5 ? 2 : 1;
+    const half = Math.round(vp.w * 0.27);
+    const rand = rng(r.crashes * 97 + 13);
+    if (level >= 2) {
+      // vincos: dobras escuras descendo na diagonal a partir das pontas mais altas, com fio claro ao lado
+      for (let i = 0; i < 2 + level; i++) {
+        const x0 = cx - half + Math.round((0.15 + rand() * 0.7) * 2 * half);
+        const dir = rand() < 0.5 ? -1 : 1, len = 4 + Math.round(rand() * 5 * grow);
+        const y0 = top(x0) - Math.round(6 * grow);
+        for (let k = 0; k < len; k++) {
+          const xx = x0 + dir * k, yy = y0 + Math.round(k * 0.7);
+          if (yy >= top(xx)) break;
+          c.fillStyle = 'rgba(0,0,0,0.38)';
+          c.fillRect(xx, yy, 1, 1);
+          c.fillStyle = 'rgba(255,255,255,0.18)';
+          c.fillRect(xx - dir, yy, 1, 1);
+        }
+      }
+    }
+    if (level >= 3) {
+      // tinta descascada mostrando a lata e a massa por baixo
+      for (let i = 0; i < 14; i++) {
+        const xx = cx - half + Math.round(rand() * 2 * half);
+        const yy = top(xx) - 2 - Math.round(rand() * 8 * grow);
+        if (yy >= top(xx)) continue;
+        c.fillStyle = rand() < 0.6 ? '#b7bcc4' : '#868b94';
+        c.fillRect(xx, yy, 1 + Math.round(rand() * 2), 1);
+      }
+    }
   }
+  if (r.smoke > 0.02) drawSmoke(c, cx, top(cx) + 2, vp.w * 0.5, r.smoke, r.crashes + 1);
 }
 
 const roadCv = document.createElement('canvas');
@@ -3092,12 +3033,14 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   r.yaw = yaw0;
   weather(c, r, vp, dt);
   drawWipers(c, r, vp, dt, dashTopFn(art), coreX());
-  drawGlassMarks(c, r, vp);
+  drawGlass(c, r.glass, vp, glassGlow(r));
   drawDamage(c, r, vp, art);
   if (r.state === 'crash') {
     const t = 3.4 - r.timer;
-    drawCracks(c, r, vp, 1);
-    drawDebris(c, r, vp);
+    const side = Math.sign(r.crashSlide) || 1;
+    const top = dashTopFn(art);
+    const bx = coreX() + 128 - side * vp.w * 0.22; // faíscas saem do canto do capô do lado batido
+    drawCrashFx(c, r.impactT, r.crashes, vp.x + vp.w * r.crashPoint.x, vp.y + vp.h * r.crashPoint.y, -side, bx, top(Math.round(bx)) - 1, paintHex(r.car.id) ?? r.car.color);
     if (t > 1.9) {
       c.fillStyle = `rgba(0,0,0,${Math.min(0.75, (t - 1.9) * 0.8)})`;
       c.fillRect(vp.x, vp.y, vp.w, vp.h);

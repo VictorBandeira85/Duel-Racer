@@ -20,7 +20,8 @@ import { paintHex } from './paint';
 import { VIEW_EXTRA_CAP, cockpitReady, preloadCockpit, renderCockpit } from './cockpit';
 import { preloadAtts } from './people';
 import { OPT_TABS, applyBtnSize, beginLoading, optTab, setOptTab, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, focusInfo, preloadGasArt, hoverScreen, keyScreen, setScreenActions, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
-import { binding, binds, input, lastDevice, pad, pollGamepad, releaseAll, setBind, setupInput, touch } from './input';
+import { binding, binds, hornOn, input, lastDevice, pad, pollGamepad, releaseAll, setBind, setupInput, touch } from './input';
+import { setHorn, setHornCar } from './horn';
 import { MUSIC_CREDITS } from './tracks';
 import { audioCtx, audioState, gainLevels, resumeAudio, sfxLevel, synthReady, setSfxVolume, initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicVolume, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
@@ -269,6 +270,8 @@ function makeRace(i: number) {
     state.gasPage = 0;
     state.gasNight = !!r.def.night && !r.def.dusk;
     state.gasTheme = r.def.theme; // frentista da região do trecho
+    // marcas do trecho no carro visto de lado no posto (batidas, encostões e o dano que ficou)
+    state.gasDmg = Math.min(1, r.damage * 0.8 + r.crashes * 0.35 + r.stats.scrapes * 0.04);
     actions.go('gas');
   };
   r.onCrash = () => {
@@ -840,6 +843,9 @@ function frameInner(now: number) {
       keyScreen(state, actions, k);
     } else keyScreen(state, actions, 'ok');
   }
+  // buzina do jogador (tecla H/B, botão da tela, X ou Y do controle): só na corrida, fora da pausa
+  if (race) setHornCar(race.car.id);
+  setHorn(state.screen === 'race' && !!race && !paused && !quitOpen() && hornOn());
   if (state.screen === 'race' && race) {
     if (!paused) {
       acc += dt;

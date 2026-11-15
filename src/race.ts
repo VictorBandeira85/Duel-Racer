@@ -1,4 +1,5 @@
 import { preloadCops } from './people';
+import type { Dent, GlassMark } from './damage';
 import { prewarmAds } from './billboards';
 import { CAR_W, KMH, LANE_W, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { aeroMul, CARS, G, LAUNCH_BOOST, launchRpm, Powertrain, perfClass, resistAcc, toGame, toMs, type CarLook, type CarSpec, type PerfClass, SHIFT_T } from './cars';
@@ -47,7 +48,7 @@ function pickGameCar(u: number): CarSpec | undefined {
 export function trafficLook(t: TrafficCar, front: boolean, night: boolean, flash = false): CarLook {
   // freando: mais devagar do que gosta de andar (trânsito na mesma mão, atrás de alguém ou em pânico)
   const brake = t.speed > 0 && t.speed < t.base * 0.9;
-  const look: CarLook = { color: t.color, front, truck: t.truck, night, model: t.model, signal: t.signal, flash, tilt: t.tilt, brake, plate: t.plate };
+  const look: CarLook = { color: t.color, front, truck: t.truck, night, model: t.model, signal: t.signal, flash, tilt: t.tilt, brake, plate: t.plate, dent: t.dmg };
   if (t.car) Object.assign(look, { rear: t.car.rear, paint: t.color, lamps: { up: night || flash ? 1 : 0, on: night || flash, high: flash } });
   return look;
 }
@@ -73,6 +74,7 @@ export interface TrafficCar {
   model: TrafficModel;
   car?: CarSpec; // um dos carros do jogo no trânsito (sorteado pela raridade da classe)
   hit: boolean;
+  dmg?: Dent; // marcas da batida (desenhadas por cima do sprite até ele sumir)
   plate?: Plate;
   base: number; // velocidade que o motorista gosta de manter
   tx: number; // faixa para onde está indo
@@ -189,7 +191,8 @@ export class Race {
   damage = 0;
   // marcas no para-brisa que ficam até trocar de carro: trinca de batida, estrela de pedra
   // (x, y em fração do para-brisa; size 0..1; seed para o desenho)
-  glass: { x: number; y: number; size: number; seed: number; star: boolean }[] = [];
+  glass: GlassMark[] = [];
+  rivalDmg: Dent | undefined; // marcas do rival depois de bater (no trânsito ou em nós)
   overheat = false;
   // temperatura extra do motor por giro no corte (0..1): sobe segurando o giro lá em cima, esfria
   // com giro normal; acima de 0,8 a central corta potência (até -30%) e baixa o corte
@@ -211,7 +214,7 @@ export class Race {
   stats = { passes: 0, near: 0, brakeT: 0, airT: 0, bestAir: 0, scrapes: 0, tunnels: 0 };
   challenges: import('./challenges').Challenge[] = [];
   private wasTunnel = false;
-  private crashSlide = 0;
+  crashSlide = 0; // (público: a cabine usa o sinal para o lado das faíscas)
   private hitCar: TrafficCar | null = null; // com quem bateu (fica à frente, os dois arrastando juntos)
   private crashSpin = 0;
   slip = 0; // derrapagem (0 = com aderência, 1 = escorregando)
@@ -362,10 +365,12 @@ export class Race {
   }
 
   // marca nova no para-brisa (pedra: estrelinha; batida: trinca maior)
-  crackGlass(size: number, star: boolean) {
+  crackGlass(size: number, star: boolean, side = 0) {
     if (this.glass.length >= 8) return;
     const r = this.rand;
-    this.glass.push({ x: 0.15 + r() * 0.7, y: star ? 0.15 + r() * 0.55 : 0.35 + r() * 0.4, size, seed: Math.floor(r() * 1e6), star });
+    // batida: a trinca nasce do lado do impacto (side -1 esquerda, 1 direita)
+    const x = side ? 0.5 + side * (0.12 + r() * 0.22) : 0.15 + r() * 0.7;
+    this.glass.push({ x, y: star ? 0.15 + r() * 0.55 : 0.35 + r() * 0.4, size, seed: Math.floor(r() * 1e6), star });
   }
 
   // pedrinha atirada pelo pneu do caminhão da frente: colado atrás dele e rápido, às vezes
@@ -487,6 +492,7 @@ export class Race {
     c.think = 1 + r() * 3;
     c.panic = 0;
     c.smoke = 0;
+    c.dmg = undefined;
     c.slide = 0;
     c.tilt = 0;
     c.rel = undefined;
@@ -978,6 +984,9 @@ export class Race {
       if (v2 < 0) c.speed = Math.min(c.speed, 0) * 0.3; // de frente: os dois param ali mesmo
     }
     this.crashPoint = { x: 0.4 + this.rand() * 0.2 - side * 0.08, y: 0.45 + this.rand() * 0.2 };
+    // estilhaço grande no para-brisa, no ponto do impacto (fica até o carro novo)
+    this.glass.push({ x: this.crashPoint.x, y: this.crashPoint.y, size: 1, seed: Math.floor(this.rand() * 1e6), star: false, big: true });
+    if (other?.car) other.car.dmg = { v: 1, side, seed: Math.floor(this.rand() * 1e6) };
     crashSound(Math.min(1, 0.4 + dv / 160));
   }
 
@@ -1734,6 +1743,9 @@ export class Race {
       const rnear = c.speed < 0 ? Math.abs(rz) < SEG_LEN : rz > -SEG_LEN * 0.3 && rz < SEG_LEN && r.speed > c.speed;
       if (r.recover <= 0 && rnear && overlap(r.x, myHalf, c.x, half)) {
         c.hit = true;
+        const sd = r.x < c.x ? -1 : 1;
+        c.dmg = { v: 0.7, side: sd, seed: Math.floor(this.rand() * 1e6) };
+        this.rivalDmg = { v: 0.7, side: -sd, seed: Math.floor(this.rand() * 1e6) };
         r.speed *= 0.3;
         r.recover = 1.2;
       }
@@ -1762,6 +1774,7 @@ export class Race {
           this.jolt = Math.max(this.jolt, c.speed > 0 ? 0.3 : 0.5);
           this.damage = Math.min(1, this.damage + (c.speed > 0 ? 0.06 : 0.12));
           c.slide = -side * 500; // o outro também é empurrado de lado
+          if (!c.dmg || c.dmg.v < 0.3) c.dmg = { v: 0.3, side, seed: Math.floor(this.rand() * 1e6) };
           scrapeSound();
           this.stats.scrapes++;
           continue;
@@ -1788,7 +1801,8 @@ export class Race {
         // batida leve: tranco, amassadinho (dano acumula e o motor começa a fumegar) e o outro fica marcado
         this.jolt = Math.max(this.jolt, Math.min(0.7, 0.25 + dv / 120));
         this.damage = Math.min(1, this.damage + Math.min(0.35, 0.08 + dv / 140));
-        if (dv > 25 && this.rand() < 0.35 + dv / 120) this.crackGlass(Math.min(1, dv / 90), false);
+        if (dv > 25 && this.rand() < 0.35 + dv / 120) this.crackGlass(Math.min(1, dv / 90), false, side);
+        if (dv > 15) c.dmg = { v: Math.max(c.dmg?.v ?? 0, Math.min(0.75, 0.35 + dv / 150)), side, seed: c.dmg?.seed ?? Math.floor(this.rand() * 1e6) };
         if (dv > 30) c.smoke = Math.max(c.smoke, 0.4);
         bumpSound(Math.min(1, 0.3 + dv / 100));
       }
@@ -1816,6 +1830,7 @@ export class Race {
         this.speed = (p - m2 * e * rel) / (m1 + m2);
         r.speed = (p + m1 * e * rel) / (m1 + m2);
         r.z = pz + Math.sign(behind) * SEG_LEN * 0.85;
+        if (Math.abs(rel) * KMH > 20) this.rivalDmg = { v: Math.max(this.rivalDmg?.v ?? 0, Math.min(0.8, 0.3 + Math.abs(rel) * KMH / 120)), side, seed: this.rivalDmg?.seed ?? Math.floor(this.rand() * 1e6) };
         this.stats.scrapes++;
         this.scrapeT = 0.3;
         scrapeSound();

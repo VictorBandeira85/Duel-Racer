@@ -5,6 +5,10 @@ export const touch = { ui: navigator.maxTouchPoints > 0 || matchMedia('(pointer:
 // último jeito de jogar usado (legenda de botões dos menus): controle, teclado (ou mouse) ou toque
 export const lastDevice = { kind: (touch.ui ? 'touch' : 'key') as 'pad' | 'key' | 'touch' };
 const queue = { shiftUp: 0, shiftDown: 0 };
+// buzina: tecla H ou B (se não estiverem em outra ação), botão da tela e X/quadrado ou Y/triângulo do controle
+export const horn = { key: false, touch: false, pad: false };
+export const hornOn = () => horn.key || horn.touch || horn.pad;
+const HORN_KEYS = ['KeyH', 'KeyB'];
 
 export function takeShift(kind: 'shiftUp' | 'shiftDown') {
   const n = queue[kind];
@@ -75,10 +79,25 @@ export function setupInput() {
     const k = KEYMAP[e.code];
     if (k && !e.repeat) press(k, true);
     if (k) e.preventDefault();
+    else if (HORN_KEYS.includes(e.code)) horn.key = true;
   });
   window.addEventListener('keyup', (e) => {
     const k = KEYMAP[e.code];
     if (k) press(k, false);
+    if (HORN_KEYS.includes(e.code)) horn.key = false;
+  });
+  window.addEventListener('blur', () => { horn.key = horn.touch = false; });
+  document.querySelectorAll<HTMLElement>('[data-horn]').forEach((el) => {
+    const up = () => { el.classList.remove('on'); horn.touch = false; };
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      try { el.setPointerCapture(e.pointerId); } catch { /* ponteiro já solto */ }
+      el.classList.add('on');
+      horn.touch = true;
+    });
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    el.addEventListener('lostpointercapture', up);
   });
 
   document.querySelectorAll<HTMLElement>('[data-key]').forEach((el) => {
@@ -110,6 +129,7 @@ export function releaseAll() {
   input.left = input.right = input.gas = input.brake = false;
   pad.gas = pad.brake = pad.steer = 0;
   queue.shiftUp = queue.shiftDown = 0;
+  horn.key = horn.touch = horn.pad = false;
 }
 
 // ---------- controle (gamepad Bluetooth/USB: PlayStation, Xbox, MFi, genéricos) ----------
@@ -178,13 +198,14 @@ export function pollGamepad(): PadKey[] {
   if (!pads.length) {
     if (pad.gas || pad.brake || pad.steer) pad.gas = pad.brake = pad.steer = 0;
     for (const k of ['left', 'right', 'gas', 'brake'] as const) if (padHeld[k]) input[k] = padHeld[k] = false;
+    horn.pad = false;
     return [];
   }
   pad.id = pads[0].id;
   pad.mapping = pads[0].mapping;
   const now: Record<string, boolean> = { left: false, right: false, up: false, down: false, gas: false, brake: false, ok: false, back: false, shiftUp: false, shiftDown: false, start: false };
   const nav = { left: false, right: false, up: false, down: false };
-  let gas = 0, brake = 0, steer = 0;
+  let gas = 0, brake = 0, steer = 0, honk = false;
   for (const gp of pads) {
     const b = (i: number) => gp.buttons[i];
     const btn = (i: number) => !!b(i) && (b(i).pressed || b(i).value > 0.5);
@@ -206,6 +227,7 @@ export function pollGamepad(): PadKey[] {
     now.shiftUp ||= btn(5);
     now.shiftDown ||= btn(4);
     now.start ||= btn(9);
+    honk ||= btn(2) || btn(3); // X/quadrado ou Y/triângulo: buzina
     nav.left ||= dl;
     nav.right ||= dr;
     nav.up ||= du;
@@ -221,6 +243,7 @@ export function pollGamepad(): PadKey[] {
   pad.gas = gas;
   pad.brake = brake;
   pad.steer = steer;
+  horn.pad = honk;
   if (gas > 0.1 || brake > 0.1 || Math.abs(steer) > 0.2 || Object.values(now).some(Boolean) || nav.up || nav.down || nav.left || nav.right) lastDevice.kind = 'pad';
   Object.assign(now, { up: nav.up, down: nav.down, navLeft: nav.left, navRight: nav.right });
   // botões digitais seguem o botão enquanto ele estiver apertado (como as teclas)

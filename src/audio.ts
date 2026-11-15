@@ -205,7 +205,7 @@ export function initAudio() {
 
 export function setEngineProfile(desc: string, carId = '', mods?: import('./tuning').SoundMods) {
   prof = PROFILES[engineKind(desc)] ?? PROFILES.v8;
-  spec = engineSpec(desc, carId);
+  spec = engineSpec(desc, carId, true); // ouvido de dentro: abafado pela cabine
   spoolLvl = mods?.spool ?? 0;
   blowerLvl = mods?.blower ?? 0;
   if (mods) {
@@ -241,11 +241,11 @@ export function setEngine(rpm: number, pedal: boolean | number, on: boolean, boo
     // turbo da preparação: assobio mais forte e mais grave quanto maior a turbina, com o sopro do ar
     // enchendo por baixo, para aparecer mesmo com motor alto (V12); o de fábrica fica discreto
     const big = Math.max(0, spoolLvl - 1); // 0 (.32) a 0,8 (.70)
-    turbo.frequency.setTargetAtTime((spoolLvl ? 1150 + boost * 1250 + r * 450 : 1500 + boost * 1700 + r * 600) * (1 - 0.22 * big), t, 0.08);
-    turboGain.gain.setTargetAtTime(tb * (spoolLvl ? 0.03 + 0.012 * big : 0.011), t, 0.1);
+    turbo.frequency.setTargetAtTime((spoolLvl ? 1150 + boost * 1250 + r * 450 : 1250 + boost * 1350 + r * 450) * (1 - 0.22 * big), t, 0.08);
+    turboGain.gain.setTargetAtTime(tb * (spoolLvl ? 0.03 + 0.012 * big : 0.011 * (spec.whistle ?? 1)), t, 0.1);
     rushFilter.frequency.setTargetAtTime(700 + boost * 900, t, 0.1);
     rushGain.gain.setTargetAtTime(spoolLvl && on ? tb * (0.05 + 0.03 * big) : 0, t, 0.12);
-    if (spec.turbo && on && lastThrottle && !throttle && lastBoost > (spoolLvl ? 0.3 : 0.45)) blowOff(lastBoost * (spoolLvl ? 1.7 + 0.6 * big : 1));
+    if (spec.turbo && on && lastThrottle && !throttle && lastBoost > (spoolLvl ? 0.3 : 0.45)) blowOff(lastBoost * (spoolLvl ? 1.7 + 0.6 * big : spec.bov ?? 1));
     // supercharger: zunido preso ao giro (sem atraso), mais forte acelerando e com polia menor
     const bw = blowerLvl && on ? (0.35 + 0.65 * r) * (throttle ? 1 : 0.35) : 0;
     const bf = (420 + r * 1250) * (1 + 0.12 * Math.max(0, blowerLvl - 1));
@@ -280,8 +280,8 @@ function blowOff(p: number) {
   src.buffer = noiseBuffer(0.5);
   const f = ctx.createBiquadFilter();
   f.type = 'bandpass';
-  f.frequency.setValueAtTime(3200, t);
-  f.frequency.exponentialRampToValueAtTime(1400, t + 0.4);
+  f.frequency.setValueAtTime(2500, t);
+  f.frequency.exponentialRampToValueAtTime(1200, t + 0.4);
   f.Q.value = 1.2;
   const g = ctx.createGain();
   g.gain.setValueAtTime(0.0001, t);

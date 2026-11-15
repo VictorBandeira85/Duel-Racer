@@ -7,6 +7,7 @@ import { audioCtx, audioOut, noiseBuffer, synthReady } from './audio';
 import { CAR_W, KMH } from './config';
 import { perfClass } from './cars';
 import { engineSpec, type EngineSpec } from './enginesynth';
+import { HORNS } from './horn';
 import type { Race, TrafficCar } from './race';
 
 const M_LON = KMH / 3.6; // unidades do mundo -> metros (no sentido da pista)
@@ -27,7 +28,7 @@ export const HORN: Record<string, HornDef> = {
   // van: fanhosa, intervalo curto e médios ressaltados
   van: { notes: [350, 395], wave: 'square', filter: 'bandpass', fq: 1100, q: 1.6, attack: 0.01, vol: 0.11, beat: [0.38, 0.24] },
   // picape: grave e metálica, quinta justa
-  pickup: { notes: [290, 435], wave: 'sawtooth', filter: 'lowpass', fq: 1500, q: 1.4, attack: 0.012, vol: 0.12, beat: [0.46, 0.3] },
+  pickup: { ...HORNS.pickup, vol: 0.13, beat: [0.46, 0.3] }, // grave, a ar (175 e 220 Hz)
   // caminhão: buzina a ar, acorde de três notas bem grave, entra devagar
   // esportivo (classes B, A e S): duas cornetas brilhantes e rápidas
   sport: { notes: [440, 554], wave: 'sawtooth', filter: 'bandpass', fq: 1800, q: 1.3, attack: 0.006, vol: 0.12, beat: [0.26, 0.15] },
@@ -36,7 +37,7 @@ export const HORN: Record<string, HornDef> = {
 
 interface Voice { node: AudioWorkletNode; gain: GainNode; pan: StereoPannerNode; key: object | null; spec: string }
 interface Horn { osc: OscillatorNode[]; filter: BiquadFilterNode; gain: GainNode; pan: StereoPannerNode; key: object | null; model: string }
-interface CarState { prevDz: number; panicT: number; honkCd: number; braked: boolean; hitHonk: boolean }
+interface CarState { prevDz: number; panicT: number; honkCd: number; braked: boolean; hitHonk: boolean; tail: number; tailHonk: number }
 
 let voices: Voice[] = [];
 let horns: Horn[] = [];
@@ -83,7 +84,7 @@ function tuneOf(key: object) {
 
 function st(key: object): CarState {
   let s = state.get(key);
-  if (!s) state.set(key, (s = { prevDz: NaN, panicT: 0, honkCd: 0, braked: false, hitHonk: false }));
+  if (!s) state.set(key, (s = { prevDz: NaN, panicT: 0, honkCd: 0, braked: false, hitHonk: false, tail: 0, tailHonk: 0 }));
   return s;
 }
 
@@ -256,6 +257,19 @@ export function updateTrafficAudio(r: Race, dt: number) {
     if (c.speed > 0 && cs.honkCd > 6 - 2.2 * (HORN[model] ?? HORN.sedan).beat[0]) {
       const [per, dur] = (HORN[model] ?? HORN.sedan).beat;
       hornWant.push({ key: c, model, s, on: (6 - cs.honkCd) % per < dur });
+      continue;
+    }
+    // jogador colado na traseira por tempo demais (mesma faixa, a menos de ~8 m): duas buzinadas de aviso
+    const glued = c.speed > 0 && !c.hit && s.dz > 1 && s.dz < 8 && Math.abs(s.dx) < 1.2 && r.state === 'drive';
+    cs.tail = glued ? cs.tail + dt : Math.max(0, cs.tail - dt * 2);
+    cs.tailHonk = Math.max(0, cs.tailHonk - dt);
+    if (cs.tail > 3.5 && cs.tailHonk <= 0) {
+      cs.tail = 0;
+      cs.tailHonk = 9; // os primeiros instantes são a buzinada; depois, silêncio até poder de novo
+    }
+    if (cs.tailHonk > 9 - 2 * (HORN[model] ?? HORN.sedan).beat[0]) {
+      const [per, dur] = (HORN[model] ?? HORN.sedan).beat;
+      hornWant.push({ key: c, model, s, on: (9 - cs.tailHonk) % per < dur });
     }
   }
   hornWant = hornWant.sort((a, b) => a.s.d - b.s.d).slice(0, horns.length);

@@ -21,10 +21,17 @@ export function drawSmoke(c: CanvasRenderingContext2D, x: number, y: number, w: 
     const py = y - rise;
     // vapor branco saindo, escurecendo para fumaça cinza ao subir
     const g = Math.round(225 - age * 95 - r() * 25);
-    c.fillStyle = `rgba(${g},${g},${g + 4},${(0.8 * (1 - age) ** 1.1 * (0.45 + power * 0.55)).toFixed(3)})`;
-    // baforada em "blocos" (círculo grosso de pixel)
-    const s = Math.max(1, Math.round(size));
-    c.fillRect(Math.round(px - s / 2), Math.round(py - s * 0.35), s, Math.round(s * 0.7));
-    c.fillRect(Math.round(px - s * 0.35), Math.round(py - s / 2), Math.round(s * 0.7), s);
+    const al = (0.5 * (1 - age) ** 1.1 * (0.45 + power * 0.55)).toFixed(3); // bolotas sobrepostas: cada uma mais leve
+    // tufo em pixel: três bolotas sobrepostas (miolo claro em cima, sombra embaixo), como nuvem de 16 bits
+    const s = Math.max(2, Math.round(size));
+    const blob = (bx: number, by: number, bs: number, col: number) => {
+      c.fillStyle = `rgba(${col},${col},${col + 4},${al})`;
+      c.fillRect(Math.round(bx - bs / 2), Math.round(by - bs * 0.35), bs, Math.max(1, Math.round(bs * 0.7)));
+      c.fillRect(Math.round(bx - bs * 0.35), Math.round(by - bs / 2), Math.max(1, Math.round(bs * 0.7)), bs);
+    };
+    blob(px, py + s * 0.18, s, Math.max(40, g - 40)); // sombra de baixo
+    blob(px - s * 0.3, py, Math.round(s * 0.75), g);
+    blob(px + s * 0.28, py - s * 0.08, Math.round(s * 0.7), g);
+    blob(px, py - s * 0.22, Math.round(s * 0.55), Math.min(250, g + 18)); // brilho do miolo
   }
 }

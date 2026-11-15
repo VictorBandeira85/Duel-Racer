@@ -780,7 +780,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         }
       } else if (e === r.rival) {
         const rw = CAR_W * sc * vp.K, rv = r.rival;
-        fogged(c, fk, cx - rw, cy - rw * 1.3, rw * 2, rw * 1.3 + 4, (g) => drawCar(g, cx, cy, rw, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: rv.recover > 0 || rv.mistake > 0, night: lit, paint: r.rivalPaint, signal: rv.signal, plate: r.rivalPlate, drop: r.rivalCar!.rideDrop }));
+        fogged(c, fk, cx - rw, cy - rw * 1.3, rw * 2, rw * 1.3 + 4, (g) => drawCar(g, cx, cy, rw, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: rv.recover > 0 || rv.mistake > 0, night: lit, paint: r.rivalPaint, signal: rv.signal, plate: r.rivalPlate, drop: r.rivalCar!.rideDrop, dent: r.rivalDmg }));
         beamAhead(e.z, ex, CAR_W * sc * vp.K);
       } else if ('phase' in e) {
         drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, e as Officer);
@@ -853,7 +853,7 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
   const glareK = r.def.night ? 1 : night ? 0.7 : 0;
   let nearest = 0;
   for (const t of r.traffic) behind.push({ z: t.z, x: t.x, w: t.truck ? TRUCK_W : CAR_W, look: trafficLook(t, t.base > 0, night) });
-  if (r.rival) behind.push({ z: r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint, signal: r.rival.signal, lamps: r.rivalLamps() } });
+  if (r.rival) behind.push({ z: r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint, signal: r.rival.signal, lamps: r.rivalLamps(), dent: r.rivalDmg } });
   for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') behind.push({ z: p.z, x: p.x, w: p.sv ? CAR_W * 1.08 : POLICE_W, look: { color: '#fff', police: true, sv: p.sv, siren: true, front: true, night } });
   behind.sort((a, b) => a.z - b.z);
   let sirenNear = 0;

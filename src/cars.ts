@@ -1,3 +1,4 @@
+import { drawDent, type Dent } from './damage';
 import { fxMode } from './perf';
 import { pushCarLights } from './nightlight';
 import { drawPlate, type Plate } from './plates';
@@ -718,6 +719,7 @@ export interface CarLook {
   lamps?: { up: number; on: boolean; high?: boolean }; // faróis: quanto subiram (escamoteáveis), acesos, farol alto
   plate?: Plate; // placa (desenhada por cima da traseira)
   drop?: number; // suspensão rebaixada (CarSpec.rideDrop): a carroceria desce sobre os pneus
+  dent?: Dent; // batido: amassado, lanterna quebrada, vidro trincado e para-choque solto por cima do sprite
 }
 
 // Rebaixamento na traseira/frente: a faixa de baixo do sprite (só os pneus, abaixo da linha de baixo
@@ -879,6 +881,13 @@ const TRAFFIC_GLOW: Record<string, { dots?: number[][]; head?: number[] /* farol
 
 export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   if (w < 2) return;
+  if (look.dent && look.dent.v > 0.05 && !look.tilt) {
+    drawCar(c, x, y, w, { ...look, dent: undefined });
+    // altura do desenho: a do modelo (sprites do trânsito novos ~0,78 da largura, os antigos ~0,6)
+    const hk = look.rear ? look.rear.h : look.truck ? 1 : look.model === 'sedan' || look.model === 'hatch' || look.model === 'pickup' ? 0.78 : 0.62;
+    drawDent(c, x, y, w, w * hk, look.dent, !!look.front);
+    return;
+  }
   if (look.tilt && Math.abs(look.tilt) > 0.01) {
     c.save();
     c.translate(x, y);

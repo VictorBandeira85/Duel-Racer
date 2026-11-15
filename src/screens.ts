@@ -1,6 +1,7 @@
 import { carSwap } from './carswap';
 import { ACTIONS, binding, binds, keyName, lastDevice, resetBinds } from './input';
 import { drawPerson, attFor, attImg, ATT_META, ATT_H } from './people';
+import { drawSideDamage } from './damage';
 import { VIEW_LEVELS, prefs, savePrefs, volLabel } from './prefs';
 import { clearArcade, loadArcade } from './arcadesave';
 import { gasQuip } from './score';
@@ -57,6 +58,7 @@ export interface AppState {
   results: StageResult[];
   gasNight?: boolean; // posto à noite (o trecho que acabou era noturno)
   gasTheme?: string; // tema do trecho que acabou (frentista da região)
+  gasDmg?: number; // marcas do trecho no carro (0..1)
   gameOver: boolean;
   mode: 'arcade' | 'career';
   career: CareerSave | null;
@@ -1181,7 +1183,9 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
     c.stroke();
   }
   // o carro por cima da mangueira: ela sai da bomba por trás dele
-  drawCarSide(c, carX, GY + arr.dip, 170, car, paintHex(car.id), (-320 * arr.pos) / wr, night);
+  const sideDraw = (g: CanvasRenderingContext2D) => drawCarSide(g, carX, GY + arr.dip, 170, car, paintHex(car.id), (-320 * arr.pos) / wr, night);
+  if ((s.gasDmg ?? 0) > 0.05) drawSideDamage(c, sideDraw, { x: carX - 6, y: GY + arr.dip - 96, w: 184, h: 106 }, s.gasDmg!, car.id.length * 97 + 5);
+  else sideDraw(c);
   if (attImg(att, pose)) drawPerson(c, 'att', pose, ax, ay, AH, true, att);
   else drawPerson(c, 'att', pose, ax, GY + 4, 66, true);
   if (pumping || fill >= 1) {

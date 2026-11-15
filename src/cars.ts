@@ -765,8 +765,8 @@ function drawEndSprite(c: CanvasRenderingContext2D, spr: HTMLCanvasElement, L: n
 
 const GENERIC: RearDef = { h: 0.5, roof: 0.56, lights: 'rect', wing: 0 };
 
-function glow(c: CanvasRenderingContext2D, x: number, y: number, w: number, rgb: string) {
-  for (const sx of [-0.36, 0.36]) {
+function glow(c: CanvasRenderingContext2D, x: number, y: number, w: number, rgb: string, dx = 0.36) {
+  for (const sx of [-dx, dx]) {
     c.fillStyle = `rgba(${rgb},0.25)`;
     c.beginPath();
     c.arc(x + sx * w, y, w * 0.18, 0, Math.PI * 2);
@@ -804,10 +804,12 @@ function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w:
     c.fillStyle = 'rgba(255,60,40,0.55)';
     for (const [u, f] of TRAFFIC_GLOW[model]?.dots ?? []) c.fillRect(Math.round(L + u * w - w * 0.07), Math.round(T + f * h - h * 0.05), Math.max(1, Math.round(w * 0.14)), Math.max(1, Math.round(h * 0.1)));
   }
-  if (look.front && look.night) glow(c, x, y - h * 0.4, w, '255,246,192');
+  const hd = TRAFFIC_GLOW[model]?.head; // faróis medidos na arte (senão, o lugar padrão)
+  const hy = hd ? T + hd[1] * h : y - h * 0.4, hx = hd ? 0.5 - hd[0] : 0.36;
+  if (look.front && look.night) glow(c, x, hy, w, '255,246,192', hx);
   if (look.front && look.flash) { // farol alto piscando
-    glow(c, x, y - h * 0.4, w, '255,250,220');
-    glow(c, x, y - h * 0.4, w * 1.3, '255,250,220');
+    glow(c, x, hy, w, '255,250,220', hx);
+    glow(c, x, hy, w * 1.3, '255,250,220', hx);
   }
   // seta piscando do lado para onde o carro vai
   if (look.signal && Math.floor(performance.now() / 250) % 2 === 0) {
@@ -840,7 +842,8 @@ function lampSpots(w: number, look: CarLook): { h: number; dots: number[][] } {
   if (!look.rear && model) {
     const img = tpng(`${model}-${look.front ? 'front' : 'rear'}`);
     const h = w * ((img && spriteAspect(img)) || 0.6);
-    return { h, dots: look.front ? [[0.2, 0.62], [0.8, 0.62]] : TRAFFIC_GLOW[model]?.dots ?? [[0.15, 0.6], [0.85, 0.6]] };
+    const hd = TRAFFIC_GLOW[model]?.head;
+    return { h, dots: look.front ? (hd ? [[hd[0], hd[1]], [1 - hd[0], hd[1]]] : [[0.2, 0.62], [0.8, 0.62]]) : TRAFFIC_GLOW[model]?.dots ?? [[0.15, 0.6], [0.85, 0.6]] };
   }
   const R = look.rear;
   const img = look.front ? R?.frontImg : R?.img;
@@ -856,11 +859,12 @@ function lampSpots(w: number, look: CarLook): { h: number; dots: number[][] } {
 }
 
 const TRAFFIC_PLATE: Record<string, number[]> = { // como PLATE_BOX, nos sprites do trânsito (medido nos PNG)
-  sedan: [66, 52, 95, 61, 160, 92], hatch: [66, 59, 95, 68, 160, 96], pickup: [66, 71, 95, 80, 160, 98], van: [66, 103, 95, 112, 160, 132], truck: [66, 135, 95, 144, 160, 168], fusca: [67, 71, 94, 80, 160, 100], kombi: [66, 105, 95, 114, 160, 132], suv: [66, 71, 95, 80, 160, 120], sedan90: [66, 61, 95, 70, 160, 90], police: [68, 65, 90, 77, 160, 124],
+  sedan: [62, 68, 98, 78, 160, 122], hatch: [61, 65, 100, 78, 160, 126], pickup: [65, 99, 96, 110, 160, 130], // arte do Victor (tools/ref/traffic_art.py)
+  van: [66, 103, 95, 112, 160, 132], truck: [66, 135, 95, 144, 160, 168], fusca: [67, 71, 94, 80, 160, 100], kombi: [66, 105, 95, 114, 160, 132], suv: [66, 71, 95, 80, 160, 120], sedan90: [66, 61, 95, 70, 160, 90], police: [68, 65, 90, 77, 160, 124],
 };
-const TRAFFIC_GLOW: Record<string, { dots?: number[][]; siren?: number[][]; sirenFront?: number[][]; sirenColors?: string[]; sirenColorsFront?: string[] }> = {
-  sedan: { dots: [[0.2, 0.62], [0.8, 0.62]] }, hatch: { dots: [[0.14, 0.65], [0.86, 0.65]] },
-  pickup: { dots: [[0.05, 0.6], [0.95, 0.6]] }, van: { dots: [[0.06, 0.7], [0.94, 0.7]] },
+const TRAFFIC_GLOW: Record<string, { dots?: number[][]; head?: number[] /* farol esquerdo na frente (u, f) */; siren?: number[][]; sirenFront?: number[][]; sirenColors?: string[]; sirenColorsFront?: string[] }> = {
+  sedan: { dots: [[0.15, 0.59], [0.85, 0.59]], head: [0.21, 0.57] }, hatch: { dots: [[0.17, 0.59], [0.83, 0.59]], head: [0.19, 0.555] },
+  pickup: { dots: [[0.07, 0.54], [0.93, 0.54]], head: [0.13, 0.535] }, van: { dots: [[0.06, 0.7], [0.94, 0.7]] },
   fusca: { dots: [[0.09, 0.56], [0.91, 0.56]] }, kombi: { dots: [[0.09, 0.66], [0.91, 0.66]] }, suv: { dots: [[0.07, 0.6], [0.93, 0.6]] }, sedan90: { dots: [[0.15, 0.6], [0.85, 0.6]] },
   truck: { dots: [[0.08, 0.79], [0.92, 0.79]] },
   // giroflex da arte: azul à esquerda, vermelho à direita (u0, f0, u1, f1 em fração do sprite)

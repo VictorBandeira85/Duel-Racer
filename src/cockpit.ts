@@ -143,7 +143,7 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
   // e a do console a 0,774 (F4C), com o passo dos três relógios da arte
   f40: { dash: dashF40Png, top: topF40Png, wheel: wheelF40Png, dashMask: cp('f40-dash-mask'), topMask: cp('f40-top-mask'),
     pivot: [119.2, 120], wheelTop: 0, tells: null,
-    glass: { at: [36, 127], thr: 256 }, pod: { x: 228, y: 33, r: 9, face: 'black', bezel: 'black', lit: 'green' }, radar: [205, 35], glow: '110,230,140', glowK: 0.5,
+    glass: { at: [30, 125], thr: 256 }, pod: { x: 228, y: 33, r: 9, face: 'black', bezel: 'black', lit: 'green' }, radar: [205, 35], glow: '110,230,140', glowK: 0.5,
     // à noite números e marcações acendem em verde (o fundo preto continua preto), ponteiros também
     facesLit: '110,236,140', litNeedles: true,
     faces: [{ src: cp('f40-cluster'), src2: cp('f40-cluster-2x'), ...F4Q.box(44.5, 7.5, 169, 84) },

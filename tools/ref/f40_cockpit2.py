@@ -64,8 +64,11 @@ TRI = [(115, 50), (122, 100), (153, 200), (178, 290), (52, 290), (63, 250), (75,
 FAR = [(0, 0), (70, 0), (48, 100), (26, 200), (5, 300), (0, 300)]  # vidro à esquerda da moldura da porta
 MIR_SEED = (100, 370)           # vidro do retrovisor externo
 MIR_GLASS = (25, 322, 171, 427, 12)  # o vidro (cantos redondos), medido
-OLD_MIR_AT = (100, 7)           # canto do recorte (linha, coluna do empilhado): moldura esquerda na col 19, a de baixo encostando no canto da coluna com a porta
-MIR_FRONT = os.environ.get('MIR_BEHIND') is None  # o retrovisor inteiro na frente da parte de baixo da coluna
+OLD_K = 0.54                    # escala do retrovisor antigo em relação à cabine (carcaça + vidro cabem até a coluna)
+OLD_HOUSING_LT = (28, 270)      # canto de cima à esquerda da carcaça na arte antiga
+OLD_GLASS = (62, 297, 232, 396, 16)   # vidro do retrovisor na arte antiga
+OLD_FRAME_SEED = (40, 350)      # um ponto da moldura vermelha na arte antiga
+OLD_MIR_AT = (19, 113)          # onde cai o canto da carcaça no empilhado (coluna, linha)
 MIR_MAX_COL = 100                # não passa daqui (à direita da coluna é o para-brisa)
 WS_PROBE = (200, 60)            # um ponto do para-brisa (col, linha)
 MIR_ERASE_TOP = 288             # o retrovisor da arte nova começa aqui (arte)
@@ -179,6 +182,29 @@ def mir_glass(H, W):
     return mm > 0
 
 
+def old_mirror(old):
+    """retrovisor esquerdo da arte anterior: carcaça e braço vermelhos (componente que contém a moldura),
+    o contorno escuro colado neles e o vidro (retângulo de cantos redondos medido)"""
+    H, W = old.shape[:2]
+    yy, xx = np.mgrid[0:H, 0:W]
+    hsv = cv2.cvtColor(old, cv2.COLOR_RGB2HSV_FULL).astype(int)
+    hue = hsv[..., 0] * 360 / 256
+    red = ((hue < 22) | (hue > 330)) & (hsv[..., 1] > 60) & (hsv[..., 2] > 30)
+    box = (xx < 345) & (yy > 262) & (yy < 462)
+    n, lab = cv2.connectedComponents((red & box).astype(np.uint8), connectivity=8)
+    part = lab == lab[OLD_FRAME_SEED[1], OLD_FRAME_SEED[0]]
+    x0, y0, x1, y1, r = OLD_GLASS
+    g = np.zeros((H, W), np.uint8)
+    cv2.rectangle(g, (x0 + r, y0), (x1 - r, y1), 1, -1)
+    cv2.rectangle(g, (x0, y0 + r), (x1, y1 - r), 1, -1)
+    for cx, cy in ((x0 + r, y0 + r), (x1 - r, y0 + r), (x0 + r, y1 - r), (x1 - r, y1 - r)):
+        cv2.circle(g, (cx, cy), r, 1, -1)
+    glass = g > 0
+    dark = old.astype(int).mean(axis=2) < 70
+    ring = (cv2.dilate((part | glass).astype(np.uint8), np.ones((9, 9), np.uint8)) > 0) & dark & box
+    return (part | ring) & ~glass, glass
+
+
 def clean(nw, roof):
     out = nw.copy()
     x0, x1 = STALK
@@ -266,25 +292,31 @@ def main():
     for i in range(1, n):  # ilhas opacas soltas no vidro (até 40 px)
         if stt[i, cv2.CC_STAT_AREA] <= 40:
             st_al[lab == i] = False
-    # retrovisor externo: o da cabine anterior (arte ca1dd71f, v0.53.7), na mesma escala, recortado em
-    # f40_old_mirror.png (alfa 255 = peça, 1 = vidro); colado só sobre a janela da porta (a coluna e a porta
-    # ficam na frente dele, como no carro: ele é preso por fora, atrás da coluna)
-    om = np.array(Image.open(os.path.join(os.path.dirname(__file__), 'f40_old_mirror.png')).convert('RGBA'))
+    # retrovisor externo: o da cabine anterior (arte cab-old.png = ca1dd71f, v0.53.7), reamostrado da arte
+    # a OLD_K da escala da cabine para a carcaça e o vidro caberem entre a borda do celular (coluna 18) e
+    # a coluna. Fica do LADO DE FORA: só entra onde é janela da porta, então a coluna, a borracha da janela
+    # e a porta passam na frente do braço e do pé (o braço aparece saindo de trás da coluna)
+    old = np.array(Image.open(os.path.join(d, 'cab-old.png')).convert('RGB'))
+    opart, oglass = old_mirror(old)
     n, lab = cv2.connectedComponents((~st_al).astype(np.uint8), connectivity=4)
     winreg = (lab > 0) & (lab != lab[WS_PROBE[1], WS_PROBE[0]])   # janelas da porta (não o para-brisa)
-    oy, ox = OLD_MIR_AT
-    for j in range(om.shape[0]):
-        for i in range(om.shape[1]):
-            y, x = oy + j, ox + i
-            if om[j, i, 3] == 0 or not (0 <= y < st_al.shape[0] and 0 <= x < MIR_MAX_COL):
+    step_x, step_y = PXW / OLD_K, PXH / OLD_K
+    ax0, ay0 = OLD_HOUSING_LT                 # canto de cima à esquerda da carcaça, na arte antiga
+    c0, r0 = OLD_MIR_AT                       # onde ele cai no empilhado (coluna, linha)
+    H0, W0 = old.shape[:2]
+    for y in range(st_al.shape[0]):
+        for x in range(MIR_MAX_COL):
+            if not winreg[y, x]:
                 continue
-            if not (MIR_FRONT or winreg[y, x]):
+            ax = int(ax0 + (x - c0 + 0.5) * step_x)
+            ay = int(ay0 + (y - r0 + 0.5) * step_y)
+            if not (0 <= ax < W0 and 0 <= ay < H0):
                 continue
-            if om[j, i, 3] == 255:
-                st_rgb[y, x], st_al[y, x], st_pz[y, x] = om[j, i, :3], True, True
-            else:  # vidro
-                st_al[y, x], st_pz[y, x] = False, False
-    # máscara de pintura: só o vermelho da peça colada (o contorno escuro não)
+            if oglass[ay, ax]:
+                st_al[y, x], st_pz[y, x], st_mir[y, x] = False, False, True
+            elif opart[ay, ax]:
+                st_rgb[y, x], st_al[y, x] = old[ay, ax], True
+                st_pz[y, x] = True
     pm = red_mask(st_rgb, st_al) & st_pz
     for name, sl in (('top', slice(0, EXT)), ('dash', slice(EXT, None))):
         Image.fromarray(np.dstack([st_rgb[sl], st_al[sl].astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, f'f40-{name}.png'), optimize=True)

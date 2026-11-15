@@ -2,7 +2,8 @@
 // viatura) e o frentista do posto. Cada um é desenhado numa grade de 48 x 96 "pixels" da arte e
 // ampliado sem suavizar, em cache por pose; (x, y) é o pé, h a altura na tela.
 
-type Pose = 'stand' | 'paper' | 'wave' | 'nozzle';
+type Pose = 'stand' | 'paper' | 'wave' | 'nozzle' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'stop0' | 'stop1';
+export type CopPose = Pose;
 import COPS from './assets/people/cops.json';
 import ATTS from './assets/people/atts.json';
 
@@ -54,7 +55,7 @@ export function attFor(theme: string): string {
   if (theme === 'snow' || theme === 'alpine' || theme === 'alpinesnow') return 'Snow';
   return 'City';
 }
-export const preloadCops = (id: string) => (['stand', 'wave', 'paper'] as Pose[]).forEach((p) => copImg(id, p));
+export const preloadCops = (id: string) => (['stand', 'wave', 'paper', 'walk0', 'walk1', 'walk2', 'walk3', 'stop0', 'stop1'] as Pose[]).forEach((p) => copImg(id, p));
 // cor da manga/luva de cada policial (a mão que segura a multa): [manga, mão]
 export const COP_HAND: Record<string, [string, string]> = {
   D1: ['#86aee8', '#e0a070'], D2: ['#86aee8', '#e0a070'], C1: ['#c8a46a', '#d8945c'], C2: ['#c8a46a', '#d8945c'],
@@ -186,6 +187,10 @@ function person(kind: 'cop' | 'att', pose: Pose) {
 // desenha o personagem com o pé em (x, y) e altura h na tela; flip espelha (olha para a esquerda)
 export function drawPerson(c: CanvasRenderingContext2D, kind: 'cop' | 'att', pose: Pose, x: number, y: number, h: number, flip = false, cop?: string) {
   if (h < 3) return;
+  // quadros de animação (andando / mandando parar) ainda carregando: usa a pose parada correspondente
+  if (pose.startsWith('walk') || pose.startsWith('stop')) {
+    if (!(kind === 'cop' && cop && copImg(cop, pose))) pose = 'wave';
+  }
   const im = kind === 'cop' && cop ? copImg(cop, pose) : null;
   const ai = kind === 'att' && cop ? attImg(cop, pose) : null;
   if (ai) {

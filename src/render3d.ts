@@ -1,4 +1,4 @@
-import { drawPerson } from './people';
+import { drawPerson, type CopPose } from './people';
 import { drawSmoke } from './smoke';
 import { drawCrisp } from './crisp';
 import { CAM_DEPTH, CAM_H, CAR_W, CRES, DRAW_DIST, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
@@ -30,8 +30,14 @@ export interface Viewport {
 const OFFICER_H = 1050; // altura do policial (unidades do mundo)
 
 // Policial visto de frente: quepe, óculos escuros, camisa azul. (x, y) = pés.
-function drawOfficer(c: CanvasRenderingContext2D, x: number, y: number, h: number, paper: boolean, cop?: string) {
-  drawPerson(c, 'cop', paper ? 'paper' : 'wave', x, y, h, false, cop);
+// Andando: um quadro a cada ~210 unidades andadas (passo de ~0,7 m em 4 quadros = 2 passos por ciclo),
+// preso à distância, para os pés não escorregarem; parado: mão erguida balançando (~2,5 Hz)
+const STEP_UNITS = 210;
+function drawOfficer(c: CanvasRenderingContext2D, x: number, y: number, h: number, o: Officer) {
+  const pose: CopPose = o.phase === 'show' ? 'paper'
+    : o.moving ? (`walk${Math.floor((o.walked ?? 0) / STEP_UNITS) % 4}` as CopPose)
+    : (`stop${Math.floor(performance.now() / 400) % 2}` as CopPose);
+  drawPerson(c, 'cop', pose, x, y, h, false, o.cop);
 }
 
 // yaw: carro atravessado, a câmera gira (desloca mais quanto mais longe)
@@ -777,7 +783,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         fogged(c, fk, cx - rw, cy - rw * 1.3, rw * 2, rw * 1.3 + 4, (g) => drawCar(g, cx, cy, rw, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: rv.recover > 0 || rv.mistake > 0, night: lit, paint: r.rivalPaint, signal: rv.signal, plate: r.rivalPlate, drop: r.rivalCar!.rideDrop }));
         beamAhead(e.z, ex, CAR_W * sc * vp.K);
       } else if ('phase' in e) {
-        drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, (e as Officer).phase === 'show', (e as Officer).cop);
+        drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, e as Officer);
       } else if ('spotZ' in e) {
         const p = e as Race['police'][number];
         const siren = p.state === 'chase' || p.state === 'pull' || p.state === 'stopped';

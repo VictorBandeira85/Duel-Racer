@@ -135,6 +135,8 @@ export interface Officer {
   x: number;
   phase: 'walk' | 'show' | 'back';
   t: number;
+  walked?: number; // quanto andou (mundo): o quadro da caminhada avança pela distância, pés sem escorregar
+  moving?: boolean;
   cop?: string; // policial da vez (classe + 1/2: 'D1'..'S2', people.ts)
 }
 
@@ -332,6 +334,7 @@ export class Race {
     // conforme o trecho; a viatura SV traz sempre o esquadrão da classe S
     this.copId = (sv ? 'S' : opts.copClass ?? perfClass(car)) + String(1 + ((seed >> 3) % 2));
     preloadCops(this.copId);
+    preloadCops('S' + this.copId[1]); // a viatura SV traz sempre um dos dois do esquadrão S
   }
 
   // faróis do rival: à noite ficam acesos (escamoteáveis em cima); de dia sobem só para pedir passagem
@@ -1679,9 +1682,15 @@ export class Race {
     o.t += dt;
     const nearZ = this.position + 1150;
     const nearX = this.x - 650;
-    if (o.phase === 'walk') {
+    const z0 = o.z, x0 = o.x;
+    if (o.phase === 'walk' && o.t < 0.9) {
+      o.moving = false; // ao descer da viatura: parado, mão erguida mandando parar
+    } else if (o.phase === 'walk') {
       o.z += clamp(nearZ - o.z, -dt * 500, dt * 500);
       o.x += clamp(nearX - o.x, -dt * 350, dt * 350);
+      const d = Math.hypot(o.z - z0, o.x - x0);
+      o.walked = (o.walked ?? 0) + d;
+      o.moving = d > dt * 40;
       if (Math.abs(nearZ - o.z) < 10) {
         o.phase = 'show';
         o.t = 0;
@@ -1696,6 +1705,9 @@ export class Race {
       const backZ = cop ? cop.z - 300 : o.z;
       o.z += clamp(backZ - o.z, -dt * 700, dt * 700);
       o.x += clamp((cop ? cop.x - 700 : o.x) - o.x, -dt * 600, dt * 600);
+      const d = Math.hypot(o.z - z0, o.x - x0);
+      o.walked = (o.walked ?? 0) + d;
+      o.moving = d > dt * 40;
       if (Math.abs(backZ - o.z) < 10) {
         this.officer = null;
         this.fine = null;

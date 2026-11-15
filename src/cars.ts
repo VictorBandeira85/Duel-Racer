@@ -751,6 +751,7 @@ export interface CarLook {
   police?: boolean;
   siren?: boolean;
   sv?: boolean; // polícia: a Diablo SV em vez do sedã
+  cop?: boolean; // viatura feita de um carro do jogo ou da moto: giroflex desenhado por cima (race.ts copLook)
   brake?: boolean;
   night?: boolean;
   paint?: string; // cor escolhida (troca a carroceria do sprite pela máscara)
@@ -957,6 +958,48 @@ const TRAFFIC_GLOW: Record<string, { dots?: number[][]; head?: number[] /* farol
   },
 };
 
+// giroflex da viatura feita de carro do jogo: barra no teto (azul à esquerda, vermelho à direita de quem
+// está atrás, invertido de frente) piscando alternado; na moto, duas luzes ao lado do guidão
+function drawCopBar(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
+  const h = lampSpots(w, look).h;
+  const blink = Math.floor(performance.now() / 120) % 2 === 0;
+  const on = !!look.siren;
+  const cols = look.front ? ['red', 'blue'] : ['blue', 'red'];
+  const hex = (k: string, lit: boolean) => (k === 'blue' ? (lit ? '#4a7cff' : '#1c2a68') : lit ? '#ff2a1e' : '#6a1614');
+  const lights: { x: number; y: number; w: number; h: number; k: string; lit: boolean }[] = [];
+  if (look.model && isMotoModel(look.model)) {
+    const s = Math.max(1, Math.round(w * 0.09));
+    const yy = y - h * 0.62;
+    lights.push({ x: x - w * 0.36, y: yy, w: s, h: s, k: cols[0], lit: on && blink });
+    lights.push({ x: x + w * 0.36 - s, y: yy, w: s, h: s, k: cols[1], lit: on && !blink });
+  } else {
+    const bw = Math.max(4, w * 0.4), bh = Math.max(2, Math.round(w * 0.05));
+    const y0 = Math.round(y - h - bh * 0.55);
+    c.fillStyle = '#18181c';
+    c.fillRect(Math.round(x - bw / 2), y0 + bh - Math.max(1, Math.round(bh * 0.3)), Math.round(bw), Math.max(1, Math.round(bh * 0.3)));
+    const half = Math.round(bw / 2) - 1;
+    lights.push({ x: x - bw / 2, y: y0, w: half, h: bh, k: cols[0], lit: on && blink });
+    lights.push({ x: x + 1, y: y0, w: half, h: bh, k: cols[1], lit: on && !blink });
+  }
+  for (const L of lights) {
+    c.fillStyle = hex(L.k, L.lit);
+    c.fillRect(Math.round(L.x), Math.round(L.y), Math.max(1, Math.round(L.w)), Math.max(1, Math.round(L.h)));
+    c.fillStyle = 'rgba(255,255,255,0.35)';
+    if (L.h >= 3) c.fillRect(Math.round(L.x), Math.round(L.y), Math.max(1, Math.round(L.w)), 1);
+    if (L.lit) {
+      const g = c.createRadialGradient(L.x + L.w / 2, L.y + L.h / 2, 0, L.x + L.w / 2, L.y + L.h / 2, Math.max(4, w * 0.22));
+      g.addColorStop(0, L.k === 'blue' ? 'rgba(90,130,255,0.55)' : 'rgba(255,60,40,0.55)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.save();
+      c.globalCompositeOperation = 'lighter';
+      c.fillStyle = g;
+      c.fillRect(L.x + L.w / 2 - w * 0.22, L.y + L.h / 2 - w * 0.22, w * 0.44, w * 0.44);
+      c.restore();
+    }
+  }
+}
+const isMotoModel = (m: string) => m.startsWith('moto-');
+
 // a última chamada de drawCar usou a arte (e não o desenho de reserva): as marcas de batida são
 // medidas na arte e só entram quando ela já carregou
 let artDrawn = false;
@@ -970,6 +1013,12 @@ function dentKey(look: CarLook) {
 }
 export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   if (w < 2) return;
+  if (look.cop) {
+    const l = { ...look, cop: false };
+    drawCar(c, x, y, w, l);
+    if (!look.dent || look.dent.v <= 0.05) drawCopBar(c, x, y, w, l);
+    return;
+  }
   if (look.dent && look.dent.v > 0.05 && !look.tilt) {
     drawCar(c, x, y, w, { ...look, dent: undefined });
     // marcas recortadas pela arte do próprio carro (lataria, vidro e lanterna achados no desenho)

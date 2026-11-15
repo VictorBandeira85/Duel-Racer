@@ -618,6 +618,25 @@ export function crashSound(power = 1) {
   }
 }
 
+// batida numa moto: pancada da carenagem no para-choque, plástico e lata estalando, a moto arrastando
+// no asfalto (chiado áspero que vai perdendo força) e pecinhas pulando; médio, sem agudo estridente
+export function motoCrashSound(power = 1) {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(190, t);
+  o.frequency.exponentialRampToValueAtTime(55, t + 0.28);
+  g.gain.setValueAtTime(0.55 * power, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+  o.connect(g).connect(fxBus);
+  o.start();
+  o.stop(t + 0.35);
+  for (let k = 0; k < 6; k++) burst(t + k * 0.028 + Math.random() * 0.02, 0.07 + Math.random() * 0.06, 700 + Math.random() * 1300, 2.5, 0.34 * power);
+  burst(t + 0.1, 1.5, 1500, 1.1, 0.2 * power, 'bandpass', 480);
+  for (let k = 0; k < 4; k++) burst(t + 0.28 + k * 0.13 + Math.random() * 0.05, 0.05, 1500 + Math.random() * 700, 4, 0.1 * power);
+}
+
 // raspão: batida leve de lataria
 export function scrapeSound() {
   if (!ctx) return;

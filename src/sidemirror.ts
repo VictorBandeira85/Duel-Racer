@@ -2,7 +2,7 @@ import { CAM_H, CAR_W, POLICE_W, RES, SEG_LEN } from './config';
 import { drawCar } from './cars';
 import { fxTick, perfLevel } from './perf';
 import { mirrorGlare, mirrorWash, sirenGlow, sirenWash } from './nightlight';
-import { trafficLook, trafficW, type Race } from './race';
+import { copLook, copW, trafficLook, trafficW, type Race } from './race';
 import { drawFallMoto, drawFallRider, fallPx } from './motofall';
 
 // Retrovisor externo do lado do motorista, funcionando: o vidro das cabines desenhadas a partir
@@ -241,7 +241,7 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
     } else behind.push({ dz: pz - t.z, x: t.x, w: trafficW(t, t.base > 0), look: trafficLook(t, t.base > 0, night) });
   }
   if (r.rival) behind.push({ dz: pz - r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint, signal: r.rival.signal, lamps: r.rivalLamps(), dent: r.rivalDmg } });
-  for (const p of r.police) if (p.state !== 'done') behind.push({ dz: pz - p.z, x: p.x, w: p.sv ? CAR_W * 1.08 : POLICE_W, look: { color: '#fff', police: true, sv: p.sv, siren: p.state === 'chase' || p.state === 'pull', front: true, night } });
+  for (const p of r.police) if (p.state !== 'done') behind.push({ dz: pz - p.z, x: p.x, w: copW(p.unit), look: copLook(p.unit, { siren: p.state === 'chase' || p.state === 'pull', front: true, night, plate: r.copPlate }) });
   behind.sort((a, b) => b.dz - a.dz);
   for (const b of behind) {
     if (b.dz < near * 0.5 || b.dz > 200 * SEG_LEN) continue;

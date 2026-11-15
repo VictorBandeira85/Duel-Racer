@@ -8,7 +8,7 @@ import { CAR_W, KMH } from './config';
 import { perfClass } from './cars';
 import { engineSpec, type EngineSpec } from './enginesynth';
 import { HORNS } from './horn';
-import type { Race, TrafficCar } from './race';
+import { COP_UNIT, copEngine, type Race, type TrafficCar } from './race';
 
 const M_LON = KMH / 3.6; // unidades do mundo -> metros (no sentido da pista)
 const M_LAT = 1.8 / CAR_W; // e de lado (o carro tem 1,8 m)
@@ -182,15 +182,15 @@ export function updateTrafficAudio(r: Race, dt: number) {
   for (const c of r.traffic) {
     const kmh = Math.abs(c.speed) * KMH;
     // modelo do jogo: o ronco dele de verdade
-    if (c.car) add(c, c.z, c.x, c.speed, `${c.car.engine}|${c.car.id}`, c.hit ? 0.05 : rpmFor(kmh, c.car.maxSpeed * KMH, c.car.gears.length), c.hit ? 0 : 0.55, 1.35, c);
-    else add(c, c.z, c.x, c.speed, MODEL_ENGINE[c.model] ?? 'V6', c.hit ? 0.05 : rpmFor(kmh, c.truck ? 110 : MOTO_TOP[c.model] ?? 160, c.truck ? 8 : 5), c.hit ? 0 : 0.55, c.truck ? 1.8 : 1.3, c);
+    if (c.car) add(c, c.z, c.x, c.speed, `${c.car.engine}|${c.car.id}`, c.hit ? 0.05 : rpmFor(kmh, c.car.maxSpeed * KMH, c.car.gears.length), c.hit ? 0 : 0.55, 1.85, c);
+    else add(c, c.z, c.x, c.speed, MODEL_ENGINE[c.model] ?? 'V6', c.hit ? 0.05 : rpmFor(kmh, c.truck ? 110 : MOTO_TOP[c.model] ?? 160, c.truck ? 8 : 5), c.hit ? 0 : 0.55, c.truck ? 2.4 : 1.8, c);
   }
   if (r.rival && r.rivalCar) {
     const kmh = r.rival.speed * KMH;
     add(r.rival, r.rival.z, r.rival.x, r.rival.speed, `${r.rivalCar.engine}|${r.rivalCar.id}`, rpmFor(kmh, r.rivalCar.maxSpeed * KMH, r.rivalCar.gears.length), 1, 2.0);
   }
   for (const p of r.police) if (p.state === 'chase' || p.state === 'pull')
-    add(p, p.z, p.x, p.speed, p.sv ? 'V12 48v' : 'V8 16v', rpmFor(p.speed * KMH, p.sv ? 300 : 245, 4), 1, 1.5);
+    add(p, p.z, p.x, p.speed, copEngine(p.unit), rpmFor(p.speed * KMH, COP_UNIT[p.unit ?? 'C'].kmh, p.unit === 'A' ? 6 : 5), 1, 1.8);
 
   // ---- motores: os três mais perto ----
   const near = srcs.filter((s) => s.d < RANGE).sort((a, b) => a.d - b.d).slice(0, voices.length);
@@ -215,7 +215,7 @@ export function updateTrafficAudio(r: Race, dt: number) {
     const pitch = Math.max(0.7, Math.min(1.4, SOUND / (SOUND + vr)));
     v.node.port.postMessage({ rpm: s.rpm, load: s.load, on: 1, boost: 0, pitch });
     // (cai com a distância mais devagar: o rival e o trânsito se ouvem de mais longe)
-    const g = (0.14 * s.vol) / (1 + (s.d / 8) ** 2);
+    const g = (0.14 * s.vol) / (1 + (s.d / 10) ** 2);
     v.gain.gain.setTargetAtTime(r.state === 'arrived' ? g * 0.5 : g, ctx.currentTime, 0.05);
     v.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, (s.dx / s.d) * 1.2)), ctx.currentTime, 0.05);
   }

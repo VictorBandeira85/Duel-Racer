@@ -11,7 +11,7 @@ import { THEMES, blendTheme, fogTheme, nightTheme, rainTheme, sunsetTheme, golde
 import { SPRITES, type SpriteKind } from './sprites';
 import { buildTrack, laneCenter, type Segment, type Track } from './track';
 import { brakeAmt, gasAmt, steerAmt, takeShift } from './input';
-import { beep, radarBeep, bumpSound, crashSound, landSound, stoneSound, setTunnel, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
+import { beep, radarBeep, bumpSound, crashSound, motoCrashSound, landSound, stoneSound, setTunnel, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
 import { updateTrafficAudio } from './trafficaudio';
 import { GHOST_DT, ghostAt, type Ghost } from './records';
@@ -20,13 +20,41 @@ import { startFall, updateFall, type MotoFall } from './motofall';
 // curvatura da pista por unidade de curva (1/m): curva 4 = fechada (~175 km/h a 1 g)
 const CURVE_K = 0.00105;
 const TRAFFIC_KG = 1300;
-const COP_KMH = 245; // máxima da viatura na perseguição
-const COP_ACC = 1300; // aceleração da viatura parada (unidades/s², ~32 km/h por segundo)
 const BRAKE_BOOST = 1.2; // freios 20% mais fortes que a ficha (pedido de jogabilidade)
 const SIGNAL_LEAD = 0.8; // s de pisca antes de trocar de faixa (mão dupla)
 const FLASH_T = 2.2; // s do pedido de passagem: sobe o farol, pisca três vezes, abaixa
-const COP_SV_KMH = 300;
-const COP_SV_ACC = 2300;
+// viatura de cada classe (a do carro do jogador, ou a da região na carreira se for mais alta): D o Savana GLS
+// (Santana, a viatura clássica), C a Patrulha 9C, B o Kaze NX (provisório), A a moto (provisória até a arte da
+// moto da polícia), S o Toro V12 SV. Máxima, aceleração (unidades/s²) e o motor de cada uma
+export const COP_UNIT: Record<PerfClass, { kmh: number; acc: number; engine: string }> = {
+  D: { kmh: 190, acc: 1000, engine: '4 cil.' },
+  C: { kmh: 245, acc: 1300, engine: 'V8 16v' },
+  B: { kmh: 270, acc: 1800, engine: 'V6 24v' },
+  A: { kmh: 280, acc: 2200, engine: '4 cil.|moto-sport' },
+  S: { kmh: 300, acc: 2300, engine: 'V12 48v' },
+};
+const COP_CAR: Partial<Record<PerfClass, string>> = { D: 'br-santana', B: 'kaze-nx' };
+// ronco da viatura: o do carro do jogo quando ela é um deles
+export function copEngine(unit: PerfClass | undefined) {
+  const id = COP_CAR[unit ?? 'C'], car = id ? CARS.find((c) => c.id === id) : undefined;
+  return car ? `${car.engine}|${car.id}` : COP_UNIT[unit ?? 'C'].engine;
+}
+// largura da viatura no mundo
+export function copW(unit: PerfClass | undefined, front = true) {
+  if (unit === 'S') return CAR_W * 1.08;
+  if (unit === 'A') return (CAR_W * MOTO_PX['moto-sport'][front ? 1 : 0]) / 160;
+  if (unit === 'D' || unit === 'B') return CAR_W;
+  return POLICE_W;
+}
+// como desenhar a viatura (drawCar): sprites da polícia (C e S) ou o carro do jogo / a moto em branco com
+// o giroflex por cima (cop)
+export function copLook(unit: PerfClass | undefined, base: Partial<CarLook>): CarLook {
+  if (unit === 'S') return { color: '#fff', police: true, sv: true, ...base };
+  if (unit === 'A') return { color: '#f2f2f2', model: 'moto-sport', cop: true, driver: 'man', ...base };
+  const id = COP_CAR[unit ?? 'C'], car = id ? CARS.find((c) => c.id === id) : undefined;
+  if (car?.rear) return { color: '#f2f2f2', rear: car.rear, paint: '#f2f2f2', cop: true, driver: 'man', ...base };
+  return { color: '#fff', police: true, ...base };
+}
 const TRUCK_KG = 9000;
 
 export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck' | 'fusca' | 'kombi' | 'suv' | 'sedan90' | TruckModel | MotoModel;
@@ -184,7 +212,8 @@ export interface Police {
   // parado escondido → perseguindo → encostando o jogador → parado no acostamento → indo embora
   state: 'parked' | 'chase' | 'pull' | 'stopped' | 'leaving' | 'done';
   chaseT: number;
-  sv?: boolean; // Diablo SV da polícia (carreira, carros de classe S): bem mais rápida
+  sv?: boolean; // Diablo SV da polícia (classe S): bem mais rápida
+  unit?: PerfClass; // classe da viatura (COP_UNIT)
 }
 
 // Policial que desce da viatura e mostra a multa
@@ -314,6 +343,7 @@ export class Race {
   police: Police[] = [];
   officer: Officer | null = null;
   copId = 'D1';
+  copPlate?: Plate; // placa da viatura feita de carro do jogo
   fine: Fine | null = null;
   private stopX = 0; // onde o jogador encosta
   radar = 0;
@@ -386,14 +416,16 @@ export class Race {
       this.spawn(c, this.playerZ + (45 + (i / nTraffic) * 300) * SEG_LEN);
       this.traffic.push(c);
     }
-    // na carreira, quem corre de carro classe S é perseguido pela Diablo SV da polícia
-    const sv = course.id.startsWith('car-') && perfClass(car) === 'S';
-    this.police = t.policeSpots.map((z) => ({ spotZ: z, z, x: t.roadW + 1500, speed: 0, state: 'parked' as const, chaseT: 0, sv }));
-    // policial da vez: a classe da corrida (carreira: a da região; Arcade: a do carro), um dos dois dela
-    // conforme o trecho; a viatura SV traz sempre o esquadrão da classe S
-    this.copId = (sv ? 'S' : opts.copClass ?? perfClass(car)) + String(1 + ((seed >> 3) % 2));
+    // polícia da classe do carro (na carreira, a da região se for mais alta): a viatura e o policial da classe
+    const PC = ['D', 'C', 'B', 'A', 'S'] as PerfClass[];
+    const unit = PC[Math.max(PC.indexOf(perfClass(car)), opts.copClass ? PC.indexOf(opts.copClass) : 0)];
+    const sv = unit === 'S';
+    this.police = t.policeSpots.map((z) => ({ spotZ: z, z, x: t.roadW + 1500, speed: 0, state: 'parked' as const, chaseT: 0, sv, unit }));
+    // policial da vez: um dos dois da classe, conforme o trecho
+    this.copId = unit + String(1 + ((seed >> 3) % 2));
     preloadCops(this.copId);
-    preloadCops('S' + this.copId[1]); // a viatura SV traz sempre um dos dois do esquadrão S
+    const cc = COP_CAR[unit] ? CARS.find((c) => c.id === COP_CAR[unit]) : undefined;
+    if (cc) this.copPlate = makePlate(rng(seed + 91), this.region, cc.art, modelYear(cc.basedOn));
   }
 
   // faróis do rival: à noite ficam acesos (escamoteáveis em cima); de dia sobem só para pedir passagem
@@ -1652,9 +1684,10 @@ export class Race {
         // viatura preparada (V8 de interceptador): ~245 km/h de máxima e aceleração de sedã,
         // que cai com a velocidade; um esportivo de pé no fundo consegue fugir
         // a SV: ~300 km/h e o dobro do fôlego (o sedã continua como está)
-        const copMax = (p.sv ? COP_SV_KMH : COP_KMH) / KMH;
+        const cu = COP_UNIT[p.unit ?? 'C'];
+        const copMax = cu.kmh / KMH;
         const target = Math.min(copMax, this.speed + 2500);
-        const acc = (p.sv ? COP_SV_ACC : COP_ACC) * Math.max(0.15, 1 - p.speed / copMax);
+        const acc = cu.acc * Math.max(0.15, 1 - p.speed / copMax);
         // linha: atrás do jogador, pelo lado mais livre (esquerda ou direita), desviando do trânsito
         const cap = this.copPlan(p, this.x + this.copSide(p, dt) * CAR_W * 1.3, dt);
         p.speed += clamp(Math.min(target, cap) - p.speed, -toGame(G * 1.05) * dt, acc * dt);
@@ -1685,7 +1718,7 @@ export class Race {
           p.state = 'stopped';
           p.speed = 0;
           this.state = 'ticket';
-          this.officer = { z: p.z - 300, x: p.x - 700, phase: 'walk', t: 0, cop: p.sv ? 'S' + this.copId[1] : this.copId };
+          this.officer = { z: p.z - 300, x: p.x - 700, phase: 'walk', t: 0, cop: this.copId };
         }
       } else if (p.state === 'stopped') {
         if (p.chaseT < RADAR_ALERT_T) this.radar = 1;
@@ -1730,7 +1763,7 @@ export class Race {
   // frente, olhando ~25 trechos, sem ficar ziguezagueando; e limita a velocidade pelo carro que
   // ficar na linha dela, freando com antecedência (não chega colada para frear de uma vez)
   private copPlan(p: Police, want: number, dt: number) {
-    const ph = (p.sv ? CAR_W * 1.08 : POLICE_W) / 2;
+    const ph = copW(p.unit) / 2;
     const edge = this.track.roadW - ph;
     const v = Math.max(p.speed, 1500);
     const free = (x: number) => {
@@ -1797,7 +1830,7 @@ export class Race {
   }
 
   private copTraffic(p: Police, dt: number) {
-    const ph = (p.sv ? CAR_W * 1.08 : POLICE_W) / 2;
+    const ph = copW(p.unit) / 2;
     const edge = this.track.roadW - ph;
     for (const c of this.traffic) {
       const half = this.carHalf(c);
@@ -1908,6 +1941,8 @@ export class Race {
           c.slide = -sd * 900;
           c.speed = Math.max(c.speed, r.speed * 0.6);
           startFall(c, sd);
+          const dd = Math.abs(c.z - this.playerZ) / SEG_LEN;
+          if (dd < 40) motoCrashSound(Math.max(0.15, 0.7 - dd / 60)); // a batida do rival na moto, mais fraca de longe
         }
         this.rivalDmg = { v: 0.7, side: -sd, seed: Math.floor(this.rand() * 1e6) };
         r.speed *= 0.3;
@@ -1956,7 +1991,8 @@ export class Race {
           this.damage = Math.min(1, this.damage + (c.speed > 0 ? 0.06 : 0.12));
           c.slide = -side * 500; // o outro também é empurrado de lado
           if (!c.dmg || c.dmg.v < 0.3) c.dmg = { v: 0.3, side, seed: Math.floor(this.rand() * 1e6) };
-          scrapeSound();
+          if (!c.car && isMoto(c.model)) motoCrashSound(0.45);
+          else scrapeSound();
           this.stats.scrapes++;
           continue;
         }
@@ -1977,7 +2013,7 @@ export class Race {
           this.jolt = Math.max(this.jolt, Math.min(0.8, 0.35 + dv / 150));
           this.damage = Math.min(1, this.damage + Math.min(0.3, 0.1 + dv / 300));
           if (dv > 60 && this.rand() < 0.5) this.crackGlass(Math.min(1, dv / 120), false, side);
-          bumpSound(Math.min(1, 0.4 + dv / 120));
+          motoCrashSound(Math.min(1, 0.55 + dv / 150));
           continue;
         }
         if (c.speed < 0 || dv > (c.truck ? 70 : 110)) {
@@ -2003,12 +2039,13 @@ export class Race {
         if (dv > 25 && this.rand() < 0.35 + dv / 120) this.crackGlass(Math.min(1, dv / 90), false, side);
         if (dv > 15) c.dmg = { v: Math.max(c.dmg?.v ?? 0, Math.min(0.75, 0.35 + dv / 150)), side, seed: c.dmg?.seed ?? Math.floor(this.rand() * 1e6) };
         if (dv > 30) c.smoke = Math.max(c.smoke, 0.4);
-        bumpSound(Math.min(1, 0.3 + dv / 100));
+        if (!c.car && isMoto(c.model)) motoCrashSound(Math.min(0.8, 0.4 + dv / 100));
+        else bumpSound(Math.min(1, 0.3 + dv / 100));
       }
     }
 
     for (const p of this.police) {
-      if (p.state === 'parked' && this.ghost <= 0 && Math.abs(p.z - pz) < SEG_LEN && overlap(this.x, myHalf, p.x, (POLICE_W / 2) * HITBOX)) {
+      if (p.state === 'parked' && this.ghost <= 0 && Math.abs(p.z - pz) < SEG_LEN && overlap(this.x, myHalf, p.x, (copW(p.unit) / 2) * HITBOX)) {
         this.crash({ v: 0, kg: 1800, side: this.x < p.x ? -1 : 1 });
         return;
       }

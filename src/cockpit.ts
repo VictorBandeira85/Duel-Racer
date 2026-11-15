@@ -2557,9 +2557,9 @@ const viewRows = () => Math.max(0, view.h - 224);
 // cabine mais baixa na tela: o nível da VISÃO DO PAINEL mais o ajuste de cada carro (VIEW_DROP);
 // o horizonte não desce junto, então aparece mais estrada perto do carro
 let curDash = '';
-export const VIEW_DROP: Record<string, number> = { f40: 10 };
+export const VIEW_DROP: Record<string, number> = {};
 // limite da descida: mais que isso corta o quadro de instrumentos embaixo da tela
-const VIEW_DROP_MAX: Record<string, number> = { f40: 14 };
+const VIEW_DROP_MAX: Record<string, number> = { f40: 6 };
 const viewDrop = () => Math.min(VIEW_DROP_MAX[curDash] ?? 12, (VIEW_LEVELS[prefs.view]?.drop ?? 0) + (VIEW_DROP[curDash] ?? 0));
 export const viewExtra = () => viewRows() + viewDrop();
 // quanto cada cabine pode afastar (linhas acima das 224): na Fúria F4 a moldura vermelha da porta

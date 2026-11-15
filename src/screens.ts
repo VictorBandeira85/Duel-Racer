@@ -1120,7 +1120,7 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const fill = Math.max(0, Math.min(1, (t - GAS_STOP - 0.9) / 3)); // abastecimento: 0..1
   const liters = Math.round(fill * 38 * 10) / 10;
   const bg = gasArt(night);
-  const ax0 = x + 160 - 166, ay0 = -30;
+  const ax0 = x + 160 - 166, ay0 = -14; // posto mais baixo: carro e frentista colados à ilha das bombas
   if (bg) {
     const sm = c.imageSmoothingEnabled;
     c.imageSmoothingEnabled = false;
@@ -1147,9 +1147,10 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   // o carro chega freando até a bomba, reduz as marchas, fica em marcha lenta e desliga
   // rodas girando conforme o carro anda (para a esquerda: giro anti-horário), paradas na bomba
   const wr = (car.wheels?.[0]?.[2] ?? 0.07) * 170;
+  const GY = ay0 + 176; // chão do carro e do frentista: logo na frente da guia amarela da ilha
   const carX = Math.round(x + 80 + 320 * (1 - arr.pos));
   // à noite chega de faróis acesos (escamoteáveis levantados: <arte>-side-up)
-  drawCarSide(c, carX, 176 + arr.dip, 170, car, paintHex(car.id), (-320 * arr.pos) / wr, night);
+  drawCarSide(c, carX, GY + arr.dip, 170, car, paintHex(car.id), (-320 * arr.pos) / wr, night);
   // frentista: espera ao lado da bomba, vai até o carro com a mangueira e abastece
   // (o tanque fica na traseira do carro, à direita: ele para ali, de frente para o carro)
   const walk = Math.max(0, Math.min(1, (t - GAS_STOP - 0.2) / 0.7));
@@ -1161,10 +1162,10 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
     c.lineWidth = 2;
     c.beginPath();
     c.moveTo(ax0 + 211, ay0 + 127);
-    c.bezierCurveTo(ax0 + 236, ay0 + 130, x + 250, 150, ax - 12, 146);
+    c.bezierCurveTo(ax0 + 236, ay0 + 130, x + 250, GY - 26, ax - 12, GY - 30);
     c.stroke();
   }
-  drawPerson(c, 'att', walk > 0 && fill < 1 ? 'nozzle' : t > GAS_STOP + 5 ? 'wave' : 'stand', ax, 180, 66, true);
+  drawPerson(c, 'att', walk > 0 && fill < 1 ? 'nozzle' : t > GAS_STOP + 5 ? 'wave' : 'stand', ax, GY + 4, 66, true);
   if (pumping || fill >= 1) {
     // indicador de abastecimento
     const bx = x + 108, by = 8;

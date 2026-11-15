@@ -104,8 +104,11 @@ export function drawWipers(c: CanvasRenderingContext2D, r: Race, vp: Viewport, d
     lastS = 0;
     film = new Float32Array(0);
   }
-  const w = r.def.weather;
-  const on = (w === 'rain' || w === 'snow') && r.state !== 'arrived';
+  // só chuva e neve molham o vidro (a neblina não: antes ela ia embaçando o para-brisa inteiro e
+  // juntando gotas que nunca saíam, porque o limpador não liga na neblina; era um véu de tela inteira
+  // e ~200 gotas desenhados todo quadro)
+  const w = r.def.weather === 'rain' || r.def.weather === 'snow' ? r.def.weather : undefined;
+  const on = !!w && r.state !== 'arrived';
   // eixos: um no meio-esquerdo, outro à direita do centro (sistema tandem)
   // o eixo fica rente à borda do painel; parada, a palheta acompanha a borda até a ponta
   const L = 96;

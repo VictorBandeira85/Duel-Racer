@@ -4,6 +4,7 @@
 
 type Pose = 'stand' | 'paper' | 'wave' | 'nozzle' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'stop0' | 'stop1' | 'wave0' | 'wave1';
 export type CopPose = Pose;
+import { need } from './imgprio';
 import COPS from './assets/people/cops.json';
 import ATTS from './assets/people/atts.json';
 
@@ -22,7 +23,20 @@ function copImg(id: string, pose: Pose): HTMLImageElement | null {
     im.src = src;
     copImgs.set(key, im);
   }
-  return im.complete && im.naturalWidth ? im : null;
+  if (im.complete && im.naturalWidth) return im;
+  need(im); // a tela precisa dela: passa na frente na fila
+  return null;
+}
+// todas as poses do policial / do frentista já carregaram? (a tela de carregamento espera)
+export function copsReady(id: string) {
+  let ok = true;
+  for (const k of Object.keys(COP_ART)) { const m = /cop-([A-Z]\d)-(\w+)\.png$/.exec(k); if (m && m[1] === id && !copImg(id, m[2] as Pose)) ok = false; }
+  return ok;
+}
+export function attsReady(id: string) {
+  let ok = true;
+  for (const k of Object.keys(ATT_ART)) { const m = /att-([A-Za-z]+)-(\w+)\.png$/.exec(k); if (m && m[1] === id && !attImg(id, m[2] as Pose)) ok = false; }
+  return ok;
 }
 // Frentistas por região (arte do Victor, tools/ref/att_sprites.py): 'City', 'Farm', 'Coast', 'Serra',
 // 'Desert', 'Jungle', 'Snow', poses stand/nozzle/wave. Os desenhos olham para a direita (o jogo espelha).
@@ -41,7 +55,9 @@ export function attImg(id: string, pose: Pose): HTMLImageElement | null {
     im.src = src;
     attImgs.set(key, im);
   }
-  return im.complete && im.naturalWidth ? im : null;
+  if (im.complete && im.naturalWidth) return im;
+  need(im); // a tela precisa dela: passa na frente na fila
+  return null;
 }
 // + animação (tools/ref/att_walk.py): walk0..3 andando com o bico (apoio no tronco, bico e ponta da mangueira
 // de cada quadro no atts.json) e wave0..1 acenando

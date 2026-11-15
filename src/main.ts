@@ -1,4 +1,5 @@
-import { preloadScenery } from './sprites';
+import { preloadScenery, sceneryReady, type SpriteKind } from './sprites';
+import { baseline, lowPrio } from './imgprio';
 import { preloadBgArt } from './bgart';
 import { carSwapWatch } from './carswap';
 import { freeBudget, newFrame } from './svgsprites';
@@ -8,7 +9,7 @@ import { capsHtml } from './ui';
 import { stageResult } from './score';
 import '@fontsource/press-start-2p/400.css';
 import { CRES, RES, setCanvasRes, setRes, view } from './config';
-import { CARS, TRAFFIC_IMAGES } from './cars';
+import { CARS, TRAFFIC_IMAGES, carArtReady, trafficReady } from './cars';
 import { COURSES, completeCourse, unlockedCourses, withTimeOfDay, type ArcadeTime, type Course } from './courses';
 import { ui as careerUi } from './careerScreens';
 import { setupOf, buildOf, REGIONS, carById, eventCourse, levels, loadCareer, saveCareer, settleEvent, tunedCar } from './career';
@@ -18,7 +19,7 @@ import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
 import { CHALLENGE_PRIZE, checkChallenge, partialStats, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
 import { paintHex } from './paint';
 import { VIEW_EXTRA_CAP, cockpitReady, preloadCockpit, renderCockpit } from './cockpit';
-import { preloadAtts } from './people';
+import { attFor, attsReady, copsReady, preloadAtts } from './people';
 import { OPT_TABS, applyBtnSize, beginLoading, optTab, setOptTab, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, focusInfo, preloadGasArt, hoverScreen, keyScreen, setScreenActions, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { binding, binds, hornOn, input, lastDevice, pad, pollGamepad, releaseAll, setBind, setupInput, touch } from './input';
 import { setHorn, setHornCar } from './horn';
@@ -29,13 +30,19 @@ import { preloadSvg } from './svgsprites';
 import { FX_LABEL, fxMode, lowFx, perfSample, setFxMode, lowRes, minRes, perfKey } from './perf';
 import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
 
-preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.sideMask, c.rear.img, c.rear.imgMask, c.rear.frontImg, c.rear.frontMask]).filter((s): s is string => !!s), ...TRAFFIC_IMAGES);
+// (o pré-carregamento geral vai em segundo plano: ver lowPrio mais abaixo)
 import { preloadPhotos } from './photos';
-preloadPhotos();
-preloadScenery();
-preloadGasArt();
-preloadAtts();
-preloadBgArt(); // fundos desenhados (relevo do horizonte): prontos antes da primeira corrida
+// pré-carregamento geral em segundo plano: na fila do artifact, o que a tela atual precisa passa na frente
+const preloadAll = () => {
+  preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.sideMask, c.rear.img, c.rear.imgMask, c.rear.frontImg, c.rear.frontMask]).filter((s): s is string => !!s), ...TRAFFIC_IMAGES);
+  preloadPhotos();
+  preloadScenery();
+  preloadGasArt();
+  preloadAtts();
+  preloadBgArt(); // fundos desenhados (relevo do horizonte)
+};
+if (baseline()) preloadAll();
+else lowPrio(preloadAll);
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 // opaco: a página não precisa misturar o jogo com o fundo (mais leve para a placa de vídeo)
@@ -178,11 +185,24 @@ function begin(lives: number) {
 }
 
 // antes de cada trecho: página de carregamento (foto e dica) enquanto a cabine e a pista se preparam
+const stageKinds = new WeakMap<Race, Set<SpriteKind>>();
+function stageArtReady(r: Race) {
+  let kinds = stageKinds.get(r);
+  if (!kinds) {
+    kinds = new Set();
+    for (const sg of r.track.segments) for (const sp of sg.sprites) kinds.add(sp.kind);
+    stageKinds.set(r, kinds);
+  }
+  // sem atalho: tudo o que falta é pedido com prioridade de uma vez
+  const checks = [sceneryReady(kinds), trafficReady(), carArtReady(r.car), !r.rivalCar || carArtReady(r.rivalCar), copsReady(r.copId), attsReady(attFor(r.def.theme))];
+  return checks.every(Boolean);
+}
 function startStage(i: number) {
   preloadCockpit(run.car.dash);
   showControls(false);
   warm = null;
   beginLoading(state, () => startStageNow(i), undefined, () => cockpitReady(run.car.dash) && warmUp(i));
+  // (warmUp monta a corrida, espera as artes do trecho e só então aquece os primeiros quadros)
 }
 // Aquecimento: com a cabine carregada, a corrida já é montada e os primeiros quadros são desenhados
 // fora da tela (cenário, carros, névoa, luzes da noite e retrovisor ficam prontos). Sem isso o 3º
@@ -195,6 +215,9 @@ function warmUp(i: number) {
     warm = { i, r: makeRace(i), n: 0 };
     return false;
   }
+  // artes do trecho (cenário do tema, trânsito, carros, policial da classe, frentista da região): o
+  // aquecimento e a corrida só começam com elas prontas (senão os objetos apareciam depois, no desenho antigo)
+  if (!baseline() && !stageArtReady(warm.r)) return false;
   if (warm.n >= WARM_FRAMES) return true;
   const saved = { w: view.w, h: view.h, aspect: view.aspect };
   try {
@@ -890,7 +913,7 @@ beginLoading(state, () => actions.go('title'), 1.4);
 requestAnimationFrame(frame);
 
 // para testes automatizados
-Object.assign(window, { app: { state, actions, beginLoading, focusInfo: () => focusInfo(state), courses: COURSES, cars: CARS, get race() { return race; } }, input, audio: { audioCtx, synthReady, sfxLevel, gainLevels }, pad });
+Object.assign(window, { app: { artReady: { car: (id: string) => carArtReady(CARS.find((c) => c.id === id)!), stage: () => !!race && stageArtReady(race) }, state, actions, beginLoading, focusInfo: () => focusInfo(state), courses: COURSES, cars: CARS, get race() { return race; } }, input, audio: { audioCtx, synthReady, sfxLevel, gainLevels }, pad });
 
 // app instalável: funciona sem internet (não no arquivo único usado para testes)
 if ('serviceWorker' in navigator && import.meta.env.MODE !== 'single' && (location.protocol === 'https:' || location.hostname === 'localhost')) {

@@ -104,29 +104,27 @@ export function crisp(key: string, w: number, h: number, draw: Draw): Crisp {
   return out;
 }
 
-// versão tingida (neblina) de um sprite pronto: a cor da névoa por cima dos pixels cheios, numa
-// força arredondada (24 degraus); cada combinação fica em cache junto do sprite
-const tints = new WeakMap<HTMLCanvasElement, Map<string, HTMLCanvasElement>>();
-function tinted(cv: HTMLCanvasElement, rgb: string, a: number) {
-  const q = Math.round(Math.min(0.96, a) * 24) / 24;
-  if (q <= 0) return cv;
-  let m = tints.get(cv);
-  if (!m) tints.set(cv, (m = new Map()));
-  const k = `${rgb}:${q}`;
-  let t = m.get(k);
-  if (!t) {
-    if (m.size > 48) m.clear();
-    t = document.createElement('canvas');
-    t.width = cv.width;
-    t.height = cv.height;
+// neblina: a silhueta do sprite pintada da cor da névoa (uma por sprite e por cor, guardada junto
+// dele) é desenhada por cima do sprite com a força da névoa na distância dele. Antes havia uma cópia
+// tingida por sprite POR FORÇA (24 degraus): com os objetos se aproximando, quase todo quadro criava
+// canvas novos (tamanho novo x força nova), o que derrubava os quadros na neblina em celular.
+const fogSils = new WeakMap<HTMLCanvasElement, { rgb: string; cv: HTMLCanvasElement }>();
+function fogSil(cv: HTMLCanvasElement, rgb: string) {
+  let m = fogSils.get(cv);
+  if (!m || m.rgb !== rgb) {
+    const t = m?.cv ?? document.createElement('canvas');
+    if (t.width !== cv.width || t.height !== cv.height) { t.width = cv.width; t.height = cv.height; }
     const g = t.getContext('2d')!;
+    g.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, t.width, t.height);
     g.drawImage(cv, 0, 0);
-    g.globalCompositeOperation = 'source-atop';
-    g.fillStyle = `rgba(${rgb},${q})`;
+    g.globalCompositeOperation = 'source-in';
+    g.fillStyle = `rgb(${rgb})`;
     g.fillRect(0, 0, t.width, t.height);
-    m.set(k, t);
+    m = { rgb, cv: t };
+    fogSils.set(cv, m);
   }
-  return t;
+  return m.cv;
 }
 
 // Desenha um sprite nítido com a base centrada em (x, y), no tamanho w x h da tela.
@@ -141,6 +139,14 @@ export function drawCrisp(
   const s = crisp(key, w * k * Q, h * k * Q, draw);
   const sx = w / s.w, sy = h / s.h;
   const L = Math.round(x - w / 2 - sx), T = Math.round(y - h - sy), W = Math.round(s.cv.width * sx), H = Math.round(s.cv.height * sy);
-  c.drawImage(tint ? tinted(s.cv, tint[0], tint[1]) : s.cv, L, T, W, H);
+  // quase todo na névoa: só a silhueta da cor dela (uma chamada)
+  const q = tint ? Math.min(0.96, tint[1]) : 0;
+  if (q < 0.9) c.drawImage(s.cv, L, T, W, H);
+  if (tint && q > 0.01) {
+    const ga = c.globalAlpha;
+    c.globalAlpha = ga * (q < 0.9 ? q : 1);
+    c.drawImage(fogSil(s.cv, tint[0]), L, T, W, H);
+    c.globalAlpha = ga;
+  }
   return { cv: s.cv, x: L, y: T, w: W, h: H };
 }

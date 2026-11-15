@@ -1,3 +1,4 @@
+import { need } from './imgprio';
 import { carSwap } from './carswap';
 import { ACTIONS, binding, binds, keyName, lastDevice, resetBinds } from './input';
 import { drawPerson, attFor, attImg, ATT_META, ATT_H } from './people';
@@ -17,7 +18,8 @@ import { openShowroom, show } from './showroom';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import { KMH, SAFE_W, view } from './config';
 import { MUSIC_CREDIT_LINES } from './tracks';
-import { CARS, CLASS_COLOR, accelCurve, drawCar, drawCarSide, gearbox, layout, perfClass, perfIndex, type CarSpec } from './cars';
+import { drawGlow } from './glowsprite';
+import { CARS, CLASS_COLOR, accelCurve, drawCar, drawCarSide, sideLamps, gearbox, layout, perfClass, perfIndex, type CarSpec } from './cars';
 import { COURSES, TIME_LABEL, TIME_NEXT, unlockedCourses, withTimeOfDay, type ArcadeTime, type Course } from './courses';
 import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import { THEMES } from './themes';
@@ -1107,7 +1109,9 @@ function gasArt(night: boolean) {
     im.src = GAS_ART[`./assets/gas/gas-${k}.png`];
     gasImgs[k] = im;
   }
-  return im.complete && im.naturalWidth ? im : null;
+  if (im.complete && im.naturalWidth) return im;
+  need(im); // a tela precisa dela: passa na frente na fila
+  return null;
 }
 export const preloadGasArt = () => { gasArt(false); gasArt(true); };
 
@@ -1182,10 +1186,53 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
     else c.bezierCurveTo(ax0 + 236, ay0 + 130, x + 250, GY - 26, ex, ey);
     c.stroke();
   }
+  // à noite o farol ilumina de verdade: poça de luz quente no chão à frente do carro (em degraus, mais
+  // fraca junto do para-choque), o que está no caminho do facho clareia (guia, pé da coluna, bomba) e as
+  // lanternas deixam um vermelho fraco no chão atrás. Tudo preso ao carro: acompanha a chegada
+  const lamps = night ? sideLamps(carX, GY + arr.dip, 170, car, paintHex(car.id)) : null;
+  if (lamps) {
+    const [hx, hy] = lamps.head, [tx, ty] = lamps.tail;
+    const oval = (cx: number, cy: number, rx: number, ry: number) => {
+      c.beginPath();
+      c.ellipse(Math.round(cx), Math.round(cy), rx, ry, 0, 0, Math.PI * 2);
+      c.fill();
+    };
+    c.save();
+    c.beginPath();
+    c.rect(0, 0, w, 186);
+    c.clip();
+    // o que o facho encontra na altura do farol: clareia sem lavar (o escuro continua escuro)
+    c.globalCompositeOperation = 'color-dodge';
+    c.fillStyle = 'rgb(44,40,28)';
+    oval(hx - 58, hy + 5, 66, 13);
+    oval(hx - 44, hy + 6, 44, 9);
+    // poça no chão, em degraus: começa no para-choque, mais forte um pouco à frente e some ao longe
+    c.globalCompositeOperation = 'source-over';
+    c.fillStyle = 'rgba(255,214,130,0.17)';
+    for (let i = 0; i < 4; i++) oval(hx - 62 + i * 10, GY - 1, 84 - i * 18, 8.5 - i * 1.7);
+    c.globalCompositeOperation = 'lighter';
+    // lanternas: vermelho fraco no chão, atrás
+    c.fillStyle = 'rgba(255,40,24,0.06)';
+    oval(tx + 9, GY + 1, 20, 5);
+    oval(tx + 6, GY + 1, 11, 3);
+    c.restore();
+  }
   // o carro por cima da mangueira: ela sai da bomba por trás dele
-  const sideDraw = (g: CanvasRenderingContext2D) => drawCarSide(g, carX, GY + arr.dip, 170, car, paintHex(car.id), (-320 * arr.pos) / wr, night);
+  const sideDraw = (g: CanvasRenderingContext2D, paint?: string) => drawCarSide(g, carX, GY + arr.dip, 170, car, paint ?? paintHex(car.id), (-320 * arr.pos) / wr, night);
   if ((s.gasDmg ?? 0) > 0.05) drawSideDamage(c, sideDraw, { x: carX - 6, y: GY + arr.dip - 96, w: 184, h: 106 }, s.gasDmg!, car.id.length * 97 + 5);
   else sideDraw(c);
+  if (lamps) {
+    // lente acesa (os escamoteáveis já vêm com o brilho da lateral levantada) e lanterna
+    const [hx, hy] = lamps.head, [tx, ty] = lamps.tail;
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    if (!lamps.pop) {
+      drawGlow(c, hx - lamps.W * 0.05, hy + 1, lamps.W * 0.07, 5, '255,240,200', 0.2);
+      drawGlow(c, hx + 1, hy, 4, 4, '255,248,215', 0.75);
+    }
+    drawGlow(c, tx, ty, 5, 4, '255,48,30', 0.3);
+    c.restore();
+  }
   if (attImg(att, pose)) drawPerson(c, 'att', pose, ax, ay, AH, true, att);
   else drawPerson(c, 'att', pose, ax, GY + 4, 66, true);
   if (pumping || fill >= 1) {

@@ -37,6 +37,8 @@
      `changed.json` (os outros continuam lá; `gone` vai com `null`); no máximo 255 por publicação
   4. `node tools/to-artifact.mjs <scratchpad>/af/duel-racer.html --done` (registra o que foi publicado)
   Se `af/published.json` não existir (sessão nova), `changed.json` lista tudo: publicar todos.
+  Desde a v0.58.0 as pessoas e o cenário também vão como arquivos de apoio (HTML de ~2,8 MB) e o
+  carregador baixa primeiro o que a tela atual usa (src/imgprio.ts; fila de 6 no to-artifact).
   Antes de publicar mudança no build, testar como o artifact roda de verdade: página dentro de um
   `<iframe sandbox="allow-scripts">` com `<base>` apontando para `af/files` (servidor com CORS). Servir
   na mesma origem NÃO pega canvas "sujo" (getImageData falhando = carros em desenho de reserva); por

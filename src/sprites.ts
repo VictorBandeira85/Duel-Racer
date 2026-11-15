@@ -1,3 +1,4 @@
+import { need } from './imgprio';
 import { adCanvas, adsReady } from './billboards';
 import { dither } from './ui';
 
@@ -910,7 +911,9 @@ function artImg(name: string): HTMLImageElement | null {
     im.src = src;
     sceneryImgs.set(name, im);
   }
-  return im.complete && im.naturalWidth ? im : null;
+  if (im.complete && im.naturalWidth) return im;
+  need(im); // a tela precisa dela: passa na frente na fila
+  return null;
 }
 const hasArt = (name: string) => !!SCENERY_ART[`./assets/scenery/${name}.png`];
 // à noite (e no lusco-fusco/túnel) as construções usam a arte com as luzes acesas
@@ -924,6 +927,12 @@ const sceneryImg = (kind: SpriteKind, seed = 0) => artImg(artName(kind, seed));
 // parte da chave do cache do sprite: muda quando a arte termina de carregar (troca o desenho vetorial)
 // e quando acende (noite)
 export const sceneryKey = (kind: SpriteKind) => (sceneryImg(kind) ? (sceneryNight && hasArt(`${kind}-night`) ? 'an' : 'a') : '');
+// todas as artes (modelos e versões acesas) dos tipos dados já carregaram? (a tela de carregamento espera)
+export function sceneryReady(kinds: Iterable<SpriteKind>) {
+  let ok = true;
+  for (const k of kinds) for (const n of [k, `${k}-2`, `${k}-night`, `${k}-2-night`]) if (hasArt(n) && !artImg(n)) ok = false;
+  return ok;
+}
 export const preloadScenery = () => Object.keys(SCENERY_ART).forEach((p) => artImg(p.slice(17, -4)));
 if (hasArt('signL')) { SPRITES.signL.h = 620; SPRITES.signR.h = 620; }
 for (const [kind, size] of Object.entries(SCENERY_SIZE) as [SpriteKind, [number, number]][]) {

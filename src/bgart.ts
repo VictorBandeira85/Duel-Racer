@@ -1,6 +1,7 @@
 // Fundos panorâmicos em pixel art, gerados pixel a pixel (prédios com janelas,
 // mata, montanhas rochosas...), no estilo dos jogos de 16 bits. Cada camada é
 // gerada uma vez por tema e reaproveitada.
+import { need } from './imgprio';
 import type { BgLayer } from './themes';
 import { rng } from './util';
 
@@ -343,7 +344,9 @@ function artFor(kind: BgLayer, night = false): HTMLImageElement | null | undefin
     im.src = src;
     artImgs.set(name, im);
   }
-  return im.complete && im.naturalWidth ? im : null; // null: ainda carregando
+  if (im.complete && im.naturalWidth) return im;
+  need(im); // a tela precisa dela: passa na frente na fila
+  return null;
 }
 export const preloadBgArt = () => (Object.keys(ART).map((k) => k.slice(12, -4).replace('-night', '')) as BgLayer[]).forEach((k) => { artFor(k); artFor(k, true); });
 

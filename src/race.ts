@@ -7,7 +7,7 @@ import { PAINTS } from './paint';
 import type { Course, StageDef } from './courses';
 import { makePlate, modelYear, themeRegion, REGION_PLATE, type Plate } from './plates';
 import { THEMES, blendTheme, fogTheme, nightTheme, rainTheme, sunsetTheme, goldenTheme, type Theme } from './themes';
-import { SPRITES } from './sprites';
+import { SPRITES, type SpriteKind } from './sprites';
 import { buildTrack, laneCenter, type Segment, type Track } from './track';
 import { brakeAmt, gasAmt, steerAmt, takeShift } from './input';
 import { beep, radarBeep, bumpSound, crashSound, landSound, stoneSound, setTunnel, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
@@ -45,6 +45,13 @@ function pickGameCar(u: number): CarSpec | undefined {
   return gamePool.find((g) => g.acc >= u * total)?.car;
 }
 // aparência de um carro do trânsito (genérico ou modelo do jogo, com faróis e piscas próprios)
+// o que cada objeto da beira da pista faz ao ser atingido: raspão contínuo, batida leve (o objeto fino
+// tomba) ou, para os demais sólidos (árvore, poste, pedra, construção), batida de verdade
+const ROADSIDE: Partial<Record<SpriteKind, 'scrape' | 'knock'>> = {
+  rail: 'scrape', fence: 'scrape',
+  post: 'knock', bush: 'knock', umbrella: 'knock', snowman: 'knock', stop: 'knock',
+  signL: 'knock', signR: 'knock', warnL: 'knock', warnR: 'knock', sharpL: 'knock', sharpR: 'knock', gasKm: 'knock',
+};
 export function trafficLook(t: TrafficCar, front: boolean, night: boolean, flash = false): CarLook {
   // freando: mais devagar do que gosta de andar (trânsito na mesma mão, atrás de alguém ou em pânico)
   const brake = t.speed > 0 && t.speed < t.base * 0.9;
@@ -822,20 +829,16 @@ export class Race {
       this.shake = 1;
     }
     if (this.slip > 0.45 || this.spinOut > 0 || (this.spin > 0.3 && this.speed > 50)) this.shake = 1;
-    if (this.offRoadAt(pSeg)) {
+    const offNow = this.offRoadAt(pSeg);
+    if (offNow) {
       const limit = max * 0.28;
       if (this.speed > limit) this.speed = Math.max(limit, this.speed - max * 0.6 * dt);
       if (this.speed > 100) this.shake = 1;
-      if (driving && this.ghost <= 0) {
-        for (const sp of pSeg.sprites) {
-          const def = SPRITES[sp.kind];
-          if (def.solid && overlap(this.x, CAR_W / 2, sp.x, def.w / 2)) {
-            this.crash();
-            break;
-          }
-        }
-      }
     }
+    this.sparkT += dt;
+    if (this.sideT > 0) this.sideT -= dt;
+    if (driving) this.roadside(pSeg, offNow, dt);
+    this.wasOff = offNow;
     this.x = clamp(this.x, -t.roadW * 3, t.roadW * 3);
     this.speed = clamp(this.speed, 0, max * 1.05);
     if (driving) this.top = Math.max(this.top, this.speed);
@@ -938,6 +941,89 @@ export class Race {
   private shiftDur = 0;
   private shiftLeft = 0;
   crashPoint = { x: 0.5, y: 0.5 };
+
+  // ---- beira da pista: guia, guard-rail, cerca, balizas, placas, postes, árvores, construções ----
+  sparkT = 9; // tempo desde o último raspão com faíscas (a cabine desenha) e de que lado
+  sparkSide = 0;
+  private sideT = 0; // recarga do dano de raspão (não soma a cada quadro)
+  private wasOff = false;
+  private roadside(seg: Segment, off: boolean, dt: number) {
+    const kmh = this.speed * KMH;
+    // guia de concreto do acesso ao posto: subir nela em velocidade dá tranco e amassa
+    if (off && !this.wasOff && seg.apron && this.x > 0 && kmh > 30 && this.sideT <= 0) {
+      this.sideT = 0.5;
+      this.jolt = Math.max(this.jolt, Math.min(0.6, 0.2 + kmh / 300));
+      this.damage = Math.min(1, this.damage + Math.min(0.12, 0.02 + kmh / 2000));
+      this.speed *= 0.9;
+      this.stats.scrapes++;
+      bumpSound(Math.min(1, 0.3 + kmh / 200));
+    }
+    if (this.ghost > 0) return;
+    for (let i = 0; i < seg.sprites.length; i++) {
+      const sp = seg.sprites[i];
+      const kind = ROADSIDE[sp.kind] ?? (SPRITES[sp.kind].solid ? 'hard' : undefined);
+      if (!kind) continue;
+      const def = SPRITES[sp.kind];
+      const dirObj = sp.x > this.x ? 1 : -1; // lado em que o objeto está
+      if (kind === 'scrape') {
+        // guard-rail e cerca: lata raspando de lado, faíscas, o carro é devolvido para a pista
+        const half = sp.kind === 'rail' ? 90 : def.w / 2;
+        if (!overlap(this.x, CAR_W / 2, sp.x, half)) continue;
+        const side = sp.x > 0 ? 1 : -1;
+        this.x = sp.x - side * (half + CAR_W / 2);
+        this.speed = Math.max(0, this.speed - this.speed * 0.9 * dt);
+        this.scrapeT = 0.25;
+        this.shake = 1;
+        if (this.sideT <= 0 && kmh > 15) {
+          this.sideT = 0.25;
+          this.damage = Math.min(1, this.damage + 0.012 + kmh / 6000);
+          this.jolt = Math.max(this.jolt, 0.25);
+          this.sparkT = 0;
+          this.sparkSide = side;
+          this.clean = false;
+          this.stats.scrapes++;
+          if (kmh > 120 && this.rand() < 0.2) this.crackGlass(0.3, false, side);
+          scrapeSound();
+        }
+        continue;
+      }
+      if (kind === 'knock') {
+        // baliza, placa, arbusto: batida leve; o objeto fino tomba (some)
+        if (!overlap(this.x, CAR_W / 2, sp.x, Math.min(def.w / 2, 260))) continue;
+        const thin = sp.kind === 'post' || sp.kind === 'bush' || sp.kind === 'umbrella' || sp.kind === 'snowman';
+        if (this.sideT > 0 && sp.kind === 'bush') continue;
+        this.sideT = 0.3;
+        this.damage = Math.min(1, this.damage + (thin ? Math.min(0.1, 0.02 + kmh / 2500) : Math.min(0.3, 0.06 + kmh / 700)));
+        this.speed *= thin ? 0.94 : 0.8;
+        this.jolt = Math.max(this.jolt, thin ? 0.3 : Math.min(0.7, 0.35 + kmh / 300));
+        this.scrapeT = 0.2;
+        this.stats.scrapes++;
+        if (!thin) this.clean = false;
+        if (!thin && kmh > 70 && this.rand() < 0.5) this.crackGlass(Math.min(1, kmh / 160), false, dirObj);
+        if (sp.kind !== 'bush') { seg.sprites.splice(i, 1); i--; }
+        bumpSound(Math.min(1, (thin ? 0.25 : 0.45) + kmh / 250));
+        continue;
+      }
+      // árvore, poste, pedra, construção: só fora da pista (como antes); devagar amassa, rápido é batida
+      if (!off || !overlap(this.x, CAR_W / 2, sp.x, def.w / 2)) continue;
+      if (kmh > 60) {
+        this.crash({ v: 0, kg: 6000, side: -dirObj });
+        return;
+      }
+      this.sideT = 0.5;
+      this.ghost = 0.7;
+      this.damage = Math.min(1, this.damage + 0.12 + kmh / 200);
+      this.jolt = Math.max(this.jolt, 0.4 + kmh / 150);
+      this.speed *= 0.1;
+      this.x -= dirObj * 250;
+      this.scrapeT = 0.3;
+      this.stats.scrapes++;
+      this.clean = false;
+      if (kmh > 30) this.crackGlass(Math.min(1, kmh / 90), false, dirObj);
+      bumpSound(Math.min(1, 0.4 + kmh / 100));
+      return;
+    }
+  }
 
   private spinDir = 1;
   // rodou: perde quase toda a velocidade, mas segue sem contar como batida

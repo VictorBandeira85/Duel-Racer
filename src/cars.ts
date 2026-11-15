@@ -1,4 +1,4 @@
-import { drawDent, type Dent } from './damage';
+import { DENT_BASE, DENT_CAR, DENT_W, drawDent, type Dent } from './damage';
 import { fxMode } from './perf';
 import { pushCarLights } from './nightlight';
 import { drawPlate, type Plate } from './plates';
@@ -9,7 +9,8 @@ import { clamp, shade } from './util';
 import { BR_CARS } from './carsbr';
 import { PAINTS } from './paint';
 import { F40_REAR, F40_SIDE } from './svg/f40';
-import { spriteAspect, svgSprite } from './svgsprites';
+import { imageReady, spriteAspect, svgSprite } from './svgsprites';
+import { baseline } from './imgprio';
 // sprites derivados de fotos (ver assets/cars/LEIA-ME.md)
 import f40SidePng from './assets/cars/f40-side.png';
 import f40RearPng from './assets/cars/f40-rear.png';
@@ -786,6 +787,10 @@ const hiRes = (w: number) => (w >= 20 || fxMode() === 'alto' ? RES : Math.max(1,
 const TPNG = import.meta.glob('./assets/traffic/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 const tpng = (n: string) => TPNG[`./assets/traffic/${n}.png`];
 export const TRAFFIC_IMAGES = Object.values(TPNG);
+// artes prontas? (sem atalho: cada uma que falta é pedida com prioridade)
+const allReady = (list: (string | undefined)[]) => list.reduce((ok, s) => (!s || imageReady(s)) && ok, true);
+export const trafficReady = () => allReady(TRAFFIC_IMAGES);
+export const carArtReady = (car: CarSpec) => allReady([car.imgSide, car.sideMask, car.rear.img, car.rear.imgMask, car.rear.frontImg, car.rear.frontMask, car.rear.frontUpImg, car.rear.frontUpMask]);
 
 function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook, model: string): boolean {
   const view = look.front ? 'front' : 'rear';
@@ -879,13 +884,28 @@ const TRAFFIC_GLOW: Record<string, { dots?: number[][]; head?: number[] /* farol
   },
 };
 
+// a última chamada de drawCar usou a arte (e não o desenho de reserva): as marcas de batida são
+// medidas na arte e só entram quando ela já carregou
+let artDrawn = false;
+const dentIds = new WeakMap<object, number>();
+let dentIdN = 0;
+function dentKey(look: CarLook) {
+  if (!look.rear) return `${look.police ? (look.sv ? 'psv' : 'pol') : look.model ?? (look.truck ? 'truck' : 'car')}`;
+  let id = dentIds.get(look.rear);
+  if (!id) { id = ++dentIdN; dentIds.set(look.rear, id); }
+  return `r${id}`;
+}
 export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook) {
   if (w < 2) return;
   if (look.dent && look.dent.v > 0.05 && !look.tilt) {
     drawCar(c, x, y, w, { ...look, dent: undefined });
-    // altura do desenho: a do modelo (sprites do trânsito novos ~0,78 da largura, os antigos ~0,6)
-    const hk = look.rear ? look.rear.h : look.truck ? 1 : look.model === 'sedan' || look.model === 'hatch' || look.model === 'pickup' ? 0.78 : 0.62;
-    drawDent(c, x, y, w, w * hk, look.dent, !!look.front);
+    // marcas recortadas pela arte do próprio carro (lataria, vidro e lanterna achados no desenho)
+    const front = !!look.front;
+    drawDent(c, dentKey(look), (g, color) => {
+      artDrawn = false;
+      drawCar(g, DENT_W / 2, DENT_BASE, DENT_CAR, { ...look, dent: undefined, night: false, brake: false, signal: 0, flash: false, siren: false, tilt: 0, plate: undefined, color, paint: look.rear ? color : look.paint, lamps: { up: 0, on: false } });
+      return artDrawn;
+    }, x, y, w, look.dent, front);
     return;
   }
   if (look.tilt && Math.abs(look.tilt) > 0.01) {
@@ -910,7 +930,7 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
     });
   }
   // trânsito e polícia: sprites em pixel art (o desenho por código fica de reserva)
-  if (!look.rear && (look.police || look.model) && drawTrafficSprite(c, x, y, w, look, look.police ? (look.sv ? 'policesv' : 'police') : look.model!)) return;
+  if (!look.rear && (look.police || look.model) && drawTrafficSprite(c, x, y, w, look, look.police ? (look.sv ? 'policesv' : 'police') : look.model!)) { artDrawn = true; return; }
   const variant = look.paint ? look.rear?.variants?.[look.paint] : undefined;
   const tint = (mask?: string) => (look.paint && mask && !variant ? { mask, color: look.paint } : undefined);
   const frontImg = variant?.frontImg ?? look.rear?.frontImg;
@@ -925,6 +945,7 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
       groundShadow(c, x, y, w);
       const d = drawEndSprite(c, spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h), look.drop);
       if (look.rear.lamps) drawLamps(c, x - w / 2, y - h + d, w, h, look, look.rear.lamps, true);
+      artDrawn = true;
       return;
     }
   }
@@ -948,6 +969,7 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
         if (gl.bar) c.fillRect(x - w / 2 + gl.bar[0] * w, y - h + gl.bar[1] * h, (gl.bar[2] - gl.bar[0]) * w, (gl.bar[3] - gl.bar[1]) * h);
       }
       if (look.rear.lamps) drawLamps(c, x - w / 2, y - h, w, h, look, look.rear.lamps, false);
+      artDrawn = true;
       return;
     }
   }
@@ -1465,6 +1487,21 @@ function bodyLayer(spr: HTMLCanvasElement, wheels: number[][]) {
   return b;
 }
 export const sideScale = (car: CarSpec) => Math.min(1.06, (LENGTH_M[car.id] ?? 4.5) / 4.5);
+// onde ficam o farol e a lanterna na lateral desenhada por drawCarSide (frente para a esquerda), para
+// a luz que eles jogam no chão do posto à noite. Sem a arte carregada, nada
+export function sideLamps(x: number, y: number, len: number, car: CarSpec, paint?: string) {
+  if (!car.imgSide) return null;
+  const k = sideScale(car);
+  x += (len * (1 - k)) / 2;
+  len *= k;
+  const variant = paint && car.sideVariants?.[paint];
+  const up = !!(car.imgSideUp && !variant);
+  const aspect = spriteAspect(variant || (up ? car.imgSideUp! : car.imgSide));
+  if (!aspect) return null;
+  const L = Math.round(x), W = Math.round(len), H = Math.round(len * aspect), T = Math.round(y - len * aspect);
+  const ps = up ? car.rear.lamps?.popSide : undefined;
+  return { head: ps ? [L + ps[0] * W, T + ps[1] * H] : [L + 0.03 * W, T + 0.5 * H], tail: [L + 0.985 * W, T + 0.47 * H], pop: !!ps, W };
+}
 // lit: faróis acesos (posto à noite); quem tem escamoteáveis aparece com eles levantados (<arte>-side-up)
 export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string, spin?: number, lit?: boolean) {
   // mesma escala para todos, centrado no espaço reservado
@@ -1554,6 +1591,19 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
           c.fillRect(L + (u - rr) * W, T + v * H - rr * W, rr * W * 2, rr * W * 2);
           c.restore();
         }
+      }
+      return;
+    }
+    if (!baseline()) {
+      // arte ainda chegando (rede lenta): em vez do desenho antigo, só a sombra e três pontos piscando
+      c.fillStyle = 'rgba(0,0,0,0.25)';
+      c.beginPath();
+      c.ellipse(x + len / 2, y, len * 0.42, len * 0.02, 0, 0, Math.PI * 2);
+      c.fill();
+      const ph = Math.floor(performance.now() / 300) % 3;
+      for (let k = 0; k < 3; k++) {
+        c.fillStyle = k === ph ? 'rgba(40,36,34,0.85)' : 'rgba(40,36,34,0.3)';
+        c.fillRect(Math.round(x + len / 2 - 9 + k * 7), Math.round(y - len * 0.14), 3, 3);
       }
       return;
     }

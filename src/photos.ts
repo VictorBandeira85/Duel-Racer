@@ -1,5 +1,6 @@
 // Fotos da revista (pixel art do Victor, sem marcas reais): Toro LP5 (ensaio, motor, raio-x e
 // galeria), Kaze NX (tools/ref/nx_photos.py) Serpe V10 (tools/ref/viper_photos.py) Furia TR (tools/ref/testarossa_photos.py) e Furia F4 (tools/ref/f40_photos.py). Usadas nas capas do menu principal e nas páginas de carregamento.
+import { need } from './imgprio';
 import type { Rect } from './ui';
 
 const PH = import.meta.glob('./assets/photos/*.png', { eager: true, import: 'default' }) as Record<string, string>;
@@ -32,7 +33,9 @@ function img(src: string) {
     im.src = src;
     imgs.set(src, im);
   }
-  return im.complete && im.naturalWidth ? im : null;
+  if (im.complete && im.naturalWidth) return im;
+  need(im); // a tela precisa dela: passa na frente na fila
+  return null;
 }
 export const VP_PHOTOS: Photo[] = [
   { src: ph('vp-estrada'), kicker: 'TESTE', kc: '#d01f26', title: 'SERPE V10', sub: 'Oito litros e nenhum teto', inside: ['V10 de 400 cv na estrada', 'Sem ABS e sem controle', 'Escapamento na soleira'], box: [35, 115, 525, 252] },

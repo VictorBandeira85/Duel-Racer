@@ -1,3 +1,4 @@
+import { need } from './imgprio';
 import { COP_HAND } from './people';
 import { brandOf, drawLogo } from './brands';
 import { prefs, viewZoom } from './prefs';
@@ -17,7 +18,7 @@ import { imageReady, preloadSvg, spriteAspect, svgSprite } from './svgsprites';
 import { drawWipers, type DashTop } from './wipers';
 import { drawSideMirror, findGlass } from './sidemirror';
 import { drawSmoke } from './smoke';
-import { drawCrashFx, drawGlass } from './damage';
+import { drawCrashFx, drawGlass, drawSparks } from './damage';
 import { blinkOn } from './cars';
 import { engineSpec } from './enginesynth';
 // cabines em pixel art (tools/ref/import_cockpit.py)
@@ -1730,7 +1731,9 @@ function faceImg(src: string) {
     im.src = src;
     faceImgs.set(src, im);
   }
-  return im.complete && im.naturalWidth ? im : null;
+  if (im.complete && im.naturalWidth) return im;
+  need(im); // a tela precisa dela: passa na frente na fila
+  return null;
 }
 
 function instrumentGlow(c: CanvasRenderingContext2D, ox: number, art: CockpitArt, k: number) {
@@ -3057,6 +3060,11 @@ function drawScene(c: CanvasRenderingContext2D, r: Race, dt: number) {
   drawWipers(c, r, vp, dt, dashTopFn(art), coreX());
   drawGlass(c, r.glass, vp, glassGlow(r));
   drawDamage(c, r, vp, art);
+  if (r.state !== 'crash' && r.sparkT < 0.45) {
+    // raspando no guard-rail ou na cerca: faíscas no canto do capô do lado raspado
+    const bx = coreX() + 128 + r.sparkSide * vp.w * 0.3;
+    drawSparks(c, r.sparkT, r.stats.scrapes, r.sparkSide, bx, dashTopFn(art)(Math.round(bx)) - 1);
+  }
   if (r.state === 'crash') {
     const t = 3.4 - r.timer;
     const side = Math.sign(r.crashSlide) || 1;

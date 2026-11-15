@@ -1,7 +1,7 @@
 // Perfil de tempo por quadro com CPU limitada. Uso: node prof.cjs <porta> <W>x<H>x<dpr> <throttle> [cenário ...] ; TOP=1 lista funções
 const { chromium } = require('playwright');
 const port = process.argv[2], [W, H, D] = process.argv[3].split('x').map(Number), thr = Number(process.argv[4]);
-const SC = { dia: ['deserto', 'day', ''], noite: ['deserto', 'night', ''], chuva: ['tempestade', 'night', ''], cidade: ['metropole', 'night', 'traffic'], tunel: ['tuneis', 'day', 'tunnel'], dano: ['metropole', 'night', 'damage'] };
+const SC = { dia: ['deserto', 'day', ''], noite: ['deserto', 'night', ''], chuva: ['tempestade', 'night', ''], cidade: ['metropole', 'night', 'traffic'], tunel: ['tuneis', 'day', 'tunnel'], dano: ['metropole', 'night', 'damage'], neblina: ['neblina', 'night', ''] };
 const which = process.argv.slice(5).length ? process.argv.slice(5) : Object.keys(SC);
 (async () => {
   const b = await chromium.launch();

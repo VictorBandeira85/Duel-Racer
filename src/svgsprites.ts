@@ -1,3 +1,4 @@
+import { need } from './imgprio';
 // Converte arte SVG em imagens (sprites) para o canvas do jogo.
 // Cada SVG vira uma imagem uma vez; cada tamanho usado é rasterizado e guardado em cache.
 // As bordas são endurecidas (sem semitransparência), para manter o visual de pixel art.
@@ -48,10 +49,14 @@ function image(src: string): HTMLImageElement | null {
     img = new Image();
     // falhou (rede do celular): sai do cache e é pedida de novo na próxima vez que for usada
     img.onerror = () => setTimeout(() => images.get(src) === img && images.delete(src), 1500);
+    // decodifica assim que chega: o primeiro uso (na corrida) não engasga
+    img.onload = () => { img!.decode?.().catch(() => {}); };
     img.src = src.trimStart().startsWith('<svg') ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(src) : src;
     images.set(src, img);
   }
-  return img.complete && img.naturalWidth > 0 ? img : null;
+  if (img.complete && img.naturalWidth > 0) return img;
+  need(img); // a tela precisa dela: passa na frente na fila
+  return null;
 }
 export const imageReady = (src: string) => !!image(src);
 

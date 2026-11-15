@@ -27,6 +27,7 @@ export interface Viewport {
   K: number; // escala da projeção em pixels
 }
 
+const bendX: number[] = [], bendDx: number[] = [];
 const OFFICER_H = 1050; // altura do policial (unidades do mundo)
 
 // Policial visto de frente: quepe, óculos escuros, camisa azul. (x, y) = pés.
@@ -636,6 +637,10 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   for (let i = base.index; i < end; i++) {
     const s = segs[i];
     s.clip = maxy;
+    // desvio lateral do centro da pista neste trecho em relação à reta da câmera, e quanto ele muda
+    // por trecho (a tangente): os fachos dos outros carros saem retos pela tangente de onde estão
+    bendX[i - base.index] = x;
+    bendDx[i - base.index] = dx;
     project(s.p1, r.x - x, playerY + CAM_H, r.position, roadW, vp, r.yaw);
     project(s.p2, r.x - x - dx, playerY + CAM_H, r.position, roadW, vp, r.yaw);
     x += dx;
@@ -724,6 +729,9 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       const dir = toward ? -1 : 1;
       const z0 = toward ? ez - SEG_LEN * 0.3 : ez + len * SEG_LEN;
       const a = proj(z0);
+      // carro escondido atrás de uma crista: o facho e o clarão dele ficam do lado de lá do morro
+      // (antes o clarão aparecia por cima do asfalto da crista, como se a luz atravessasse o chão)
+      if (a.y > segs[a.idx].clip + 1) return;
       // túnel: com a boca do túnel entre nós e o carro a luz não aparece; o facho para na boca
       const inT = !!segs[i].tunnel;
       for (let k = base.index; k < a.idx; k++) if (!!segs[k].tunnel !== inT) return;
@@ -750,7 +758,12 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         if (k && q.y > segs[q.idx].clip + 1) break; // atrás da crista: dali em diante não se vê
         if (k && !inCone((yAt(zk) - yl) / (span * t), pitch)) break;
         const hw = Math.max(CAR_W * (0.4 + 0.85 * t) * q.sc * vp.K, (2.5 + 2.5 * t) * far);
-        p.push(q.x + q.sc * ex * vp.K, q.y, hw);
+        // reto na direção do carro (a tangente da pista onde ele está), sem dobrar com a curva à frente:
+        // posição da reta em relação ao centro da pista no trecho de cada ponto
+        const ia = a.idx - base.index, ik = q.idx - base.index, fk2 = zk / SEG_LEN - q.idx;
+        const xa = bendX[ia] + bendDx[ia] * (z0 / SEG_LEN - a.idx), xk = bendX[ik] + bendDx[ik] * fk2;
+        const off = ex + (xa + bendDx[ia] * ((zk - z0) / SEG_LEN)) - xk;
+        p.push(q.x + q.sc * off * vp.K, q.y, hw);
       }
       if (p.length < 6) {
         // só o começo aparece: um toco curto à frente do carro (o clarão continua)

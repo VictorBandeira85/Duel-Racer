@@ -160,8 +160,16 @@ let aimU = 0, aimSteer = 0;
 // ao carro, 1 no fim): nasce estreito na frente do carro, na faixa dele, e abre com a distância
 // até pegar a pista toda; longe o centro puxa um pouco para o meio da pista e para o lado do volante
 function beamAt(t: number) {
-  return { c: aimU * (1 - 0.3 * t) + aimSteer * 0.45 * t, hw: 0.55 + t };
+  return { c: 0, hw: 0.34 + 1.15 * t }; // estreito junto do carro (pouco mais que a largura dele), abrindo com a distância
 }
+// O facho é um cone preso ao carro: sai RETO na direção em que o carro aponta (o meio da tela, em
+// todas as distâncias), sem dobrar com a pista. Numa curva a pista sai de dentro do cone e a luz
+// cai no que estiver à frente em linha reta (acostamento, grama, objetos de fora da curva).
+// beamCx: coluna da tela (na camada) para onde o carro aponta
+let beamCx = 0;
+// perto do carro a luz ainda está baixa e fraca (zona logo à frente do capô) e sobe em degraus até
+// a força cheia a uns 9 segmentos
+const nearK = (z: number) => (z <= 2.5 ? 0.42 : z >= 9 ? 1 : 0.42 + 0.58 * ((z - 2.5) / 6.5));
 // O farol é um cone preso ao carro: eixo um pouco abaixo da horizontal, inclinado com o carro
 // (pitch: tangente da inclinação, subida > 0). Só acende o chão dentro dele: numa rampa à frente
 // com o carro ainda no plano a pista sai pelo topo do cone no meio da subida (o facho acaba ali,
@@ -202,8 +210,11 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
   g.save();
   // só o chão à frente: o que aparece pelas janelas laterais, abaixo da linha do painel, fica ao
   // lado do carro, fora do facho
+  // (abaixo da linha do painel a luz continua só na faixa do meio da tela: o asfalto que aparece
+  // entre a linha do painel e o capô, logo à frente do carro, não fica mais num vão escuro)
   g.beginPath();
   g.rect(0, 0, w, seen + 6);
+  g.rect(w * 0.22, seen + 6, w * 0.6, Math.max(0, g.canvas.height - seen - 6));
   g.clip();
   const z0 = beamZ0(road, seen);
   const tOf = (p: RoadPt) => Math.max(0, ((p.z ?? p.d) - z0) / REACH);
@@ -222,15 +233,17 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
   const lv: number[] = [];
   // (vezes o cone do farol: a pista fora dele não acende)
   const cone = pts.map(coneAt);
-  for (let k = 0; k + 1 < pts.length; k++) lv.push(Math.round(beamFall((tOf(pts[k]) + tOf(pts[k + 1])) / 2) * Math.min(cone[k], cone[k + 1]) * LEVELS));
+  const zOf = (p: RoadPt) => p.z ?? p.d;
+  for (let k = 0; k + 1 < pts.length; k++) lv.push(Math.round(beamFall((tOf(pts[k]) + tOf(pts[k + 1])) / 2) * Math.min(cone[k], cone[k + 1]) * nearK((zOf(pts[k]) + zOf(pts[k + 1])) / 2) * LEVELS));
   for (const [rel, edge, wt] of BANDS) {
     // bordas da faixa de luz em cada ponto, recortadas na borda da pista
     const xl: number[] = [], xr: number[] = [];
     for (const p of pts) {
-      const { c, hw } = beamAt(tOf(p));
-      const lo = Math.max(-edge, c - hw * rel), hi = Math.max(lo, Math.min(edge, c + hw * rel));
-      xl.push(p.x + lo * p.w);
-      xr.push(p.x + hi * p.w);
+      // largura do cone nessa distância (em meias larguras da pista), centrado na frente do carro
+      const { hw } = beamAt(tOf(p));
+      const half = hw * rel * (edge / EDGE_OUT) * p.w;
+      xl.push(cx - half);
+      xr.push(cx + half);
     }
     // perto do carro, abaixo do primeiro trecho de pista: continua o facho até o painel, centrado no carro
     const p0 = pts[0], m0 = (xl[0] + xr[0]) / 2;
@@ -243,7 +256,7 @@ function beamShape(g: CanvasRenderingContext2D, w: number, cx: number, seen: num
       g.closePath();
       g.fill();
     };
-    fill(scale * wt * beamFall(tOf(p0)) * cone[0], [[cx + (xl[0] - m0) * 0.85, seen + 6], [xl[0], p0.y + 0.5]], [[cx + (xr[0] - m0) * 0.85, seen + 6], [xr[0], p0.y + 0.5]]);
+    fill(scale * wt * beamFall(tOf(p0)) * cone[0] * nearK(0), [[cx + (xl[0] - m0) * 0.85, g.canvas.height], [xl[0], p0.y + 0.5]], [[cx + (xr[0] - m0) * 0.85, g.canvas.height], [xr[0], p0.y + 0.5]]);
     // trechos vizinhos com o mesmo degrau de brilho: um polígono só, seguindo a curva da pista
     let ls: number[][] = [], rs: number[][] = [], cur = -1;
     for (let k = 0; k + 1 < pts.length; k++) {
@@ -401,9 +414,9 @@ function carLighting(rd: RoadPt[], ground: RoadPt[], seen: number, top: number, 
     // pela distância e pela posição do carro na pista em relação ao facho
     const t = Math.max(0, ((best.z ?? best.d) - z0) / REACH);
     if (best.d <= lastD && t < 1 && best.w > 0) {
-      const { c, hw } = beamAt(t);
-      const u = (l.x - ox - best.x) / best.w, half = l.w / 2 / best.w;
-      if (u + half > Math.max(-EDGE_OUT, c - hw) && u - half < Math.min(EDGE_OUT, c + hw)) lit = 0.9 * beamFall(t) * coneAt(best);
+      const { hw } = beamAt(t);
+      const u = (l.x - ox - beamCx) / best.w, half = l.w / 2 / best.w;
+      if (u + half > -hw && u - half < hw) lit = 0.9 * beamFall(t) * coneAt(best) * nearK(best.z ?? best.d);
     }
     for (const st of streets) {
       const dd = Math.abs(best.d - st.d);
@@ -579,10 +592,10 @@ function pickOccluders(rd: RoadPt[], ground: RoadPt[], seen: number, ox: number)
       const u = (o.bx - ox - p.x) / p.w;
       const t = Math.max(0, ((p.z ?? p.d) - z0) / REACH);
       if (p.d <= lastD && t < 1) {
-        const { c, hw } = beamAt(t);
-        const eL = Math.max(-EDGE_OUT, c - hw), eR = Math.min(EDGE_OUT, c + hw);
-        const out = u < eL ? eL - u : u > eR ? u - eR : 0;
-        lit = 0.9 * beamFall(t) * coneAt(p) * Math.max(0, 1 - out / 0.5);
+        const { hw } = beamAt(t);
+        const uc = (o.bx - ox - beamCx) / p.w; // em relação à frente do carro (o cone é reto)
+        const out = Math.max(0, Math.abs(uc) - hw);
+        lit = 0.9 * beamFall(t) * coneAt(p) * nearK(p.z ?? p.d) * Math.max(0, 1 - out / 0.5);
       }
       for (const st of streets) {
         const dd = Math.abs(p.d - st.d);
@@ -654,12 +667,12 @@ function secondary(W: number, H: number, ox: number, oy: number, draw: (s: Canva
           t.beginPath();
           for (let i = 0; i < roadPoly.length; i++) {
             const q = roadPoly[i];
-            if (i) t.lineTo(q.x - q.w * 1.25 - ox, q.y - oy);
-            else t.moveTo(q.x - q.w * 1.25 - ox, q.y + 2 - oy);
+            if (i) t.lineTo(q.x - q.w * 2.2 - ox, q.y - oy);
+            else t.moveTo(q.x - q.w * 2.2 - ox, q.y + 2 - oy);
           }
           for (let i = roadPoly.length - 1; i >= 0; i--) {
             const q = roadPoly[i];
-            t.lineTo(q.x + q.w * 1.25 - ox, q.y + (i ? 0 : 2) - oy);
+            t.lineTo(q.x + q.w * 2.2 - ox, q.y + (i ? 0 : 2) - oy);
           }
           t.closePath();
           t.clip();
@@ -931,6 +944,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   if (ground.length && ground[0].w > 0) aimU = Math.max(-3, Math.min(3, (cx - ground[0].x) / ground[0].w));
   aimSteer += (Math.max(-1, Math.min(1, steer)) - aimSteer) * 0.2;
   beamPitch = pitch;
+  beamCx = cx;
   beamSeg = segLen;
   beamShape(g, W, cx, seen - top, ground, 0.9);
   pickOccluders(rd, ground, seen - top, vp.x);

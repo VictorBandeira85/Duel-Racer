@@ -9,7 +9,8 @@ import { clamp, shade } from './util';
 import { BR_CARS } from './carsbr';
 import { PAINTS } from './paint';
 import { F40_REAR, F40_SIDE } from './svg/f40';
-import { imageReady, spriteAspect, svgSprite } from './svgsprites';
+import { imageReady, spriteAspect, svgSprite, type SpritePost } from './svgsprites';
+import { driverFor, trafficDriver, withDriver, type DriverId } from './drivers';
 import { baseline } from './imgprio';
 // sprites derivados de fotos (ver assets/cars/LEIA-ME.md)
 import f40SidePng from './assets/cars/f40-side.png';
@@ -753,7 +754,7 @@ export interface CarLook {
   brake?: boolean;
   night?: boolean;
   paint?: string; // cor escolhida (troca a carroceria do sprite pela máscara)
-  model?: string; // trânsito: sedan, hatch, pickup, van, truck, fusca, kombi, suv, sedan90 (sprites de assets/traffic)
+  model?: string; // trânsito: sedan, hatch, pickup, van, truck, fusca, kombi, suv, sedan90, moto-custom|sport|pop, caminhões (kenworth, f4000, cargo, mb1113, vw790, volvon10) (sprites de assets/traffic)
   signal?: number; // seta ligada: -1 lado esquerdo da tela, 1 direito
   flash?: boolean; // trânsito de frente piscando o farol alto (assustado)
   tilt?: number; // batido: o desenho fica inclinado (rad), girando em torno da base
@@ -761,6 +762,7 @@ export interface CarLook {
   plate?: Plate; // placa (desenhada por cima da traseira)
   drop?: number; // suspensão rebaixada (CarSpec.rideDrop): a carroceria desce sobre os pneus
   dent?: Dent; // batido: amassado, lanterna quebrada, vidro trincado e para-choque solto por cima do sprite
+  driver?: DriverId | null; // quem dirige (null: vazio); sem isso, sorteado no trânsito e o do rival nos carros do jogo
 }
 
 // Rebaixamento na traseira/frente: a faixa de baixo do sprite (só os pneus, abaixo da linha de baixo
@@ -832,6 +834,12 @@ const allReady = (list: (string | undefined)[]) => list.reduce((ok, s) => (!s ||
 export const trafficReady = () => allReady(TRAFFIC_IMAGES);
 export const carArtReady = (car: CarSpec) => allReady([car.imgSide, car.sideMask, car.rear.img, car.rear.imgMask, car.rear.frontImg, car.rear.frontMask, car.rear.frontUpImg, car.rear.frontUpMask]);
 
+// motorista atrás do vidro da arte (src/drivers.ts), composto uma vez e guardado com o sprite
+function driverPost(url: string, id: DriverId | null, tag: string, night?: boolean): SpritePost | undefined {
+  const dk = driverFor(url, id ?? undefined);
+  return dk ? { key: dk + (night ? 'n' : ''), fn: (im) => withDriver(url, im, dk, tag, night) } : undefined;
+}
+
 function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook, model: string): boolean {
   const view = look.front ? 'front' : 'rear';
   const img = tpng(`${model}-${view}`);
@@ -840,7 +848,8 @@ function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w:
   const h = w * aspect;
   const mask = tpng(`${model}-${view}-mask`);
   const q = hiRes(w);
-  const spr = svgSprite(img, w * q, h * q, !model.startsWith('police') && mask ? { mask, color: look.color } : undefined);
+  const paint = !model.startsWith('police') && mask ? { mask, color: look.color } : undefined;
+  const spr = svgSprite(img, w * q, h * q, paint, driverPost(img, look.driver === undefined ? (model.startsWith('police') ? 'man' : trafficDriver(model, look.color)) : look.driver, paint?.color ?? '', look.night));
   if (!spr) return false;
   groundShadow(c, x, y, w);
   const L = Math.round(x - w / 2), T = Math.round(y - h);
@@ -849,7 +858,8 @@ function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w:
   // luzes acesas: lanternas (noite/freio) e giroflex piscando
   if (!look.front && (look.night || look.brake)) {
     c.fillStyle = 'rgba(255,60,40,0.55)';
-    for (const [u, f] of TRAFFIC_GLOW[model]?.dots ?? []) c.fillRect(Math.round(L + u * w - w * 0.07), Math.round(T + f * h - h * 0.05), Math.max(1, Math.round(w * 0.14)), Math.max(1, Math.round(h * 0.1)));
+    const lw = TRAFFIC_GLOW[model]?.lw ?? 0.14; // largura da lanterna (moto: uma só, no meio)
+    for (const [u, f] of TRAFFIC_GLOW[model]?.dots ?? []) c.fillRect(Math.round(L + u * w - w * lw / 2), Math.round(T + f * h - h * 0.05), Math.max(1, Math.round(w * lw)), Math.max(1, Math.round(h * 0.1)));
   }
   const hd = TRAFFIC_GLOW[model]?.head; // faróis medidos na arte (senão, o lugar padrão)
   const hy = hd ? T + hd[1] * h : y - h * 0.4, hx = hd ? 0.5 - hd[0] : 0.36;
@@ -859,7 +869,12 @@ function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w:
     glow(c, x, hy, w * 1.3, '255,250,220', hx);
   }
   // seta piscando do lado para onde o carro vai
-  if (look.signal && Math.floor(performance.now() / 250) % 2 === 0) {
+  const sg = look.front ? TRAFFIC_GLOW[model]?.sigFront : TRAFFIC_GLOW[model]?.sig; // pisca medido na arte (motos)
+  if (sg && look.signal && Math.floor(performance.now() / 250) % 2 === 0) {
+    const u = look.signal < 0 ? sg[0] : 1 - sg[0], r = Math.max(1, Math.round(w * 0.08));
+    c.fillStyle = '#ffb020';
+    c.fillRect(Math.round(L + u * w - r / 2), Math.round(T + sg[1] * h - r / 2), r, r);
+  } else if (look.signal && Math.floor(performance.now() / 250) % 2 === 0) {
     const u = look.signal < 0 ? 0.04 : 0.84;
     const f = look.front ? 0.62 : (TRAFFIC_GLOW[model]?.dots?.[0]?.[1] ?? 0.6) - 0.04;
     c.fillStyle = '#ffb020';
@@ -890,7 +905,8 @@ function lampSpots(w: number, look: CarLook): { h: number; dots: number[][] } {
     const img = tpng(`${model}-${look.front ? 'front' : 'rear'}`);
     const h = w * ((img && spriteAspect(img)) || 0.6);
     const hd = TRAFFIC_GLOW[model]?.head;
-    return { h, dots: look.front ? (hd ? [[hd[0], hd[1]], [1 - hd[0], hd[1]]] : [[0.2, 0.62], [0.8, 0.62]]) : TRAFFIC_GLOW[model]?.dots ?? [[0.15, 0.6], [0.85, 0.6]] };
+    const one = hd && Math.abs(hd[0] - 0.5) < 0.05; // moto: um farol só, no meio
+    return { h, dots: look.front ? (hd ? (one ? [[hd[0], hd[1]]] : [[hd[0], hd[1]], [1 - hd[0], hd[1]]]) : [[0.2, 0.62], [0.8, 0.62]]) : TRAFFIC_GLOW[model]?.dots ?? [[0.15, 0.6], [0.85, 0.6]] };
   }
   const R = look.rear;
   const img = look.front ? R?.frontImg : R?.img;
@@ -908,12 +924,29 @@ function lampSpots(w: number, look: CarLook): { h: number; dots: number[][] } {
 const TRAFFIC_PLATE: Record<string, number[]> = { // como PLATE_BOX, nos sprites do trânsito (medido nos PNG)
   sedan: [62, 68, 98, 78, 160, 122], hatch: [61, 65, 100, 78, 160, 126], pickup: [65, 99, 96, 110, 160, 130], // arte do Victor (tools/ref/traffic_art.py)
   van: [66, 103, 95, 112, 160, 132], truck: [66, 135, 95, 144, 160, 168], fusca: [67, 71, 94, 80, 160, 100], kombi: [66, 105, 95, 114, 160, 132], suv: [66, 71, 95, 80, 160, 120], sedan90: [66, 61, 95, 70, 160, 90], police: [68, 65, 90, 77, 160, 124],
+  // motos (tools/ref/motos.py): placa pequena embaixo da lanterna
+  'moto-custom': [32, 94, 52, 106, 83, 133], 'moto-sport': [26, 65, 43, 75, 70, 121], 'moto-pop': [29, 84, 44, 95, 74, 129],
+  // caminhões (tools/ref/truck_art.py): placa no meio do para-choque/chassi de trás
+  kenworth: [63, 154, 88, 166, 151, 204], f4000: [72, 138, 101, 149, 172, 184], cargo: [61, 161, 91, 176, 152, 215],
+  mb1113: [69, 139, 95, 151, 164, 191], vw790: [65, 163, 91, 175, 156, 212], volvon10: [63, 158, 88, 171, 151, 213],
 };
-const TRAFFIC_GLOW: Record<string, { dots?: number[][]; head?: number[] /* farol esquerdo na frente (u, f) */; siren?: number[][]; sirenFront?: number[][]; sirenColors?: string[]; sirenColorsFront?: string[] }> = {
+const TRAFFIC_GLOW: Record<string, { dots?: number[][]; head?: number[] /* farol esquerdo na frente (u, f) */; lw?: number; sig?: number[]; sigFront?: number[] /* pisca esquerdo (u, f) */; siren?: number[][]; sirenFront?: number[][]; sirenColors?: string[]; sirenColorsFront?: string[] }> = {
   sedan: { dots: [[0.15, 0.59], [0.85, 0.59]], head: [0.21, 0.57] }, hatch: { dots: [[0.17, 0.59], [0.83, 0.59]], head: [0.19, 0.555] },
   pickup: { dots: [[0.07, 0.54], [0.93, 0.54]], head: [0.13, 0.535] }, van: { dots: [[0.06, 0.7], [0.94, 0.7]] },
   fusca: { dots: [[0.09, 0.56], [0.91, 0.56]] }, kombi: { dots: [[0.09, 0.66], [0.91, 0.66]] }, suv: { dots: [[0.07, 0.6], [0.93, 0.6]] }, sedan90: { dots: [[0.15, 0.6], [0.85, 0.6]] },
   truck: { dots: [[0.08, 0.79], [0.92, 0.79]] },
+  // caminhões (tools/ref/truck_art.py, medidos nos PNG): lanterna vermelha de cada lado (dots, lw), farol
+  // esquerdo (head) e piscas âmbar de trás e da frente; o Kenworth (americano) pisca na lanterna vermelha de fora
+  kenworth: { dots: [[0.169, 0.748], [0.831, 0.748]], lw: 0.2, head: [0.163, 0.674], sig: [0.089, 0.748], sigFront: [0.156, 0.562] },
+  f4000: { dots: [[0.247, 0.731], [0.753, 0.731]], lw: 0.08, head: [0.187, 0.617], sig: [0.172, 0.731], sigFront: [0.078, 0.625] },
+  cargo: { dots: [[0.188, 0.77], [0.812, 0.77]], lw: 0.09, head: [0.212, 0.609], sig: [0.109, 0.77], sigFront: [0.167, 0.721] },
+  mb1113: { dots: [[0.21, 0.728], [0.79, 0.728]], lw: 0.07, head: [0.183, 0.646], sig: [0.128, 0.728], sigFront: [0.12, 0.52] },
+  vw790: { dots: [[0.163, 0.781], [0.837, 0.781]], lw: 0.11, head: [0.213, 0.634], sig: [0.087, 0.781], sigFront: [0.213, 0.712] },
+  volvon10: { dots: [[0.209, 0.73], [0.791, 0.73]], lw: 0.13, head: [0.15, 0.667], sig: [0.103, 0.73], sigFront: [0.125, 0.552] },
+  // motos (tools/ref/motos.py): uma lanterna no meio, farol no meio (a esportiva tem dois), piscas da arte
+  'moto-custom': { dots: [[0.505, 0.655]], lw: 0.19, head: [0.496, 0.421], sig: [0.28, 0.655], sigFront: [0.295, 0.533] },
+  'moto-sport': { dots: [[0.463, 0.478]], lw: 0.16, head: [0.394, 0.447], sig: [0.272, 0.521], sigFront: [0.22, 0.56] },
+  'moto-pop': { dots: [[0.507, 0.606]], lw: 0.15, head: [0.488, 0.444], sig: [0.305, 0.621], sigFront: [0.139, 0.362] },
   // giroflex da arte: azul à esquerda, vermelho à direita (u0, f0, u1, f1 em fração do sprite)
   police: { dots: [[0.17, 0.6], [0.83, 0.6]], siren: [[0.23, 0.0, 0.42, 0.075], [0.52, 0.0, 0.77, 0.075]] },
   // Diablo SV: barra baixa no teto; de trás azul|vermelho, de frente vermelho|azul
@@ -980,7 +1013,8 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
     const upArt = !variant && look.rear.frontUpImg && lst.up >= 0.5;
     const fimg = upArt ? look.rear.frontUpImg! : frontImg;
     const h = w * (spriteAspect(fimg) ?? look.rear.h);
-    const spr = svgSprite(fimg, w * hiRes(w), h * hiRes(w), tint(upArt ? look.rear.frontUpMask : look.rear.frontMask));
+    const fp = tint(upArt ? look.rear.frontUpMask : look.rear.frontMask);
+    const spr = svgSprite(fimg, w * hiRes(w), h * hiRes(w), fp, driverPost(fimg, look.driver === undefined ? 'rival' : look.driver, fp?.color ?? '', look.night));
     if (spr) {
       groundShadow(c, x, y, w);
       const d = drawEndSprite(c, spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h), look.drop);
@@ -993,7 +1027,8 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
   if (art && look.rear && !look.front) {
     const h = w * ((look.rear.img && spriteAspect(art)) || look.rear.h);
     const q = look.rear.img ? hiRes(w) : 1;
-    const spr = svgSprite(art, w * q, h * q, tint(look.rear.img ? look.rear.imgMask : undefined)) ?? (look.rear.svg ? svgSprite(look.rear.svg, w, h) : null);
+    const rp = tint(look.rear.img ? look.rear.imgMask : undefined);
+    const spr = svgSprite(art, w * q, h * q, rp, look.rear.img ? driverPost(art, look.driver === undefined ? 'rival' : look.driver, rp?.color ?? '', look.night) : undefined) ?? (look.rear.svg ? svgSprite(look.rear.svg, w, h) : null);
     if (spr) {
       groundShadow(c, x, y, w);
       y += drawEndSprite(c, spr, Math.round(x - w / 2), Math.round(y - h), Math.round(w), Math.round(h), look.drop); // placa e luzes descem junto
@@ -1547,7 +1582,8 @@ export function sideLamps(x: number, y: number, len: number, car: CarSpec, paint
   return { head: [L + hd[0] * W, T + hd[1] * H], tail: [L + tl[0] * W, T + tl[1] * H], nose: L, pop, W };
 }
 // lit: faróis acesos (posto à noite); quem tem escamoteáveis aparece com eles levantados (<arte>-side-up)
-export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string, spin?: number, lit?: boolean) {
+// driver: quem aparece na janela lateral (o jogador; null: vazio)
+export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string, spin?: number, lit?: boolean, driver: DriverId | null = 'man') {
   // mesma escala para todos, centrado no espaço reservado
   const k = sideScale(car);
   x += (len * (1 - k)) / 2;
@@ -1562,7 +1598,7 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
     const tint = paint && mask && img === base ? { mask, color: paint } : undefined;
     // na resolução real da tela (o canvas tem RES pixels por pixel do jogo): reduzir a arte
     // na resolução do jogo e depois ampliar apagava linhas e colunas de pixels (traço quebrado)
-    const spr = aspect ? svgSprite(img, len * RES, len * aspect * RES, tint) : null;
+    const spr = aspect ? svgSprite(img, len * RES, len * aspect * RES, tint, driverPost(img, driver, tint?.color ?? '', lit)) : null; // lit: posto à noite, só a silhueta
     if (spr && aspect) {
       c.fillStyle = 'rgba(0,0,0,0.45)';
       c.beginPath();

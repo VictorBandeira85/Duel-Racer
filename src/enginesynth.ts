@@ -95,6 +95,13 @@ const CAR_SOUND: Record<string, Partial<EngineSpec>> = {
   // boxer a ar da VW (Onça GTE, Ponto SP2): batida de Fusca, ventoinha e carburadores duplos logo atrás
   'br-pumagte': { redline: 5600, intake: 0.25, intakeHz: 260, whine: 0.2, cabin: 3300 },
   'br-sp2': { cam: 0.2, redline: 5200, intake: 0.16, intakeHz: 250, whine: 0.2, cabin: 3200 },
+  // motos do trânsito (trafficaudio.ts): agudas como moto, mas sem estridência (agudos cortados cedo)
+  // custom: bicilíndrico em V a 45° (explosões desencontradas "pó-tó, pó-tó"), escape solto e grave
+  'moto-custom': { cyl: 2, events: [0, 315], banks: [0, 0], pipeMs: [3.2, 3.2], fb: 0.42, res: [[105, 1, 1.15], [430, 1.8, 0.6], [1300, 2.6, 0.2]], pulse: 3.4, drive: 2.0, rasp: 0.1, low: 700, jitter: 0.12, pops: 0.5, burble: 0.4, vol: 1.3, idle: 950, redline: 5600 },
+  // esportiva: quatro em linha de 600 cc girando alto, zunido liso
+  'moto-sport': { pipeMs: [1.9, 1.9], fb: 0.3, res: [[190, 1.2, 0.95], [760, 2.2, 0.55], [1900, 3, 0.18]], pulse: 1.5, drive: 1.6, rasp: 0.1, low: 1050, jitter: 0.03, pops: 0.3, vol: 1.1, idle: 1250, redline: 12000, intake: 0.12, intakeHz: 420 },
+  // popular: monocilíndrico de 125 cc (batida seca "tê-tê-tê"), escape pequeno
+  'moto-pop': { cyl: 1, events: [0], banks: [0], pipeMs: [1.8, 1.8], fb: 0.32, res: [[160, 1.2, 1], [650, 2, 0.5], [1700, 2.8, 0.16]], pulse: 1.9, drive: 1.7, rasp: 0.14, low: 900, jitter: 0.08, pops: 0.15, vol: 1.4, idle: 1400, redline: 9000 },
 };
 
 // ângulos igualmente espaçados num ciclo de 720°

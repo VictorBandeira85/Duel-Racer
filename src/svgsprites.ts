@@ -59,6 +59,7 @@ function image(src: string): HTMLImageElement | null {
   return null;
 }
 export const imageReady = (src: string) => !!image(src);
+export const loadedImage = (src: string | undefined) => (src ? image(src) : null);
 
 // proporção altura/largura da imagem (null enquanto carrega)
 export function spriteAspect(src: string): number | null {
@@ -158,13 +159,17 @@ export function scratch(w: number, h: number) {
 }
 
 // Sprite do SVG no tamanho pedido (null enquanto a imagem ainda carrega)
-export function svgSprite(svg: string, w: number, h: number, paint?: Paint): HTMLCanvasElement | null {
-  const img: CanvasImageSource | null = paint ? paintImage(svg, paint) : image(svg);
+// post: retoque na resolução da arte antes de reduzir (motorista atrás do vidro, src/drivers.ts), com a
+// chave dele no cache
+export interface SpritePost { key: string; fn: (img: CanvasImageSource) => CanvasImageSource }
+export function svgSprite(svg: string, w: number, h: number, paint?: Paint, post?: SpritePost): HTMLCanvasElement | null {
+  let img: CanvasImageSource | null = paint ? paintImage(svg, paint) : image(svg);
   if (!img) return null;
+  if (post) img = post.fn(img);
   // tamanhos agrupados (2 px nos pequenos, até 16 px nos grandes): um carro chegando perto não
   // gera um sprite novo a cada quadro; quem desenha amplia/reduz a diferença
   const bw = bucketPx(w), bh = bucketPx(h);
-  const base = `${svg.length}:${svg.slice(-40)}:${paint?.color ?? ''}`;
+  const base = `${svg.length}:${svg.slice(-40)}:${paint?.color ?? ''}${post ? ':' + post.key : ''}`;
   const key = `${base}:${bw}x${bh}`;
   let cv = rasters.get(key);
   if (cv) {

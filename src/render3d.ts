@@ -1,14 +1,15 @@
 import { drawPerson, type CopPose } from './people';
 import { drawSmoke } from './smoke';
 import { drawCrisp } from './crisp';
-import { CAM_DEPTH, CAM_H, CAR_W, CRES, DRAW_DIST, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
+import { CAM_DEPTH, CAM_H, CAR_W, CRES, DRAW_DIST, PLAYER_Z, POLICE_W, SEG_LEN } from './config';
 import { CARS, drawCar } from './cars';
 import { lowFx, fxMode, setPerfScene } from './perf';
 import { TEX, groundTex, kindOf, texSlice } from './groundtex';
 import { adsReady } from './billboards';
 import { drawGlow, type Stops } from './glowsprite';
 import { beginLights, finishNight, pushCarBeam, pushOccluder, sirenGlow, sirenWash, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, LAMP_H, inCone, type Pass, type RoadPt } from './nightlight';
-import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
+import { isMoto, trafficLook, trafficW, type Officer, type Race, type TrafficCar } from './race';
+import { drawFallMoto, drawFallRider, fallPx, type MotoFall } from './motofall';
 import { SPRITES, sceneryKey, setSceneryNight, LAMP } from './sprites';
 import { FOG_COLOR, type BgLayer } from './themes';
 import type { Point, Segment } from './track';
@@ -625,6 +626,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   if (r.rival) entities.push(r.rival);
   if (r.officer) entities.push(r.officer);
   if (r.ghostPos) entities.push(r.ghostPos);
+  for (const t of r.traffic) if (t.fall && t.fall.stage !== 'skid') entities.push(t.fall); // piloto da moto caída, solto na pista
   for (const e of entities) {
     const idx = Math.floor(e.z / SEG_LEN);
     if (idx >= base.index && idx < end) segs[idx].cars.push(e);
@@ -633,6 +635,13 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   let maxy = vp.y + vp.h;
   const road: RoadPt[] = [];
   const roadAll: RoadPt[] = []; // a pista inteira visível (recorte dos fachos dos faróis)
+  // (x, y e w sem arredondar: a pista é desenhada em pixels inteiros, mas o facho preso a eles
+  // tremia meio pixel de um quadro para o outro conforme o arredondamento de cada trecho)
+  const pushGround = (s: Segment, i: number) => {
+    if (i - base.index > 120) return;
+    const sc = s.p1.screen.scale * vp.K;
+    road.push({ d: i - base.index, x: vp.x + vp.w / 2 + sc * s.p1.camera.x, y: vp.horizon - sc * s.p1.camera.y, w: sc * roadW, z: s.p1.camera.z / SEG_LEN, h: s.p1.world.y - playerY - LAMP_H });
+  };
   let x = 0;
   let dx = -(base.curve * basePct);
   for (let i = base.index; i < end; i++) {
@@ -646,13 +655,19 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
     project(s.p2, r.x - x - dx, playerY + CAM_H, r.position, roadW, vp, r.yaw);
     x += dx;
     dx += s.curve;
-    if (s.p1.camera.z <= CAM_DEPTH || s.p2.screen.y >= s.p1.screen.y || s.p2.screen.y >= maxy) continue;
+    if (s.p1.camera.z <= CAM_DEPTH || s.p2.screen.y >= s.p1.screen.y || s.p2.screen.y >= maxy) {
+      // trecho longe, com menos de um pixel de altura, mas à vista (não está atrás de uma crista): não
+      // é desenhado, mas conta como chão para o facho (senão o facho acabava num corte claro no
+      // último trecho de altura inteira, que mudava de linha a cada quadro)
+      if (s.p1.camera.z > CAM_DEPTH && s.p2.screen.y === s.p1.screen.y && s.p1.screen.y <= maxy && road.length) pushGround(s, i);
+      continue;
+    }
     drawSegment(c, s, r, vp, ground, fog ? fogAt(i - base.index) : 0);
     maxy = s.p1.screen.y;
     // chão visível à frente, para o facho dos faróis seguir subidas e descidas
     // (z: distância contínua em segmentos, para o brilho do facho cair sem saltos com o movimento)
     // h: altura do chão em relação ao farol do carro (para o cone do facho)
-    if (i - base.index <= 120) road.push({ d: i - base.index, x: s.p1.screen.x, y: s.p1.screen.y, w: s.p1.screen.w, z: s.p1.camera.z / SEG_LEN, h: s.p1.world.y - playerY - LAMP_H });
+    pushGround(s, i);
     roadAll.push({ d: i - base.index, x: s.p1.screen.x, y: s.p1.screen.y, w: s.p1.screen.w });
   }
 
@@ -696,7 +711,11 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       const sw = def.w * sc * vp.K;
       const sh = def.h * sc * vp.K;
       const sx = s.p1.screen.x + sc * sp.x * vp.K;
-      if (sx + sw / 2 < vp.x || sx - sw / 2 > vp.x + vp.w || sw < 1.2) continue;
+      if (sx + sw / 2 < vp.x || sx - sw / 2 > vp.x + vp.w || sw < 1.2) {
+        // poste passando ao lado, fora da tela: a faixa de luz dele no chão continua (sumia de uma vez)
+        if (lit && sp.kind === 'lamp' && sw >= 1.2 && i <= tunAhead) pushStreetLight(sx - sw * LAMP.hx, s.p1.screen.y - sh + sh * LAMP.hy + sw * LAMP.hyW, sw * 9, dist, (sx - sw * LAMP.hx - s.p1.screen.x) / Math.max(1, s.p1.screen.w), s.p1.screen.y, i);
+        continue;
+      }
       // desenhado como pixel art nítida (sem antialias, com contorno); a caixa é um pouco
       // mais larga que o objeto para caber o que passa da largura (braço do poste etc.)
       const seed = sp.kind === 'building' ? sp.seed % 45 : sp.kind === 'billboard' ? sp.seed % 100 : sp.kind === 'gasKm' ? sp.seed : sp.kind === 'house' ? sp.seed % 6 : sp.kind === 'autumn' || sp.kind === 'umbrella' ? sp.seed % 3 : 0;
@@ -708,7 +727,9 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       // tapa as luzes do que está atrás deste objeto (farol e lanternas dos carros, o facho pintado
       // no chão, a faixa dos postes): todos os objetos, inclusive guard-rail e balizas
       const dr = drawn as ReturnType<typeof drawCrisp>;
-      if (lit && dr) pushOccluder({ ...dr, idx: i, clip: s.clip, d: dist, bx: sx });
+      // guard-rail e baliza: a lâmina de metal e o refletor laranja brilham quando o nosso farol os pega
+      const spec = sp.kind === 'rail' ? { x: sx - sw / 2, y: s.p1.screen.y - sh * 0.86, w: sw, h: sh * 0.34, top: 0.1 / 0.34, rgb: '255,244,225' } : sp.kind === 'post' ? { x: sx - sw / 2, y: s.p1.screen.y - sh * 0.86, w: Math.max(1, sw), h: Math.max(0.5, sh * 0.1), top: 1, rgb: '255,160,70' } : undefined;
+      if (lit && dr) pushOccluder({ ...dr, idx: i, clip: s.clip, d: dist, bx: sx, spec });
       // poste aceso à noite: a lâmpada fica na ponta do braço, sobre o acostamento
       const behindTun = i > tunAhead;
       if (lit && !behindTun && (sp.kind === 'station' || sp.kind === 'gasSign')) pushFacade(sp.kind, sx, s.p1.screen.y, sw, sh);
@@ -797,6 +818,10 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         const rw = CAR_W * sc * vp.K, rv = r.rival;
         fogged(c, fk, cx - rw, cy - rw * 1.3, rw * 2, rw * 1.3 + 4, (g) => drawCar(g, cx, cy, rw, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: rv.recover > 0 || rv.mistake > 0, night: lit, paint: r.rivalPaint, signal: rv.signal, plate: r.rivalPlate, drop: r.rivalCar!.rideDrop, dent: r.rivalDmg }));
         beamAhead(e.z, ex, CAR_W * sc * vp.K);
+      } else if ('rider' in e) {
+        // piloto da moto caída (no ar, rolando ou sentado tonto)
+        const f = e as MotoFall, cw = CAR_W * sc * vp.K;
+        fogged(c, fk, cx - cw, cy - cw * 1.6, cw * 2, cw * 1.6 + 4, (g) => drawFallRider(g, cx, cy, fallPx(cw), f));
       } else if ('phase' in e) {
         // o policial também tapa as luzes do que está atrás dele (e recebe a luz do nosso farol por inteiro);
         // mostrando a multa em primeiro plano, a arte grande da tela da multa toma o lugar dele na pista
@@ -812,8 +837,14 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         beamAhead(e.z, ex, POLICE_W * sc * vp.K, 5);
       } else {
         const t = e as TrafficCar;
-        const tw = (t.truck ? TRUCK_W : CAR_W) * sc * vp.K;
-        fogged(c, fk, cx - tw, cy - tw * 1.6, tw * 2, tw * 1.6 + 4, (g) => drawCar(g, cx, cy, tw, trafficLook(t, t.base < 0, night || fog || !!s.tunnel, t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0)));
+        if (t.fall) { // moto caindo/caída (src/motofall.ts)
+          const cw = CAR_W * sc * vp.K;
+          fogged(c, fk, cx - cw, cy - cw * 1.2, cw * 2, cw * 1.2 + 4, (g) => drawFallMoto(g, cx, cy, fallPx(cw), t, night || fog || !!s.tunnel));
+          continue;
+        }
+        const tw = trafficW(t, t.base < 0) * sc * vp.K;
+        const th = tw * (isMoto(t.model) ? 1.9 : 1.6); // moto: mais alta que larga
+        fogged(c, fk, cx - tw, cy - th, tw * 2, th + 4, (g) => drawCar(g, cx, cy, tw, trafficLook(t, t.base < 0, night || fog || !!s.tunnel, t.panic > 0.4 && Math.floor(performance.now() / 160) % 2 === 0)));
         beamAhead(e.z, ex, tw, t.truck ? 12 : 4, t.base < 0);
         // batido: fumaça saindo do motor (frente: em cima do capô; de trás: por cima do carro)
         if (t.smoke > 0) drawSmoke(c, cx, cy - tw * (t.base < 0 ? 0.35 : 0.55), tw, t.smoke, Math.round(t.base));
@@ -868,11 +899,18 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
 
   // espelho plano, campo estreito: quem fica para trás continua visível por mais tempo
   const D = 3600;
-  const behind: { z: number; x: number; w: number; look: Parameters<typeof drawCar>[4] }[] = [];
+  const behind: { z: number; x: number; w: number; look: Parameters<typeof drawCar>[4]; fall?: (g: CanvasRenderingContext2D, x: number, y: number, w: number) => void }[] = [];
   const night = !!r.def.night || r.inTunnel > 0.5;
   const glareK = r.def.night ? 1 : night ? 0.7 : 0;
   let nearest = 0;
-  for (const t of r.traffic) behind.push({ z: t.z, x: t.x, w: t.truck ? TRUCK_W : CAR_W, look: trafficLook(t, t.base > 0, night) });
+  for (const t of r.traffic) {
+    const fl = t.fall;
+    if (fl) { // moto caída e o piloto, vistos pelo outro lado (espelhados)
+      const look = { color: '#555' };
+      behind.push({ z: t.z, x: t.x, w: CAR_W, look, fall: (g, x, y, w) => drawFallMoto(g, x, y, fallPx(w), t, night, true) });
+      if (fl.stage !== 'skid') behind.push({ z: fl.z, x: fl.x, w: CAR_W, look, fall: (g, x, y, w) => drawFallRider(g, x, y, fallPx(w), fl, true) });
+    } else behind.push({ z: t.z, x: t.x, w: trafficW(t, t.base > 0), look: trafficLook(t, t.base > 0, night) });
+  }
   if (r.rival) behind.push({ z: r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint, signal: r.rival.signal, lamps: r.rivalLamps(), dent: r.rivalDmg } });
   for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') behind.push({ z: p.z, x: p.x, w: p.sv ? CAR_W * 1.08 : POLICE_W, look: { color: '#fff', police: true, sv: p.sv, siren: true, front: true, night } });
   behind.sort((a, b) => a.z - b.z);
@@ -888,6 +926,10 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
     if (bw < 2) { // bem longe: um pontinho (os faróis, à noite)
       c.fillStyle = night && b.look.front ? '#fff6c0' : b.look.color;
       c.fillRect(Math.round(cx + (b.x - r.x) * sb * k - 0.5), Math.round(yy - 1), 1, 1);
+      continue;
+    }
+    if (b.fall) {
+      b.fall(c, cx + (b.x - r.x) * sb * k, yy, bw);
       continue;
     }
     drawCar(c, cx + (b.x - r.x) * sb * k, yy, bw, b.look);

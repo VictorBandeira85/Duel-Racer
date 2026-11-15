@@ -134,7 +134,7 @@ export function drawCareer(c: CanvasRenderingContext2D, s: AppState) {
     // retrato do rival e o carro dele
     helmet(c, r.x + 13, r.y + 14, 8, can ? ev.driver.paint : '#9a9286', ei + 1);
     const rc = carById(ev.driver.car);
-    if (can) drawCarSide(c, r.x + r.w - 122, r.y + 25, 54, rc, ev.driver.paint);
+    if (can) drawCarSide(c, r.x + r.w - 122, r.y + 25, 54, rc, ev.driver.paint, undefined, undefined, 'rival');
     if (ev.boss) kicker(c, 'CHEFÃO', r.x + 26, r.y + 3, RED, '#fff');
     ink(c, ev.name.toUpperCase(), r.x + (ev.boss ? 64 : 26), r.y + 5, 5, can ? INK : GREY);
     ink(c, `vs ${ev.driver.name} • ${ev.stages.length} trecho${ev.stages.length > 1 ? 's' : ''}`, r.x + 26, r.y + 17, 5, can ? BLUE : GREY);
@@ -193,7 +193,7 @@ export function drawEvent(c: CanvasRenderingContext2D, s: AppState) {
   // o carro dele, em foto de estúdio, e a ficha
   const rc = carById(d.car);
   const ph: Rect = { x: x + 4, y: 80, w: 190, h: 76 };
-  photo(c, ph, () => drawCarSide(c, ph.x + 8, ph.y + 70, 174, rc, d.paint));
+  photo(c, ph, () => drawCarSide(c, ph.x + 8, ph.y + 70, 174, rc, d.paint, undefined, undefined, 'rival'));
   ink(c, `O ${rc.name} de ${d.name}`, ph.x, ph.y + ph.h + 5, 5, GREY);
   const fr: Rect = { x: x + 200, y: 77, w: 116, h: 82 };
   box(c, fr, `FICHA: ${rc.name.toUpperCase()}`);

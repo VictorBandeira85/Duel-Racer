@@ -16,7 +16,11 @@ const SOUND = 343; // m/s
 const RANGE = 70; // m: além disso, nenhum motor de fora
 
 // motor de cada modelo do trânsito
-const MODEL_ENGINE: Record<string, string> = { sedan: 'V6', hatch: '4 cil.', pickup: 'V8', van: '4 cil.', truck: 'diesel' };
+const MODEL_ENGINE: Record<string, string> = { sedan: 'V6', hatch: '4 cil.', pickup: 'V8', van: '4 cil.', truck: 'diesel',
+  'moto-custom': '4 cil.|moto-custom', 'moto-sport': '4 cil.|moto-sport', 'moto-pop': '4 cil.|moto-pop', // motos: timbre próprio (enginesynth.ts)
+  // caminhões: diesel; os cavalos mecânicos grandes (Kenworth, Volvo N10) turbinados, mais abafados
+  kenworth: 'diesel turbo', volvon10: 'diesel turbo', f4000: 'diesel', cargo: 'diesel', mb1113: 'diesel', vw790: 'diesel' };
+const MOTO_TOP: Record<string, number> = { 'moto-custom': 150, 'moto-sport': 230, 'moto-pop': 105 }; // km/h de fundo (giro pela marcha)
 // buzina de cada tipo de veículo: notas (Hz), timbre, filtro (tipo, frequência, Q), ataque (s)
 // e volume. Cada carro ainda tem a sua afinação (até ±9%), então dois iguais não soam idênticos.
 interface HornDef { notes: number[]; wave: OscillatorType; filter: BiquadFilterType; fq: number; q: number; attack: number; vol: number; beat: [number, number] }
@@ -32,6 +36,8 @@ export const HORN: Record<string, HornDef> = {
   // caminhão: buzina a ar, acorde de três notas bem grave, entra devagar
   // esportivo (classes B, A e S): duas cornetas brilhantes e rápidas
   sport: { notes: [440, 554], wave: 'sawtooth', filter: 'bandpass', fq: 1800, q: 1.3, attack: 0.006, vol: 0.12, beat: [0.26, 0.15] },
+  // moto: buzina pequena de uma nota só, fanhosa (sem agudo estridente)
+  moto: { notes: [400], wave: 'square', filter: 'bandpass', fq: 1100, q: 2, attack: 0.005, vol: 0.07, beat: [0.22, 0.12] },
   truck: { notes: [147, 185, 220], wave: 'sawtooth', filter: 'lowpass', fq: 1300, q: 0.8, attack: 0.08, vol: 0.17, beat: [0.85, 0.62] },
 };
 
@@ -176,15 +182,15 @@ export function updateTrafficAudio(r: Race, dt: number) {
   for (const c of r.traffic) {
     const kmh = Math.abs(c.speed) * KMH;
     // modelo do jogo: o ronco dele de verdade
-    if (c.car) add(c, c.z, c.x, c.speed, `${c.car.engine}|${c.car.id}`, c.hit ? 0.05 : rpmFor(kmh, c.car.maxSpeed * KMH, c.car.gears.length), c.hit ? 0 : 0.55, 0.95, c);
-    else add(c, c.z, c.x, c.speed, MODEL_ENGINE[c.model] ?? 'V6', c.hit ? 0.05 : rpmFor(kmh, c.truck ? 110 : 160, c.truck ? 8 : 5), c.hit ? 0 : 0.55, c.truck ? 1.25 : 0.9, c);
+    if (c.car) add(c, c.z, c.x, c.speed, `${c.car.engine}|${c.car.id}`, c.hit ? 0.05 : rpmFor(kmh, c.car.maxSpeed * KMH, c.car.gears.length), c.hit ? 0 : 0.55, 1.35, c);
+    else add(c, c.z, c.x, c.speed, MODEL_ENGINE[c.model] ?? 'V6', c.hit ? 0.05 : rpmFor(kmh, c.truck ? 110 : MOTO_TOP[c.model] ?? 160, c.truck ? 8 : 5), c.hit ? 0 : 0.55, c.truck ? 1.8 : 1.3, c);
   }
   if (r.rival && r.rivalCar) {
     const kmh = r.rival.speed * KMH;
-    add(r.rival, r.rival.z, r.rival.x, r.rival.speed, `${r.rivalCar.engine}|${r.rivalCar.id}`, rpmFor(kmh, r.rivalCar.maxSpeed * KMH, r.rivalCar.gears.length), 1, 1.3);
+    add(r.rival, r.rival.z, r.rival.x, r.rival.speed, `${r.rivalCar.engine}|${r.rivalCar.id}`, rpmFor(kmh, r.rivalCar.maxSpeed * KMH, r.rivalCar.gears.length), 1, 2.0);
   }
   for (const p of r.police) if (p.state === 'chase' || p.state === 'pull')
-    add(p, p.z, p.x, p.speed, p.sv ? 'V12 48v' : 'V8 16v', rpmFor(p.speed * KMH, p.sv ? 300 : 245, 4), 1, 1.2);
+    add(p, p.z, p.x, p.speed, p.sv ? 'V12 48v' : 'V8 16v', rpmFor(p.speed * KMH, p.sv ? 300 : 245, 4), 1, 1.5);
 
   // ---- motores: os três mais perto ----
   const near = srcs.filter((s) => s.d < RANGE).sort((a, b) => a.d - b.d).slice(0, voices.length);
@@ -208,7 +214,8 @@ export function updateTrafficAudio(r: Race, dt: number) {
     const vr = (s.dz * s.vz) / s.d;
     const pitch = Math.max(0.7, Math.min(1.4, SOUND / (SOUND + vr)));
     v.node.port.postMessage({ rpm: s.rpm, load: s.load, on: 1, boost: 0, pitch });
-    const g = (0.14 * s.vol) / (1 + (s.d / 6) ** 2);
+    // (cai com a distância mais devagar: o rival e o trânsito se ouvem de mais longe)
+    const g = (0.14 * s.vol) / (1 + (s.d / 8) ** 2);
     v.gain.gain.setTargetAtTime(r.state === 'arrived' ? g * 0.5 : g, ctx.currentTime, 0.05);
     v.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, (s.dx / s.d) * 1.2)), ctx.currentTime, 0.05);
   }
@@ -227,7 +234,7 @@ export function updateTrafficAudio(r: Race, dt: number) {
     cs.prevDz = s.dz;
     const c = s.car;
     if (!c) continue;
-    const model = c.truck ? 'truck' : c.car ? ({ D: 'hatch', C: 'sedan' } as Record<string, string>)[perfClass(c.car)] ?? 'sport' : c.model;
+    const model = c.truck ? 'truck' : c.car ? ({ D: 'hatch', C: 'sedan' } as Record<string, string>)[perfClass(c.car)] ?? 'sport' : c.model.startsWith('moto') ? 'moto' : c.model;
     // contramão vindo de frente na faixa do jogador: buzina (e freia em cima)
     if (c.panic > 0) {
       cs.panicT += dt;
@@ -244,7 +251,7 @@ export function updateTrafficAudio(r: Race, dt: number) {
     cs.panicT = 0;
     cs.braked = false;
     // bateu: buzina longa, uma vez
-    if (c.hit && !cs.hitHonk) {
+    if (c.hit && !cs.hitHonk && !c.fall) { // (moto caída: o piloto não buzina)
       cs.hitHonk = true;
       cs.honkCd = 1.4;
     }

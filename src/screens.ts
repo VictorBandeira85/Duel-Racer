@@ -809,7 +809,7 @@ function drawOpponent(c: CanvasRenderingContext2D, s: AppState) {
   kicker(c, rival ? 'ADVERSÁRIO' : 'DESAFIO', right.x, 38, BLUE, '#fff');
   ink(c, rival ? rival.name.toUpperCase() : 'CONTRA O RELÓGIO', right.x + (rival ? 58 : 46), 40, 5, INK);
   photo(c, right, () => {
-    if (rival) drawCarSide(c, right.x + 8, right.y + 47, 130, rival);
+    if (rival) drawCarSide(c, right.x + 8, right.y + 47, 130, rival, undefined, undefined, undefined, 'rival');
     else stopwatch(c, right.x + right.w / 2 + 10, right.y + 30, 15);
   }, rival ? ['#5e6670', '#c8cdd2'] : ['#3a4a6a', '#9aaac8']);
   burst(c, x + 160, 76, 14, ['X'], YELLOW, RED, s.t);

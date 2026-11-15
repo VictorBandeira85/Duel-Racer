@@ -1,3 +1,4 @@
+import { trafficDriver } from './drivers';
 import { preloadCops } from './people';
 import type { Dent, GlassMark } from './damage';
 import { prewarmAds } from './billboards';
@@ -6,7 +7,7 @@ import { aeroMul, CARS, G, LAUNCH_BOOST, launchRpm, Powertrain, perfClass, resis
 import { PAINTS } from './paint';
 import type { Course, StageDef } from './courses';
 import { makePlate, modelYear, themeRegion, REGION_PLATE, type Plate } from './plates';
-import { THEMES, blendTheme, fogTheme, nightTheme, rainTheme, sunsetTheme, goldenTheme, type Theme } from './themes';
+import { THEMES, blendTheme, fogTheme, nightTheme, rainTheme, sunsetTheme, goldenTheme, type Theme, type ThemeId } from './themes';
 import { SPRITES, type SpriteKind } from './sprites';
 import { buildTrack, laneCenter, type Segment, type Track } from './track';
 import { brakeAmt, gasAmt, steerAmt, takeShift } from './input';
@@ -14,6 +15,7 @@ import { beep, radarBeep, bumpSound, crashSound, landSound, stoneSound, setTunne
 import { clamp, lerp, overlap, rng } from './util';
 import { updateTrafficAudio } from './trafficaudio';
 import { GHOST_DT, ghostAt, type Ghost } from './records';
+import { startFall, updateFall, type MotoFall } from './motofall';
 
 // curvatura da pista por unidade de curva (1/m): curva 4 = fechada (~175 km/h a 1 g)
 const CURVE_K = 0.00105;
@@ -27,7 +29,48 @@ const COP_SV_KMH = 300;
 const COP_SV_ACC = 2300;
 const TRUCK_KG = 9000;
 
-export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck' | 'fusca' | 'kombi' | 'suv' | 'sedan90';
+export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck' | 'fusca' | 'kombi' | 'suv' | 'sedan90' | TruckModel | MotoModel;
+// Caminhões (arte do Victor, tools/ref/truck_art.py): Kenworth W900 graneleiro (deserto, cânion), F-4000
+// boiadeiro (fazenda, savana, interior), Ford Cargo baú e VW 7.90 baú (cidade, interior), Mercedes L-1113
+// basculante (interior, polo industrial, serra) e Volvo N10 tanque (industrial, cidade, deserto)
+export type TruckModel = 'kenworth' | 'f4000' | 'cargo' | 'mb1113' | 'vw790' | 'volvon10';
+const TRUCK_THEMES: Partial<Record<ThemeId, TruckModel[]>> = {
+  desert: ['kenworth', 'kenworth', 'volvon10'], canyon: ['kenworth'],
+  farm: ['f4000', 'f4000', 'mb1113', 'cargo', 'vw790'], savanna: ['f4000'],
+  forest: ['f4000', 'cargo', 'mb1113', 'vw790'], autumn: ['f4000', 'cargo', 'mb1113', 'vw790'], jungle: ['f4000', 'mb1113', 'cargo', 'vw790'],
+  city: ['cargo', 'vw790', 'volvon10'], industrial: ['mb1113', 'volvon10'], mountain: ['mb1113', 'mb1113', 'cargo'],
+};
+const TRUCK_ANY: TruckModel[] = ['cargo', 'vw790', 'mb1113', 'volvon10']; // cenários sem lista (litoral, praia, neve)
+// largura de cada PNG (traseira, frente) em px; a carroceria da vista mais larga tem 160 px = TRUCK_W, os
+// retrovisores passam disso (o sprite é desenhado mais largo na mesma proporção)
+const TRUCK_PX: Record<TruckModel, [number, number]> = {
+  kenworth: [151, 160], f4000: [172, 174], cargo: [152, 189], mb1113: [164, 167], vw790: [156, 188], volvon10: [151, 160],
+};
+// Motos (arte do Victor, tools/ref/motos.py): custom estradeira no deserto/cânion/fazenda/savana,
+// esportiva carenada nas estradas rápidas (litoral, serra), popular de motoboy na cidade e no interior
+export type MotoModel = 'moto-custom' | 'moto-sport' | 'moto-pop';
+export const isMoto = (m?: string): m is MotoModel => !!m && m.startsWith('moto-');
+const MOTO_THEMES: Partial<Record<ThemeId, MotoModel[]>> = {
+  desert: ['moto-custom'], canyon: ['moto-custom'], savanna: ['moto-custom'], farm: ['moto-custom', 'moto-custom', 'moto-pop'],
+  coast: ['moto-sport'], beach: ['moto-sport', 'moto-pop'], mountain: ['moto-sport'], alpine: ['moto-sport'], autumn: ['moto-sport', 'moto-custom'],
+  city: ['moto-pop'], industrial: ['moto-pop'], forest: ['moto-pop', 'moto-custom'], jungle: ['moto-pop'],
+};
+const MOTO_SHARE = 0.13; // fração do trânsito (fora caminhões) que é moto, nos cenários que têm
+const MOTO_SPEED: Record<MotoModel, number> = { 'moto-pop': 0.82, 'moto-custom': 0.95, 'moto-sport': 1.3 };
+const MOTO_KG = 260; // moto com piloto
+const MOTO_LEAN = 1 / 60000; // inclinação (rad) por curva x velocidade
+const MOTO_HIT = 0.45; // largura de colisão em relação à do carro
+const MOTO_OFF = LANE_W * 0.2; // anda um pouco à direita da faixa (no sentido em que vai)
+// largura de cada PNG (traseira, frente), na escala dos carros do trânsito (160 px = CAR_W)
+const MOTO_PX: Record<MotoModel, [number, number]> = { 'moto-custom': [83, 93], 'moto-sport': [70, 75], 'moto-pop': [74, 72] };
+// largura de desenho de um veículo do trânsito (unidades do mundo); front = vista de frente
+export function trafficW(t: { truck: boolean; model: TrafficModel; car?: CarSpec }, front: boolean) {
+  if (t.truck) return (TRUCK_W * (TRUCK_PX[t.model as TruckModel]?.[front ? 1 : 0] ?? 160)) / 160;
+  if (!t.car && isMoto(t.model)) return (CAR_W * MOTO_PX[t.model][front ? 1 : 0]) / 160;
+  return CAR_W;
+}
+// deslocamento da moto na faixa (à direita de quem pilota)
+const laneOff = (c: TrafficCar) => (!c.car && isMoto(c.model) ? Math.sign(c.base || c.speed || 1) * MOTO_OFF : 0);
 // sorteio do trânsito, com o peso dos carros mais vendidos nos anos 90 (pesquisa: Gol, Uno e Escort
 // = hatch; Monza = sedan; Fusca e Kombi; Taurus/Accord = sedan90; utilitários)
 const CAR_MODELS: TrafficModel[] = ['sedan', 'sedan', 'hatch', 'hatch', 'hatch', 'pickup', 'van', 'fusca', 'kombi', 'suv', 'sedan90', 'sedan90'];
@@ -55,8 +98,12 @@ const ROADSIDE: Partial<Record<SpriteKind, 'scrape' | 'knock'>> = {
 export function trafficLook(t: TrafficCar, front: boolean, night: boolean, flash = false): CarLook {
   // freando: mais devagar do que gosta de andar (trânsito na mesma mão, atrás de alguém ou em pânico)
   const brake = t.speed > 0 && t.speed < t.base * 0.9;
-  const look: CarLook = { color: t.color, front, truck: t.truck, night, model: t.model, signal: t.signal, flash, tilt: t.tilt, brake, plate: t.plate, dent: t.dmg };
+  const moto = !t.car && isMoto(t.model);
+  // moto: sem amassado por cima (o desenho de batida é de carro); inclina um pouco na curva
+  const look: CarLook = { color: t.color, front, truck: t.truck, night, model: t.model, signal: t.signal, flash, tilt: moto && !t.hit ? t.lean ?? 0 : t.tilt, brake, plate: t.plate, dent: moto ? undefined : t.dmg };
   if (t.car) Object.assign(look, { rear: t.car.rear, paint: t.color, lamps: { up: night || flash ? 1 : 0, on: night || flash, high: flash } });
+  // carro do jogo no trânsito: esportivo (classes A e S) com o motorista de óculos e jaqueta; os outros, sorteado
+  if (t.car) look.driver = 'AS'.includes(perfClass(t.car)) ? 'rival' : trafficDriver(t.car.id, t.color);
   return look;
 }
 // gravidade de verdade (9,81 m/s², ~144 unidades por metro)
@@ -94,6 +141,8 @@ export interface TrafficCar {
   smoke: number;
   slide: number;
   tilt: number;
+  lean?: number; // moto: inclinação na curva (rad, para o lado de dentro)
+  fall?: MotoFall; // moto caindo/caída com o piloto (src/motofall.ts)
   rel?: number; // posição em relação ao jogador no quadro anterior (conta ultrapassagens)
 }
 
@@ -476,7 +525,8 @@ export class Race {
     c.speed = (oncoming ? -1 : 1) * (0.2 + r() * 0.16) * 12000;
     c.color = TRAFFIC_COLORS[Math.floor(r() * TRAFFIC_COLORS.length)];
     c.truck = r() < 0.18;
-    c.model = c.truck ? 'truck' : CAR_MODELS[Math.floor(r() * CAR_MODELS.length)];
+    const trucks = TRUCK_THEMES[this.def.theme] ?? TRUCK_ANY;
+    c.model = c.truck ? trucks[Math.floor(r() * trucks.length)] : CAR_MODELS[Math.floor(r() * CAR_MODELS.length)];
     c.car = !c.truck && r() < GAME_SHARE ? pickGameCar(r()) : undefined;
     if (c.car) {
       // metade na cor de fábrica, o resto numa cor qualquer da paleta
@@ -485,14 +535,23 @@ export class Race {
       c.speed *= { D: 1, C: 1.03, B: 1.08, A: 1.12, S: 1.16 }[perfClass(c.car)];
     }
     if (c.truck) c.speed *= 0.85; // caminhão anda mais devagar
+    // moto: só nos cenários que têm (nada de moto na neve), sem ser carro do jogo
+    const motos = this.def.weather === 'snow' ? undefined : MOTO_THEMES[this.def.theme];
+    if (!c.truck && motos && r() < MOTO_SHARE) {
+      c.model = motos[Math.floor(r() * motos.length)];
+      c.car = undefined;
+      c.speed *= MOTO_SPEED[c.model];
+    }
     // placa: quase todos da região do trecho, alguns de outras regiões; os esportivos com a
     // placa do país de origem; os genéricos de vários anos (os de antes de 1990, amarela)
     const regions = Object.keys(REGION_PLATE);
     const region = r() < 0.85 ? this.region : regions[Math.floor(r() * regions.length)];
     c.plate = c.car ? makePlate(r, region, c.car.art, modelYear(c.car.basedOn)) : makePlate(r, region, undefined, 1974 + Math.floor(r() * 23));
     c.hit = false;
+    c.fall = undefined;
     c.base = c.speed;
-    c.tx = laneCenter(this.track, lane);
+    c.tx = laneCenter(this.track, lane) + laneOff(c);
+    if (laneOff(c)) c.x = c.tx + (r() - 0.5) * 120;
     c.signal = 0;
     c.signalT = 0;
     c.moving = false;
@@ -502,12 +561,13 @@ export class Race {
     c.dmg = undefined;
     c.slide = 0;
     c.tilt = 0;
+    c.lean = 0;
     c.rel = undefined;
   }
 
   // área de colisão um pouco menor que o desenho, para raspões não contarem
   carHalf(c: TrafficCar) {
-    return ((c.truck ? TRUCK_W : CAR_W) / 2) * HITBOX;
+    return ((c.truck ? TRUCK_W : !c.car && isMoto(c.model) ? CAR_W * MOTO_HIT : CAR_W) / 2) * HITBOX;
   }
 
   update(dt: number) {
@@ -1113,13 +1173,14 @@ export class Race {
     const pz = this.playerZ;
     for (const c of this.traffic) {
       if (!c.hit) this.trafficAI(c, dt);
+      else if (c.fall) updateFall(c, dt, this.track.roadW, this.fallMovers(c));
       else {
         // batido: arrasta até parar, escorrega de lado e fica atravessado, fumegando
         c.panic = 0;
         c.speed -= Math.sign(c.speed) * Math.min(Math.abs(c.speed), 3000 * dt);
         c.x += c.slide * dt;
         c.slide *= Math.exp(-2.2 * dt);
-        c.tilt += ((Math.sign(c.slide) || Math.sign(c.tilt)) * 0.16 - c.tilt) * Math.min(1, dt * 5);
+        c.tilt += ((Math.sign(c.slide) || Math.sign(c.tilt)) * (!c.car && isMoto(c.model) ? 1.1 : 0.16) - c.tilt) * Math.min(1, dt * 5);
         c.smoke = Math.max(0.3, c.smoke - dt * 0.08);
       }
       if (!c.hit && c.slide) { // empurrado num raspão: volta ao normal
@@ -1140,11 +1201,23 @@ export class Race {
     }
   }
 
+  // quem pode vir em cima do piloto caído: o jogador, o rival e o trânsito da mesma mão
+  private fallMovers(c: TrafficCar) {
+    const m: { z: number; x: number; speed: number }[] = [{ z: this.playerZ, x: this.x, speed: this.speed }];
+    if (this.rival) m.push(this.rival);
+    for (const o of this.traffic) if (o !== c && !o.hit && o.speed > 0) m.push(o);
+    return m;
+  }
+
   // Motorista do trânsito: segue o carro da frente (sem atravessá-lo) e, onde há duas faixas
   // no mesmo sentido, troca de faixa dando seta antes, só se a faixa ao lado estiver livre
   private trafficAI(c: TrafficCar, dt: number) {
     const t = this.track;
     const dir = c.speed >= 0 ? 1 : -1;
+    if (!c.car && isMoto(c.model)) { // moto inclina para dentro da curva (pouco: pixel art)
+      const want = clamp(this.findSegment(c.z).curve * Math.abs(c.speed) * MOTO_LEAN, -0.12, 0.12);
+      c.lean = (c.lean ?? 0) + (want - (c.lean ?? 0)) * Math.min(1, dt * 3);
+    }
     let gapAhead = Infinity, aheadSpeed = 0;
     const look = (z: number, x: number, sp: number) => {
       const dz = (z - c.z) * dir;
@@ -1210,8 +1283,8 @@ export class Race {
       || (Math.abs(this.x - tx) < CAR_W * 1.2 && Math.abs(this.playerZ - c.z) < SEG_LEN * 4)
       || (!!this.rival && Math.abs(this.rival.x - tx) < CAR_W * 1.2 && Math.abs(this.rival.z - c.z) < SEG_LEN * 4);
     if (busy) return;
-    c.tx = tx;
-    c.signal = tx > c.x ? 1 : -1;
+    c.tx = tx + laneOff(c);
+    c.signal = c.tx > c.x ? 1 : -1;
     c.signalT = 1.1;
   }
 
@@ -1831,6 +1904,11 @@ export class Race {
         c.hit = true;
         const sd = r.x < c.x ? -1 : 1;
         c.dmg = { v: 0.7, side: sd, seed: Math.floor(this.rand() * 1e6) };
+        if (!c.car && isMoto(c.model) && c.speed > 0) { // moto na mesma mão: cai (src/motofall.ts)
+          c.slide = -sd * 900;
+          c.speed = Math.max(c.speed, r.speed * 0.6);
+          startFall(c, sd);
+        }
         this.rivalDmg = { v: 0.7, side: -sd, seed: Math.floor(this.rand() * 1e6) };
         r.speed *= 0.3;
         r.recover = 1.2;
@@ -1852,6 +1930,23 @@ export class Race {
         // raspão: só a lateral encostou (sobreposição pequena); na contramão só de raspão mesmo
         const depth = myHalf + half - Math.abs(this.x - c.x);
         const side = this.x < c.x ? -1 : 1;
+        if (c.fall) {
+          // moto caída no chão: o carro passa por cima/empurra (tranco e raspão, nada de batida de
+          // verdade) e ela volta a escorregar um pouco à frente, soltando faísca
+          this.speed *= 0.82;
+          this.ghost = 0.5;
+          this.scrapeT = 0.3;
+          this.jolt = Math.max(this.jolt, 0.45);
+          this.damage = Math.min(1, this.damage + 0.05);
+          this.clean = false;
+          this.stats.scrapes++;
+          c.speed = Math.max(c.speed, this.speed * 0.5);
+          c.slide = -side * 500;
+          c.z = pz + SEG_LEN * 1.2;
+          c.fall.stopT = 0;
+          bumpSound(0.5);
+          continue;
+        }
         if (depth < CAR_W * (c.speed > 0 ? 0.22 : 0.12)) {
           this.x += side * (depth + 60);
           this.speed *= c.speed > 0 ? 0.82 : 0.65;
@@ -1867,13 +1962,31 @@ export class Race {
         }
         // de frente com quem vem na contramão, ou forte demais: batida
         const dv = (this.speed - c.speed) * KMH;
+        // moto na mesma mão atingida com força: ela cai e escorrega; o carro só leva o tranco (é leve)
+        if (c.speed > 0 && dv > 40 && !c.car && isMoto(c.model)) {
+          c.slide = -side * (400 + dv * 8);
+          c.speed = Math.max(c.speed, this.speed * 0.9); // jogada para a frente (cai à vista, não embaixo do carro)
+          c.z = pz + SEG_LEN * 1.4;
+          startFall(c, side); // derrapa, o piloto voa, rola e fica sentado tonto (src/motofall.ts)
+          this.speed *= 0.86;
+          this.x += side * Math.min(depth, 200) * 0.3;
+          this.ghost = 0.5;
+          this.scrapeT = 0.3;
+          this.clean = false;
+          this.stats.scrapes++;
+          this.jolt = Math.max(this.jolt, Math.min(0.8, 0.35 + dv / 150));
+          this.damage = Math.min(1, this.damage + Math.min(0.3, 0.1 + dv / 300));
+          if (dv > 60 && this.rand() < 0.5) this.crackGlass(Math.min(1, dv / 120), false, side);
+          bumpSound(Math.min(1, 0.4 + dv / 120));
+          continue;
+        }
         if (c.speed < 0 || dv > (c.truck ? 70 : 110)) {
-          this.crash({ v: c.speed, kg: c.truck ? TRUCK_KG : TRAFFIC_KG, side, car: c });
+          this.crash({ v: c.speed, kg: c.truck ? TRUCK_KG : !c.car && isMoto(c.model) ? MOTO_KG : TRAFFIC_KG, side, car: c });
           return;
         }
         // batida leve na traseira: troca de quantidade de movimento conforme os pesos
         // (o caminhão quase não sente; um carro pequeno é empurrado para a frente)
-        const m1 = this.car.mass, m2 = c.truck ? TRUCK_KG : TRAFFIC_KG, e = 0.3;
+        const m1 = this.car.mass, m2 = c.truck ? TRUCK_KG : !c.car && isMoto(c.model) ? MOTO_KG : TRAFFIC_KG, e = 0.3;
         const p = m1 * this.speed + m2 * c.speed;
         const rel = this.speed - c.speed;
         this.speed = Math.max(0, (p - m2 * e * rel) / (m1 + m2));

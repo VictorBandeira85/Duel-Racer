@@ -70,22 +70,24 @@ export function perfSample(dt: number) {
   b.rose += dt;
   const drop = () => {
     // caiu logo depois de ter subido: este degrau não segura aqui; fica vetado
-    if (b.rose < 30) b.floor = Math.max(b.floor, b.level + 1);
+    if (b.rose < 90) b.floor = Math.max(b.floor, b.level + 1);
     b.level++;
     b.slow = b.fast = b.since = 0;
     b.rose = Infinity;
     ema = 1 / 60;
   };
-  // abaixo de ~54 quadros: desce depois de 2 s; abaixo de ~42: depois de 0,8 s
-  if (ema > 1 / 54 && b.level < MAX_LEVEL) {
+  // abaixo de ~52 quadros: desce depois de 3 s; abaixo de ~40: depois de 1,5 s. Entre duas trocas,
+  // pelo menos 5 s (cada troca muda a resolução da estrada, da tela ou das luzes: trocar a toda
+  // hora faz a imagem inteira "piscar"; a faixa entre 52 e 58,5 qps não mexe em nada)
+  if (ema > 1 / 52 && b.level < MAX_LEVEL) {
     b.slow += dt;
     b.fast = 0;
-    if (b.since > 1 && (b.slow > 2 || (ema > 1 / 42 && b.slow > 0.8))) drop();
-  } else if (ema < 1 / 57.5) {
+    if (b.since > 5 && (b.slow > 3 || (ema > 1 / 40 && b.slow > 1.5))) drop();
+  } else if (ema < 1 / 58.5) {
     b.fast += dt;
     b.slow = 0;
     // volta a subir só depois de um bom tempo folgado (e nunca acima de um degrau vetado)
-    if (b.fast > 12 && b.since > 12 && b.level > b.floor) {
+    if (b.fast > 30 && b.since > 30 && b.level > b.floor) {
       b.level--;
       b.fast = b.since = 0;
       b.rose = 0;

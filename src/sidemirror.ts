@@ -1,8 +1,9 @@
-import { CAM_H, CAR_W, POLICE_W, RES, SEG_LEN, TRUCK_W } from './config';
+import { CAM_H, CAR_W, POLICE_W, RES, SEG_LEN } from './config';
 import { drawCar } from './cars';
 import { fxTick, perfLevel } from './perf';
 import { mirrorGlare, mirrorWash, sirenGlow, sirenWash } from './nightlight';
-import { trafficLook, type Race } from './race';
+import { trafficLook, trafficW, type Race } from './race';
+import { drawFallMoto, drawFallRider, fallPx } from './motofall';
 
 // Retrovisor externo do lado do motorista, funcionando: o vidro das cabines desenhadas a partir
 // da arte é encontrado pela cor (claro e azulado, à esquerda do painel) e, no lugar dele, entra
@@ -229,9 +230,16 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
     v.fill();
   }
   // quem vem atrás (do mais longe para o mais perto)
-  const behind: { dz: number; x: number; w: number; look: Parameters<typeof drawCar>[4] }[] = [];
+  const behind: { dz: number; x: number; w: number; look: Parameters<typeof drawCar>[4]; fall?: (g: CanvasRenderingContext2D, x: number, y: number, w: number) => void }[] = [];
   const pz = r.position;
-  for (const t of r.traffic) behind.push({ dz: pz - t.z, x: t.x, w: t.truck ? TRUCK_W : CAR_W, look: trafficLook(t, t.base > 0, night) });
+  for (const t of r.traffic) {
+    const fl = t.fall;
+    if (fl) { // moto caída e o piloto (src/motofall.ts), vistos pelo outro lado: espelhados
+      const look = { color: '#555' };
+      behind.push({ dz: pz - t.z, x: t.x, w: CAR_W, look, fall: (g, x, y, w) => drawFallMoto(g, x, y, fallPx(w), t, night, true) });
+      if (fl.stage !== 'skid') behind.push({ dz: pz - fl.z, x: fl.x, w: CAR_W, look, fall: (g, x, y, w) => drawFallRider(g, x, y, fallPx(w), fl, true) });
+    } else behind.push({ dz: pz - t.z, x: t.x, w: trafficW(t, t.base > 0), look: trafficLook(t, t.base > 0, night) });
+  }
   if (r.rival) behind.push({ dz: pz - r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint, signal: r.rival.signal, lamps: r.rivalLamps(), dent: r.rivalDmg } });
   for (const p of r.police) if (p.state !== 'done') behind.push({ dz: pz - p.z, x: p.x, w: p.sv ? CAR_W * 1.08 : POLICE_W, look: { color: '#fff', police: true, sv: p.sv, siren: p.state === 'chase' || p.state === 'pull', front: true, night } });
   behind.sort((a, b) => b.dz - a.dz);
@@ -241,6 +249,10 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
     if (bw < 2) { // bem longe: um pontinho
       v.fillStyle = night && b.look.front ? '#fff6c0' : b.look.color;
       v.fillRect(Math.round(sx(b.x, b.dz) - 0.5), Math.round(sy(b.dz) - 1), 1, 1);
+      continue;
+    }
+    if (b.fall) {
+      b.fall(v, sx(b.x, b.dz), sy(b.dz), bw);
       continue;
     }
     drawCar(v, sx(b.x, b.dz), sy(b.dz), bw, b.look);

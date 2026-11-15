@@ -515,7 +515,7 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
     fx: ['GRÁFICOS', fx, 'Automático vira econômico se o jogo pesar'],
     fps30: ['QUADROS', prefs.fps30 ? '30 FPS' : '60 FPS', '30 por segundo para aparelhos mais fracos'],
     fps: ['MOSTRAR FPS', prefs.fps ? 'SIM' : 'NÃO', 'Contador de quadros no canto da tela'],
-    view: ['VISÃO DO PAINEL', VIEW_LEVELS[prefs.view].label, 'Perto: cabine maior. Longe: cabine mais baixa e mais pista à vista'],
+    view: ['VISÃO DO PAINEL', VIEW_LEVELS[prefs.view].label, 'Zoom da cabine: perto amplia o painel, longe mostra mais cabine e pista'],
     sfx: ['EFEITOS', `◀ ${volLabel(prefs.sfxPct)} ▶`, 'Motor, pneus, trânsito e buzinas'],
     music: ['MÚSICA NA CORRIDA', `◀ ${volLabel(prefs.musPct)} ▶`, 'Trilha que toca durante a corrida'],
     menu: ['MÚSICA DO MENU', `◀ ${volLabel(prefs.menuPct)} ▶`, 'Trilha da capa e das páginas da revista'],

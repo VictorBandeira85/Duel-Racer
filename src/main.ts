@@ -334,7 +334,7 @@ function resize() {
   const availH = window.innerHeight - px(safe.paddingTop) - px(safe.paddingBottom);
   const screenAspect = availW / availH;
   view.w = Math.round(Math.min(race ? 460 : 520, Math.max(race ? 256 : 320, (view.h * screenAspect) / view.aspect)));
-  // VISÃO DO PAINEL afastada: tela de corrida mais alta (e mais larga) que as 224 linhas
+  // VISÃO DO PAINEL (zoom da cabine): a largura da tela de corrida acompanha o zoom escolhido
   if (race) Object.assign(view, raceViewSize(screenAspect, VIEW_EXTRA_CAP[run.car.dash] ?? 96));
   // resolução interna 2x: tudo continua desenhado em pixels nativos (e ampliado sem
   // suavizar), mas os detalhes finos (números dos mostradores) podem usar meio pixel

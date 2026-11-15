@@ -1,6 +1,6 @@
 import { COP_HAND } from './people';
 import { brandOf, drawLogo } from './brands';
-import { VIEW_LEVELS, prefs } from './prefs';
+import { prefs, viewZoom } from './prefs';
 import { binds, keyName, pad, touch } from './input';
 import { ghostTimeAt } from './records';
 import { CRES, DASH_Y, KMH, RES, ROOF_H, SEG_LEN, view } from './config';
@@ -1783,11 +1783,11 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     c.drawImage(top, dx, ART_TOP - TOP_EXT);
     // cabine rebaixada ou visão afastada: as colunas sobem até o teto continuando a própria
     // inclinação (pillarExt), o forro liso continua igual; sem vão
-    const gap = ART_TOP - TOP_EXT - ROOF_H;
+    const gap = ART_TOP - TOP_EXT - roofV;
     if (gap > 0) {
       const ext = pillarExt(art.top, top, gap);
-      if (ext) c.drawImage(ext, dx, ROOF_H);
-      else c.drawImage(top, 0, 0, DASH_W, 1, dx, ROOF_H, DASH_W, gap + 1);
+      if (ext) c.drawImage(ext, dx, roofV);
+      else c.drawImage(top, 0, 0, DASH_W, 1, dx, roofV, DASH_W, gap + 1);
     }
   }
   // retrovisor externo esquerdo funcionando (onde a arte mostra o vidro dele)
@@ -2549,25 +2549,19 @@ const drops: { x: number; y: number; v: number }[] = [];
 
 const coreX = () => Math.floor((view.w - CORE_W) / 2);
 
-// VISÃO DO PAINEL afastada (ajustes): a tela de corrida ganha EXTRA linhas acima das 224 nativas;
-// o para-brisa cresce para cima (mais céu e estrada), a cabine desce junto e, com a tela mais
-// alta, cabem mais colunas da arte nas laterais (o painel inteiro em tela 16:9)
-const viewRows = () => Math.max(0, view.h - 224);
-// cabine mais baixa na tela: o nível da VISÃO DO PAINEL mais o ajuste de cada carro (VIEW_DROP);
-// o horizonte não desce junto, então aparece mais estrada perto do carro
-let curDash = '';
-export const VIEW_DROP: Record<string, number> = {};
-// limite da descida: mais que isso corta o quadro de instrumentos embaixo da tela
-const VIEW_DROP_MAX: Record<string, number> = { f40: 6 };
-const viewDrop = () => Math.min(VIEW_DROP_MAX[curDash] ?? 12, (VIEW_LEVELS[prefs.view]?.drop ?? 0) + (VIEW_DROP[curDash] ?? 0));
-export const viewExtra = () => viewRows() + viewDrop();
+// VISÃO DO PAINEL (ajustes): zoom da cabine. A cena (pista pelo vidro + cabine) é desenhada numa tela
+// virtual (view.w x view.h trocados durante o desenho) com mais ou menos linhas que as 224 nativas e
+// depois ampliada/reduzida para a tela; o HUD fica de fora. viewExtra: linhas a mais (longe) ou a
+// menos (perto, negativo) acima da cabine; roofV: altura do teto (a barra do HUD) na tela virtual
+let roofV = ROOF_H;
+export const viewExtra = () => view.h - 224;
 // quanto cada cabine pode afastar (linhas acima das 224): na Fúria F4 a moldura vermelha da porta
 // faz curva no alto da arte e, continuada reta, vira uma faixa atravessando o para-brisa; na Fúria TR
 // a moldura da porta encosta na borda e viraria um bloco azul
 export const VIEW_EXTRA_CAP: Record<string, number> = { f40: 24, testarossa: 24 };
 export function windshield(): Viewport {
   const ex = viewExtra();
-  return { x: 0, y: ROOF_H, w: view.w, h: DASH_Y - ROOF_H + ex, horizon: HORIZON_Y + viewRows(), K: 190 };
+  return { x: 0, y: roofV, w: view.w, h: DASH_Y - roofV + ex, horizon: HORIZON_Y + ex, K: 190 };
 }
 
 const disc = (c: CanvasRenderingContext2D, x: number, y: number, r: number, color: string | CanvasPattern | CanvasGradient) => {
@@ -3001,9 +2995,10 @@ function drawDamage(c: CanvasRenderingContext2D, r: Race, vp: Viewport, art: Coc
 }
 
 const roadCv = document.createElement('canvas');
-function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number, stageLabel: string, totalTime: number, dt: number) {
+// A cena: a pista vista pelo vidro, chuva/limpadores, marcas no vidro, danos e a cabine (arte, volante,
+// mostradores, retrovisores). Desenhada em coordenadas de view (a tela virtual quando há zoom).
+function drawScene(c: CanvasRenderingContext2D, r: Race, dt: number) {
   const { w } = view;
-  curDash = r.car.dash;
   const vp = windshield();
   const art = COCKPIT_ART[r.car.dash];
   ART_TOP = 100 + (art?.dy ?? 0) + viewExtra();
@@ -3043,12 +3038,9 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
     drawCrashFx(c, r.impactT, r.crashes, vp.x + vp.w * r.crashPoint.x, vp.y + vp.h * r.crashPoint.y, -side, bx, top(Math.round(bx)) - 1, paintHex(r.car.id) ?? r.car.color);
     if (t > 1.9) {
       c.fillStyle = `rgba(0,0,0,${Math.min(0.75, (t - 1.9) * 0.8)})`;
-      c.fillRect(vp.x, vp.y, vp.w, vp.h);
-      text(c, 'BATIDA!', w / 2, vp.y + 26, 16, '#ff4040', 'center');
-      text(c, `Carros restantes: ${Math.max(0, lives - 1)}`, w / 2, vp.y + 54, 8, '#fff', 'center');
+      c.fillRect(vp.x, 0, vp.w, vp.y + vp.h);
     }
   }
-  drawRoof(c, r, stageLabel, totalTime);
   const dash = r.car.dash;
   // a cabine anda uns poucos pixels ao contrário da cabeça (paralaxe): só até onde a arte tem
   // colunas sobrando fora da tela (em tela da largura da arte inteira ela fica parada)
@@ -3075,6 +3067,48 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
     else drawDashTD2Grey(c, r, dt);
     c.restore();
   }
+}
+
+const sceneCv = document.createElement('canvas');
+function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number, stageLabel: string, totalTime: number, dt: number) {
+  const { w } = view;
+  const zm = viewZoom(VIEW_EXTRA_CAP[r.car.dash] ?? 96);
+  if (zm.z === 1 || view.h !== 224) drawScene(c, r, dt);
+  else {
+    // zoom: a cena inteira numa tela virtual de vh (+ cut, as linhas de baixo que ficam fora) linhas,
+    // na mesma resolução por pixel, e de lá para a tela ampliada ou reduzida sem suavizar
+    const bw = view.w, bh = view.h;
+    const vw = Math.min(DASH_W, Math.round(bw / zm.z)), sh = zm.vh + zm.cut;
+    if (sceneCv.width !== vw * CRES || sceneCv.height !== sh * CRES) {
+      sceneCv.width = vw * CRES;
+      sceneCv.height = sh * CRES;
+    }
+    const g = sceneCv.getContext('2d')!;
+    g.setTransform(CRES, 0, 0, CRES, 0, 0);
+    g.imageSmoothingEnabled = false;
+    view.w = vw;
+    view.h = sh;
+    roofV = Math.floor(ROOF_H / zm.z);
+    try {
+      drawScene(g, r, dt);
+    } finally {
+      view.w = bw;
+      view.h = bh;
+      roofV = ROOF_H;
+    }
+    const sm = c.imageSmoothingEnabled;
+    c.imageSmoothingEnabled = false;
+    c.drawImage(sceneCv, 0, 0, vw * CRES, zm.vh * CRES, 0, 0, bw, bh);
+    c.imageSmoothingEnabled = sm;
+    ART_TOP *= zm.z; // de volta às linhas da tela (a luz da sirene na cabine usa)
+  }
+  // HUD: nas medidas da tela de corrida (não acompanha o zoom)
+  const vp: Viewport = { x: 0, y: ROOF_H, w, h: DASH_Y - ROOF_H, horizon: HORIZON_Y, K: 190 };
+  if (r.state === 'crash' && 3.4 - r.timer > 1.9) {
+    text(c, 'BATIDA!', w / 2, vp.y + 26, 16, '#ff4040', 'center');
+    text(c, `Carros restantes: ${Math.max(0, lives - 1)}`, w / 2, vp.y + 54, 8, '#fff', 'center');
+  }
+  drawRoof(c, r, stageLabel, totalTime);
 
   if (r.state === 'countdown') {
     const n = Math.ceil(r.timer);

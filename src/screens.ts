@@ -1165,7 +1165,7 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   // alternando os dois quadros
   const walked = (x + 292 - ax);
   const anim = !!attImg(att, 'walk0');
-  const wpose = (walk > 0 && walk < 1 ? `walk${Math.floor(walked / 9.5) % 4}` : 'walk1') as 'walk0';
+  const wpose = (walk > 0 && walk < 1 ? `walk${Math.floor(walked / 9.5) % 4}` : 'walk0') as 'walk0'; // parado abastecendo: quadro de passo apoiado, com os dois pés no chão
   const pose = walk > 0 && fill < 1 ? (anim ? wpose : 'nozzle') : t > GAS_STOP + 5 ? (attImg(att, 'wave0') ? (Math.floor(t * 5) % 2 ? 'wave1' : 'wave0') : 'wave') : 'stand';
   const AH = 72, ay = GY + 4;
   const am = attImg(att, pose) && ATT_META[`${att}-${pose}`]?.length > 3 ? ATT_META[`${att}-${pose}`] : attImg(att, 'nozzle') ? ATT_META[`${att}-nozzle`] : null;

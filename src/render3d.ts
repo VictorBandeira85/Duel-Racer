@@ -835,7 +835,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         const p = e as Race['police'][number];
         const siren = p.state === 'chase' || p.state === 'pull' || p.state === 'stopped';
         const pw = copW(p.unit, false) * sc * vp.K;
-        fogged(c, fk, cx - pw, cy - pw * 1.3, pw * 2, pw * 1.3 + 4, (g) => drawCar(g, cx, cy, pw, copLook(p.unit, { siren, night: lit, plate: r.copPlate })));
+        fogged(c, fk, cx - pw, cy - pw * 1.3, pw * 2, pw * 1.3 + 4, (g) => drawCar(g, cx, cy, pw, copLook(p.unit, { siren, night: lit, plate: r.copPlate, ...(r.copId === 'A2' ? { model: 'moto-copf' } : {}) })));
         beamAhead(e.z, ex, pw, 5);
       } else {
         const t = e as TrafficCar;
@@ -914,7 +914,7 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
     } else behind.push({ z: t.z, x: t.x, w: trafficW(t, t.base > 0), look: trafficLook(t, t.base > 0, night) });
   }
   if (r.rival) behind.push({ z: r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint, signal: r.rival.signal, lamps: r.rivalLamps(), dent: r.rivalDmg } });
-  for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') behind.push({ z: p.z, x: p.x, w: copW(p.unit), look: copLook(p.unit, { siren: true, front: true, night, plate: r.copPlate }) });
+  for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') behind.push({ z: p.z, x: p.x, w: copW(p.unit), look: copLook(p.unit, { siren: true, front: true, night, plate: r.copPlate, ...(r.copId === 'A2' ? { model: 'moto-copf' } : {}) }) });
   behind.sort((a, b) => a.z - b.z);
   let sirenNear = 0;
   for (const b of behind) {

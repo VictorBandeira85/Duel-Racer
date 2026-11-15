@@ -927,6 +927,7 @@ const TRAFFIC_PLATE: Record<string, number[]> = { // como PLATE_BOX, nos sprites
   van: [66, 103, 95, 112, 160, 132], truck: [66, 135, 95, 144, 160, 168], fusca: [67, 71, 94, 80, 160, 100], kombi: [66, 105, 95, 114, 160, 132], suv: [66, 71, 95, 80, 160, 120], sedan90: [66, 61, 95, 70, 160, 90], police: [68, 65, 90, 77, 160, 124],
   // motos (tools/ref/motos.py): placa pequena embaixo da lanterna
   'moto-custom': [32, 94, 52, 106, 83, 133], 'moto-sport': [26, 65, 43, 75, 70, 121], 'moto-pop': [29, 84, 44, 95, 74, 129],
+  'moto-cop': [36, 93, 56, 105, 92, 138], 'moto-copf': [36, 93, 56, 105, 92, 138], // BMW da polícia (classe A)
   // caminhões (tools/ref/truck_art.py): placa no meio do para-choque/chassi de trás
   kenworth: [63, 154, 88, 166, 151, 204], f4000: [72, 138, 101, 149, 172, 184], cargo: [61, 161, 91, 176, 152, 215],
   mb1113: [69, 139, 95, 151, 164, 191], vw790: [65, 163, 91, 175, 156, 212], volvon10: [63, 158, 88, 171, 151, 213],
@@ -948,6 +949,10 @@ const TRAFFIC_GLOW: Record<string, { dots?: number[][]; head?: number[] /* farol
   'moto-custom': { dots: [[0.505, 0.655]], lw: 0.19, head: [0.496, 0.421], sig: [0.28, 0.655], sigFront: [0.295, 0.533] },
   'moto-sport': { dots: [[0.463, 0.478]], lw: 0.16, head: [0.394, 0.447], sig: [0.272, 0.521], sigFront: [0.22, 0.56] },
   'moto-pop': { dots: [[0.507, 0.606]], lw: 0.15, head: [0.488, 0.444], sig: [0.305, 0.621], sigFront: [0.139, 0.362] },
+  // BMW da polícia (classe A, tools/ref/motos.py --cop): giroflex nos dois mastros (azul à esquerda, vermelho à
+  // direita nas duas vistas), lanterna no meio, farol no meio da carenagem
+  'moto-cop': { dots: [[0.493, 0.621]], lw: 0.16, head: [0.493, 0.507], sig: [0.303, 0.633], sigFront: [0.272, 0.584], siren: [[0.13, 0.167, 0.25, 0.239], [0.75, 0.167, 0.87, 0.239]], sirenFront: [[0.161, 0.145, 0.28, 0.217], [0.72, 0.145, 0.84, 0.217]], sirenColors: ['blue', 'red'], sirenColorsFront: ['blue', 'red'] },
+  'moto-copf': { dots: [[0.496, 0.62]], lw: 0.17, head: [0.494, 0.507], sig: [0.295, 0.634], sigFront: [0.275, 0.582], siren: [[0.13, 0.167, 0.25, 0.239], [0.75, 0.167, 0.87, 0.239]], sirenFront: [[0.163, 0.152, 0.283, 0.217], [0.72, 0.152, 0.84, 0.217]], sirenColors: ['blue', 'red'], sirenColorsFront: ['blue', 'red'] },
   // giroflex da arte: azul à esquerda, vermelho à direita (u0, f0, u1, f1 em fração do sprite)
   police: { dots: [[0.17, 0.6], [0.83, 0.6]], siren: [[0.23, 0.0, 0.42, 0.075], [0.52, 0.0, 0.77, 0.075]] },
   // Diablo SV: barra baixa no teto; de trás azul|vermelho, de frente vermelho|azul

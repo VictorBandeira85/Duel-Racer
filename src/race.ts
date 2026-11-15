@@ -24,8 +24,8 @@ const BRAKE_BOOST = 1.2; // freios 20% mais fortes que a ficha (pedido de jogabi
 const SIGNAL_LEAD = 0.8; // s de pisca antes de trocar de faixa (mão dupla)
 const FLASH_T = 2.2; // s do pedido de passagem: sobe o farol, pisca três vezes, abaixa
 // viatura de cada classe (a do carro do jogador, ou a da região na carreira se for mais alta): D o Savana GLS
-// (Santana, a viatura clássica), C a Patrulha 9C, B o Kaze NX (provisório), A a moto (provisória até a arte da
-// moto da polícia), S o Toro V12 SV. Máxima, aceleração (unidades/s²) e o motor de cada uma
+// (Santana, a viatura clássica), C a Patrulha 9C, B o Kaze NX (provisório), A a BMW da polícia (moto-cop;
+// com a policial: moto-copf), S o Toro V12 SV. Máxima, aceleração (unidades/s²) e o motor de cada uma
 export const COP_UNIT: Record<PerfClass, { kmh: number; acc: number; engine: string }> = {
   D: { kmh: 190, acc: 1000, engine: '4 cil.' },
   C: { kmh: 245, acc: 1300, engine: 'V8 16v' },
@@ -42,7 +42,7 @@ export function copEngine(unit: PerfClass | undefined) {
 // largura da viatura no mundo
 export function copW(unit: PerfClass | undefined, front = true) {
   if (unit === 'S') return CAR_W * 1.08;
-  if (unit === 'A') return (CAR_W * MOTO_PX['moto-sport'][front ? 1 : 0]) / 160;
+  if (unit === 'A') return (CAR_W * (front ? 93 : 92)) / 160; // BMW da polícia (moto-cop)
   if (unit === 'D' || unit === 'B') return CAR_W;
   return POLICE_W;
 }
@@ -50,7 +50,7 @@ export function copW(unit: PerfClass | undefined, front = true) {
 // o giroflex por cima (cop)
 export function copLook(unit: PerfClass | undefined, base: Partial<CarLook>): CarLook {
   if (unit === 'S') return { color: '#fff', police: true, sv: true, ...base };
-  if (unit === 'A') return { color: '#f2f2f2', model: 'moto-sport', cop: true, driver: 'man', ...base };
+  if (unit === 'A') return { color: '#fff', model: 'moto-cop', ...base };
   const id = COP_CAR[unit ?? 'C'], car = id ? CARS.find((c) => c.id === id) : undefined;
   if (car?.rear) return { color: '#f2f2f2', rear: car.rear, paint: '#f2f2f2', cop: true, driver: 'man', ...base };
   return { color: '#fff', police: true, ...base };

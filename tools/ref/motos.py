@@ -12,6 +12,8 @@ mesmo tamanho no jogo). Imprime a largura de cada PNG (MOTO_PX em cars.ts) e as 
 (TRAFFIC_GLOW/TRAFFIC_PLATE em cars.ts).
 
 Uso: python3 tools/ref/motos.py <custom.png> <sport.png> <pop.png>
+     python3 tools/ref/motos.py --cop <folha>   (moto da polícia, classe A: policial em cima, policial
+     mulher embaixo -> moto-cop-* e moto-copf-*)
 """
 import os
 import sys
@@ -22,7 +24,7 @@ from PIL import Image
 
 OUT = os.path.join(os.path.dirname(__file__), '..', '..', 'src/assets/traffic')
 PX_M = 160 / 1.8
-ALTURA = {'custom': 1.5, 'sport': 1.36, 'pop': 1.45}  # m, do chão ao alto do capacete
+ALTURA = {'custom': 1.5, 'sport': 1.36, 'pop': 1.45, 'cop': 1.55, 'copf': 1.55}  # m, do chão ao alto do capacete
 
 
 def magenta(a):
@@ -108,8 +110,15 @@ def measure(o, view):
 
 
 def main():
-    for model, path in zip(('custom', 'sport', 'pop'), sys.argv[1:4]):
-        a = np.array(Image.open(path).convert('RGB'))
+    jobs = []
+    if sys.argv[1] == '--cop':
+        a = np.array(Image.open(sys.argv[2]).convert('RGB'))
+        H = a.shape[0]
+        jobs = [('cop', a[:H // 2]), ('copf', a[H // 2:])]
+    else:
+        jobs = [(m, np.array(Image.open(p).convert('RGB'))) for m, p in zip(('custom', 'sport', 'pop'), sys.argv[1:4])]
+    for model, a in jobs:
+        a = np.ascontiguousarray(a)
         mag = magenta(a.astype(int))
         W = a.shape[1]
         halves = {'rear': slice(0, W // 2), 'front': slice(W // 2, W)}

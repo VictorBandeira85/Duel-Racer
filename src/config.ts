@@ -4,7 +4,7 @@ export const SAFE_W = 320; // área central usada pelos menus
 
 export const SEG_LEN = 200;
 export const LANE_W = 2200; // largura de uma faixa (unidades do mundo)
-export const DRAW_DIST = 260;
+export const DRAW_DIST = 360;
 export const FOV = 100;
 export const CAM_DEPTH = 1 / Math.tan(((FOV / 2) * Math.PI) / 180);
 export const CAM_H = 520; // altura dos olhos do motorista: ~0,9 m, como num esportivo baixo (CAR_W = 1,8 m); baixada a pedido do Victor

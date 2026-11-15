@@ -262,6 +262,7 @@ function makeRace(i: number) {
   const prev = i > 0 ? state.results[i - 1] : undefined;
   const rivalAhead = !prev || !(prev.rival < 0 || prev.time <= prev.rival);
   const r = new Race(run.course, i, run.car, run.rival, state.auto, { ...run.opts, rivalAhead });
+  preloadGasArt(r.def.theme); // posto do mapa deste trecho
   r.ghostRun = loadGhost(run.course.id, i, true);
   r.showGhost = ghostOn();
   r.challenges = stageChallenges(r);

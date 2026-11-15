@@ -1100,20 +1100,36 @@ function gasArrival(s: AppState) {
 }
 
 const GAS_ART = import.meta.glob('./assets/gas/*.png', { eager: true, import: 'default' }) as Record<string, string>;
-const gasImgs: Partial<Record<'day' | 'night', HTMLImageElement>> = {};
-function gasArt(night: boolean) {
-  const k = night ? 'night' : 'day';
-  let im = gasImgs[k];
+const gasImgs: Record<string, HTMLImageElement> = {};
+// posto de cada mapa (tools/ref/gas_theme.py): sem a arte do mapa (ou da noite dele), o posto padrão
+const GAS_THEME: Record<string, string> = {
+  snow: 'snow', alpinesnow: 'snow', desert: 'desert', canyon: 'canyon', city: 'city', industrial: 'industrial',
+  coast: 'coast', beach: 'coast', jungle: 'jungle', savanna: 'savanna', autumn: 'autumn', mountain: 'mountain', alpine: 'alpine',
+};
+function gasArtKey(night: boolean, theme: string) {
+  const k = night ? 'night' : 'day', t = GAS_THEME[theme];
+  return t && GAS_ART[`./assets/gas/gas-${t}-${k}.png`] ? `${t}-${k}` : k;
+}
+// enquadramento de cada arte: deslocamento da arte em relação à tela e pontos medidos nela
+// (visor da bomba da direita para os litros, saída da mangueira). As artes dos mapas têm a ilha das
+// bombas à direita e mais baixa que a do posto padrão
+const GAS_LAYOUT = {
+  std: { dx: -6, dy: -14, gy: 162, lit: [197, 115], hose: [211, 127], sl: 40, sr: 32 },
+  // 30% maiores (gas_theme.py), centradas: só a faixa da borda antes da cobertura vai espelhada
+  map: { dx: -56, dy: -58, gy: 172, lit: [296, 172], hose: [310, 183], sl: 44, sr: 44 },
+};
+function gasArt(key: string) {
+  let im = gasImgs[key];
   if (!im) {
     im = new Image();
-    im.src = GAS_ART[`./assets/gas/gas-${k}.png`];
-    gasImgs[k] = im;
+    im.src = GAS_ART[`./assets/gas/gas-${key}.png`];
+    gasImgs[key] = im;
   }
   if (im.complete && im.naturalWidth) return im;
   need(im); // a tela precisa dela: passa na frente na fila
   return null;
 }
-export const preloadGasArt = () => { gasArt(false); gasArt(true); };
+export const preloadGasArt = (theme = '') => { gasArt(gasArtKey(false, theme)); gasArt(gasArtKey(true, theme)); };
 
 function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const { w, h } = view;
@@ -1126,8 +1142,10 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const arr = gasArrival(s);
   const fill = Math.max(0, Math.min(1, (t - GAS_STOP - 0.9) / 3)); // abastecimento: 0..1
   const liters = Math.round(fill * 38 * 10) / 10;
-  const bg = gasArt(night);
-  const ax0 = x + 160 - 166, ay0 = -14; // posto mais baixo: carro e frentista colados à ilha das bombas
+  const key = gasArtKey(night, s.gasTheme ?? '');
+  const L = key.includes('-') ? GAS_LAYOUT.map : GAS_LAYOUT.std;
+  const bg = gasArt(key);
+  const ax0 = x + L.dx, ay0 = L.dy; // carro e frentista colados à ilha das bombas
   if (bg) {
     const sm = c.imageSmoothingEnabled;
     c.imageSmoothingEnabled = false;
@@ -1142,19 +1160,19 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
         c.restore();
       }
     };
-    strip(0, 40, ax0, -1);
-    strip(bg.width - 32, 32, ax0 + bg.width, 1);
+    strip(0, L.sl, ax0, -1);
+    strip(bg.width - L.sr, L.sr, ax0 + bg.width, 1);
     c.imageSmoothingEnabled = sm;
   } else {
     c.fillStyle = night ? '#0a0e24' : '#2a5ae0';
     c.fillRect(0, 0, w, 186);
   }
   // litros no visor da bomba da direita
-  text(c, liters.toFixed(1).replace('.', ','), ax0 + 197, ay0 + 115, 4, night ? '#0e3a12' : '#1a2a3a', 'center', null);
+  text(c, liters.toFixed(1).replace('.', ','), ax0 + L.lit[0], ay0 + L.lit[1], 4, night ? '#0e3a12' : '#1a2a3a', 'center', null);
   // o carro chega freando até a bomba, reduz as marchas, fica em marcha lenta e desliga
   // rodas girando conforme o carro anda (para a esquerda: giro anti-horário), paradas na bomba
   const wr = (car.wheels?.[0]?.[2] ?? 0.07) * 170;
-  const GY = ay0 + 176; // chão do carro e do frentista: logo na frente da guia amarela da ilha
+  const GY = L.gy; // chão do carro e do frentista: logo na frente da guia amarela da ilha
   const carX = Math.round(x + 80 + 320 * (1 - arr.pos));
   // à noite chega de faróis acesos (escamoteáveis levantados: <arte>-side-up)
   // frentista: espera ao lado da bomba, vai até o carro com a mangueira e abastece
@@ -1193,9 +1211,9 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
     c.strokeStyle = '#141414';
     c.lineWidth = 2;
     c.beginPath();
-    c.moveTo(ax0 + 211, ay0 + 127);
-    if (am) c.bezierCurveTo(ax0 + 222, GY + 2, ex + 14, GY + 3, ex, ey);
-    else c.bezierCurveTo(ax0 + 236, ay0 + 130, x + 250, GY - 26, ex, ey);
+    c.moveTo(ax0 + L.hose[0], ay0 + L.hose[1]);
+    if (am) c.bezierCurveTo(ax0 + L.hose[0] + 11, GY + 2, ex + 14, GY + 3, ex, ey);
+    else c.bezierCurveTo(ax0 + L.hose[0] + 25, ay0 + L.hose[1] + 3, x + 250, GY - 26, ex, ey);
     c.stroke();
   }
   // à noite o farol ilumina de verdade: poça de luz quente no chão à frente do carro (em degraus, mais

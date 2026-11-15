@@ -1156,11 +1156,17 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const walk = Math.max(0, Math.min(1, (t - GAS_STOP - 0.2) / 0.7));
   const ax = x + 292 + (x + 254 - (x + 292)) * walk; // para com o bico na tampa do tanque
   const pumping = fill > 0 && fill < 1;
-  const pose = walk > 0 && fill < 1 ? 'nozzle' : t > GAS_STOP + 5 ? 'wave' : 'stand';
   // frentista da região do trecho (arte do Victor); sem a imagem, o desenho por código
   const att = attFor(s.gasTheme ?? '');
+  // animação (tools/ref/att_walk.py): andando, o quadro avança com a distância andada (um quadro a cada
+  // ~9,5 px da tela: os pés não escorregam); parado abastecendo, o quadro de pernas juntas; no fim acena
+  // alternando os dois quadros
+  const walked = (x + 292 - ax);
+  const anim = !!attImg(att, 'walk0');
+  const wpose = (walk > 0 && walk < 1 ? `walk${Math.floor(walked / 9.5) % 4}` : 'walk1') as 'walk0';
+  const pose = walk > 0 && fill < 1 ? (anim ? wpose : 'nozzle') : t > GAS_STOP + 5 ? (attImg(att, 'wave0') ? (Math.floor(t * 5) % 2 ? 'wave1' : 'wave0') : 'wave') : 'stand';
   const AH = 72, ay = GY + 4;
-  const am = attImg(att, 'nozzle') ? ATT_META[`${att}-nozzle`] : null;
+  const am = attImg(att, pose) && ATT_META[`${att}-${pose}`]?.length > 3 ? ATT_META[`${att}-${pose}`] : attImg(att, 'nozzle') ? ATT_META[`${att}-nozzle`] : null;
   if (walk > 0 && fill < 1) {
     // mangueira da bomba (desenhada antes do carro e do frentista: passa por trás deles) até a ponta da mangueira que o desenho traz
     // saindo de trás dele (sprite espelhado: a ponta fica à direita); sem a arte, até a mão

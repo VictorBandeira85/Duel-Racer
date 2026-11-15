@@ -2,7 +2,7 @@
 // viatura) e o frentista do posto. Cada um é desenhado numa grade de 48 x 96 "pixels" da arte e
 // ampliado sem suavizar, em cache por pose; (x, y) é o pé, h a altura na tela.
 
-type Pose = 'stand' | 'paper' | 'wave' | 'nozzle' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'stop0' | 'stop1';
+type Pose = 'stand' | 'paper' | 'wave' | 'nozzle' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'stop0' | 'stop1' | 'wave0' | 'wave1';
 export type CopPose = Pose;
 import COPS from './assets/people/cops.json';
 import ATTS from './assets/people/atts.json';
@@ -43,7 +43,9 @@ export function attImg(id: string, pose: Pose): HTMLImageElement | null {
   }
   return im.complete && im.naturalWidth ? im : null;
 }
-export const preloadAtts = () => ['City', 'Farm', 'Coast', 'Serra', 'Desert', 'Jungle', 'Snow'].forEach((id) => (['stand', 'nozzle', 'wave'] as Pose[]).forEach((p) => attImg(id, p)));
+// + animação (tools/ref/att_walk.py): walk0..3 andando com o bico (apoio no tronco, bico e ponta da mangueira
+// de cada quadro no atts.json) e wave0..1 acenando
+export const preloadAtts = () => ['City', 'Farm', 'Coast', 'Serra', 'Desert', 'Jungle', 'Snow'].forEach((id) => (['stand', 'nozzle', 'wave', 'walk0', 'walk1', 'walk2', 'walk3', 'wave0', 'wave1'] as Pose[]).forEach((p) => attImg(id, p)));
 // região do frentista pelo tema do trecho
 export function attFor(theme: string): string {
   if (theme === 'city' || theme === 'industrial') return 'City';
@@ -188,7 +190,11 @@ function person(kind: 'cop' | 'att', pose: Pose) {
 export function drawPerson(c: CanvasRenderingContext2D, kind: 'cop' | 'att', pose: Pose, x: number, y: number, h: number, flip = false, cop?: string) {
   if (h < 3) return;
   // quadros de animação (andando / mandando parar) ainda carregando: usa a pose parada correspondente
-  if (pose.startsWith('walk') || pose.startsWith('stop')) {
+  if (kind === 'att') {
+    // frentista: quadro da animação ainda carregando -> pose parada equivalente
+    if (pose.startsWith('walk') && !(cop && attImg(cop, pose))) pose = 'nozzle';
+    else if ((pose === 'wave0' || pose === 'wave1') && !(cop && attImg(cop, pose))) pose = 'wave';
+  } else if (pose.startsWith('walk') || pose.startsWith('stop')) {
     if (!(kind === 'cop' && cop && copImg(cop, pose))) pose = 'wave';
   }
   const im = kind === 'cop' && cop ? copImg(cop, pose) : null;

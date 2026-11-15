@@ -1,6 +1,6 @@
 import { need } from './imgprio';
 import { COP_HAND } from './people';
-import fineMeta from './assets/people/fine.json';
+import handMeta from './assets/people/hand.json';
 import { brandOf, drawLogo } from './brands';
 import { prefs, viewZoom } from './prefs';
 import { binds, keyName, pad, touch } from './input';
@@ -3184,7 +3184,7 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
     c.restore();
   }
   if (r.messageT > 0) text(c, r.message, w / 2, vp.y + 10, 8, '#ffd400', 'center');
-  if (r.officer?.cop) fineImg(r.officer.cop); // carrega a arte da multa enquanto ele vem andando
+  if (r.officer?.cop) fineImg(r.officer.cop); // carrega a mão com o papel da classe enquanto ele vem andando
   if (r.officer?.phase === 'show' && r.fine) drawFine(c, r, vp);
   // câmbio manual no teclado/controle: a marcha engatada no teto (no toque ela já fica entre os botões)
   if (prefs.hud) drawDigitalHud(c, r, totalTime, vp);
@@ -3729,68 +3729,80 @@ function rim(c: CanvasRenderingContext2D, cx: number, cy: number, R: number, thi
   disc(c, cx, cy - R + thick * 0.4, 3, '#f0d020');
 }
 
-// Papel da multa mostrado pelo policial
-// policial mostrando a multa (arte do Victor, tools/ref/cop_fine.py): o auto de infração é escrito no papel
-// em branco da arte e a mão que segura o papel volta por cima do texto; sem a arte, o papel antigo
-const FINE_PNG = import.meta.glob('./assets/people/fine-*.png', { eager: true, import: 'default' }) as Record<string, string>;
-const FINE_META = fineMeta as unknown as Record<string, { w: number; h: number; paper: number[]; hand: number[] }>;
+// Papel da multa mostrado pelo policial: a mão direita dele (arte do Victor por classe, D/C/B/A/S, a mesma
+// para os dois policiais da classe; tools/ref/cop_hand.py) sobe segurando a folha em pé, o auto de infração
+// é escrito na folha da arte e o polegar volta por cima do texto; sem a arte, o papel antigo
+const HAND_PNG = import.meta.glob('./assets/people/hand-*.png', { eager: true, import: 'default' }) as Record<string, string>;
+type HandMeta = { w: number; h: number; paper: number[]; thumb: number[] };
+const HAND_META = handMeta as unknown as Record<string, HandMeta>;
 const fineImgs = new Map<string, HTMLImageElement>();
-function fineImg(id: string): HTMLImageElement | null {
-  const src = FINE_PNG[`./assets/people/fine-${id}.png`];
-  if (!src || !FINE_META[id]) return null;
-  let im = fineImgs.get(id);
-  if (!im) { im = new Image(); im.src = src; fineImgs.set(id, im); need(im); }
+function fineImg(cop: string): HTMLImageElement | null {
+  const cls = cop.charAt(0);
+  const src = HAND_PNG[`./assets/people/hand-${cls}.png`];
+  if (!src || !HAND_META[cls]) return null;
+  let im = fineImgs.get(cls);
+  if (!im) { im = new Image(); im.src = src; fineImgs.set(cls, im); need(im); }
   return im.complete && im.naturalWidth ? im : null;
 }
-export const preloadFine = (id: string) => { fineImg(id); };
-function drawFineArt(c: CanvasRenderingContext2D, r: Race, vp: Viewport, im: HTMLImageElement, m: { w: number; h: number; paper: number[]; hand: number[] }) {
+function drawFineArt(c: CanvasRenderingContext2D, r: Race, vp: Viewport, im: HTMLImageElement, m: HandMeta) {
   const f = r.fine!;
   const t = r.officer!.t;
-  // o policial sobe da borda de baixo da tela (corte na cintura) até ficar com o papel no centro
-  const k = Math.min(1.15, (view.h - ROOF_H - 6) / m.h);
-  const W = m.w * k, H = m.h * k;
-  const cx = vp.x + vp.w / 2;
-  const x0 = Math.round(cx - ((m.paper[0] + m.paper[2]) / 2) * k);
-  const y0 = Math.round(view.h - H + (1 - Math.min(1, t * 2.5)) * (H * 0.9));
+  // a manga, cortada na borda esquerda da arte, encosta na borda esquerda da tela (a mão entra pela borda);
+  // a folha inteira no para-brisa, na altura toda dele; sobe da borda de baixo
+  const x0 = Math.floor(vp.x);
+  const y0 = Math.round(vp.y + (vp.h - m.h) / 2 + (1 - Math.min(1, t * 3)) * 110);
   const sm = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = false;
-  c.drawImage(im, x0, y0, W, H);
-  // papel: área útil (dentro da borda preta, antes da mão que segura o lado direito)
-  const P = (v: number) => v * k;
-  const pl = x0 + P(m.paper[0]) + 3, pt = y0 + P(m.paper[1]) + 3;
-  const pr = x0 + P(Math.min(m.paper[2], m.hand[0])) - 3, pb = y0 + P(m.paper[3]) - 3;
-  const pw = pr - pl, mid = (pl + pr) / 2;
-  c.fillStyle = '#1c2a6a';
-  c.fillRect(Math.round(pl), Math.round(pt), Math.round(x0 + P(m.paper[2]) - 3 - pl), 11);
-  text(c, 'POLÍCIA RODOVIÁRIA', (pl + x0 + P(m.paper[2]) - 3) / 2, pt + 3, 4, '#fff', 'center', null);
-  text(c, 'AUTO DE', mid, pt + 16, 7, '#1c1c1c', 'center', null);
-  text(c, 'INFRAÇÃO', mid, pt + 25, 7, '#1c1c1c', 'center', null);
-  c.fillStyle = '#c8c0a8';
-  c.fillRect(Math.round(pl + 2), Math.round(pt + 35), Math.round(pw - 4), 1);
-  text(c, `VELOCIDADE ${f.kmh} KM/H`, pl + 2, pt + 40, 4, '#1c1c1c', 'left', null);
-  text(c, `LIMITE ${f.limit} KM/H`, pl + 2, pt + 48, 4, '#1c1c1c', 'left', null);
-  text(c, 'MULTA', pl + 2, pt + 59, 7, '#1c1c1c', 'left', null);
-  text(c, `$ ${f.value}`, pr - 1, pt + 70, 7, '#c01818', 'right', null);
-  c.strokeStyle = '#1c2a6a';
+  c.drawImage(im, x0, y0);
+  // texto dentro da folha (margem de 3), sem passar embaixo do polegar
+  const pl = x0 + m.paper[0], pt = y0 + m.paper[1], pr = x0 + m.paper[2];
+  const tr = x0 + m.thumb[2] + 1; // primeira coluna livre à direita do polegar
+  const mid = (pl + pr) / 2;
+  const ink = '#1c1c1c', navy = '#1c2a6a', rule = '#c8c0a8';
+  const bold = (s: string, x: number, y: number, al: CanvasTextAlign) => {
+    text(c, s, x, y, 4, ink, al, null);
+    c.save();
+    c.translate(0.5, 0);
+    text(c, s, x, y, 4, ink, al, null);
+    c.restore();
+  };
+  c.fillStyle = navy;
+  c.fillRect(pl, pt, pr - pl, 15);
+  text(c, 'POLÍCIA', mid, pt + 3, 4, '#fff', 'center', null);
+  text(c, 'RODOVIÁRIA', mid, pt + 9, 4, '#fff', 'center', null);
+  bold('AUTO DE', mid, pt + 18, 'center');
+  bold('INFRAÇÃO', mid, pt + 24, 'center');
+  c.fillStyle = rule;
+  c.fillRect(tr, pt + 32, pr - 2 - tr, 1);
+  text(c, 'VELOCIDADE', tr + 2, pt + 35, 4, ink, 'left', null);
+  text(c, `${f.kmh} KM/H`, pr - 3, pt + 41, 4, ink, 'right', null);
+  text(c, 'LIMITE', pl + 3, pt + 49, 4, ink, 'left', null);
+  text(c, `${f.limit} KM/H`, pr - 3, pt + 55, 4, ink, 'right', null);
+  c.fillStyle = rule;
+  c.fillRect(pl + 2, pt + 63, pr - pl - 4, 1);
+  bold('MULTA', pl + 3, pt + 66, 'left');
+  text(c, `$ ${f.value}`, pr - 3, pt + 73, 8, '#c01818', 'right', null);
+  // assinatura do policial
+  c.strokeStyle = navy;
   c.lineWidth = 1;
   c.beginPath();
-  for (let i = 0; i <= 14; i++) c.lineTo(pl + 4 + i * (pw - 10) / 14, pb - 9 + Math.sin(i * 1.3) * 2.5);
+  for (let i = 0; i <= 12; i++) c.lineTo(pr - 36 + i * 2.6, pt + 85.5 + Math.sin(i * 1.3) * 2);
   c.stroke();
-  c.fillStyle = '#c8c0a8';
-  c.fillRect(Math.round(pl + 2), Math.round(pb - 4), Math.round(pw - 4), 1);
-  // a mão que segura o papel por cima de tudo
-  const [hx0, hy0, hx1, hy1] = m.hand;
-  c.drawImage(im, hx0, hy0, hx1 - hx0, hy1 - hy0, x0 + P(hx0), y0 + P(hy0), P(hx1 - hx0), P(hy1 - hy0));
+  c.fillStyle = rule;
+  c.fillRect(pr - 40, pt + 88, 37, 1);
+  // o polegar por cima de tudo
+  const [hx0, hy0, hx1, hy1] = m.thumb;
+  c.drawImage(im, hx0, hy0, hx1 - hx0, hy1 - hy0, x0 + hx0, y0 + hy0, hx1 - hx0, hy1 - hy0);
   c.imageSmoothingEnabled = sm;
   if (t > 1.2 && Math.floor(t * 2) % 2) text(c, 'ACELERE PARA SEGUIR', vp.x + vp.w * 0.86, vp.y + vp.h / 2, 5, '#ffd400', 'center');
 }
 function drawFine(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   const f = r.fine!;
   const t = r.officer!.t;
-  const fid = r.officer!.cop ?? '';
-  const fim = fineImg(fid);
-  (r.officer as { big?: boolean }).big = !!fim; // a pista deixa de desenhar o policial pequeno atrás dele
-  if (fim) return drawFineArt(c, r, vp, fim, FINE_META[fid]);
+  const cop = r.officer!.cop ?? '';
+  const fim = fineImg(cop);
+  (r.officer as { big?: boolean }).big = !!fim; // com a mão de perto, a pista não desenha o policial pequeno
+  if (fim) return drawFineArt(c, r, vp, fim, HAND_META[cop.charAt(0)]);
   const pw = 150, ph = 86;
   const px = vp.x + vp.w / 2 - pw / 2 - 16;
   const py = vp.y + 5 + (1 - Math.min(1, t * 3)) * 80;

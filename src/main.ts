@@ -17,7 +17,7 @@ import { Race } from './race';
 import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
 import { CHALLENGE_PRIZE, checkChallenge, partialStats, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
 import { paintHex } from './paint';
-import { VIEW_EXTRA_CAP, cockpitReady, preloadCockpit, preloadHands, renderCockpit } from './cockpit';
+import { VIEW_EXTRA_CAP, cockpitReady, preloadCockpit, renderCockpit } from './cockpit';
 import { preloadAtts } from './people';
 import { OPT_TABS, applyBtnSize, beginLoading, optTab, setOptTab, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, focusInfo, preloadGasArt, hoverScreen, keyScreen, setScreenActions, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { binding, binds, input, lastDevice, pad, pollGamepad, releaseAll, setBind, setupInput, touch } from './input';
@@ -34,7 +34,6 @@ preloadPhotos();
 preloadScenery();
 preloadGasArt();
 preloadAtts();
-preloadHands();
 preloadBgArt(); // fundos desenhados (relevo do horizonte): prontos antes da primeira corrida
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;

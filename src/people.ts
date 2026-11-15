@@ -2,7 +2,7 @@
 // viatura) e o frentista do posto. Cada um é desenhado numa grade de 48 x 96 "pixels" da arte e
 // ampliado sem suavizar, em cache por pose; (x, y) é o pé, h a altura na tela.
 
-type Pose = 'stand' | 'paper' | 'wave' | 'nozzle' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'stop0' | 'stop1' | 'wave0' | 'wave1';
+type Pose = 'stand' | 'paper' | 'wave' | 'nozzle' | 'walk0' | 'walk1' | 'walk2' | 'walk3' | 'stop0' | 'stop1' | 'wave0' | 'wave1' | 'pump0' | 'pump1' | 'back0' | 'back1' | 'back2' | 'back3';
 export type CopPose = Pose;
 import { need } from './imgprio';
 import COPS from './assets/people/cops.json';
@@ -60,8 +60,8 @@ export function attImg(id: string, pose: Pose): HTMLImageElement | null {
   return null;
 }
 // + animação (tools/ref/att_walk.py): walk0..3 andando com o bico (apoio no tronco, bico e ponta da mangueira
-// de cada quadro no atts.json) e wave0..1 acenando
-export const preloadAtts = () => ['City', 'Farm', 'Coast', 'Serra', 'Desert', 'Jungle', 'Snow'].forEach((id) => (['stand', 'nozzle', 'wave', 'walk0', 'walk1', 'walk2', 'walk3', 'wave0', 'wave1'] as Pose[]).forEach((p) => attImg(id, p)));
+// de cada quadro no atts.json) e wave0..1 acenando; tools/ref/att_pump.py: pump0..1 parado abastecendo
+export const preloadAtts = () => ['City', 'Farm', 'Coast', 'Serra', 'Desert', 'Jungle', 'Snow'].forEach((id) => (['stand', 'nozzle', 'wave', 'walk0', 'walk1', 'walk2', 'walk3', 'wave0', 'wave1', 'pump0', 'pump1'] as Pose[]).forEach((p) => attImg(id, p)));
 // região do frentista pelo tema do trecho
 export function attFor(theme: string): string {
   if (theme === 'city' || theme === 'industrial') return 'City';
@@ -73,7 +73,7 @@ export function attFor(theme: string): string {
   if (theme === 'snow' || theme === 'alpine' || theme === 'alpinesnow') return 'Snow';
   return 'City';
 }
-export const preloadCops = (id: string) => (['stand', 'wave', 'paper', 'walk0', 'walk1', 'walk2', 'walk3', 'stop0', 'stop1'] as Pose[]).forEach((p) => copImg(id, p));
+export const preloadCops = (id: string) => (['stand', 'wave', 'paper', 'walk0', 'walk1', 'walk2', 'walk3', 'stop0', 'stop1', 'back0', 'back1', 'back2', 'back3'] as Pose[]).forEach((p) => copImg(id, p));
 // cor da manga/luva de cada policial (a mão que segura a multa): [manga, mão]
 export const COP_HAND: Record<string, [string, string]> = {
   D1: ['#86aee8', '#e0a070'], D2: ['#86aee8', '#e0a070'], C1: ['#c8a46a', '#d8945c'], C2: ['#c8a46a', '#d8945c'],
@@ -208,9 +208,12 @@ export function drawPerson(c: CanvasRenderingContext2D, kind: 'cop' | 'att', pos
   // quadros de animação (andando / mandando parar) ainda carregando: usa a pose parada correspondente
   if (kind === 'att') {
     // frentista: quadro da animação ainda carregando -> pose parada equivalente
+    if (pose.startsWith('pump') && !(cop && attImg(cop, pose))) pose = 'walk0';
     if (pose.startsWith('walk') && !(cop && attImg(cop, pose))) pose = 'nozzle';
     else if ((pose === 'wave0' || pose === 'wave1') && !(cop && attImg(cop, pose))) pose = 'wave';
-  } else if (pose.startsWith('walk') || pose.startsWith('stop')) {
+  } else if (pose.startsWith('walk') || pose.startsWith('stop') || pose.startsWith('back')) {
+    // de costas (voltando para a viatura) ainda carregando: o mesmo passo de frente
+    if (pose.startsWith('back') && !(kind === 'cop' && cop && copImg(cop, pose))) pose = `walk${pose[4]}` as Pose;
     if (!(kind === 'cop' && cop && copImg(cop, pose))) pose = 'wave';
   }
   const im = kind === 'cop' && cop ? copImg(cop, pose) : null;
@@ -234,7 +237,10 @@ export function drawPerson(c: CanvasRenderingContext2D, kind: 'cop' | 'att', pos
   if (im) {
     // sprite inteiro (quepe aos pés) com a altura h, pés no meio em (x, y)
     const [sw, sh, fx] = COP_META[`${cop}-${pose}`];
-    const k = h / sh;
+    // de costas: escala fixa pela altura média da caminhada de frente (o corpo sobe e desce no passo, sem mudar de tamanho)
+    const back = pose.startsWith('back');
+    const k = back ? (h * 4) / [0, 1, 2, 3].reduce((t, i) => t + (COP_META[`${cop}-walk${i}`]?.[1] ?? sh), 0) : h / sh;
+    if (back) h = sh * k;
     c.save();
     c.imageSmoothingEnabled = false;
     c.fillStyle = 'rgba(0,0,0,0.3)';

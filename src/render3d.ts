@@ -32,11 +32,12 @@ const OFFICER_H = 1050; // altura do policial (unidades do mundo)
 
 // Policial visto de frente: quepe, óculos escuros, camisa azul. (x, y) = pés.
 // Andando: um quadro a cada ~210 unidades andadas (passo de ~0,7 m em 4 quadros = 2 passos por ciclo),
-// preso à distância, para os pés não escorregarem; parado: mão erguida balançando (~2,5 Hz)
+// preso à distância, para os pés não escorregarem; parado: mão erguida balançando (~2,5 Hz).
+// Voltando para a viatura depois da multa: de costas (back0..3, tools/ref/cop_back.py), mesmo passo.
 const STEP_UNITS = 210;
 function drawOfficer(c: CanvasRenderingContext2D, x: number, y: number, h: number, o: Officer) {
   const pose: CopPose = o.phase === 'show' ? 'paper'
-    : o.moving ? (`walk${Math.floor((o.walked ?? 0) / STEP_UNITS) % 4}` as CopPose)
+    : o.moving ? (`${o.phase === 'back' ? 'back' : 'walk'}${Math.floor((o.walked ?? 0) / STEP_UNITS) % 4}` as CopPose)
     : (`stop${Math.floor(performance.now() / 400) % 2}` as CopPose);
   return drawPerson(c, 'cop', pose, x, y, h, false, o.cop);
 }
@@ -797,9 +798,12 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         fogged(c, fk, cx - rw, cy - rw * 1.3, rw * 2, rw * 1.3 + 4, (g) => drawCar(g, cx, cy, rw, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: rv.recover > 0 || rv.mistake > 0, night: lit, paint: r.rivalPaint, signal: rv.signal, plate: r.rivalPlate, drop: r.rivalCar!.rideDrop, dent: r.rivalDmg }));
         beamAhead(e.z, ex, CAR_W * sc * vp.K);
       } else if ('phase' in e) {
-        // o policial também tapa as luzes do que está atrás dele (e recebe a luz do nosso farol por inteiro)
-        const od = drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, e as Officer);
-        if (lit && od) pushOccluder({ ...od, idx: i, clip: s.clip, d: dist, bx: cx });
+        // o policial também tapa as luzes do que está atrás dele (e recebe a luz do nosso farol por inteiro);
+        // mostrando a multa em primeiro plano, a arte grande da tela da multa toma o lugar dele na pista
+        if (!((e as Officer).phase === 'show' && (e as Officer & { big?: boolean }).big)) {
+          const od = drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, e as Officer);
+          if (lit && od) pushOccluder({ ...od, idx: i, clip: s.clip, d: dist, bx: cx });
+        }
       } else if ('spotZ' in e) {
         const p = e as Race['police'][number];
         const siren = p.state === 'chase' || p.state === 'pull' || p.state === 'stopped';

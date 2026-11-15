@@ -1160,7 +1160,7 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   // frentista: espera ao lado da bomba, vai até o carro com a mangueira e abastece
   // (o tanque fica na traseira do carro, à direita: ele para ali, de frente para o carro)
   const walk = Math.max(0, Math.min(1, (t - GAS_STOP - 0.2) / 0.7));
-  const ax = x + 292 + (x + 254 - (x + 292)) * walk; // para com o bico na tampa do tanque
+  let ax = x + 292 + (x + 254 - (x + 292)) * walk; // para com o bico na tampa do tanque
   const pumping = fill > 0 && fill < 1;
   // frentista da região do trecho (arte do Victor); sem a imagem, o desenho por código
   const att = attFor(s.gasTheme ?? '');
@@ -1170,9 +1170,21 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const walked = (x + 292 - ax);
   const anim = !!attImg(att, 'walk0');
   const wpose = (walk > 0 && walk < 1 ? `walk${Math.floor(walked / 9.5) % 4}` : 'walk0') as 'walk0'; // parado abastecendo: quadro de passo apoiado, com os dois pés no chão
-  const pose = walk > 0 && fill < 1 ? (anim ? wpose : 'nozzle') : t > GAS_STOP + 5 ? (attImg(att, 'wave0') ? (Math.floor(t * 5) % 2 ? 'wave1' : 'wave0') : 'wave') : 'stand';
+  // parado abastecendo (tools/ref/att_pump.py): chegou ao carro e o tanque está enchendo -> pump0/pump1
+  // alternando devagar (respiração, ~1 Hz); sem a arte, o quadro de passo apoiado como antes
+  // (chega andando, para abastecendo e, com o tanque cheio, acena)
+  const hasPump = !!attImg(att, 'pump0') && !!attImg(att, 'pump1');
+  const pumpArt = hasPump && walk >= 1 && fill < 1;
+  const waving = hasPump ? fill >= 1 : t > GAS_STOP + 5;
+  const pose = pumpArt ? ((Math.floor(t * 2) % 2 ? 'pump1' : 'pump0') as 'walk0') : walk > 0 && fill < 1 ? (anim ? wpose : 'nozzle') : waving ? (attImg(att, 'wave0') ? (Math.floor(t * 5) % 2 ? 'wave1' : 'wave0') : 'wave') : 'stand';
   const AH = 72, ay = GY + 4;
   const am = attImg(att, pose) && ATT_META[`${att}-${pose}`]?.length > 3 ? ATT_META[`${att}-${pose}`] : attImg(att, 'nozzle') ? ATT_META[`${att}-nozzle`] : null;
+  if (pumpArt && am) {
+    // bico encostado no bocal: o mesmo ponto da lateral traseira onde o bico do walk0 parava (x + 254)
+    const kk = AH / ATT_H, w0 = ATT_META[`${att}-walk0`];
+    const tip = x + 254 - (w0[3] - w0[2]) * kk;
+    ax = tip + (am[3] - am[2]) * kk;
+  }
   if (walk > 0 && fill < 1) {
     // mangueira da bomba (desenhada antes do carro e do frentista: passa por trás deles) até a ponta da mangueira que o desenho traz
     // saindo de trás dele (sprite espelhado: a ponta fica à direita); sem a arte, até a mão

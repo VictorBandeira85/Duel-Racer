@@ -1,6 +1,6 @@
 import { carSwap } from './carswap';
 import { ACTIONS, binding, binds, keyName, lastDevice, resetBinds } from './input';
-import { drawPerson } from './people';
+import { drawPerson, attFor, attImg, ATT_META, ATT_H } from './people';
 import { VIEW_LEVELS, prefs, savePrefs, volLabel } from './prefs';
 import { clearArcade, loadArcade } from './arcadesave';
 import { gasQuip } from './score';
@@ -56,6 +56,7 @@ export interface AppState {
   lives: number;
   results: StageResult[];
   gasNight?: boolean; // posto à noite (o trecho que acabou era noturno)
+  gasTheme?: string; // tema do trecho que acabou (frentista da região)
   gameOver: boolean;
   mode: 'arcade' | 'career';
   career: CareerSave | null;
@@ -1150,22 +1151,33 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const GY = ay0 + 176; // chão do carro e do frentista: logo na frente da guia amarela da ilha
   const carX = Math.round(x + 80 + 320 * (1 - arr.pos));
   // à noite chega de faróis acesos (escamoteáveis levantados: <arte>-side-up)
-  drawCarSide(c, carX, GY + arr.dip, 170, car, paintHex(car.id), (-320 * arr.pos) / wr, night);
   // frentista: espera ao lado da bomba, vai até o carro com a mangueira e abastece
   // (o tanque fica na traseira do carro, à direita: ele para ali, de frente para o carro)
   const walk = Math.max(0, Math.min(1, (t - GAS_STOP - 0.2) / 0.7));
-  const ax = x + 292 + (x + 262 - (x + 292)) * walk;
+  const ax = x + 292 + (x + 254 - (x + 292)) * walk; // para com o bico na tampa do tanque
   const pumping = fill > 0 && fill < 1;
+  const pose = walk > 0 && fill < 1 ? 'nozzle' : t > GAS_STOP + 5 ? 'wave' : 'stand';
+  // frentista da região do trecho (arte do Victor); sem a imagem, o desenho por código
+  const att = attFor(s.gasTheme ?? '');
+  const AH = 72, ay = GY + 4;
+  const am = attImg(att, 'nozzle') ? ATT_META[`${att}-nozzle`] : null;
   if (walk > 0 && fill < 1) {
-    // mangueira da bomba (atrás do carro) até o bocal na mão do frentista
+    // mangueira da bomba (desenhada antes do carro e do frentista: passa por trás deles) até a ponta da mangueira que o desenho traz
+    // saindo de trás dele (sprite espelhado: a ponta fica à direita); sem a arte, até a mão
+    const k = AH / ATT_H;
+    const ex = am ? ax + (am[2] - am[5]) * k : ax - 12, ey = am ? ay - (am[1] - am[6]) * k : GY - 30;
     c.strokeStyle = '#141414';
     c.lineWidth = 2;
     c.beginPath();
     c.moveTo(ax0 + 211, ay0 + 127);
-    c.bezierCurveTo(ax0 + 236, ay0 + 130, x + 250, GY - 26, ax - 12, GY - 30);
+    if (am) c.bezierCurveTo(ax0 + 222, GY + 2, ex + 14, GY + 3, ex, ey);
+    else c.bezierCurveTo(ax0 + 236, ay0 + 130, x + 250, GY - 26, ex, ey);
     c.stroke();
   }
-  drawPerson(c, 'att', walk > 0 && fill < 1 ? 'nozzle' : t > GAS_STOP + 5 ? 'wave' : 'stand', ax, GY + 4, 66, true);
+  // o carro por cima da mangueira: ela sai da bomba por trás dele
+  drawCarSide(c, carX, GY + arr.dip, 170, car, paintHex(car.id), (-320 * arr.pos) / wr, night);
+  if (attImg(att, pose)) drawPerson(c, 'att', pose, ax, ay, AH, true, att);
+  else drawPerson(c, 'att', pose, ax, GY + 4, 66, true);
   if (pumping || fill >= 1) {
     // indicador de abastecimento
     const bx = x + 108, by = 8;

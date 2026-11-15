@@ -4,6 +4,7 @@
 
 type Pose = 'stand' | 'paper' | 'wave' | 'nozzle';
 import COPS from './assets/people/cops.json';
+import ATTS from './assets/people/atts.json';
 
 // Policiais por classe (arte do Victor, tools/ref/cop_sprites.py): 'D1'..'S2', poses stand/wave/paper.
 // [largura, altura, x do meio dos pés] de cada sprite; enquanto a imagem não carrega vale o desenho por código.
@@ -21,6 +22,37 @@ function copImg(id: string, pose: Pose): HTMLImageElement | null {
     copImgs.set(key, im);
   }
   return im.complete && im.naturalWidth ? im : null;
+}
+// Frentistas por região (arte do Victor, tools/ref/att_sprites.py): 'City', 'Farm', 'Coast', 'Serra',
+// 'Desert', 'Jungle', 'Snow', poses stand/nozzle/wave. Os desenhos olham para a direita (o jogo espelha).
+// [largura, altura, x do meio dos pés] e, no nozzle, + [x, y do bico, x, y da ponta da mangueira].
+const ATT_ART = import.meta.glob('./assets/people/att-*.png', { eager: true, import: 'default' }) as Record<string, string>;
+export const ATT_META = ATTS as unknown as Record<string, number[]>;
+export const ATT_H = 115; // altura de referência dos sprites: todos na mesma escala
+const attImgs = new Map<string, HTMLImageElement>();
+export function attImg(id: string, pose: Pose): HTMLImageElement | null {
+  const key = `${id}-${pose}`;
+  const src = ATT_ART[`./assets/people/att-${key}.png`];
+  if (!src) return null;
+  let im = attImgs.get(key);
+  if (!im) {
+    im = new Image();
+    im.src = src;
+    attImgs.set(key, im);
+  }
+  return im.complete && im.naturalWidth ? im : null;
+}
+export const preloadAtts = () => ['City', 'Farm', 'Coast', 'Serra', 'Desert', 'Jungle', 'Snow'].forEach((id) => (['stand', 'nozzle', 'wave'] as Pose[]).forEach((p) => attImg(id, p)));
+// região do frentista pelo tema do trecho
+export function attFor(theme: string): string {
+  if (theme === 'city' || theme === 'industrial') return 'City';
+  if (theme === 'farm' || theme === 'savanna') return 'Farm';
+  if (theme === 'coast' || theme === 'beach') return 'Coast';
+  if (theme === 'forest' || theme === 'mountain' || theme === 'autumn') return 'Serra';
+  if (theme === 'desert' || theme === 'canyon') return 'Desert';
+  if (theme === 'jungle') return 'Jungle';
+  if (theme === 'snow' || theme === 'alpine' || theme === 'alpinesnow') return 'Snow';
+  return 'City';
 }
 export const preloadCops = (id: string) => (['stand', 'wave', 'paper'] as Pose[]).forEach((p) => copImg(id, p));
 // cor da manga/luva de cada policial (a mão que segura a multa): [manga, mão]
@@ -155,6 +187,23 @@ function person(kind: 'cop' | 'att', pose: Pose) {
 export function drawPerson(c: CanvasRenderingContext2D, kind: 'cop' | 'att', pose: Pose, x: number, y: number, h: number, flip = false, cop?: string) {
   if (h < 3) return;
   const im = kind === 'cop' && cop ? copImg(cop, pose) : null;
+  const ai = kind === 'att' && cop ? attImg(cop, pose) : null;
+  if (ai) {
+    // frentista: escala fixa (h = altura de referência), pés em (x, y); flip = olha para a esquerda
+    const [sw, sh, fx] = ATT_META[`${cop}-${pose}`];
+    const k = h / ATT_H;
+    c.save();
+    c.imageSmoothingEnabled = false;
+    c.fillStyle = 'rgba(0,0,0,0.3)';
+    c.fillRect(Math.round(x - 20 * k), Math.round(y - k), Math.round(40 * k), Math.max(1, Math.round(k * 1.5)));
+    if (flip) {
+      c.translate(Math.round(x), 0);
+      c.scale(-1, 1);
+      c.drawImage(ai, Math.round(-fx * k), Math.round(y - sh * k), Math.round(sw * k), Math.round(sh * k));
+    } else c.drawImage(ai, Math.round(x - fx * k), Math.round(y - sh * k), Math.round(sw * k), Math.round(sh * k));
+    c.restore();
+    return;
+  }
   if (im) {
     // sprite inteiro (quepe aos pés) com a altura h, pés no meio em (x, y)
     const [sw, sh, fx] = COP_META[`${cop}-${pose}`];

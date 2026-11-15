@@ -18,6 +18,7 @@ import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
 import { CHALLENGE_PRIZE, checkChallenge, partialStats, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
 import { paintHex } from './paint';
 import { VIEW_EXTRA_CAP, cockpitReady, preloadCockpit, renderCockpit } from './cockpit';
+import { preloadAtts } from './people';
 import { OPT_TABS, applyBtnSize, beginLoading, optTab, setOptTab, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, focusInfo, preloadGasArt, hoverScreen, keyScreen, setScreenActions, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
 import { binding, binds, input, lastDevice, pad, pollGamepad, releaseAll, setBind, setupInput, touch } from './input';
 import { MUSIC_CREDITS } from './tracks';
@@ -32,6 +33,7 @@ import { preloadPhotos } from './photos';
 preloadPhotos();
 preloadScenery();
 preloadGasArt();
+preloadAtts();
 preloadBgArt(); // fundos desenhados (relevo do horizonte): prontos antes da primeira corrida
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -266,6 +268,7 @@ function makeRace(i: number) {
     }
     state.gasPage = 0;
     state.gasNight = !!r.def.night && !r.def.dusk;
+    state.gasTheme = r.def.theme; // frentista da região do trecho
     actions.go('gas');
   };
   r.onCrash = () => {

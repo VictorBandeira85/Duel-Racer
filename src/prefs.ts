@@ -67,7 +67,9 @@ export const volLabel = (pct: number) => (pct <= 0 ? 'MUDO' : `${pct}%`);
 // VISÃO DO PAINEL: quantas colunas da arte da cabine a tela de corrida tenta mostrar (0 = como
 // sempre: altura fixa de 224 linhas). Afastando, a tela ganha linhas em cima (mais para-brisa) e,
 // por ficar mais alta, mais colunas dos lados; no máximo 96 linhas a mais
-export const VIEW_LEVELS = [{ label: 'PERTO', cols: 0 }, { label: 'NORMAL', cols: 404 }, { label: 'LONGE', cols: 460 }];
+// drop: linhas que a cabine desce na tela (mais estrada aparece pelo para-brisa), em qualquer aparelho:
+// no celular largo as colunas já batem na largura da arte (460) e quase não sobram linhas a mais
+export const VIEW_LEVELS = [{ label: 'PERTO', cols: 0, drop: 0 }, { label: 'NORMAL', cols: 404, drop: 6 }, { label: 'LONGE', cols: 460, drop: 12 }];
 // cap: linhas a mais que a cabine do carro aguenta (o teto construído acima da arte não fica bom
 // em todas: ver VIEW_EXTRA_CAP em cockpit.ts)
 export function raceViewSize(screenAspect: number, cap = 96) {

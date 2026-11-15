@@ -1,6 +1,6 @@
 import { COP_HAND } from './people';
 import { brandOf, drawLogo } from './brands';
-import { prefs } from './prefs';
+import { VIEW_LEVELS, prefs } from './prefs';
 import { binds, keyName, pad, touch } from './input';
 import { ghostTimeAt } from './records';
 import { CRES, DASH_Y, KMH, RES, ROOF_H, SEG_LEN, view } from './config';
@@ -2553,14 +2553,22 @@ const coreX = () => Math.floor((view.w - CORE_W) / 2);
 // VISÃO DO PAINEL afastada (ajustes): a tela de corrida ganha EXTRA linhas acima das 224 nativas;
 // o para-brisa cresce para cima (mais céu e estrada), a cabine desce junto e, com a tela mais
 // alta, cabem mais colunas da arte nas laterais (o painel inteiro em tela 16:9)
-export const viewExtra = () => Math.max(0, view.h - 224);
+const viewRows = () => Math.max(0, view.h - 224);
+// cabine mais baixa na tela: o nível da VISÃO DO PAINEL mais o ajuste de cada carro (VIEW_DROP);
+// o horizonte não desce junto, então aparece mais estrada perto do carro
+let curDash = '';
+export const VIEW_DROP: Record<string, number> = { f40: 10 };
+// limite da descida: mais que isso corta o quadro de instrumentos embaixo da tela
+const VIEW_DROP_MAX: Record<string, number> = { f40: 14 };
+const viewDrop = () => Math.min(VIEW_DROP_MAX[curDash] ?? 12, (VIEW_LEVELS[prefs.view]?.drop ?? 0) + (VIEW_DROP[curDash] ?? 0));
+export const viewExtra = () => viewRows() + viewDrop();
 // quanto cada cabine pode afastar (linhas acima das 224): na Fúria F4 a moldura vermelha da porta
 // faz curva no alto da arte e, continuada reta, vira uma faixa atravessando o para-brisa; na Fúria TR
 // a moldura da porta encosta na borda e viraria um bloco azul
 export const VIEW_EXTRA_CAP: Record<string, number> = { f40: 24, testarossa: 24 };
 export function windshield(): Viewport {
   const ex = viewExtra();
-  return { x: 0, y: ROOF_H, w: view.w, h: DASH_Y - ROOF_H + ex, horizon: HORIZON_Y + ex, K: 190 };
+  return { x: 0, y: ROOF_H, w: view.w, h: DASH_Y - ROOF_H + ex, horizon: HORIZON_Y + viewRows(), K: 190 };
 }
 
 const disc = (c: CanvasRenderingContext2D, x: number, y: number, r: number, color: string | CanvasPattern | CanvasGradient) => {
@@ -3054,6 +3062,7 @@ function drawDebris(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
 const roadCv = document.createElement('canvas');
 function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number, stageLabel: string, totalTime: number, dt: number) {
   const { w } = view;
+  curDash = r.car.dash;
   const vp = windshield();
   const art = COCKPIT_ART[r.car.dash];
   ART_TOP = 100 + (art?.dy ?? 0) + viewExtra();

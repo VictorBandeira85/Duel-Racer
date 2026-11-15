@@ -60,6 +60,7 @@ export interface AppState {
   results: StageResult[];
   gasNight?: boolean; // posto à noite (o trecho que acabou era noturno)
   gasTheme?: string; // tema do trecho que acabou (frentista da região)
+  gasWeather?: string; // clima do trecho que acabou: chuva e neve continuam na tela do posto
   gasDmg?: number; // marcas do trecho no carro (0..1)
   gameOver: boolean;
   mode: 'arcade' | 'career';
@@ -1265,6 +1266,7 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   }
   if (attImg(att, pose)) drawPerson(c, 'att', pose, ax, ay, AH, true, att);
   else drawPerson(c, 'att', pose, ax, GY + 4, 66, true);
+  gasWeatherFx(c, s.gasWeather, night, t, w, GY);
   if (pumping || fill >= 1) {
     // indicador de abastecimento
     const bx = x + 108, by = 8;
@@ -1284,6 +1286,51 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   if (r.clean) lines.push('Trecho limpo! Ganhou um carro.');
   lines.slice(0, 3).forEach((l, i) => text(c, l, x + 12, 192 + i * 12, 8, i < lines.length - (r.clean ? 1 : 0) ? '#f0f0f0' : '#30e060', 'left', null));
   if (Math.floor(s.t * 2) % 2) text(c, 'TOQUE PARA VER O RESULTADO', w / 2, 230, 5, '#ffd400', 'center', null);
+}
+
+// chuva e neve na tela do posto (o clima do trecho continua): partículas de 1 px na resolução da tela,
+// posição pelo relógio (sem estado). Chuva: riscos inclinados, céu mais fechado e respingos no piso;
+// neve: flocos em duas camadas (longe menores e mais lentos), balançando de leve
+function gasWeatherFx(c: CanvasRenderingContext2D, wx: string | undefined, night: boolean, t: number, w: number, gy: number) {
+  if (wx !== 'rain' && wx !== 'snow') return;
+  const H = 186;
+  const fr = (n: number) => { const v = Math.sin(n * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+  c.save();
+  c.beginPath();
+  c.rect(0, 0, w, H);
+  c.clip();
+  if (wx === 'rain') {
+    c.fillStyle = night ? 'rgba(10,14,30,0.22)' : 'rgba(46,56,78,0.32)'; // tempo fechado
+    c.fillRect(0, 0, w, H);
+    const n = Math.round(w * 0.9);
+    c.fillStyle = night ? 'rgba(160,180,220,0.6)' : 'rgba(215,228,245,0.62)';
+    for (let i = 0; i < n; i++) {
+      const sp = 210 + fr(i + 3) * 70, len = 5 + Math.floor(fr(i + 7) * 4);
+      const y = (fr(i) * (H + 20) + t * sp) % (H + 20) - 10;
+      const x = ((fr(i + 11) * (w + 40) - (y + 10) * 0.25) % (w + 40) + w + 40) % (w + 40) - 20;
+      for (let k = 0; k < len; k++) c.fillRect(Math.round(x - k * 0.25), Math.round(y - k), 1, 1);
+    }
+    // respingos no piso molhado: tracinhos que piscam
+    c.fillStyle = night ? 'rgba(170,190,225,0.55)' : 'rgba(225,235,250,0.6)';
+    const m = Math.round(w * 0.06);
+    for (let i = 0; i < m; i++) {
+      const ph = Math.floor(t * 7 + fr(i + 21) * 7);
+      const sx = Math.floor(fr(i * 7 + ph) * w), sy = gy - 8 + Math.floor(fr(i * 13 + ph) * (H - gy + 8));
+      if ((ph + i) % 3 === 0) { c.fillRect(sx - 1, sy, 1, 1); c.fillRect(sx + 1, sy, 1, 1); c.fillRect(sx, sy - 1, 1, 1); }
+    }
+  } else {
+    const n = Math.round(w * 0.75);
+    for (let i = 0; i < n; i++) {
+      const far = i % 3 !== 0;
+      const sp = far ? 14 + fr(i + 5) * 8 : 26 + fr(i + 5) * 12;
+      const y = (fr(i) * (H + 8) + t * sp) % (H + 8) - 4;
+      const x = ((fr(i + 9) * w + Math.sin(t * (0.8 + fr(i + 2)) + i) * (far ? 2 : 4) + t * 6) % w + w) % w;
+      c.fillStyle = far ? (night ? 'rgba(200,210,235,0.7)' : 'rgba(255,255,255,0.75)') : night ? '#dde4f4' : '#ffffff';
+      const sz = far ? 1 : 2;
+      c.fillRect(Math.round(x), Math.round(y), sz, sz);
+    }
+  }
+  c.restore();
 }
 
 // quebra uma frase em linhas de até n caracteres

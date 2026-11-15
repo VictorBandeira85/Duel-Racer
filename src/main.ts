@@ -294,6 +294,7 @@ function makeRace(i: number) {
     state.gasPage = 0;
     state.gasNight = !!r.def.night && !r.def.dusk;
     state.gasTheme = r.def.theme; // frentista da região do trecho
+    state.gasWeather = r.def.weather; // chuva e neve continuam no posto
     // marcas do trecho no carro visto de lado no posto (batidas, encostões e o dano que ficou)
     state.gasDmg = Math.min(1, r.damage * 0.8 + r.crashes * 0.35 + r.stats.scrapes * 0.04);
     actions.go('gas');

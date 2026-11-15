@@ -4,13 +4,13 @@ export const input = { left: false, right: false, gas: false, brake: false };
 export const touch = { ui: navigator.maxTouchPoints > 0 || matchMedia('(pointer: coarse)').matches };
 // último jeito de jogar usado (legenda de botões dos menus): controle, teclado (ou mouse) ou toque
 export const lastDevice = { kind: (touch.ui ? 'touch' : 'key') as 'pad' | 'key' | 'touch' };
-const queue = { shiftUp: 0, shiftDown: 0 };
+const queue = { shiftUp: 0, shiftDown: 0, radio: 0 }; // radio: troca de estação do rádio do carro
 // buzina: tecla H ou B (se não estiverem em outra ação), botão da tela e X/quadrado ou Y/triângulo do controle
 export const horn = { key: false, touch: false, pad: false };
 export const hornOn = () => horn.key || horn.touch || horn.pad;
 const HORN_KEYS = ['KeyH', 'KeyB'];
 
-export function takeShift(kind: 'shiftUp' | 'shiftDown') {
+export function takeShift(kind: 'shiftUp' | 'shiftDown' | 'radio') {
   const n = queue[kind];
   queue[kind] = 0;
   return n > 0;
@@ -19,7 +19,7 @@ export function takeShift(kind: 'shiftUp' | 'shiftDown') {
 export type Key = keyof typeof input | keyof typeof queue;
 
 const press = (k: Key, down: boolean) => {
-  if (k === 'shiftUp' || k === 'shiftDown') {
+  if (k === 'shiftUp' || k === 'shiftDown' || k === 'radio') {
     if (down) queue[k]++;
   } else input[k] = down;
 };
@@ -28,9 +28,10 @@ const press = (k: Key, down: boolean) => {
 export const ACTIONS: { id: Key; label: string }[] = [
   { id: 'gas', label: 'ACELERAR' }, { id: 'brake', label: 'FREAR' }, { id: 'left', label: 'ESQUERDA' },
   { id: 'right', label: 'DIREITA' }, { id: 'shiftUp', label: 'SOBE MARCHA' }, { id: 'shiftDown', label: 'REDUZ MARCHA' },
+  { id: 'radio', label: 'RÁDIO' },
 ];
 const FIXED: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'gas', ArrowDown: 'brake', KeyX: 'shiftUp', KeyZ: 'shiftDown' };
-const DEFAULT_BIND: Record<Key, string> = { left: 'KeyA', right: 'KeyD', gas: 'KeyW', brake: 'KeyS', shiftUp: 'KeyE', shiftDown: 'KeyQ' };
+const DEFAULT_BIND: Record<Key, string> = { left: 'KeyA', right: 'KeyD', gas: 'KeyW', brake: 'KeyS', shiftUp: 'KeyE', shiftDown: 'KeyQ', radio: 'KeyR' };
 const BIND_KEY = 'duel-racer:teclas';
 export const binds: Record<Key, string> = (() => {
   try {
@@ -42,7 +43,8 @@ export const binds: Record<Key, string> = (() => {
 let KEYMAP: Record<string, Key> = {};
 function rebuild() {
   KEYMAP = { ...FIXED };
-  for (const a of ACTIONS) KEYMAP[binds[a.id]] = a.id;
+  // o rádio (ação nova) não toma a tecla R de quem já a tinha escolhido para outra ação
+  for (const a of ACTIONS) if (a.id !== 'radio' || !ACTIONS.some((b) => b.id !== 'radio' && binds[b.id] === binds.radio)) KEYMAP[binds[a.id]] = a.id;
 }
 rebuild();
 // troca a tecla de uma ação (a que já usava essa tecla fica com a antiga desta)
@@ -128,7 +130,7 @@ export function setupInput() {
 export function releaseAll() {
   input.left = input.right = input.gas = input.brake = false;
   pad.gas = pad.brake = pad.steer = 0;
-  queue.shiftUp = queue.shiftDown = 0;
+  queue.shiftUp = queue.shiftDown = queue.radio = 0;
   horn.key = horn.touch = horn.pad = false;
 }
 
@@ -203,7 +205,7 @@ export function pollGamepad(): PadKey[] {
   }
   pad.id = pads[0].id;
   pad.mapping = pads[0].mapping;
-  const now: Record<string, boolean> = { left: false, right: false, up: false, down: false, gas: false, brake: false, ok: false, back: false, shiftUp: false, shiftDown: false, start: false };
+  const now: Record<string, boolean> = { left: false, right: false, up: false, down: false, gas: false, brake: false, ok: false, back: false, shiftUp: false, shiftDown: false, start: false, radio: false };
   const nav = { left: false, right: false, up: false, down: false };
   let gas = 0, brake = 0, steer = 0, honk = false;
   for (const gp of pads) {
@@ -227,6 +229,7 @@ export function pollGamepad(): PadKey[] {
     now.shiftUp ||= btn(5);
     now.shiftDown ||= btn(4);
     now.start ||= btn(9);
+    now.radio ||= btn(8); // Select/Back/View/Share: troca a estação do rádio
     honk ||= btn(2) || btn(3); // X/quadrado ou Y/triângulo: buzina
     nav.left ||= dl;
     nav.right ||= dr;
@@ -274,6 +277,7 @@ export function pollGamepad(): PadKey[] {
       repeatAt[k] = t + 130;
     }
   }
+  if (edge('radio')) queue.radio++;
   if (edge('start')) edges.push('start');
   if (edge('ok')) edges.push('ok');
   if (edge('back')) edges.push('back');

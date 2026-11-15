@@ -13,6 +13,7 @@ import { buildTrack, laneCenter, type Segment, type Track } from './track';
 import { brakeAmt, gasAmt, steerAmt, takeShift } from './input';
 import { beep, radarBeep, bumpSound, crashSound, motoCrashSound, landSound, stoneSound, setTunnel, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
+import { BLITZ_KMH, CONE_W, blitzEdge, coneSound, knockCone, makeBlitz, updateCones, type Blitz } from './blitz';
 import { updateTrafficAudio } from './trafficaudio';
 import { GHOST_DT, ghostAt, type Ghost } from './records';
 import { startFall, updateFall, type MotoFall } from './motofall';
@@ -121,7 +122,7 @@ function pickGameCar(u: number): CarSpec | undefined {
 const ROADSIDE: Partial<Record<SpriteKind, 'scrape' | 'knock'>> = {
   rail: 'scrape', fence: 'scrape',
   post: 'knock', bush: 'knock', umbrella: 'knock', snowman: 'knock', stop: 'knock',
-  signL: 'knock', signR: 'knock', warnL: 'knock', warnR: 'knock', sharpL: 'knock', sharpR: 'knock', gasKm: 'knock',
+  signL: 'knock', signR: 'knock', warnL: 'knock', warnR: 'knock', sharpL: 'knock', sharpR: 'knock', gasKm: 'knock', blitz: 'knock',
 };
 export function trafficLook(t: TrafficCar, front: boolean, night: boolean, flash = false): CarLook {
   // freando: mais devagar do que gosta de andar (trânsito na mesma mão, atrás de alguém ou em pânico)
@@ -214,6 +215,7 @@ export interface Police {
   chaseT: number;
   sv?: boolean; // Diablo SV da polícia (classe S): bem mais rápida
   unit?: PerfClass; // classe da viatura (COP_UNIT)
+  blitz?: boolean; // viatura da blitz: encostada na faixa, giroflex aceso, sai atrás de quem passa rápido
 }
 
 // Policial que desce da viatura e mostra a multa
@@ -235,6 +237,21 @@ export interface Fine {
 
 const HITBOX = 0.8;
 
+// Tempo que vira no meio do trecho: em ~25% dos trechos de tempo bom ele fecha (chuva; neve só nos
+// cenários de neve; nunca chuva no deserto e no cânion) e em ~25% dos chuvosos a chuva para.
+// `at` = fração do trecho em que começa a virar (cedo o bastante para terminar antes da chegada).
+export interface WeatherTurn { kind: 'rain' | 'snow'; dir: 1 | -1; at: number }
+const DRY_THEMES: ThemeId[] = ['desert', 'canyon'];
+export function weatherTurn(def: StageDef, seed: number): WeatherTurn | null {
+  const rand = rng(seed * 31 + 313);
+  const roll = rand(), at = 0.22 + rand() * 0.25;
+  if (roll >= 0.25) return null;
+  if (!def.weather) {
+    if (def.theme === 'snow' || def.theme === 'alpinesnow') return { kind: 'snow', dir: 1, at };
+    return DRY_THEMES.includes(def.theme) ? null : { kind: 'rain', dir: 1, at };
+  }
+  return def.weather === 'rain' ? { kind: 'rain', dir: -1, at } : null;
+}
 export type RaceState = 'countdown' | 'drive' | 'crash' | 'pullover' | 'ticket' | 'arrived';
 
 export class Race {
@@ -248,6 +265,18 @@ export class Race {
   nightK = 0;
   private dawnRise = false;
   private goldTheme: Theme | null = null;
+  // clima: a chuva/neve do trecho (fixa ou que vem/vai no meio dele) em valores contínuos, para o
+  // tempo poder fechar ou abrir aos poucos. Num trecho de clima fixo tudo fica em 1 (ou 0) o tempo todo.
+  wx: 'rain' | 'snow' | undefined = undefined; // o que cai do céu neste trecho
+  rainK = 0; // quanto chove/neva agora (0 = nada, garoa ~0,2, 1 = chuva forte): gotas, limpador
+  skyK = 0; // céu encoberto (nuvens escuras): tema do céu, nuvens brancas e estrelas somem
+  wetK = 0; // pista molhada/nevada: aderência e som dos pneus (vai atrás da chuva, devagar)
+  wxTurn: WeatherTurn | null = null; // virada do tempo no meio do trecho (null = clima fixo)
+  private wxT = -1; // segundos desde que o tempo virou (-1 = ainda não)
+  private wxStep = -1;
+  private wxMsgs: string[] = []; // avisos esperando a vez no HUD
+  clearTheme: Theme | null = null; // tema de tempo bom (as nuvens brancas usam a cor dele)
+  private wetTheme: Theme | null = null;
   inTunnel = 0; // 0..1, sobe ao entrar no túnel (eco do ronco, luz)
   track: Track;
   state: RaceState = 'countdown';
@@ -341,6 +370,7 @@ export class Race {
   private caughtKmh = 0;
   traffic: TrafficCar[] = [];
   police: Police[] = [];
+  blitz: Blitz | null = null; // blitz do trecho (src/blitz.ts): cones, policial anotando, placas
   officer: Officer | null = null;
   copId = 'D1';
   copPlate?: Plate; // placa da viatura feita de carro do jogo
@@ -372,13 +402,28 @@ export class Race {
     this.def = { ...course.stages[stageIdx] };
     const base = THEMES[this.def.theme];
     this.dayTheme = base;
-    this.theme = this.def.night ? nightTheme(base) : this.def.weather === 'rain' ? rainTheme(base) : this.def.weather === 'fog' ? fogTheme(base) : base;
-    // entardecer/amanhecer: o céu e o chão da hora dourada (com chuva ou neblina, meio a meio)
-    if (this.def.tod && !this.def.night && !this.def.dusk) {
-      const g = goldenTheme(base, this.def.tod);
-      this.theme = this.def.weather === 'rain' || this.def.weather === 'fog' ? blendTheme(this.theme, g, 0.5) : g;
-    }
+    const pick = (w: StageDef['weather']) => {
+      let th = this.def.night ? nightTheme(base) : w === 'rain' ? rainTheme(base) : w === 'fog' ? fogTheme(base) : base;
+      // entardecer/amanhecer: o céu e o chão da hora dourada (com chuva ou neblina, meio a meio)
+      if (this.def.tod && !this.def.night && !this.def.dusk) {
+        const g = goldenTheme(base, this.def.tod);
+        th = w === 'rain' || w === 'fog' ? blendTheme(th, g, 0.5) : g;
+      }
+      return th;
+    };
+    this.theme = pick(this.def.weather);
     const seed = (course.seed ?? course.id.length * 1000) + stageIdx * 97 + 11;
+    // tempo que vira no meio do trecho (sorteado pela seed: o mesmo trecho vira sempre igual)
+    this.wx = this.def.weather === 'rain' || this.def.weather === 'snow' ? this.def.weather : undefined;
+    this.rainK = this.wetK = this.wx ? 1 : 0;
+    this.skyK = this.wx === 'rain' ? 1 : 0; // na neve o céu continua com as nuvens (como sempre foi)
+    const prev = course.stages[stageIdx - 1];
+    this.wxTurn = this.def.dusk || (this.def.tod === 'dawn' && prev?.night) ? null : weatherTurn(this.def, seed);
+    if (this.wxTurn) {
+      this.wx = this.wxTurn.kind;
+      this.clearTheme = pick(undefined);
+      this.wetTheme = this.wx === 'rain' ? pick('rain') : this.clearTheme;
+    }
     this.track = buildTrack(this.def, this.theme, seed);
     this.nightK = this.def.night ? 1 : 0;
     // amanhecer logo depois de um trecho de noite: começa escuro e clareia no começo do trecho
@@ -421,6 +466,12 @@ export class Race {
     const unit = PC[Math.max(PC.indexOf(perfClass(car)), opts.copClass ? PC.indexOf(opts.copClass) : 0)];
     const sv = unit === 'S';
     this.police = t.policeSpots.map((z) => ({ spotZ: z, z, x: t.roadW + 1500, speed: 0, state: 'parked' as const, chaseT: 0, sv, unit }));
+    // blitz (no máximo uma por trecho): a viatura daquele ponto fica encostada na faixa, entre os cones
+    if (t.blitz !== undefined) {
+      this.blitz = makeBlitz(t, t.blitz);
+      const bp = this.police.find((p) => p.spotZ === t.blitz);
+      if (bp) { bp.blitz = true; bp.x = this.blitz.copX; }
+    }
     // policial da vez: um dos dois da classe, conforme o trecho
     this.copId = unit + String(1 + ((seed >> 3) % 2));
     preloadCops(this.copId);
@@ -476,8 +527,48 @@ export class Race {
     }
   }
 
+  // tempo virando: fechando, o céu escurece (~18 s), começa a garoar e a chuva engrossa (forte em
+  // ~35 s); a pista molha atrás da chuva, no máximo 1/20 por segundo (seco a molhado em ~25 s).
+  // Abrindo, a chuva rareia até parar (~24 s), o céu clareia depois e a pista seca devagar (~30 s).
+  private updateWeather(dt: number) {
+    const w = this.wxTurn;
+    if (!w) return;
+    if (this.wxT < 0) {
+      if (this.progress < w.at) return;
+      this.wxT = 0;
+    }
+    this.wxT += dt;
+    const T = this.wxT, snow = w.kind === 'snow';
+    const was = this.rainK, wasWet = this.wetK;
+    if (w.dir > 0) {
+      this.skyK = clamp(T / 18, 0, 1);
+      this.rainK = Math.pow(clamp((T - 7) / 28, 0, 1), 1.6);
+    } else {
+      this.rainK = Math.pow(1 - clamp(T / 24, 0, 1), 1.5);
+      this.skyK = 1 - clamp((T - 12) / 22, 0, 1);
+    }
+    if (snow) this.skyK = 0;
+    const target = clamp(this.rainK * 1.6, 0, 1);
+    this.wetK = clamp(this.wetK + clamp(target - this.wetK, -dt / 30, dt / 20), 0, 1);
+    // o resto do jogo que só quer saber "está chovendo?" (interruptores, desafios, posto da chegada)
+    this.def.weather = this.rainK >= 0.3 ? w.kind : undefined;
+    // céu: em degraus pequenos, para não recriar texturas a cada quadro
+    const step = Math.round(this.skyK * 32);
+    if (step !== this.wxStep && this.clearTheme && this.wetTheme && this.clearTheme !== this.wetTheme) {
+      this.wxStep = step;
+      this.theme = blendTheme(this.clearTheme, this.wetTheme, step / 32);
+    }
+    // avisos discretos no HUD quando o tempo vira
+    if (w.dir > 0 && was <= 0.01 && this.rainK > 0.01) this.wxMsgs.push(snow ? 'COMEÇOU A NEVAR' : 'COMEÇOU A CHOVER');
+    if (w.dir > 0 && wasWet < 0.6 && this.wetK >= 0.6) this.wxMsgs.push(snow ? 'NEVE NA PISTA' : 'PISTA MOLHADA');
+    if (w.dir < 0 && was > 0 && this.rainK <= 0) this.wxMsgs.push('A CHUVA PAROU');
+    if (w.dir < 0 && wasWet > 0.15 && this.wetK <= 0.15) this.wxMsgs.push('PISTA SECANDO');
+    if (this.wxMsgs.length && this.messageT <= 0 && this.state === 'drive') this.say(this.wxMsgs.shift()!, 2.2);
+  }
+
   // pôr do sol ao longo do trecho (céu, chão, faróis) e o túnel (eco no ronco)
   private updateAmbient(dt: number, seg: Segment) {
+    this.updateWeather(dt);
     if (this.def.dusk) {
       const p = this.progress;
       // dia -> pôr do sol (até 55%) -> noite (a partir de 85%); em degraus, para não recriar texturas a cada quadro
@@ -999,7 +1090,7 @@ export class Race {
     const offRoad = this.offRoadAt(pSeg);
     // pneu canta só escorregando (derrapagem, rodada, patinando); frear em linha reta não
     const screech = driving && !offRoad ? Math.max(this.slip * 1.4, Math.abs(this.drift) * 2.2, this.spin * 0.55, this.spinOut > 0 ? 1 : 0) : 0;
-    const surface = this.def.weather === 'snow' ? 'snow' : this.def.weather === 'rain' ? 'wet' : 'dry';
+    const surface = this.wetK < 0.4 ? 'dry' : this.wx === 'snow' ? 'snow' : this.wx === 'rain' ? 'wet' : 'dry';
     setTires(screech, offRoad && this.speed > 100 ? 0.4 + speedPct * 0.6 : 0, surface, driving || this.state === 'arrived' ? speedPct : 0);
     // durante a troca o pé sai do acelerador: o ronco perde carga até a marcha entrar
     setEngine(Math.max(0.1, this.rpm), this.pt.shiftT <= 0 ? this.gasPedal : 0, true, this.turboCar ? this.pt.boost : 0);
@@ -1288,7 +1379,17 @@ export class Race {
     // passado o susto, volta devagar para a sua faixa
     if (c.panic === 0 && !c.moving && !c.signal && Math.abs(c.x - c.tx) > 150) c.x += clamp(c.tx - c.x, -dt * 500, dt * 500);
 
+    // blitz: na nossa mão ninguém passa por cima dos cones (quem está na linha deles é espremido para
+    // o lado); com quatro faixas, quem vem na faixa fechada liga a seta e sai dela bem antes
+    const bz = this.blitz;
+    const nearBlitz = !!bz && dir > 0 && c.z > bz.z0 - 150 * SEG_LEN && c.z < bz.z2;
+    if (bz && dir > 0) c.x = Math.min(c.x, blitzEdge(bz, c.z) - this.carHalf(c));
     if (t.lanes < 4) return; // uma faixa por sentido: não há para onde ir
+    if (bz && nearBlitz && c.tx > bz.inner - CAR_W * 0.6) {
+      c.tx = laneCenter(t, t.lanes - 2) + laneOff(c);
+      c.signal = -1;
+      if (!c.moving) c.signalT = Math.max(c.signalT, 0.8);
+    }
     if (c.signalT > 0) {
       c.signalT -= dt;
       if (c.signalT <= 0) c.moving = true;
@@ -1315,6 +1416,7 @@ export class Race {
       || (Math.abs(this.x - tx) < CAR_W * 1.2 && Math.abs(this.playerZ - c.z) < SEG_LEN * 4)
       || (!!this.rival && Math.abs(this.rival.x - tx) < CAR_W * 1.2 && Math.abs(this.rival.z - c.z) < SEG_LEN * 4);
     if (busy) return;
+    if (bz && nearBlitz && tx > bz.inner - CAR_W * 0.6) return; // não entra na faixa fechada pela blitz
     c.tx = tx + laneOff(c);
     c.signal = c.tx > c.x ? 1 : -1;
     c.signalT = 1.1;
@@ -1329,7 +1431,9 @@ export class Race {
   }
     surface(car: CarSpec = this.car) {
     const awd = car.drive === 'integral';
-    return this.def.weather === 'snow' ? (awd ? 0.86 : 0.72) : this.def.weather === 'rain' ? (awd ? 0.93 : 0.84) : 1;
+    // quando o tempo vira, a pista molha (ou neva) aos poucos: a aderência vai do seco ao molhado junto
+    const wet = this.wx === 'snow' ? (awd ? 0.86 : 0.72) : this.wx === 'rain' ? (awd ? 0.93 : 0.84) : 1;
+    return lerp(1, wet, this.wetK);
   }
 
   // aderência lateral máxima (em g) de um carro neste piso
@@ -1403,6 +1507,13 @@ export class Race {
     };
     for (const c of this.traffic) if (!c.hit) check(c.z, c.x, c.speed);
     check(this.playerZ, this.x, this.speed);
+    // faixa fechada pela blitz (quatro faixas): um obstáculo parado onde os cones chegam nela
+    const b = this.blitz;
+    if (b && this.track.lanes === 4 && r.z < b.z2) {
+      for (let z = Math.max(b.z0, r.z); z <= b.z2; z += 2 * SEG_LEN) {
+        if (laneX + CAR_W / 2 > blitzEdge(b, z)) { check(z, laneX, 0); break; }
+      }
+    }
     return best;
   }
 
@@ -1653,6 +1764,8 @@ export class Race {
       }
     }
     r.x += dx;
+    // blitz: não atravessa os cones (espremido para o lado deles)
+    if (this.blitz) r.x = Math.min(r.x, blitzEdge(this.blitz, r.z) - CAR_W / 2);
     r.z += r.speed * dt;
     if (r.finishTime < 0) this.rivalTop = Math.max(this.rivalTop, r.speed);
   }
@@ -1665,6 +1778,22 @@ export class Race {
       if (p.state === 'parked') {
         const d = p.spotZ - pz;
         if (d > 0 && d < RADAR_RANGE) this.radar = Math.max(this.radar, 1 - d / RADAR_RANGE);
+        if (p.blitz && this.blitz) {
+          // blitz: vale a maior velocidade nos ~35 m antes da viatura; passou dela acima do limite,
+          // a viatura sai atrás na hora (de viatura o jogador é colega)
+          const b = this.blitz;
+          if (d > 0 && d < 25 * SEG_LEN) b.max = Math.max(b.max, this.speed);
+          if (d <= 0) {
+            if (b.max * KMH > BLITZ_KMH && this.state === 'drive' && !this.car.id.startsWith('patrol')) {
+              this.caughtKmh = Math.round(b.max * KMH);
+              p.state = 'chase';
+              p.chaseT = 0;
+              p.speed = this.speed * 0.55; // arranca já atrás do jogador
+              this.say('BLITZ!');
+            } else p.state = 'done';
+          }
+          continue;
+        }
         // a viatura sai do esconderijo logo depois que o jogador passa
         if (d <= -3 * SEG_LEN) {
           // de viatura o jogador é colega: o radar não persegue
@@ -1732,6 +1861,29 @@ export class Race {
     }
     setSiren(siren);
     this.radarAlarm(dt);
+    this.updateBlitz(dt);
+  }
+
+  // cones da blitz: os derrubados voam e rolam; a viatura saindo atrás de alguém (e quem mais
+  // encostar neles: rival, trânsito) derruba os que estiverem no caminho
+  private updateBlitz(dt: number) {
+    const b = this.blitz;
+    if (!b) return;
+    updateCones(b, dt);
+    const movers: { z: number; x: number; half: number; speed: number }[] = [];
+    for (const p of this.police) if (p.blitz && (p.state === 'chase' || p.state === 'pull')) movers.push({ z: p.z, x: p.x, half: copW(p.unit) / 2, speed: p.speed });
+    if (this.rival) movers.push({ z: this.rival.z, x: this.rival.x, half: CAR_W / 2, speed: this.rival.speed });
+    for (const c of this.traffic) if (c.speed > 0 && !c.hit && Math.abs(c.z - b.z) < 60 * SEG_LEN) movers.push({ z: c.z, x: c.x, half: this.carHalf(c), speed: c.speed });
+    for (const cn of b.cones) {
+      if (cn.hit) continue;
+      for (const m of movers) {
+        if (Math.abs(m.z - cn.z) > SEG_LEN * 0.6 || !overlap(m.x, m.half, cn.x, CONE_W / 2)) continue;
+        knockCone(cn, m.speed, cn.x > m.x ? 1 : -1, this.rand);
+        const dd = Math.abs(cn.z - this.playerZ) / SEG_LEN;
+        if (dd < 30) coneSound(Math.max(0.15, 0.5 - dd / 60));
+        break;
+      }
+    }
   }
 
   // detector de radar por níveis: 5 luzes (2 verdes, 2 amarelas, 1 vermelha) e um bip por
@@ -1865,7 +2017,7 @@ export class Race {
     this.clean = false;
     this.tickets++;
     const kmh = Math.max(this.caughtKmh, Math.round(this.speed * KMH));
-    const limit = this.track.lanes === 4 ? 120 : 100;
+    const limit = p.blitz ? BLITZ_KMH : this.track.lanes === 4 ? 120 : 100; // na blitz, o limite dela
     this.fine = { kmh, limit, value: Math.round((150 + (kmh - limit) * 3) / 10) * 10 };
     this.fines += this.fine.value;
     this.stopX = this.track.roadW + 350;
@@ -2041,6 +2193,18 @@ export class Race {
         if (dv > 30) c.smoke = Math.max(c.smoke, 0.4);
         if (!c.car && isMoto(c.model)) motoCrashSound(Math.min(0.8, 0.4 + dv / 100));
         else bumpSound(Math.min(1, 0.3 + dv / 100));
+      }
+    }
+
+    // cones da blitz: derruba (voa e rola), tranco leve, nada de batida
+    if (this.blitz) {
+      for (const cn of this.blitz.cones) {
+        if (cn.hit || Math.abs(cn.z - pz) > SEG_LEN * 0.6 || !overlap(this.x, CAR_W / 2, cn.x, CONE_W / 2)) continue;
+        knockCone(cn, this.speed, cn.x > this.x ? 1 : -1, this.rand);
+        this.speed *= 0.97;
+        this.jolt = Math.max(this.jolt, 0.18);
+        this.damage = Math.min(1, this.damage + 0.004);
+        coneSound(Math.min(1, 0.45 + this.speed * KMH / 300));
       }
     }
 

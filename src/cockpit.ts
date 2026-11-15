@@ -4,6 +4,7 @@ import handMeta from './assets/people/hand.json';
 import { brandOf, drawLogo } from './brands';
 import { prefs, viewZoom } from './prefs';
 import { binds, keyName, pad, touch } from './input';
+import { STATIONS, radioStation, radioTuning } from './audio';
 import { ghostTimeAt } from './records';
 import { CRES, DASH_Y, KMH, RES, ROOF_H, SEG_LEN, view } from './config';
 import { sirenWash } from './nightlight';
@@ -47,6 +48,9 @@ interface CockpitArt {
   // partir do topo da arte (topo de 76 linhas + painel)
   mirror?: { img: string; x: number; y: number };
   lit?: [number, number, number, number][]; // visores com luz própria na arte do painel (x0, y0, x1, y1 inclusivos, pixels do painel): continuam acesos à noite
+  // rádio/toca-fitas da arte (pixels do painel, inclusivos): lcd = visor onde aparece a frequência da
+  // estação (dígitos de 3x5), hit = o aparelho inteiro, que troca de estação ao ser tocado
+  radio?: { lcd: [number, number, number, number]; hit: [number, number, number, number] };
   glass?: { at: [number, number]; thr?: number; x0?: number; toEdge?: boolean }; // x0: o vidro começa nesta coluna (espelho cortado na borda da arte)
   // luz da seta antiga: um só círculo verde que pisca para os dois lados (+ as outras luzes da fileira, apagadas)
   turnDot?: { x: number; y: number; others?: [number, number][] };
@@ -209,6 +213,7 @@ const DEG = Math.PI / 180;
 const DIA_SMALL: [number, number, Gauge][] = [[72.4, 49.5, 'oil'], [61.4, 67.5, 'oiltemp'], [187.7, 49.5, 'water'], [198.7, 67.5, 'fuel']];
 COCKPIT_ART.diablo = {
   glass: { at: [36, 93], thr: 256 }, tells: [130, 30], // retrovisor esquerdo desenhado em diablo_cockpit.py (side_mirror)
+  radio: { lcd: [364, 96, 385, 101], hit: [341, 84, 414, 109] }, // toca-fitas do console: a frequência na janela da fita
   dash: cp('diablo-dash'), top: cp('diablo-top'), wheel: cp('diablo-wheel'), dashMask: cp('diablo-dash-mask'), topMask: cp('diablo-top-mask'),
   pivot: [128, 112], wheelTop: 8, pod: { x: -16, y: -52, r: 7.5, dx: 0.4, dy: 17, pillar: '#1d1b26', face: 'black', bezel: 'chrome', lit: 'white' }, radar: [196, 6], tachReal: true, speedMax: 360, needle: '#f5961c', needleW: 1.6, needleTail: 5, needleTailCol: '#141416', needleFine: true, needleTip: 0.32, hub: '#151517', hubR: 3.4,
   faces: [{ src: cp('diablo-cluster'), x: 26.5, y: 12.5, w: 188, h: 70 }],
@@ -1750,6 +1755,39 @@ function instrumentGlow(c: CanvasRenderingContext2D, ox: number, art: CockpitArt
 }
 
 // Cabine a partir da arte: painel, ponteiros dinâmicos, radar e volante girando.
+// rádio da cabine: a frequência da estação em dígitos âmbar no visor da arte (piscando "--.-" na
+// sintonia, apagado com o rádio desligado) e o retângulo do aparelho na tela, para o toque
+let radioRect: { x: number; y: number; w: number; h: number } | null = null;
+let radioScale: [number, number] = [1, 1]; // cena -> tela (VISÃO DO PAINEL com zoom)
+function drawRadio(c: CanvasRenderingContext2D, rd: NonNullable<CockpitArt['radio']>, dx: number, dk: number) {
+  // medidas da arte (460 x 124) levadas para o painel como o jogo o desenha (464 x 128, ver VG_X)
+  const sx = (x: number) => Math.round((x * 464) / 460), sy = (y: number) => Math.round((y * 128) / 124);
+  const [hx0, hy0, hx1, hy1] = rd.hit;
+  radioRect = { x: dx + sx(hx0), y: ART_TOP + sy(hy0), w: sx(hx1 + 1) - sx(hx0), h: sy(hy1 + 1) - sy(hy0) };
+  const x0 = sx(rd.lcd[0]), y0 = sy(rd.lcd[1]), x1 = sx(rd.lcd[2] + 1) - 1, y1 = sy(rd.lcd[3] + 1) - 1;
+  const st = STATIONS[radioStation()];
+  if (st.id === 'off') return;
+  c.fillStyle = '#0c0a07';
+  c.fillRect(dx + x0, ART_TOP + y0, x1 - x0 + 1, y1 - y0 + 1);
+  const tuning = radioTuning();
+  const txt = tuning ? '--.-' : st.freq.replace(/^\D+/, '');
+  // âmbar do visor; à noite um halo fraco em volta (luz própria)
+  pix(c, txt, dx + (x0 + x1 + 1) / 2, ART_TOP + (y0 + y1) / 2, tuning ? '#c07018' : '#ffa62a');
+  if (dk > 0.02) {
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    c.fillStyle = `rgba(255,150,40,${(0.06 * Math.min(1, dk / 0.6)).toFixed(3)})`;
+    c.fillRect(dx + x0 - 2, ART_TOP + y0 - 2, x1 - x0 + 5, y1 - y0 + 5);
+    c.restore();
+  }
+}
+// ponto da tela (pixels do jogo) em cima do rádio da cabine? (folga de 3 pixels para o dedo)
+export function cockpitRadioHit(x: number, y: number) {
+  const r = radioRect;
+  if (!r) return false;
+  const [sx, sy] = radioScale;
+  return x >= (r.x - 3) * sx && x <= (r.x + r.w + 3) * sx && y >= (r.y - 3) * sy && y <= (r.y + r.h + 3) * sy;
+}
 function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: CockpitArt): boolean {
   const { w } = view;
   const ox = coreX();
@@ -1780,6 +1818,8 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     }
     c.restore();
   }
+  if (art.radio) drawRadio(c, art.radio, dx, dk);
+  else radioRect = null;
   const top0 = svgSprite(art.top, DASH_W, TOP_EXT, tint(art.topMask));
   const top = top0 && nightImg(top0, dk);
   if (top) {
@@ -2690,12 +2730,13 @@ function glassGlow(r: Race) {
     const dz = t.z - r.playerZ;
     if (dz > 0 && dz < SEG_LEN * 40) near = Math.max(near, 1 - dz / (SEG_LEN * 40));
   }
-  return dark * Math.min(1, near * 1.2 + (r.def.weather === 'rain' ? 0.25 : 0));
+  return dark * Math.min(1, near * 1.2 + (r.wx === 'rain' ? 0.25 * r.rainK : 0));
 }
 function weather(c: CanvasRenderingContext2D, r: Race, vp: Viewport, dt: number) {
-  const w = r.def.weather;
-  if (!w || w === 'fog') return;
-  const n = (w === 'rain' ? 70 : 60) >> (lowFx() ? 1 : 0);
+  // chuva ou neve: quantas gotas/flocos acompanha o quanto chove agora (garoa = poucas, r.rainK)
+  const w = r.wx;
+  if (!w || r.rainK <= 0) { drops.length = 0; return; }
+  const n = Math.round((w === 'rain' ? 70 : 60) * r.rainK) >> (lowFx() ? 1 : 0);
   if (drops.length > n) drops.length = n;
   while (drops.length < n) drops.push({ x: Math.random() * vp.w, y: Math.random() * vp.h, v: 0.6 + Math.random() * 0.6 });
   const sp = r.speed / r.car.maxSpeed;
@@ -3109,6 +3150,7 @@ const sceneCv = document.createElement('canvas');
 function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number, stageLabel: string, totalTime: number, dt: number) {
   const { w } = view;
   const zm = viewZoom(VIEW_EXTRA_CAP[r.car.dash] ?? 96);
+  radioScale = [1, 1];
   if (zm.z === 1 || view.h !== 224) drawScene(c, r, dt);
   else {
     // zoom: a cena inteira numa tela virtual de vh (+ cut, as linhas de baixo que ficam fora) linhas,
@@ -3137,6 +3179,7 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
     c.drawImage(sceneCv, 0, 0, vw * CRES, zm.vh * CRES, 0, 0, bw, bh);
     c.imageSmoothingEnabled = sm;
     ART_TOP *= zm.z; // de volta às linhas da tela (a luz da sirene na cabine usa)
+    radioScale = [bw / vw, bh / zm.vh];
   }
   // HUD: nas medidas da tela de corrida (não acompanha o zoom)
   const vp: Viewport = { x: 0, y: ROOF_H, w, h: DASH_Y - ROOF_H, horizon: HORIZON_Y, K: 190 };
@@ -3150,7 +3193,7 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
     const n = Math.ceil(r.timer);
     text(c, n > 3 ? 'PRONTO?' : String(n), w / 2, vp.y + 28, 16, '#ffd400', 'center');
     // no computador: lembrete dos comandos do teclado (o controle segue o padrão dos consoles)
-    if (!touch.ui && prefs.hints) text(c, `SETAS OU ${[binds.gas, binds.left, binds.brake, binds.right].map(keyName).join('')}: DIRIGIR · ${keyName(binds.shiftDown)}/${keyName(binds.shiftUp)}: MARCHAS · ESC: PAUSA`, w / 2, vp.y + vp.h - 10, 5, '#ffd400', 'center');
+    if (!touch.ui && prefs.hints) text(c, `SETAS OU ${[binds.gas, binds.left, binds.brake, binds.right].map(keyName).join('')}: DIRIGIR · ${keyName(binds.shiftDown)}/${keyName(binds.shiftUp)}: MARCHAS · ${keyName(binds.radio)}: RÁDIO · ESC: PAUSA`, w / 2, vp.y + vp.h - 10, 5, '#ffd400', 'center');
   } else if (r.state === 'drive' && r.time < 1 && r.crashes === 0) {
     text(c, 'VAI!', w / 2, vp.y + 28, 16, '#30e060', 'center');
   }

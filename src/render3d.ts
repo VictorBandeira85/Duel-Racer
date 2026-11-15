@@ -1,6 +1,7 @@
 import { drawPerson, type CopPose } from './people';
 import { drawSmoke } from './smoke';
 import { drawCrisp } from './crisp';
+import { CONE_H, CONE_W, drawCone, type Cone } from './blitz';
 import { CAM_DEPTH, CAM_H, CAR_W, CRES, DRAW_DIST, PLAYER_Z, POLICE_W, SEG_LEN } from './config';
 import { CARS, drawCar } from './cars';
 import { lowFx, fxMode, setPerfScene } from './perf';
@@ -374,13 +375,14 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
     }
   }
   // nuvens de dia (somem com a noite; com neblina ou chuva o céu já está encoberto)
-  if (!night && r.nightK < 0.9 && r.def.weather !== 'fog' && r.def.weather !== 'rain') {
+  // (tempo fechando ou abrindo: as nuvens brancas somem/voltam com o céu encoberto, skyK)
+  if (!night && r.nightK < 0.9 && r.def.weather !== 'fog' && r.skyK < 0.99) {
     const amt = r.course.id.length % 3 === 0 ? 0.7 : 1;
-    const cl = cloudStrip(r.course.id.length * 31 + r.stageIdx, th.sky[1], amt);
+    const cl = cloudStrip(r.course.id.length * 31 + r.stageIdx, (r.clearTheme ?? th).sky[1], amt);
     const off = ((Math.floor(r.bgOffset * 0.12 + yawPx * 0.9) % PANO_W) + PANO_W) % PANO_W;
     const cy = vp.y + Math.max(2, Math.round((vp.horizon - vp.y) * 0.1));
     const ga = c.globalAlpha;
-    c.globalAlpha = ga * (1 - r.nightK);
+    c.globalAlpha = ga * (1 - r.nightK) * (1 - r.skyK);
     c.drawImage(cl, vp.x - off, cy);
     if (PANO_W - off < vp.w) c.drawImage(cl, vp.x - off + PANO_W, cy);
     c.globalAlpha = ga;
@@ -388,9 +390,9 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   // estrelas e lua aparecem aos poucos com a noite (pôr do sol) e somem no amanhecer
   const nk = r.nightK;
   // com neblina ou chuva o céu fica encoberto: sem estrelas e sem lua
-  if (nk > 0.02 && r.def.weather !== 'fog' && r.def.weather !== 'rain') {
+  if (nk > 0.02 && r.def.weather !== 'fog' && r.skyK < 0.99) {
     const ga0 = c.globalAlpha;
-    c.globalAlpha = ga0 * nk;
+    c.globalAlpha = ga0 * nk * (1 - r.skyK);
     c.fillStyle = '#fff';
     for (let i = 0; i < 40; i++) {
       const sx = ((hash(i) * 900 - r.bgOffset * 0.1 - yawPx) % vp.w + vp.w) % vp.w;
@@ -453,7 +455,7 @@ function drawBackground(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   // entardecer / amanhecer: o sol pela metade no horizonte (os morros cobrem a parte de baixo)
   if (r.def.tod && !r.def.dusk && nk < 0.98) {
     const ga2 = c.globalAlpha;
-    c.globalAlpha = ga2 * (1 - nk);
+    c.globalAlpha = ga2 * (1 - nk) * (r.wxTurn ? 1 - r.skyK * 0.7 : 1); // tempo fechando: as nuvens tapam o sol
     // longe do quadro de desafios (no alto à esquerda); o centro do disco fica na linha dos morros
     // naquele ponto (a mais alta das duas camadas), então metade aparece acima dela
     const span = ((r.def.tod === 'sunset' ? 0.62 : 0.66) * vp.w - yawPx * 0.5) % (vp.w * 1.6);
@@ -577,7 +579,7 @@ function mix(a: string, b: string, t: number) {
 
 // objetos grandes, que aparecem de longe
 // placas e outdoors que refletem o farol à noite
-const REFLECT = new Set(['signL', 'signR', 'warnL', 'warnR', 'sharpL', 'sharpR', 'billboard', 'gasSign', 'gasKm', 'stop']);
+const REFLECT = new Set(['signL', 'signR', 'warnL', 'warnR', 'sharpL', 'sharpR', 'billboard', 'gasSign', 'gasKm', 'stop', 'blitz']);
 const FAR_KINDS = ['building', 'station', 'bridge', 'billboard', 'barn', 'factory', 'silo', 'spire', 'lighthouse'];
 
 export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport) {
@@ -625,6 +627,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   const entities: { z: number; x: number }[] = [...r.traffic, ...r.police.filter((p) => p.state !== 'done' || Math.abs(p.z - r.playerZ) < 100 * SEG_LEN)];
   if (r.rival) entities.push(r.rival);
   if (r.officer) entities.push(r.officer);
+  if (r.blitz) entities.push(...r.blitz.cones, r.blitz.officer); // blitz: cones e o policial anotando
   if (r.ghostPos) entities.push(r.ghostPos);
   for (const t of r.traffic) if (t.fall && t.fall.stage !== 'skid') entities.push(t.fall); // piloto da moto caída, solto na pista
   for (const e of entities) {
@@ -831,9 +834,32 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
           const od = drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, e as Officer);
           if (lit && od) pushOccluder({ ...od, idx: i, clip: s.clip, d: dist, bx: cx });
         }
+      } else if ('cone' in e) {
+        // cone da blitz: em pé (a faixa branca reflete o farol à noite) ou derrubado, voando e rolando
+        const cn = e as Cone;
+        const cw = CONE_W * sc * vp.K, ch = CONE_H * sc * vp.K;
+        if (ch < 1.5) continue;
+        const tint: [string, number] | undefined = fk >= 0.02 ? [fogRgb, fk] : undefined;
+        const art = (o: CanvasRenderingContext2D, w: number, h: number) => drawCone(o, w / 2, h, w / 1.15, h);
+        if (!cn.hit) {
+          const dr = drawCrisp(c, 'cone', cx, cy, cw * 1.15, ch, art, 96, tint);
+          if (lit && dr) pushOccluder({ ...dr, idx: i, clip: s.clip, d: dist, bx: cx, spec: { x: cx - cw * 0.22, y: cy - ch * 0.68, w: cw * 0.44, h: Math.max(0.5, ch * 0.18), top: 1, rgb: '255,250,240' } });
+        } else {
+          const sn = Math.abs(Math.sin(cn.rot));
+          c.save();
+          c.translate(cx, cy - cn.y * sc * vp.K - lerp(ch / 2, cw * 0.4, sn));
+          c.rotate(cn.rot);
+          drawCrisp(c, 'cone', 0, ch / 2, cw * 1.15, ch, art, 96, tint);
+          c.restore();
+        }
+      } else if ('blitzCop' in e) {
+        // policial da blitz: em pé ao lado da viatura, anotando no bloco (o da classe da corrida)
+        const od = drawPerson(c, 'cop', 'paper', cx, cy, OFFICER_H * sc * vp.K, false, r.copId);
+        if (lit && od) pushOccluder({ ...od, idx: i, clip: s.clip, d: dist, bx: cx });
       } else if ('spotZ' in e) {
         const p = e as Race['police'][number];
-        const siren = p.state === 'chase' || p.state === 'pull' || p.state === 'stopped';
+        // a viatura da blitz fica com o giroflex aceso o tempo todo
+        const siren = p.state === 'chase' || p.state === 'pull' || p.state === 'stopped' || !!p.blitz;
         const pw = copW(p.unit, false) * sc * vp.K;
         fogged(c, fk, cx - pw, cy - pw * 1.3, pw * 2, pw * 1.3 + 4, (g) => drawCar(g, cx, cy, pw, copLook(p.unit, { siren, night: lit, plate: r.copPlate, ...(r.copId === 'A2' ? { model: 'moto-copf' } : {}) })));
         beamAhead(e.z, ex, pw, 5);

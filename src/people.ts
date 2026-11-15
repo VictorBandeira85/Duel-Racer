@@ -7,58 +7,62 @@ export type CopPose = Pose;
 import { need } from './imgprio';
 import COPS from './assets/people/cops.json';
 import ATTS from './assets/people/atts.json';
+import ATLAS from './assets/people/atlas/atlas.json';
 
-// Policiais por classe (arte do Victor, tools/ref/cop_sprites.py): 'D1'..'S2', poses stand/wave/paper.
-// [largura, altura, x do meio dos pés] de cada sprite; enquanto a imagem não carrega vale o desenho por código.
-const COP_ART = import.meta.glob('./assets/people/cop-*.png', { eager: true, import: 'default' }) as Record<string, string>;
-const COP_META = COPS as unknown as Record<string, [number, number, number]>;
-const copImgs = new Map<string, HTMLImageElement>();
-function copImg(id: string, pose: Pose): HTMLImageElement | null {
-  const key = `${id}-${pose}`;
-  const src = COP_ART[`./assets/people/cop-${key}.png`];
-  if (!src) return null;
-  let im = copImgs.get(key);
+// Todas as poses de cada personagem numa folha só (tools/ref/people_atlas.py: atlas/cop-<ID>.png,
+// atlas/att-<ID>.png e o retângulo de cada pose em atlas.json; os PNGs soltos ficam só para as
+// ferramentas de arte). Uma folha por personagem: a tela baixa só quem usa. Cada pose é recortada uma
+// vez num canvas próprio (mesmos pixels: a arte só tem alfa 0/255), que serve de silhueta da pose.
+const SHEETS = import.meta.glob('./assets/people/atlas/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+const RECTS = ATLAS as unknown as Record<string, Record<string, [number, number, number, number]>>;
+const sheets = new Map<string, HTMLImageElement>();
+const frames = new Map<string, HTMLCanvasElement>();
+function poseImg(name: string, pose: Pose): HTMLCanvasElement | null {
+  const key = `${name}-${pose}`;
+  const f = frames.get(key);
+  if (f) return f;
+  const r = RECTS[name]?.[pose];
+  const src = SHEETS[`./assets/people/atlas/${name}.png`];
+  if (!r || !src) return null;
+  let im = sheets.get(name);
   if (!im) {
     im = new Image();
     im.src = src;
-    copImgs.set(key, im);
+    sheets.set(name, im);
   }
-  if (im.complete && im.naturalWidth) return im;
-  need(im); // a tela precisa dela: passa na frente na fila
-  return null;
+  if (!(im.complete && im.naturalWidth)) {
+    need(im); // a tela precisa dela: passa na frente na fila
+    return null;
+  }
+  const cv = document.createElement('canvas');
+  cv.width = r[2];
+  cv.height = r[3];
+  cv.getContext('2d')!.drawImage(im, r[0], r[1], r[2], r[3], 0, 0, r[2], r[3]);
+  frames.set(key, cv);
+  return cv;
 }
+
+// Policiais por classe (arte do Victor, tools/ref/cop_sprites.py): 'D1'..'S2', poses stand/wave/paper.
+// [largura, altura, x do meio dos pés] de cada sprite; enquanto a imagem não carrega vale o desenho por código.
+const COP_META = COPS as unknown as Record<string, [number, number, number]>;
+const copImg = (id: string, pose: Pose) => poseImg(`cop-${id}`, pose);
 // todas as poses do policial / do frentista já carregaram? (a tela de carregamento espera)
 export function copsReady(id: string) {
   let ok = true;
-  for (const k of Object.keys(COP_ART)) { const m = /cop-([A-Z]\d)-(\w+)\.png$/.exec(k); if (m && m[1] === id && !copImg(id, m[2] as Pose)) ok = false; }
+  for (const p of Object.keys(RECTS[`cop-${id}`] ?? {})) if (!copImg(id, p as Pose)) ok = false;
   return ok;
 }
 export function attsReady(id: string) {
   let ok = true;
-  for (const k of Object.keys(ATT_ART)) { const m = /att-([A-Za-z]+)-(\w+)\.png$/.exec(k); if (m && m[1] === id && !attImg(id, m[2] as Pose)) ok = false; }
+  for (const p of Object.keys(RECTS[`att-${id}`] ?? {})) if (!attImg(id, p as Pose)) ok = false;
   return ok;
 }
 // Frentistas por região (arte do Victor, tools/ref/att_sprites.py): 'City', 'Farm', 'Coast', 'Serra',
 // 'Desert', 'Jungle', 'Snow', poses stand/nozzle/wave. Os desenhos olham para a direita (o jogo espelha).
 // [largura, altura, x do meio dos pés] e, no nozzle, + [x, y do bico, x, y da ponta da mangueira].
-const ATT_ART = import.meta.glob('./assets/people/att-*.png', { eager: true, import: 'default' }) as Record<string, string>;
 export const ATT_META = ATTS as unknown as Record<string, number[]>;
 export const ATT_H = 115; // altura de referência dos sprites: todos na mesma escala
-const attImgs = new Map<string, HTMLImageElement>();
-export function attImg(id: string, pose: Pose): HTMLImageElement | null {
-  const key = `${id}-${pose}`;
-  const src = ATT_ART[`./assets/people/att-${key}.png`];
-  if (!src) return null;
-  let im = attImgs.get(key);
-  if (!im) {
-    im = new Image();
-    im.src = src;
-    attImgs.set(key, im);
-  }
-  if (im.complete && im.naturalWidth) return im;
-  need(im); // a tela precisa dela: passa na frente na fila
-  return null;
-}
+export const attImg = (id: string, pose: Pose) => poseImg(`att-${id}`, pose);
 // + animação (tools/ref/att_walk.py): walk0..3 andando com o bico (apoio no tronco, bico e ponta da mangueira
 // de cada quadro no atts.json) e wave0..1 acenando; tools/ref/att_pump.py: pump0..1 parado abastecendo
 export const preloadAtts = () => ['City', 'Farm', 'Coast', 'Serra', 'Desert', 'Jungle', 'Snow'].forEach((id) => (['stand', 'nozzle', 'wave', 'walk0', 'walk1', 'walk2', 'walk3', 'wave0', 'wave1', 'pump0', 'pump1'] as Pose[]).forEach((p) => attImg(id, p)));

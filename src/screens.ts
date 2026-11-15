@@ -548,7 +548,7 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
   MUSIC_CREDIT_LINES.forEach((l, i) => ink(c, l, x + SAFE_W / 2, Math.min(view.h - 13, 227) + i * 6, 4, 'rgba(26,22,20,0.45)', 'center'));
 }
 // ---------- controles: teclas do teclado (trocáveis) e o mapa do controle ----------
-const ctrlRects = () => [...ACTIONS.map((_, i): Rect => ({ x: ox() + 20, y: 40 + i * 20, w: 160, h: 17 })), { x: ox() + 20, y: 166, w: 160, h: 15 } as Rect, { x: ox() + 20, y: 186, w: 160, h: 15 } as Rect];
+const ctrlRects = () => [...ACTIONS.map((_, i): Rect => ({ x: ox() + 20, y: 40 + i * 18, w: 160, h: 16 })), { x: ox() + 20, y: 166, w: 160, h: 15 } as Rect, { x: ox() + 20, y: 186, w: 160, h: 15 } as Rect];
 function drawControls(c: CanvasRenderingContext2D, s: AppState) {
   const x = ox();
   paper(c);
@@ -567,14 +567,14 @@ function drawControls(c: CanvasRenderingContext2D, s: AppState) {
     c.lineWidth = hot ? 2 : 1;
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
     ink(c, a.label, r.x + 8, r.y + 6, 5, INK);
-    const fixed = { gas: '↑', brake: '↓', left: '←', right: '→', shiftUp: 'X', shiftDown: 'Z' }[a.id];
-    ink(c, wait ? '...' : `${keyName(binds[a.id])}  ou  ${fixed}`, r.x + r.w - 8, r.y + 6, 5, hot ? RED : BLUE, 'right');
+    const fixed = ({ gas: '↑', brake: '↓', left: '←', right: '→', shiftUp: 'X', shiftDown: 'Z' } as Record<string, string>)[a.id];
+    ink(c, wait ? '...' : fixed ? `${keyName(binds[a.id])}  ou  ${fixed}` : keyName(binds[a.id]), r.x + r.w - 8, r.y + 6, 5, hot ? RED : BLUE, 'right');
   });
   // controle de videogame (fixo)
   box(c, { x: x + 192, y: 38, w: 124, h: 146 }, 'CONTROLE');
-  [['Acelerar', 'RT (gradual)  ou  A / X'], ['Frear', 'LT (gradual)  ou  B / O'], ['Direção', 'Alavanca (gradual) / direc.'], ['Marchas', 'LB  /  RB'], ['Pausa', 'Start'], ['Menus', 'Direcional / alavanca + A'], ['Voltar', 'B / O']].forEach(([k, v], i) => {
-    ink(c, k, x + 198, 56 + i * 17, 5, INK);
-    ink(c, v, x + 198, 63 + i * 17, 4, GREY);
+  [['Acelerar', 'RT (gradual)  ou  A / X'], ['Frear', 'LT (gradual)  ou  B / O'], ['Direção', 'Alavanca (gradual) / direc.'], ['Marchas', 'LB  /  RB'], ['Pausa', 'Start'], ['Rádio', 'Select / Back'], ['Menus', 'Direcional / alavanca + A'], ['Voltar', 'B / O']].forEach(([k, v], i) => {
+    ink(c, k, x + 198, 54 + i * 16, 5, INK);
+    ink(c, v, x + 198, 61 + i * 16, 4, GREY);
   });
   ink(c, 'Esc: pausa  ·  F11: tela cheia', x + 20, 210, 5, GREY);
 }

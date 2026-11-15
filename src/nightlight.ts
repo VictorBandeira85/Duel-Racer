@@ -98,6 +98,7 @@ function reflectorFace(g: CanvasRenderingContext2D, r: Reflector, ox: number, oy
   if (r.kind === 'billboard') g.fillRect(x - w / 2, y - h * 0.88, w, h * 0.5);
   else if (r.kind === 'gasSign') g.fillRect(x - w / 2, y - h, w, h * 0.45);
   else if (r.kind === 'gasKm') g.fillRect(x - w / 2, y - h, w, h * 0.71);
+  else if (r.kind === 'blitz') g.fillRect(x - w / 2, y - h, w, h * 0.6); // placa da blitz (src/blitz.ts)
   else if (r.kind.startsWith('warn') || r.kind.startsWith('sharp')) {
     const cy = y - h * 0.75, rr = w * 0.5;
     g.beginPath();

@@ -15,6 +15,7 @@ export interface Track {
   bass: 'eighths' | 'octaves' | 'gallop' | 'half';
   drums: 'four' | 'back' | 'half' | 'drive';
   bright: number; // abertura do filtro (0..1)
+  rock?: boolean; // rádio ROCK: guitarra de serras distorcidas (quintas) no lugar do pad e do arpejo
 }
 
 const T = (title: string, bpm: number, root: number, mode: Track['mode'], verse: number[], chorus: number[], arp: number[], lead: number[], bass: Track['bass'], drums: Track['drums'], bright: number): Track =>
@@ -49,8 +50,17 @@ export const TRACKS: Track[] = [
   T('Último Trecho', 130, 50, 'minor', [5, 6, 0, 0], [3, 4, 0, 6], ARP_ROLL, [7, _, _, 6, 7, _, 9, _, 7, _, 4, _, 2, _, _, _, 4, _, 7, _, 9, _, 11, _, 12, _, 11, _, 9, _, 7, _], 'eighths', 'four', 0.7),
   T('Bandeirada Final', 136, 47, 'major', [0, 4, 5, 3], [0, 3, 4, 4], ARP_OCT, [4, _, 5, _, 7, _, 9, _, 7, _, 5, _, 4, _, 2, _, 4, _, _, _, 7, _, _, _, 9, _, 11, _, 12, _, _, _], 'octaves', 'drive', 0.8),
 ];
+// estação ROCK do rádio do carro (depois das 20: não têm arquivo, tocam sempre sintetizadas):
+// quintas de guitarra abafadas em colcheias no verso, acorde aberto no refrão, solo com vibrato
+const R = (...a: Parameters<typeof T>): Track => ({ ...T(...a), rock: true });
+TRACKS.push(
+  R('Asfalto Quente', 144, 40, 'minor', [0, 0, 5, 6], [5, 6, 0, 0], ARP_SPARSE, [7, _, 7, _, 9, _, 10, _, 9, _, 7, _, 5, _, _, _, 7, _, _, _, 5, _, 3, _, 2, _, 0, _, _, _, _, _], 'eighths', 'back', 0.55),
+  R('Guincho na Serra', 152, 42, 'phrygian', [0, 1, 0, 6], [0, 6, 5, 1], ARP_SPARSE, [0, _, 1, _, 3, _, 4, _, 3, _, 1, _, 0, _, _, _, 7, _, 8, _, 7, _, 5, _, 4, _, 3, _, 1, _, _, _], 'gallop', 'back', 0.5),
+  R('Escapamento Aberto', 138, 45, 'dorian', [0, 3, 6, 3], [0, 3, 4, 4], ARP_SPARSE, [4, _, _, 3, 2, _, 0, _, 2, _, _, _, 4, _, 7, _, 9, _, _, _, 7, _, 4, _, 3, _, 2, _, 0, _, _, _], 'eighths', 'four', 0.6),
+);
 export const MENU_TRACKS = [0, 1, 2, 3];
-export const RACE_TRACKS = TRACKS.map((_, i) => i).filter((i) => i >= 4);
+export const RACE_TRACKS = TRACKS.map((_, i) => i).filter((i) => i >= 4 && !TRACKS[i].rock);
+export const ROCK_TRACKS = TRACKS.map((_, i) => i).filter((i) => TRACKS[i].rock);
 
 const SCALES = { minor: [0, 2, 3, 5, 7, 8, 10], dorian: [0, 2, 3, 5, 7, 9, 10], major: [0, 2, 4, 5, 7, 9, 11], phrygian: [0, 1, 3, 5, 7, 8, 10] };
 const hz = (m: number) => 440 * 2 ** ((m - 69) / 12);
@@ -60,6 +70,7 @@ export class Synthwave {
   private dry: GainNode;
   private delay: DelayNode;
   private verb: ConvolverNode;
+  private amp: WaveShaperNode; // distorção da guitarra (estação ROCK)
   private noise: AudioBuffer;
   private track: Track | null = null;
   private step = 0;
@@ -97,6 +108,22 @@ export class Synthwave {
     const vg = ctx.createGain();
     vg.gain.value = 0.28;
     this.verb.connect(vg).connect(this.out);
+    // guitarra: saturação suave (tanh) e caixa de som fechada (corta o chiado de cima da distorção)
+    this.amp = ctx.createWaveShaper();
+    const curve = new Float32Array(1024);
+    for (let i = 0; i < curve.length; i++) curve[i] = Math.tanh(((i / 511.5) - 1) * 5) / Math.tanh(5);
+    this.amp.curve = curve;
+    this.amp.oversample = '2x';
+    const cab = ctx.createBiquadFilter(), cab2 = ctx.createBiquadFilter(), ag = ctx.createGain();
+    cab.type = cab2.type = 'lowpass';
+    cab.frequency.value = 2400;
+    cab2.frequency.value = 3200;
+    cab.Q.value = 0.9;
+    ag.gain.value = 0.16;
+    this.amp.connect(cab).connect(cab2).connect(ag).connect(this.out);
+    const av = ctx.createGain();
+    av.gain.value = 0.25;
+    ag.connect(av).connect(this.verb);
     this.noise = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.5), ctx.sampleRate);
     const nd = this.noise.getChannelData(0);
     for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
@@ -117,7 +144,7 @@ export class Synthwave {
   }
 
   // ---- instrumentos ----
-  private voice(type: OscillatorType, freq: number, t: number, dur: number, vol: number, cut: number, opts: { detune?: number; vib?: boolean; send?: number; attack?: number } = {}) {
+  private voice(type: OscillatorType, freq: number, t: number, dur: number, vol: number, cut: number, opts: { detune?: number; vib?: boolean; send?: number; attack?: number; amp?: boolean } = {}) {
     const c = this.ctx;
     const g = c.createGain(), f = c.createBiquadFilter();
     f.type = 'lowpass';
@@ -130,7 +157,7 @@ export class Synthwave {
     g.gain.setValueAtTime(vol, t + Math.max(a, dur * 0.6));
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     f.connect(g);
-    g.connect(this.dry);
+    g.connect(opts.amp ? this.amp : this.dry);
     if (opts.send) {
       const s = c.createGain();
       s.gain.value = opts.send;
@@ -225,7 +252,17 @@ export class Synthwave {
       const cut = 500 + tr.bright * 2200;
       const full = part === 'chorus' || part === 'verse';
       // pad: acorde de serras desafinadas, uma vez por compasso
-      if (pos === 0) {
+      if (tr.rock) {
+        // guitarra (ROCK): quinta + oitava; verso e ponte em colcheias abafadas, refrão em acorde
+        // aberto duas vezes por compasso, intro com o acorde deixado soar
+        const pr = tr.root + deg(chord);
+        const open = part === 'chorus' ? pos % 8 === 0 : part === 'intro' && pos === 0;
+        const mute = (part === 'verse' || part === 'bridge') && pos % 2 === 0;
+        if (open || mute) {
+          const dur = mute ? six * 1.3 : six * (part === 'intro' ? 15 : 7.5);
+          for (const iv of [0, 7, 12]) this.voice('sawtooth', hz(pr + iv), t, dur, mute ? 0.1 : 0.12, mute ? 900 : 1700, { detune: 5, amp: true, attack: 0.004 });
+        }
+      } else if (pos === 0) {
         for (const iv of [0, 2, 4]) this.voice('sawtooth', hz(tr.root + 12 + deg(chord + iv)), t, six * 16, part === 'intro' ? 0.018 : 0.024, cut * 0.7, { detune: 9, send: 0.4, attack: six * 3 });
       }
       // baixo
@@ -239,13 +276,14 @@ export class Synthwave {
       }
       // arpejo
       const a = tr.arp[pos];
-      if (a >= 0 && part !== 'bridge') this.voice('square', hz(tr.root + 12 + deg(chord + a)), t, six * 0.9, 0.022, cut, { send: 0.55 });
+      if (a >= 0 && part !== 'bridge' && !tr.rock) this.voice('square', hz(tr.root + 12 + deg(chord + a)), t, six * 0.9, 0.022, cut, { send: 0.55 });
       // melodia (refrão; no segundo verso só as notas longas)
       const ln = tr.lead[st % 32];
       if (ln >= 0 && (part === 'chorus' || (part === 'verse' && loopBar >= 20 && st % 4 === 0))) {
         let dur = 1;
         while (dur < 6 && tr.lead[(st + dur) % 32] === -1) dur++;
-        this.voice('sawtooth', hz(tr.root + 12 + deg(ln)), t, six * dur * 0.95, 0.04, cut * 1.1, { detune: 6, vib: dur >= 3, send: 0.5, attack: 0.012 });
+        if (tr.rock) this.voice('sawtooth', hz(tr.root + 12 + deg(ln)), t, six * dur * 0.95, 0.13, 1900, { vib: dur >= 2, send: 0.35, amp: true, attack: 0.006 });
+        else this.voice('sawtooth', hz(tr.root + 12 + deg(ln)), t, six * dur * 0.95, 0.04, cut * 1.1, { detune: 6, vib: dur >= 3, send: 0.5, attack: 0.012 });
       }
       // bateria
       const d = tr.drums;

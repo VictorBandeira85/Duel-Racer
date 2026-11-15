@@ -20,7 +20,7 @@ let lastS = 0;
 // poucos e só é limpa quando a palheta passa por ela (fora do alcance continua embaçada)
 const CELL = 3;
 let film = new Float32Array(0);
-let filmW = 0, filmH = 0, filmY0 = 0;
+let filmW = 0, filmH = 0, filmY0 = 0, filmMax = 0;
 const filmCv = document.createElement('canvas');
 let filmImg: ImageData | null = null;
 let raceRef: Race | null = null;
@@ -107,8 +107,10 @@ export function drawWipers(c: CanvasRenderingContext2D, r: Race, vp: Viewport, d
   // só chuva e neve molham o vidro (a neblina não: antes ela ia embaçando o para-brisa inteiro e
   // juntando gotas que nunca saíam, porque o limpador não liga na neblina; era um véu de tela inteira
   // e ~200 gotas desenhados todo quadro)
-  const w = r.def.weather === 'rain' || r.def.weather === 'snow' ? r.def.weather : undefined;
-  const on = !!w && r.state !== 'arrived';
+  // tempo que vira no meio do trecho: o que cai acompanha r.rainK (garoa = pouco) e o limpador liga
+  // sozinho quando a chuva engrossa; parando a chuva, a película seca aos poucos
+  const w = r.wx, rk = r.rainK;
+  const on = !!w && rk > 0.25 && r.state !== 'arrived';
   // eixos: um no meio-esquerdo, outro à direita do centro (sistema tandem)
   // o eixo fica rente à borda do painel; parada, a palheta acompanha a borda até a ponta
   const L = 96;
@@ -122,7 +124,7 @@ export function drawWipers(c: CanvasRenderingContext2D, r: Race, vp: Viewport, d
   // ---- o que cai e gruda no vidro ----
   if (w) {
     const top = vp.y + 2;
-    const rate = (w === 'rain' ? 34 : 20) * (0.5 + r.speed / r.car.maxSpeed);
+    const rate = (w === 'rain' ? 34 : 20) * (0.5 + r.speed / r.car.maxSpeed) * rk;
     let k = rate * dt;
     while (k > 0 && parts.length < MAX_PARTS) {
       if (Math.random() < k) {
@@ -149,8 +151,13 @@ export function drawWipers(c: CanvasRenderingContext2D, r: Race, vp: Viewport, d
       film = new Float32Array(fw * fh);
       filmW = fw; filmH = fh; filmY0 = fy0;
     }
-    const grow = dt * (w === 'rain' ? 0.45 : 0.22);
-    for (let i = 0; i < film.length; i++) film[i] = Math.min(1, film[i] + grow);
+    // com pouca chuva embaça devagar; sem chuva (abaixo de 0,1) a película evapora
+    const grow = dt * (w === 'rain' ? 0.45 : 0.22) * ((rk - 0.1) / 0.9);
+    filmMax = 0;
+    for (let i = 0; i < film.length; i++) {
+      film[i] = Math.max(0, Math.min(1, film[i] + grow));
+      if (film[i] > filmMax) filmMax = film[i];
+    }
     if (sHi > sLo) {
       for (const pv of pivots) {
         const lo = pv.rest - SWEEP * sHi - 0.04, hi = pv.rest - SWEEP * sLo + 0.04;
@@ -203,7 +210,7 @@ export function drawWipers(c: CanvasRenderingContext2D, r: Race, vp: Viewport, d
   // película: uma imagem com um pixel por célula, ampliada com suavização (antes eram faixas de
   // células de 3 px em 6 níveis: na neve a borda da área limpa virava escada e o vidro todo
   // ficava com listras claras por cima da pista)
-  if (w && film.length) {
+  if (w && film.length && filmMax > 0) {
     const base = w === 'rain' ? [170, 190, 215, 0.16] : [235, 240, 250, 0.18];
     if (filmCv.width !== filmW || filmCv.height !== filmH) { filmCv.width = filmW; filmCv.height = filmH; filmImg = null; }
     const fg = filmCv.getContext('2d')!;

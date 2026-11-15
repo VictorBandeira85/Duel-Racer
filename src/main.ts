@@ -18,13 +18,13 @@ import { Race } from './race';
 import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
 import { CHALLENGE_PRIZE, checkChallenge, partialStats, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
 import { paintHex } from './paint';
-import { VIEW_EXTRA_CAP, cockpitReady, preloadCockpit, renderCockpit } from './cockpit';
+import { VIEW_EXTRA_CAP, cockpitRadioHit, cockpitReady, preloadCockpit, renderCockpit } from './cockpit';
 import { attFor, attsReady, copsReady, preloadAtts } from './people';
 import { OPT_TABS, applyBtnSize, beginLoading, optTab, setOptTab, btnSizeLabel, cycleBtnSize, drawScreen, drawToast, focusInfo, preloadGasArt, hoverScreen, keyScreen, setScreenActions, saveScore, tapScreen, type Actions, type AppState, type MenuKey, type ScreenId } from './screens';
-import { binding, binds, hornOn, input, lastDevice, pad, pollGamepad, releaseAll, setBind, setupInput, touch } from './input';
+import { binding, binds, hornOn, input, lastDevice, pad, pollGamepad, releaseAll, setBind, setupInput, takeShift, touch } from './input';
 import { setHorn, setHornCar } from './horn';
 import { MUSIC_CREDITS } from './tracks';
-import { audioCtx, audioState, gainLevels, resumeAudio, sfxLevel, synthReady, setSfxVolume, initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicVolume, setSiren, setTires } from './audio';
+import { audioCtx, audioState, gainLevels, resumeAudio, sfxLevel, synthReady, setSfxVolume, initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicVolume, setSiren, setTires, STATIONS, nextRadioStation, radioStation, setRadioStation } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
 import { preloadSvg } from './svgsprites';
 import { FX_LABEL, fxMode, lowFx, perfSample, setFxMode, lowRes, minRes, perfKey } from './perf';
@@ -85,6 +85,8 @@ window.addEventListener('pointerdown', (e) => {
 function showControls(on: boolean) {
   $('controls').classList.toggle('hidden', !on || !touch.ui);
   $('pauseBtn').classList.toggle('hidden', !on);
+  $('radioBtn').classList.toggle('hidden', !on);
+  if (!on) $('radioTag').classList.add('hidden');
   $('gearBtns').classList.toggle('hidden', state.auto);
   $('pause').classList.add('hidden');
   paused = false;
@@ -255,6 +257,7 @@ function startStageNow(i: number) {
   showControls(true);
   // uma faixa por trecho (muda a cada trecho e a cada percurso)
   playMusic(`race:${(run.event ? run.event.region * 3 + run.event.event : state.courseIdx * 5) + i}`);
+  showRadio(2.2); // o visor do rádio mostra a estação na largada
 }
 function makeRace(i: number) {
   // rival à frente no 1º trecho; depois, quem chegou primeiro ao posto no trecho anterior
@@ -383,8 +386,12 @@ function resize() {
 
 canvas.addEventListener('pointerdown', (e) => {
   initAudio();
-  if (state.screen === 'race') return;
   const rect = canvas.getBoundingClientRect();
+  if (state.screen === 'race') {
+    // toque no rádio desenhado na cabine (onde a arte tem um): troca a estação
+    if (race && !paused && !quitOpen() && cockpitRadioHit(((e.clientX - rect.left) / rect.width) * view.w, ((e.clientY - rect.top) / rect.height) * view.h)) switchRadio();
+    return;
+  }
   tapScreen(state, actions, ((e.clientX - rect.left) / rect.width) * view.w, ((e.clientY - rect.top) / rect.height) * view.h);
 });
 
@@ -617,7 +624,7 @@ function setPaused(p: boolean) {
   focusIdx = 0;
   if (p) setTimeout(showFocus);
   quickLabels();
-  $('nowPlaying').textContent = musicTitle() ? `♪ ${musicTitle()}` : '';
+  $('nowPlaying').textContent = nowPlayingText();
   // ajustes abertos no menu principal ficam fechados ao entrar/sair da pausa
   if (p) {
     setEngine(0, false, false);
@@ -631,6 +638,39 @@ $('pauseBtn').addEventListener('pointerdown', (e) => {
   e.preventDefault();
   e.stopPropagation();
   setPaused(true);
+});
+// ---- rádio do carro: tecla R (trocável), Select do controle, botão ao lado da pausa e AJUSTES ----
+setRadioStation(prefs.radio, false);
+let radioHide = 0, radioFade = 0;
+const nowPlayingText = () => {
+  const s = STATIONS[radioStation()];
+  return s.id === 'off' ? '♪ RÁDIO DESLIGADO' : musicTitle() ? `♪ ${s.freq} · ${musicTitle()}` : '';
+};
+// visor do rádio por alguns segundos (estação e faixa) e a etiqueta do botão
+function showRadio(sec: number) {
+  const s = STATIONS[radioStation()];
+  $('radioShort').textContent = s.short;
+  $('radioBtn').classList.toggle('off', s.id === 'off');
+  $('radioFreq').textContent = s.freq;
+  $('radioName').textContent = s.name;
+  $('radioSong').textContent = s.id === 'off' ? '' : musicTitle().toUpperCase();
+  const tag = $('radioTag');
+  tag.classList.remove('hidden', 'fade');
+  clearTimeout(radioHide);
+  clearTimeout(radioFade);
+  radioFade = window.setTimeout(() => tag.classList.add('fade'), sec * 1000);
+  radioHide = window.setTimeout(() => tag.classList.add('hidden'), sec * 1000 + 400);
+}
+function switchRadio() {
+  savePrefs({ radio: nextRadioStation() });
+  showRadio(2.6);
+}
+$('radioBtn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (state.screen !== 'race' || paused || quitOpen()) return;
+  initAudio();
+  switchRadio();
 });
 // atalhos da pausa: música e efeitos sem abrir os ajustes (mudo / volta ao volume de antes)
 function quickLabels() {
@@ -697,6 +737,7 @@ function settingsLabels() {
     volume: ['MÚSICA CORRIDA', `◀ ${volLabel(prefs.musPct)} ▶`],
     sfxvol: ['VOL. EFEITOS', `◀ ${volLabel(prefs.sfxPct)} ▶`],
     track: ['FAIXA ▶', musicTitle() || '-'],
+    radio: ['RÁDIO ▶', `${STATIONS[radioStation()].freq} ${STATIONS[radioStation()].name}`],
     gear: ['CÂMBIO', state.auto ? 'AUTOMÁTICO' : 'MANUAL'],
     buttons: ['BOTÕES', btnSizeLabel()],
     ghost: ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'],
@@ -741,6 +782,7 @@ document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b)
     case 'volume': volClick(b, e, 'music'); break;
     case 'sfxvol': volClick(b, e, 'sfx'); break;
     case 'track': playMusic(`race:${state.courseIdx * 5 + (race?.stageIdx ?? 0) + ++trackStep}`); break;
+    case 'radio': savePrefs({ radio: nextRadioStation() }); break;
     case 'gear':
       state.auto = !state.auto;
       savePrefs({ auto: state.auto });
@@ -770,7 +812,7 @@ $('setBack').addEventListener('click', () => {
   $('settings').classList.add('hidden');
   $('pause').classList.remove('hidden');
   quickLabels();
-  $('nowPlaying').textContent = musicTitle() ? `♪ ${musicTitle()}` : '';
+  $('nowPlaying').textContent = nowPlayingText();
 });
 
 // aplicativo em segundo plano (trocou de app, bloqueou a tela): a corrida pausa e o som para;
@@ -845,6 +887,8 @@ let lastKey = '';
 const gearEl = document.getElementById('gearNum')!;
 function frameInner(now: number) {
   carSwapWatch(state.t);
+  // o visor do rádio não fica por cima do papel da multa
+  $('radioTag').classList.toggle('blocked', state.screen === 'race' && race?.officer?.phase === 'show');
   newFrame(); // orçamento de sprites novos por quadro
   const dt = Math.max(0, Math.min(0.25, (now - last) / 1000)); // o primeiro quadro pode vir antes de `last`
   last = now;
@@ -868,6 +912,8 @@ function frameInner(now: number) {
       keyScreen(state, actions, k);
     } else keyScreen(state, actions, 'ok');
   }
+  // rádio (tecla R ou Select do controle): só na corrida, fora da pausa; nos menus o aperto se perde
+  if (takeShift('radio') && state.screen === 'race' && race && !paused && !quitOpen()) switchRadio();
   // buzina do jogador (tecla H/B, botão da tela, X ou Y do controle): só na corrida, fora da pausa
   if (race) setHornCar(race.car.id);
   setHorn(state.screen === 'race' && !!race && !paused && !quitOpen() && hornOn());

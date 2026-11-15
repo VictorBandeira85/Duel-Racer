@@ -3,6 +3,7 @@ import type { StageDef } from './courses';
 import { SPRITES, type SpriteKind } from './sprites';
 import type { Theme } from './themes';
 import { easeIn, easeInOut, rng } from './util';
+import { BLITZ_SIGNS_M, pickBlitz } from './blitz';
 
 export interface Point {
   world: { y: number; z: number };
@@ -35,6 +36,7 @@ export interface Track {
   startZ: number;
   finishZ: number;
   policeSpots: number[];
+  blitz?: number; // z do ponto de polícia que virou blitz (src/blitz.ts), se houver
 }
 
 const point = (y: number, z: number): Point => ({
@@ -269,5 +271,12 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
     policeSpots.push(Math.floor(startIndex + (finishIndex - startIndex) * t) * SEG_LEN);
   }
 
-  return { segments, roadW, lanes: def.lanes, startZ: startIndex * SEG_LEN, finishZ: finishIndex * SEG_LEN, policeSpots };
+  // blitz: no máximo um dos pontos de polícia (sorteio próprio, para não mudar o resto da pista), com as
+  // placas BLITZ / REDUZA antes, no acostamento da direita
+  const startZ = startIndex * SEG_LEN, finishZ = finishIndex * SEG_LEN;
+  const bi = pickBlitz({ segments, startZ, finishZ }, policeSpots, seed);
+  const blitz = bi >= 0 ? policeSpots[bi] : undefined;
+  if (blitz !== undefined) for (const m of BLITZ_SIGNS_M) signAt(Math.floor(blitz / SEG_LEN) - Math.round(m / SEG_M), 'blitz');
+
+  return { segments, roadW, lanes: def.lanes, startZ, finishZ, policeSpots, blitz };
 }

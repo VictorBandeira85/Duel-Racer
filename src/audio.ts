@@ -1,5 +1,5 @@
 import { engineSpec, WORKLET, type EngineSpec } from './enginesynth';
-import { MENU_TRACKS, RACE_TRACKS, Synthwave } from './music';
+import { MENU_TRACKS, RACE_TRACKS, ROCK_TRACKS, Synthwave } from './music';
 import { FILE_TRACKS } from './tracks';
 
 // Som sintetizado (sem arquivos de áudio): motor com timbre por tipo de motor, turbo,
@@ -230,6 +230,7 @@ export function setEngine(rpm: number, pedal: boolean | number, on: boolean, boo
   const r = Math.max(0, Math.min(1.1, rpm));
   const amt = typeof pedal === 'number' ? Math.max(0, Math.min(1, pedal)) : pedal ? 1 : 0;
   const throttle = amt > 0.02;
+  radioDuck(on ? Math.min(1, r) * (0.35 + 0.65 * amt) : 0);
   if (synth) {
     const dip = shiftDip > t;
     // carga do ronco segue o pé (meio acelerador = ronco mais manso), com um mínimo audível
@@ -558,6 +559,8 @@ export function setTunnel(k: number) {
   if (v === lastTunnel) return;
   lastTunnel = v;
   echoWet.gain.setTargetAtTime(v * 0.75, ctx.currentTime, 0.08);
+  radioTunnel = v; // o rádio perde o sinal (chia e baixa)
+  applyRadio();
 }
 
 // vapor/fumaça do motor batido: chiado contínuo
@@ -702,9 +705,15 @@ function playFile(i: number) {
     fileEl.loop = true;
     fileEl.preload = 'auto';
     fileEl.muted = musicVol <= 0;
-    ctx.createMediaElementSource(fileEl).connect(musicGain);
+    ctx.createMediaElementSource(fileEl).connect(srcGain!);
   }
   const el = fileEl;
+  // no rádio da corrida a estação emenda a faixa seguinte quando uma acaba; no menu a faixa repete
+  el.loop = !raceId(current);
+  el.onended = () => {
+    if (fileEl !== el || fileIdx !== i || !current?.startsWith('race:')) return;
+    radioNext();
+  };
   el.onerror = () => {
     if (fileEl !== el || fileIdx !== i) return;
     filesOk = false;
@@ -719,19 +728,182 @@ function playFile(i: number) {
 }
 function startMusic(id: string) {
   if (!ctx) return;
-  if (!musicGain) {
-    musicGain = ctx.createGain();
-    musicGain.connect(master);
-    music = new Synthwave(ctx, musicGain);
-  }
+  if (!musicGain) buildRadio();
   if (current === id) return applyMusicVol();
   current = id;
   applyMusicVol();
-  const i = trackFor(id);
-  if (playFile(i)) music!.stop();
-  else music!.play(i);
+  applyRadio();
+  playCurrent();
 }
-export const musicTitle = () => (fileIdx >= 0 ? `${FILE_TRACKS[fileIdx].title} - ${FILE_TRACKS[fileIdx].artist}` : music?.title ?? '');
+// toca o que vale para `current`: no menu a faixa sorteada; na corrida, o que a estação do rádio
+// escolhida está tocando (ou nada, com o rádio desligado)
+function playCurrent() {
+  if (!current || !music) return;
+  const st = raceId(current) ? STATIONS[station].id : 'menu';
+  if (st === 'off') {
+    music.stop();
+    fileEl?.pause();
+    fileIdx = -1;
+    return;
+  }
+  const n = current.startsWith('race:') ? Number(current.slice(5)) : 0;
+  const i = current.startsWith('t:') ? Number(current.slice(2))
+    : st === 'rock' ? ROCK_TRACKS[n % ROCK_TRACKS.length]
+    : st === 'am' ? RACE_TRACKS[(n + 8) % RACE_TRACKS.length] // a AM toca outra faixa, para não ser só a FM filtrada
+    : trackFor(current);
+  if (st !== 'rock' && playFile(i)) music.stop();
+  else {
+    fileEl?.pause();
+    fileIdx = -1;
+    music.play(i);
+  }
+}
+export const musicTitle = () => (raceId(current) && STATIONS[station].id === 'off' ? '' : fileIdx >= 0 ? `${FILE_TRACKS[fileIdx].title} - ${FILE_TRACKS[fileIdx].artist}` : music?.title ?? '');
+
+// ---------- rádio do carro (só na corrida) ----------
+// Na corrida a música sai de um rádio de dentro do carro: abafado (alto-falante da porta), baixando
+// um pouco quando o motor berra e perdendo o sinal no túnel. Estações: FM com a trilha synthwave em
+// sequência, FM de rock (guitarra sintetizada em music.ts), AM com outra faixa em banda estreita e
+// chiado leve, e desligado. Trocar de estação passa por um chiado curto de sintonia.
+export const STATIONS = [
+  { id: 'fm', freq: 'FM 101.7', name: 'SYNTH', short: 'FM' },
+  { id: 'rock', freq: 'FM 89.3', name: 'ROCK', short: 'ROCK' },
+  { id: 'am', freq: 'AM 760', name: 'SAUDADE', short: 'AM' },
+  { id: 'off', freq: 'RÁDIO', name: 'DESLIGADO', short: 'OFF' },
+] as const;
+let station = 0;
+let srcGain: GainNode | null = null; // faixas (sintetizada e arquivo) antes do volume: cala na sintonia
+let cleanGain: GainNode, fmGain: GainNode, amGain: GainNode, duckGain: GainNode, hissGain: GainNode;
+let radioTunnel = 0, radioLoad = 0, tuneUntil = 0;
+const raceId = (id: string | null) => !!id && (id.startsWith('race:') || id.startsWith('t:'));
+function buildRadio() {
+  const c = ctx!;
+  musicGain = c.createGain();
+  srcGain = c.createGain();
+  srcGain.connect(musicGain);
+  music = new Synthwave(c, srcGain);
+  // menus: som limpo
+  cleanGain = c.createGain();
+  musicGain.connect(cleanGain).connect(master);
+  // rádio do carro: alto-falante de porta (sem grave fundo nem brilho de cima)
+  duckGain = c.createGain();
+  duckGain.connect(master);
+  const hp = c.createBiquadFilter(), lp = c.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 90;
+  lp.type = 'lowpass';
+  lp.frequency.value = 3600;
+  lp.Q.value = 0.5;
+  fmGain = c.createGain();
+  musicGain.connect(hp).connect(lp).connect(fmGain).connect(duckGain);
+  // AM: banda de telefone (350 Hz a 2,4 kHz) com um pouco de saturação de válvula
+  const ahp = c.createBiquadFilter(), alp = c.createBiquadFilter(), alp2 = c.createBiquadFilter(), sat = c.createWaveShaper();
+  ahp.type = 'highpass';
+  ahp.frequency.value = 350;
+  ahp.Q.value = 0.9;
+  alp.type = alp2.type = 'lowpass';
+  alp.frequency.value = alp2.frequency.value = 2400;
+  alp.Q.value = 1.1;
+  const curve = new Float32Array(512);
+  for (let i = 0; i < curve.length; i++) curve[i] = Math.tanh(((i / 255.5) - 1) * 1.8) / Math.tanh(1.8);
+  sat.curve = curve;
+  amGain = c.createGain();
+  musicGain.connect(ahp).connect(alp).connect(sat).connect(alp2).connect(amGain).connect(duckGain);
+  // chiado do sinal fraco (AM sempre um pouco; FM no túnel), no volume da música
+  const hb = c.createBiquadFilter();
+  hb.type = 'bandpass';
+  hb.frequency.value = 1400;
+  hb.Q.value = 0.6;
+  hissGain = c.createGain();
+  hissGain.gain.value = 0;
+  loopNoise().connect(hb).connect(hissGain).connect(musicGain);
+  for (const g of [cleanGain, fmGain, amGain]) g.gain.value = 0;
+}
+// ganhos de cada caminho conforme a tela (menu/corrida), a estação, o túnel e a sintonia
+function applyRadio() {
+  if (!ctx || !srcGain) return;
+  const t = ctx.currentTime;
+  const race = raceId(current);
+  const st = STATIONS[station].id;
+  const k = radioTunnel;
+  const tuning = tuneUntil > t;
+  cleanGain.gain.setTargetAtTime(race ? 0 : 1, t, 0.03);
+  // FM some mais que a AM no túnel (que chia mais)
+  fmGain.gain.setTargetAtTime(race && (st === 'fm' || st === 'rock') ? 1.15 * (1 - 0.55 * k) : 0, t, 0.08);
+  amGain.gain.setTargetAtTime(race && st === 'am' ? 1.25 * (1 - 0.4 * k) : 0, t, 0.08);
+  const hiss = !race || st === 'off' ? 0 : st === 'am' ? 0.018 + 0.05 * k : 0.07 * k;
+  hissGain.gain.setTargetAtTime(tuning ? 0 : hiss, t, 0.1);
+  srcGain.gain.setTargetAtTime(tuning ? 0 : 1, t, 0.03);
+}
+// motor alto (giro x pé, 0..1): o rádio baixa até ~30% (não some)
+function radioDuck(load: number) {
+  if (!ctx || !srcGain) return;
+  if (Math.abs(load - radioLoad) < 0.02) return;
+  radioLoad = load;
+  duckGain.gain.setTargetAtTime(1 - 0.3 * load, ctx.currentTime, 0.35);
+}
+// chiado de sintonia: ruído passando por um filtro que varre e um assobio grave de batimento
+function tuneSound(dur: number) {
+  if (!ctx || !musicGain) return;
+  const t = ctx.currentTime;
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuffer(dur + 0.1);
+  const f = ctx.createBiquadFilter(), g = ctx.createGain();
+  f.type = 'bandpass';
+  f.Q.value = 1.6;
+  f.frequency.setValueAtTime(700, t);
+  f.frequency.exponentialRampToValueAtTime(1800, t + dur * 0.45);
+  f.frequency.exponentialRampToValueAtTime(900, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.5, t + 0.03);
+  g.gain.setValueAtTime(0.45, t + dur * 0.7);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f).connect(g).connect(musicGain);
+  src.start(t);
+  src.stop(t + dur + 0.1);
+  const o = ctx.createOscillator(), og = ctx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(520, t);
+  o.frequency.exponentialRampToValueAtTime(1100, t + dur * 0.4);
+  o.frequency.exponentialRampToValueAtTime(380, t + dur);
+  og.gain.setValueAtTime(0.0001, t);
+  og.gain.exponentialRampToValueAtTime(0.05, t + 0.05);
+  og.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(og).connect(musicGain);
+  o.start(t);
+  o.stop(t + dur + 0.05);
+}
+// faixa seguinte da estação (quando a do arquivo acaba)
+function radioNext() {
+  if (!current?.startsWith('race:')) return;
+  current = pendingMusic = `race:${Number(current.slice(5)) + 1}`;
+  playCurrent();
+}
+export const radioStation = () => station;
+export const radioTuning = () => !!ctx && tuneUntil > ctx.currentTime; // chiado de sintonia tocando
+// escolhe a estação (sem chiado: ao abrir o jogo, com a salva)
+export function setRadioStation(i: number, tune = true) {
+  station = ((Math.round(i) % STATIONS.length) + STATIONS.length) % STATIONS.length;
+  if (!ctx || !srcGain || !raceId(current)) return station;
+  if (tune) {
+    const dur = 0.42;
+    tuneUntil = ctx.currentTime + dur * 0.8;
+    tuneSound(dur);
+    applyRadio();
+    // a estação nova entra quando o chiado acaba
+    setTimeout(() => applyRadio(), dur * 800 + 20);
+  } else applyRadio();
+  playCurrent();
+  return station;
+}
+export const nextRadioStation = () => setRadioStation(station + 1);
+// estado do rádio para os testes automatizados
+export const radioInfo = () => ({
+  station: STATIONS[station].id, inRace: raceId(current), current, title: musicTitle(),
+  clean: srcGain ? cleanGain.gain.value : -1, fm: srcGain ? fmGain.gain.value : -1, am: srcGain ? amGain.gain.value : -1,
+  hiss: srcGain ? hissGain.gain.value : -1, duck: srcGain ? duckGain.gain.value : -1, src: srcGain ? srcGain.gain.value : -1,
+  tunnel: radioTunnel, file: fileIdx, synth: music?.title ?? '',
+});
 // volumes separados: música dos menus ('menu') e das corridas ('race:', faixas escolhidas 't:')
 let musicVol = 0.25, menuVol = 0.25, raceVol = 0.25;
 const volFor = (id: string | null) => (id === 'menu' ? menuVol : raceVol);

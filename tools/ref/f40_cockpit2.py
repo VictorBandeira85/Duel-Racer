@@ -39,7 +39,9 @@ import brand_badges  # noqa: E402
 S = 0.28
 PXW, PXH = 1 / S, (1 / S) / (8 / 7)
 PIV = (790.0, 612.0)            # centro do aro (as duas artes estão alinhadas)
-PIV_N = (790.0 * S - 102.0, 120.0)  # x 0 da arte na coluna 0 do empilhado
+RISE = 14                       # a cabine sobe RISE linhas (olho mais baixo, pedido do Victor): entra mais da parte de baixo da arte
+PIV_N = (790.0 * S - 102.0, 120.0 - RISE)  # x 0 da arte na coluna 0 do empilhado
+FORRO = 4                       # linhas de forro construídas no alto (o alto da arte sai da tela com RISE)
 ROWS, EXT, PAD = 124, 76, 102
 WTOP, WROWS = 0, 212
 RIM_OUT = (790.0, 612.0, 281.0, 276.0)
@@ -64,13 +66,13 @@ TRI = [(115, 50), (122, 100), (153, 200), (178, 290), (52, 290), (63, 250), (75,
 FAR = [(0, 0), (70, 0), (48, 100), (26, 200), (5, 300), (0, 300)]  # vidro à esquerda da moldura da porta
 MIR_SEED = (100, 370)           # vidro do retrovisor externo
 MIR_GLASS = (25, 322, 171, 427, 12)  # o vidro (cantos redondos), medido
-VM_ORG, VM_SX, VM_SY = (-202.0, -665.0), 12.3, 11.2   # print do Victor: x = org + coluna * sx, y = org + linha * sy
-VM_AT, VM_SIZE = (16, 110), (50, 52)   # janela do recorte no empilhado (coluna, linha) e tamanho
+VM_ORG, VM_SX, VM_SY = (-202.0, -665.0 + RISE * 11.2), 12.3, 11.2   # print do Victor: x = org + coluna * sx, y = org + linha * sy
+VM_AT, VM_SIZE = (16, 110 - RISE), (50, 52)   # janela do recorte no empilhado (coluna, linha) e tamanho
 VM_SEED = (60, 700)             # um ponto da moldura vermelha no print
 VM_GLASS = (76, 662, 418, 864)  # vidro do retrovisor no print (a vista de trás do jogo)
 VM_DOOR_Y, VM_MAX_X = 1108, 585   # abaixo disto é a porta; à direita, a coluna
 MIR_MAX_COL = 100                # não passa daqui (à direita da coluna é o para-brisa)
-WS_PROBE = (200, 60)            # um ponto do para-brisa (col, linha)
+WS_PROBE = (200, 50)            # um ponto do para-brisa (col, linha)
 MIR_ERASE_TOP = 288             # o retrovisor da arte nova começa aqui (arte)
 MIR_TOP_SEED = (100, 306)       # um ponto da moldura de cima do retrovisor da arte nova
 PILLAR_EDGE = [(190, 290), (196, 340), (202, 400), (207, 450), (211, 495)]  # borda esquerda da coluna (arte)
@@ -334,6 +336,19 @@ def main():
                 st_pz[y, x] = int(vm[j, i, 0]) > int(vm[j, i, 1]) + 50
             elif vm[j, i, 3] == 1:
                 st_al[y, x], st_pz[y, x], st_mir[y, x] = False, False, True
+    # forro: com a cabine mais alta, o alto da arte (forro e borracha de cima do para-brisa) sai da tela;
+    # nas FORRO linhas de cima o que é vidro vira forro (a textura do forro da própria arte, na mesma
+    # coluna) com a borracha escura na última linha; colunas e molduras continuam como estão
+    fx, fy = grid(6.0, FORRO)
+    f_rgb = sample(nw, fx, fy)
+    fc = f_rgb.astype(int)
+    sky = fc[..., 2] > fc[..., 0] + 20   # à esquerda o alto da arte é céu (pela janela): ali o forro é a cor média dele
+    f_rgb[sky] = np.median(f_rgb[~sky], axis=0)
+    for r in range(FORRO):
+        hole = ~st_al[r]
+        st_rgb[r, hole] = f_rgb[r, hole] if r < FORRO - 1 else (16, 15, 18)
+        st_al[r, hole] = True
+        st_pz[r, hole] = False
     pm = red_mask(st_rgb, st_al) & st_pz
     for name, sl in (('top', slice(0, EXT)), ('dash', slice(EXT, None))):
         Image.fromarray(np.dstack([st_rgb[sl], st_al[sl].astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, f'f40-{name}.png'), optimize=True)

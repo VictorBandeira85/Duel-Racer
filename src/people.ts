@@ -3,6 +3,32 @@
 // ampliado sem suavizar, em cache por pose; (x, y) é o pé, h a altura na tela.
 
 type Pose = 'stand' | 'paper' | 'wave' | 'nozzle';
+import COPS from './assets/people/cops.json';
+
+// Policiais por classe (arte do Victor, tools/ref/cop_sprites.py): 'D1'..'S2', poses stand/wave/paper.
+// [largura, altura, x do meio dos pés] de cada sprite; enquanto a imagem não carrega vale o desenho por código.
+const COP_ART = import.meta.glob('./assets/people/cop-*.png', { eager: true, import: 'default' }) as Record<string, string>;
+const COP_META = COPS as unknown as Record<string, [number, number, number]>;
+const copImgs = new Map<string, HTMLImageElement>();
+function copImg(id: string, pose: Pose): HTMLImageElement | null {
+  const key = `${id}-${pose}`;
+  const src = COP_ART[`./assets/people/cop-${key}.png`];
+  if (!src) return null;
+  let im = copImgs.get(key);
+  if (!im) {
+    im = new Image();
+    im.src = src;
+    copImgs.set(key, im);
+  }
+  return im.complete && im.naturalWidth ? im : null;
+}
+export const preloadCops = (id: string) => (['stand', 'wave', 'paper'] as Pose[]).forEach((p) => copImg(id, p));
+// cor da manga/luva de cada policial (a mão que segura a multa): [manga, mão]
+export const COP_HAND: Record<string, [string, string]> = {
+  D1: ['#86aee8', '#e0a070'], D2: ['#86aee8', '#e0a070'], C1: ['#c8a46a', '#d8945c'], C2: ['#c8a46a', '#d8945c'],
+  B1: ['#1e2c66', '#d8945c'], B2: ['#1e2c66', '#d8945c'], A1: ['#26222c', '#3a3640'], A2: ['#26222c', '#3a3640'],
+  S1: ['#1c2454', '#3a3640'], S2: ['#1c2454', '#3a3640'],
+};
 const cache = new Map<string, HTMLCanvasElement>();
 
 // Versão em alta (16 bits em HD): grade de 48 x 96, desenhada com formas em 4x e reduzida pegando
@@ -126,8 +152,21 @@ function person(kind: 'cop' | 'att', pose: Pose) {
 }
 
 // desenha o personagem com o pé em (x, y) e altura h na tela; flip espelha (olha para a esquerda)
-export function drawPerson(c: CanvasRenderingContext2D, kind: 'cop' | 'att', pose: Pose, x: number, y: number, h: number, flip = false) {
+export function drawPerson(c: CanvasRenderingContext2D, kind: 'cop' | 'att', pose: Pose, x: number, y: number, h: number, flip = false, cop?: string) {
   if (h < 3) return;
+  const im = kind === 'cop' && cop ? copImg(cop, pose) : null;
+  if (im) {
+    // sprite inteiro (quepe aos pés) com a altura h, pés no meio em (x, y)
+    const [sw, sh, fx] = COP_META[`${cop}-${pose}`];
+    const k = h / sh;
+    c.save();
+    c.imageSmoothingEnabled = false;
+    c.fillStyle = 'rgba(0,0,0,0.3)';
+    c.fillRect(Math.round(x - sw * k * 0.32), Math.round(y - k), Math.round(sw * k * 0.64), Math.max(1, Math.round(k * 1.5)));
+    c.drawImage(im, Math.round(x - fx * k), Math.round(y - h), Math.round(sw * k), Math.round(h));
+    c.restore();
+    return;
+  }
   const cv = person(kind, pose);
   const s = h / FIG; // a figura ocupa as linhas de baixo da grade
   const w = HW * s;

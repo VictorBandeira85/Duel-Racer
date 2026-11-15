@@ -1,3 +1,4 @@
+import { preloadCops } from './people';
 import { prewarmAds } from './billboards';
 import { CAR_W, KMH, LANE_W, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { aeroMul, CARS, G, LAUNCH_BOOST, launchRpm, Powertrain, perfClass, resistAcc, toGame, toMs, type CarLook, type CarSpec, type PerfClass, SHIFT_T } from './cars';
@@ -134,6 +135,7 @@ export interface Officer {
   x: number;
   phase: 'walk' | 'show' | 'back';
   t: number;
+  cop?: string; // policial da vez (classe + 1/2: 'D1'..'S2', people.ts)
 }
 
 export interface Fine {
@@ -250,6 +252,7 @@ export class Race {
   traffic: TrafficCar[] = [];
   police: Police[] = [];
   officer: Officer | null = null;
+  copId = 'D1';
   fine: Fine | null = null;
   private stopX = 0; // onde o jogador encosta
   radar = 0;
@@ -268,7 +271,7 @@ export class Race {
     public car: CarSpec,
     public rivalCar: CarSpec | null,
     public auto: boolean,
-    opts: { rivalStyle?: RivalStyle; rivalPaint?: string; rivalAhead?: boolean } = {},
+    opts: { rivalStyle?: RivalStyle; rivalPaint?: string; rivalAhead?: boolean; copClass?: PerfClass } = {},
   ) {
     this.rivalPaint = opts.rivalPaint;
     this.pt = new Powertrain(car);
@@ -325,6 +328,10 @@ export class Race {
     // na carreira, quem corre de carro classe S é perseguido pela Diablo SV da polícia
     const sv = course.id.startsWith('car-') && perfClass(car) === 'S';
     this.police = t.policeSpots.map((z) => ({ spotZ: z, z, x: t.roadW + 1500, speed: 0, state: 'parked' as const, chaseT: 0, sv }));
+    // policial da vez: a classe da corrida (carreira: a da região; Arcade: a do carro), um dos dois dela
+    // conforme o trecho; a viatura SV traz sempre o esquadrão da classe S
+    this.copId = (sv ? 'S' : opts.copClass ?? perfClass(car)) + String(1 + ((seed >> 3) % 2));
+    preloadCops(this.copId);
   }
 
   // faróis do rival: à noite ficam acesos (escamoteáveis em cima); de dia sobem só para pedir passagem
@@ -1495,7 +1502,7 @@ export class Race {
           p.state = 'stopped';
           p.speed = 0;
           this.state = 'ticket';
-          this.officer = { z: p.z - 300, x: p.x - 700, phase: 'walk', t: 0 };
+          this.officer = { z: p.z - 300, x: p.x - 700, phase: 'walk', t: 0, cop: p.sv ? 'S' + this.copId[1] : this.copId };
         }
       } else if (p.state === 'stopped') {
         if (p.chaseT < RADAR_ALERT_T) this.radar = 1;

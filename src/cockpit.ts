@@ -1,3 +1,4 @@
+import { COP_HAND } from './people';
 import { brandOf, drawLogo } from './brands';
 import { prefs } from './prefs';
 import { binds, keyName, pad, touch } from './input';
@@ -3737,10 +3738,13 @@ function drawFine(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   c.stroke();
   c.fillStyle = '#c8c0a8';
   c.fillRect(pw - 72, 79, 62, 1);
-  // mão do policial
-  c.fillStyle = '#e0b088';
+  // mão do policial, na cor da manga e da mão (ou luva) do policial da vez
+  const [sleeve, hand] = COP_HAND[r.officer!.cop ?? ''] ?? ['#5a7ac8', '#e0b088'];
+  c.fillStyle = hand;
   c.fillRect(-10, ph - 34, 18, 22);
-  c.fillStyle = '#5a7ac8';
+  c.fillStyle = 'rgba(0,0,0,0.25)';
+  c.fillRect(-10, ph - 14, 18, 2);
+  c.fillStyle = sleeve;
   c.fillRect(-26, ph - 30, 18, 30);
   c.restore();
   if (t > 1.2 && Math.floor(t * 2) % 2) text(c, 'ACELERE PARA SEGUIR', vp.x + vp.w * 0.8, vp.y + vp.h / 2, 5, '#ffd400', 'center');

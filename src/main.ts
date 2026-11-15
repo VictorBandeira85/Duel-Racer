@@ -53,7 +53,7 @@ interface Run {
   course: Course;
   car: CarSpec;
   rival: CarSpec | null;
-  opts: { rivalStyle?: import('./race').RivalStyle; rivalPaint?: string };
+  opts: { rivalStyle?: import('./race').RivalStyle; rivalPaint?: string; copClass?: import('./cars').PerfClass };
   event?: { region: number; event: number };
 }
 let run: Run = { course: COURSES[0], car: CARS[0], rival: null, opts: {} };
@@ -137,7 +137,7 @@ const actions: Actions = {
     state.carIdx = CARS.findIndex((c) => c.id === cs.car);
     run = {
       course: eventCourse(ev, cs.races), car: tunedCar(carById(cs.car), levels(cs, cs.car), setupOf(cs, cs.car), buildOf(cs, cs.car)), rival: carById(ev.driver.car),
-      opts: { rivalStyle: ev.driver.style, rivalPaint: ev.driver.paint }, event: { region, event },
+      opts: { rivalStyle: ev.driver.style, rivalPaint: ev.driver.paint, copClass: REGIONS[region].cls }, event: { region, event },
     };
     begin(4);
   },

@@ -1,6 +1,7 @@
 import { COP_HAND } from './people';
 import { brandOf, drawLogo } from './brands';
 import { VIEW_LEVELS, prefs } from './prefs';
+import handMeta from './assets/people/hand.json';
 import { binds, keyName, pad, touch } from './input';
 import { ghostTimeAt } from './records';
 import { CRES, DASH_Y, KMH, RES, ROOF_H, SEG_LEN, view } from './config';
@@ -3716,6 +3717,18 @@ function rim(c: CanvasRenderingContext2D, cx: number, cy: number, R: number, thi
 }
 
 // Papel da multa mostrado pelo policial
+// mãos dos policiais na multa (tools/ref/cop_hand.py): uma por policial; sem a arte, o desenho simples
+const HAND_PNG = import.meta.glob('./assets/people/hand-*.png', { eager: true, import: 'default' }) as Record<string, string>;
+const HAND_META = handMeta as unknown as Record<string, { w: number; h: number; grip: [number, number]; paperTop: number; paperBottom: number }>;
+const handImgs = new Map<string, HTMLImageElement>();
+function handImg(id: string): HTMLImageElement | null {
+  const src = HAND_PNG[`./assets/people/hand-${id}.png`];
+  if (!src || !HAND_META[id]) return null;
+  let im = handImgs.get(id);
+  if (!im) { im = new Image(); im.src = src; handImgs.set(id, im); }
+  return im.complete && im.naturalWidth ? im : null;
+}
+export const preloadHands = () => Object.keys(HAND_META).forEach((id) => handImg(id));
 function drawFine(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   const f = r.fine!;
   const t = r.officer!.t;
@@ -3726,6 +3739,28 @@ function drawFine(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   c.translate(px + pw / 2, py + ph / 2);
   c.rotate(-0.04);
   c.translate(-pw / 2, -ph / 2);
+  // mão desenhada do policial (arte do Victor): o papel entra entre o polegar (na frente do papel) e os
+  // dedos (atrás): a mão inteira vai antes do papel e a parte de cima (polegar) de novo depois dele
+  const hid = r.officer!.cop ?? '';
+  const hi = handImg(hid);
+  const hm = HAND_META[hid];
+  const hk = hi ? (ph * 0.8) / (hm.paperBottom - hm.paperTop) : 0;
+  const hx = hi ? (16 - hm.grip[0]) * hk : 0, hy = hi ? ph * 0.5 - hm.grip[1] * hk : 0;
+  const drawHand = (topOnly: boolean) => {
+    if (!hi) return;
+    const sm = c.imageSmoothingEnabled;
+    c.imageSmoothingEnabled = false;
+    if (topOnly) {
+      c.save();
+      c.beginPath();
+      c.rect(hx - 50, hy - 50, hm.w * hk + 100, (hm.grip[1] * hk) + 50); // até a linha da pega
+      c.clip();
+    }
+    c.drawImage(hi, hx, hy, hm.w * hk, hm.h * hk);
+    if (topOnly) c.restore();
+    c.imageSmoothingEnabled = sm;
+  };
+  drawHand(false);
   c.fillStyle = 'rgba(0,0,0,0.35)';
   c.fillRect(3, 3, pw, ph);
   c.fillStyle = '#f6f2e6';
@@ -3736,9 +3771,10 @@ function drawFine(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   text(c, 'AUTO DE INFRAÇÃO', pw / 2, 20, 8, '#1c1c1c', 'center', null);
   c.fillStyle = '#c8c0a8';
   c.fillRect(8, 31, pw - 16, 1);
-  text(c, `VELOCIDADE: ${f.kmh} KM/H`, 10, 36, 5, '#1c1c1c', 'left', null);
-  text(c, `LIMITE DA VIA: ${f.limit} KM/H`, 10, 45, 5, '#1c1c1c', 'left', null);
-  text(c, 'MULTA', 10, 58, 8, '#1c1c1c', 'left', null);
+  const tx = hi ? 22 : 10; // com a mão desenhada, o texto começa depois do polegar
+  text(c, `VELOCIDADE: ${f.kmh} KM/H`, tx, 36, 5, '#1c1c1c', 'left', null);
+  text(c, `LIMITE DA VIA: ${f.limit} KM/H`, tx, 45, 5, '#1c1c1c', 'left', null);
+  text(c, 'MULTA', tx, 58, 8, '#1c1c1c', 'left', null);
   text(c, `$ ${f.value}`, pw - 10, 58, 8, '#c01818', 'right', null);
   c.strokeStyle = '#1c2a6a';
   c.lineWidth = 1;
@@ -3749,6 +3785,12 @@ function drawFine(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   c.fillRect(pw - 72, 79, 62, 1);
   // mão do policial, na cor da manga e da mão (ou luva) do policial da vez
   const [sleeve, hand] = COP_HAND[r.officer!.cop ?? ''] ?? ['#5a7ac8', '#e0b088'];
+  if (hi) {
+    drawHand(true);
+    c.restore();
+    if (t > 1.2 && Math.floor(t * 2) % 2) text(c, 'ACELERE PARA SEGUIR', vp.x + vp.w * 0.8, vp.y + vp.h / 2, 5, '#ffd400', 'center');
+    return;
+  }
   c.fillStyle = hand;
   c.fillRect(-10, ph - 34, 18, 22);
   c.fillStyle = 'rgba(0,0,0,0.25)';

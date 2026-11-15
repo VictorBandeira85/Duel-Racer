@@ -20,5 +20,5 @@ export default defineConfig(({ mode }) => ({
   // Ver tools/to-artifact.mjs (modo arquivos)
   plugins: mode === 'single' ? [viteSingleFile()] : mode === 'artifact' ? [viteSingleFile({ useRecommendedBuildConfig: false })] : [],
   publicDir: mode === 'artifact' ? false : 'public',
-  build: mode === 'single' ? { outDir: 'dist-single', assetsInlineLimit: 1e8 } : mode === 'artifact' ? { outDir: 'dist-artifact', assetsInlineLimit: (file: string, content: Buffer) => { const f = file.replace(/\\/g, '/'); return (/\/(drv|hand)-[^/]*$/.test(f) || !/assets\/(people|scenery)\//.test(f)) && content.length <= 32768; }, cssCodeSplit: false, assetsDir: 'a', rollupOptions: { output: { inlineDynamicImports: true, assetFileNames: 'a/[name][extname]' } } } : {},
+  build: mode === 'single' ? { outDir: 'dist-single', assetsInlineLimit: 1e8 } : mode === 'artifact' ? { outDir: 'dist-artifact', assetsInlineLimit: (file: string, content: Buffer) => { const f = file.replace(/\\/g, '/'); return /\/assets\/loadart\//.test(f) || ((/\/(drv|hand)-[^/]*$/.test(f) || !/assets\/(people|scenery)\//.test(f)) && content.length <= 32768); }, cssCodeSplit: false, assetsDir: 'a', rollupOptions: { output: { inlineDynamicImports: true, assetFileNames: 'a/[name][extname]' } } } : {},
 }));

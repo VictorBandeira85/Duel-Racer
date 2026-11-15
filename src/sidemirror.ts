@@ -1,6 +1,6 @@
 import { CAM_H, CAR_W, POLICE_W, RES, SEG_LEN, TRUCK_W } from './config';
 import { drawCar } from './cars';
-import { fxTick, lowFx } from './perf';
+import { fxTick, perfLevel } from './perf';
 import { mirrorGlare, mirrorWash, sirenGlow, sirenWash } from './nightlight';
 import { trafficLook, type Race } from './race';
 
@@ -148,8 +148,10 @@ export function findGlass(key: string, top: HTMLCanvasElement | null, dash: HTML
 export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, ox: number, oy: number, bodyColor: string, edgeFill = 0) {
   const { w, h } = g;
   if (!view) view = document.createElement('canvas');
-  // econômico: o espelho é redesenhado em quadros alternados (no outro repete a imagem)
-  if (lowFx() && fxTick() % 2 && view.width === w * RES && view.height === h * RES) {
+  // fora do máximo o espelho não é redesenhado todo quadro (repete a última imagem): no degrau 1 do
+  // automático, quadro sim, quadro não; do econômico em diante, um a cada três
+  const lv = perfLevel(), tick = lv ? fxTick() : 0;
+  if (lv && tick % (lv >= 2 ? 3 : 2) && view.width === w * RES && view.height === h * RES) {
     c.drawImage(view, ox + g.x, oy + g.y, w, h);
     if (edgeFill > 0 && g.x === 0) c.drawImage(view, 0, 0, Math.max(1, RES), h * RES, ox + g.x - edgeFill, oy + g.y, edgeFill + 0.5, h);
     return;

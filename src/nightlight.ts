@@ -812,7 +812,10 @@ function lightLayer(c: CanvasRenderingContext2D, vp: { x: number; y: number; w: 
   if (bx1 <= bx0) return;
   bx0 = Math.max(bx0, vp.x); bx1 = Math.min(bx1, vp.x + vp.w); by0 = Math.max(by0, vp.y - 50); by1 = Math.min(by1, vp.y + vp.h + 50);
   // no econômico a camada é feita em meia resolução e ampliada (os brilhos são suaves: quase não se nota)
-  const LS = lowFx() && tf.a >= 3 ? 0.5 : 1;
+  // com a tela em 4x a camada é feita em 2x (meio pixel do jogo: os brilhos são suaves e os riscos
+  // de 1 pixel do jogo continuam exatos) e ampliada sem suavizar: um quarto dos pixels a pintar e a
+  // somar, que é o que mais pesa com muito trânsito de farol aceso (chuva à noite)
+  const LS = tf.a >= 4 || (lowFx() && tf.a >= 3) ? 0.5 : 1;
   const LW = Math.ceil(DW * LS), LH = Math.ceil(DH * LS);
   const x0 = Math.max(0, Math.floor((tf.a * bx0 + tf.e) * LS)), x1 = Math.min(LW, Math.ceil((tf.a * bx1 + tf.e) * LS));
   const y0 = Math.max(0, Math.floor((tf.d * by0 + tf.f) * LS)), y1 = Math.min(LH, Math.ceil((tf.d * by1 + tf.f) * LS));
@@ -879,7 +882,7 @@ function lightLayer(c: CanvasRenderingContext2D, vp: { x: number; y: number; w: 
   g.globalCompositeOperation = 'source-over';
   c.save();
   c.setTransform(1, 0, 0, 1, 0, 0);
-  if (LS < 1) c.imageSmoothingEnabled = true;
+  c.imageSmoothingEnabled = LS < 1 && tf.a < 4;
   c.drawImage(lightCv, x0, y0, x1 - x0, y1 - y0, x0 / LS, y0 / LS, (x1 - x0) / LS, (y1 - y0) / LS);
   c.restore();
 }

@@ -46,6 +46,17 @@ const which = process.argv.slice(5).length ? process.argv.slice(5) : Object.keys
       let tot = 0;
       ids.forEach((id, i) => { let n = byId.get(id); const leaf = n.callFrame.functionName; while (n && !n.callFrame.url && par.has(n.id)) n = byId.get(par.get(n.id));
         const k = (n.callFrame.url ? (n.callFrame.functionName || '(anon)') + ' ' + n.callFrame.url.split('/').pop().split('?')[0] + ':' + n.callFrame.lineNumber : leaf); self.set(k, (self.get(k) || 0) + dts[i]); tot += dts[i]; });
+      if (process.env.STAGES) {
+        // tempo incluído (com tudo o que chama) por etapa do quadro, em ms por quadro desenhado
+        const names = ['renderRoad', 'finishNight', 'drawBackground', 'drawSegment', 'drawCar', 'drawCrisp', 'drawCockpitArt', 'drawSideMirror', 'renderMirror', 'drawRoof', 'drawDigitalHud', 'drawWipers', 'drawGlassMarks', 'drawDamage', 'update', 'drawScene', 'renderCockpit'];
+        const kids = new Map(profile.nodes.map((n) => [n.id, n.children || []]));
+        const selfT = new Map(); ids.forEach((id, i) => selfT.set(id, (selfT.get(id) || 0) + dts[i]));
+        const incl = (id) => (selfT.get(id) || 0) + kids.get(id).reduce((a, c) => a + incl(c), 0);
+        const acc = {}; const walk = (id, inside) => { const n = byId.get(id); const nm = n.callFrame.functionName; const hit = names.includes(nm) && !inside.has(nm); if (hit) acc[nm] = (acc[nm] || 0) + incl(id); const ins = hit ? new Set([...inside, nm]) : inside; for (const c of kids.get(id)) walk(c, ins); };
+        walk(profile.nodes[0].id, new Set());
+        const frames = Math.max(1, res.n + 10);
+        console.log('   etapas (ms/quadro, CPU do script; o desenho adiado da placa fica em "(program)"): ' + names.filter((n) => acc[n]).map((n) => `${n} ${(acc[n] / 1000 / frames).toFixed(1)}`).join(' · ') + ` · total ${(tot / 1000 / frames).toFixed(1)}`);
+      }
       top = '\n   ' + [...self].sort((a, b) => b[1] - a[1]).slice(0, 22).map(([k, v]) => `${(v / tot * 100).toFixed(1)}% ${k}`).join('\n   ');
     }
     console.log(`${name.padEnd(7)} ${W}x${H}@${D} cpu/${thr}: média ${res.avg.toFixed(1)} ms  p95 ${res.p95.toFixed(1)}  pior ${res.max.toFixed(0)}  (${(1000 / res.avg).toFixed(0)} qps) [canvas ${lvl}]${top}`);

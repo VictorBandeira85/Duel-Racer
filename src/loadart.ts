@@ -1,5 +1,5 @@
-// Ilustrações da tela de carregamento (pixel art desenhada por código, como fotos da revista):
-// motor na oficina, bancada de peças e o posto da estrada.
+// Ilustrações da tela de carregamento (como fotos da revista): motor V8 na oficina e bancada de peças
+// (arte do Victor, src/assets/loadart) e o posto da estrada (desenhado por código).
 import { SPRITES } from './sprites';
 import { drawCarSide, type CarSpec } from './cars';
 import { paintHex } from './paint';
@@ -37,152 +37,82 @@ function garage(c: CanvasRenderingContext2D, r: Rect) {
   px(c, '#e8c020', r.x, r.y + r.h * 0.62, r.w, 2); // faixa amarela do piso
 }
 
-// V8 de frente, sobre o cavalete: bloco, cabeçotes vermelhos, coletor, filtro de ar cromado,
-// polias e correia na frente, coletores de escape saindo dos lados
-export function drawEngine(c: CanvasRenderingContext2D, r: Rect, t: number) {
-  garage(c, r);
-  const cx = r.x + r.w / 2, base = r.y + r.h - 10;
-  // cavalete
-  px(c, '#c8c020', cx - 50, base - 6, 100, 4);
-  px(c, '#8a8418', cx - 46, base - 2, 6, 10);
-  px(c, '#8a8418', cx + 40, base - 2, 6, 10);
-  // cárter e bloco
-  px(c, '#2a2a2e', cx - 30, base - 22, 60, 16);
-  px(c, '#4a4c52', cx - 34, base - 52, 68, 32);
-  px(c, '#5c5e66', cx - 34, base - 52, 68, 3);
-  px(c, '#36383e', cx - 34, base - 24, 68, 3);
-  // cabeçotes inclinados (V) com tampas de válvula vermelhas
-  for (const s of [-1, 1]) {
-    c.save();
-    c.translate(cx + s * 30, base - 60);
-    c.rotate(s * 0.5);
-    px(c, '#3e4046', -14, -8, 28, 18);
-    px(c, '#b8141a', -15, -14, 30, 9);
-    px(c, '#e83a3a', -15, -14, 30, 2);
-    for (let k = 0; k < 4; k++) px(c, '#d8d8dc', -11 + k * 7, -11, 2, 2); // parafusos
-    c.restore();
-    // escape: tubos descendo para fora
-    c.strokeStyle = '#a06030';
-    c.lineWidth = 3;
-    c.beginPath();
-    c.moveTo(cx + s * 40, base - 48);
-    c.quadraticCurveTo(cx + s * 62, base - 40, cx + s * 58, base - 12);
-    c.stroke();
-    c.strokeStyle = '#c88850';
-    c.lineWidth = 1;
-    c.stroke();
+// arte do Victor recortada (tools/ref/loadart_art.py): o V8 2.9 biturbo e as peças de preparação
+const ART = import.meta.glob('./assets/loadart/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+const imgs = new Map<string, HTMLImageElement>();
+function art(name: string): HTMLImageElement | null {
+  let im = imgs.get(name);
+  if (!im) {
+    im = new Image();
+    im.src = ART[`./assets/loadart/${name}.png`];
+    imgs.set(name, im);
   }
-  // coletor de admissão e filtro de ar
-  px(c, '#9aa0a8', cx - 16, base - 72, 32, 14);
-  px(c, '#c8ccd2', cx - 16, base - 72, 32, 2);
-  disc(c, cx, base - 78, 24, '#c8ccd4', 6);
-  disc(c, cx, base - 80, 24, '#eef0f4', 6);
-  disc(c, cx, base - 80, 9, '#2a2a2e', 2.5);
-  px(c, '#b8141a', cx - 12, base - 78, 24, 1);
-  // frente: polias e correia
-  disc(c, cx, base - 30, 9, '#1c1c20');
-  disc(c, cx, base - 30, 6, '#8a8e96');
-  disc(c, cx - 18, base - 46, 5, '#1c1c20');
-  disc(c, cx - 18, base - 46, 3, '#8a8e96');
-  disc(c, cx + 18, base - 46, 5, '#1c1c20');
-  disc(c, cx + 18, base - 46, 3, '#8a8e96');
-  // ventoinha girando
-  const a = t * 14;
-  c.fillStyle = 'rgba(30,30,34,0.85)';
-  for (let k = 0; k < 4; k++) {
-    const aa = a + (k * Math.PI) / 2;
+  return im.complete && im.naturalWidth ? im : null;
+}
+// peça apoiada pelo pé (x = meio, y = chão) com a sombra no chão
+function put(c: CanvasRenderingContext2D, name: string, x: number, y: number, shadow = true) {
+  const im = art(name);
+  if (!im) return;
+  if (shadow) {
+    c.fillStyle = 'rgba(0,0,0,0.28)';
     c.beginPath();
-    c.moveTo(cx, base - 30);
-    c.lineTo(cx + Math.cos(aa) * 12, base - 30 + Math.sin(aa) * 12);
-    c.lineTo(cx + Math.cos(aa + 0.5) * 12, base - 30 + Math.sin(aa + 0.5) * 12);
+    c.ellipse(Math.round(x), Math.round(y), im.width * 0.46, 2.5, 0, 0, Math.PI * 2);
     c.fill();
   }
-  disc(c, cx, base - 30, 2, '#d8d8dc');
-  // brilho de oficina
-  const g = c.createRadialGradient(cx, r.y + 10, 4, cx, r.y + 10, r.w * 0.6);
-  g.addColorStop(0, 'rgba(255,240,200,0.22)');
+  c.drawImage(im, Math.round(x - im.width / 2), Math.round(y - im.height));
+}
+// pendurada no painel perfurado por dois ganchos
+function hang(c: CanvasRenderingContext2D, name: string, x: number, y: number) {
+  const im = art(name);
+  if (!im) return;
+  const x0 = Math.round(x - im.width / 2), y0 = Math.round(y);
+  for (const hx of [x0 + im.width * 0.28, x0 + im.width * 0.72]) {
+    px(c, '#3a3c42', hx - 1, y0 - 5, 2, 7);
+    px(c, '#8a8e96', hx - 1, y0 - 6, 2, 1);
+  }
+  c.drawImage(im, x0, y0);
+}
+
+// V8 biturbo (arte do Victor) sobre o cavalete da oficina, com a luz passando devagar
+export function drawEngine(c: CanvasRenderingContext2D, r: Rect, t: number) {
+  garage(c, r);
+  const sm = c.imageSmoothingEnabled;
+  c.imageSmoothingEnabled = false;
+  const cx = r.x + r.w * 0.62, base = r.y + r.h - 8;
+  // cavalete
+  px(c, '#c8c020', cx - 56, base - 6, 112, 4);
+  px(c, '#8a8418', cx - 50, base - 2, 6, 10);
+  px(c, '#8a8418', cx + 44, base - 2, 6, 10);
+  put(c, 'v8', cx, base - 3, false);
+  c.imageSmoothingEnabled = sm;
+  // brilho de oficina passando pelo motor
+  const lx = r.x + r.w * (0.3 + 0.5 * (0.5 + 0.5 * Math.sin(t * 0.6)));
+  const g = c.createRadialGradient(lx, r.y + 10, 4, lx, r.y + 10, r.w * 0.6);
+  g.addColorStop(0, 'rgba(255,240,200,0.2)');
   g.addColorStop(1, 'rgba(255,240,200,0)');
   c.fillStyle = g;
   c.fillRect(r.x, r.y, r.w, r.h);
 }
 
-// bancada com peças: roda, turbina, pistão com biela, vela e disco de freio com pinça
-export function drawParts(c: CanvasRenderingContext2D, r: Rect, t: number) {
+// bancada da oficina com as peças de preparação (arte do Victor): escapamento e comando pendurados no
+// painel perfurado; molas e amortecedores, pistão, turbina e freio em cima da bancada
+export function drawParts(c: CanvasRenderingContext2D, r: Rect, _t: number) {
   // painel perfurado (pegboard) e bancada de madeira
   px(c, '#b89a6a', r.x, r.y, r.w, r.h);
   c.fillStyle = '#8a7048';
   for (let y = r.y + 4; y < r.y + r.h - 30; y += 7) for (let x = r.x + 4; x < r.x + r.w; x += 7) c.fillRect(x, y, 1, 1);
   px(c, '#6a4a2a', r.x, r.y + r.h - 28, r.w, 28);
   px(c, '#8a6238', r.x, r.y + r.h - 28, r.w, 3);
-  const floor = r.y + r.h - 24;
-  const n = 5, step = r.w / n;
-  // 1) roda com pneu
-  {
-    const x = r.x + step * 0.5, y = floor - 24;
-    disc(c, x, y, 22, '#1a1a1c');
-    ring(c, x, y, 20, '#2c2c30', 2);
-    disc(c, x, y, 13, '#c8ccd2');
-    disc(c, x, y, 11, '#9aa0a8');
-    for (let k = 0; k < 5; k++) {
-      const a = (k * Math.PI * 2) / 5 + t * 0.6;
-      c.strokeStyle = '#e4e6ea';
-      c.lineWidth = 3;
-      c.beginPath();
-      c.moveTo(x, y);
-      c.lineTo(x + Math.cos(a) * 11, y + Math.sin(a) * 11);
-      c.stroke();
-    }
-    disc(c, x, y, 3, '#5a5e66');
-  }
-  // 2) turbina (caracol) com a saída
-  {
-    const x = r.x + step * 1.5, y = floor - 20;
-    disc(c, x, y, 15, '#7a7e86');
-    disc(c, x, y, 15, '#9aa0a8', 13);
-    disc(c, x, y, 7, '#3a3c42');
-    ring(c, x, y, 5, '#c8ccd2');
-    px(c, '#9aa0a8', x + 8, y - 22, 9, 12);
-    px(c, '#c8ccd2', x + 8, y - 22, 9, 2);
-    disc(c, x - 2, y + 2, 14, 'rgba(255,255,255,0.08)');
-    px(c, '#c86020', x - 18, y + 8, 10, 6); // flange
-  }
-  // 3) pistão com biela
-  {
-    const x = r.x + step * 2.5, y = floor - 44;
-    px(c, '#c8ccd2', x - 10, y, 20, 18);
-    px(c, '#eef0f4', x - 10, y, 20, 3);
-    for (let k = 0; k < 3; k++) px(c, '#6a6e76', x - 10, y + 5 + k * 3, 20, 1);
-    disc(c, x, y + 12, 3, '#6a6e76');
-    px(c, '#8a8e96', x - 3, y + 14, 6, 22);
-    disc(c, x, y + 38, 7, '#8a8e96');
-    disc(c, x, y + 38, 4, '#4a4c52');
-  }
-  // 4) vela de ignição
-  {
-    const x = r.x + step * 3.5, y = floor - 40;
-    px(c, '#f0ece0', x - 3, y, 6, 18);
-    for (let k = 0; k < 4; k++) px(c, '#d8d2c0', x - 3, y + 3 + k * 4, 6, 1);
-    px(c, '#9aa0a8', x - 5, y + 18, 10, 6);
-    px(c, '#c8ccd2', x - 2, y + 24, 4, 10);
-    px(c, '#6a6e76', x - 1, y - 4, 2, 4);
-    px(c, '#6a6e76', x + 1, y + 34, 2, 2);
-  }
-  // 5) disco de freio ventilado com pinça vermelha
-  {
-    const x = r.x + step * 4.5, y = floor - 24;
-    disc(c, x, y, 20, '#8a8e96');
-    disc(c, x, y, 19, '#a8acb4');
-    for (let k = 0; k < 12; k++) {
-      const a = (k * Math.PI) / 6;
-      disc(c, x + Math.cos(a) * 13, y + Math.sin(a) * 13, 1.2, '#4a4c52');
-    }
-    disc(c, x, y, 8, '#6a6e76');
-    disc(c, x, y, 3, '#2a2a2e');
-    c.fillStyle = '#c81818';
-    c.fillRect(x + 10, y - 16, 10, 20);
-    px(c, '#ff4a3a', x + 10, y - 16, 10, 2);
-    px(c, '#fff', x + 12, y - 10, 6, 1);
-  }
+  const floor = r.y + r.h - 22;
+  const sm = c.imageSmoothingEnabled;
+  c.imageSmoothingEnabled = false;
+  hang(c, 'escape', r.x + r.w * 0.56, r.y + 12);
+  hang(c, 'comando', r.x + r.w * 0.84, r.y + 16);
+  put(c, 'suspensao', r.x + r.w * 0.15, floor);
+  put(c, 'pistao', r.x + r.w * 0.36, floor);
+  put(c, 'turbo', r.x + r.w * 0.56, floor);
+  put(c, 'freio', r.x + r.w * 0.8, floor);
+  c.imageSmoothingEnabled = sm;
   // luz de oficina
   const g = c.createLinearGradient(0, r.y, 0, r.y + r.h);
   g.addColorStop(0, 'rgba(255,255,255,0.12)');

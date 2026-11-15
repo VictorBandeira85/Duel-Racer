@@ -225,7 +225,8 @@ export function drawPerson(c: CanvasRenderingContext2D, kind: 'cop' | 'att', pos
     c.fillRect(Math.round(x - sw * k * 0.32), Math.round(y - k), Math.round(sw * k * 0.64), Math.max(1, Math.round(k * 1.5)));
     c.drawImage(im, Math.round(x - fx * k), Math.round(y - h), Math.round(sw * k), Math.round(h));
     c.restore();
-    return;
+    // (a caixa do desenho: quem chama pode usar a silhueta, p. ex. para tapar as luzes da noite)
+    return { cv: im as CanvasImageSource, x: Math.round(x - fx * k), y: Math.round(y - h), w: Math.round(sw * k), h: Math.round(h) };
   }
   const cv = person(kind, pose);
   const s = h / FIG; // a figura ocupa as linhas de baixo da grade

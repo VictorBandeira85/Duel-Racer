@@ -2926,10 +2926,38 @@ export function renderCockpit(c: CanvasRenderingContext2D, r: Race, lives: numbe
 }
 
 // capô amassado subindo à frente do para-brisa e fumaça/vapor saindo do motor
+// capô amassado: são ~1000 retângulos de 1 px (coluna a coluna); o desenho só muda quando o dano
+// muda, então fica guardado numa imagem (pixels do jogo, sem suavizar: sai idêntico) e vai para a
+// tela com uma chamada só. Durante o impacto (cresce a cada quadro) é desenhado direto.
+const hoodCv = document.createElement('canvas');
+let hoodKey = '';
 function drawDamage(c: CanvasRenderingContext2D, r: Race, vp: Viewport, art: CockpitArt | undefined) {
   const top = dashTopFn(art);
   const cx = coreX() + 128;
   const grow = r.state === 'crash' ? Math.min(1, r.impactT / 0.12) : r.damage > 0.25 ? r.damage * 0.65 : 0;
+  if (grow > 0 && r.state !== 'crash') {
+    const half = Math.round(vp.w * 0.27);
+    let t0 = Infinity, t1 = -Infinity;
+    for (let x = cx - half - 2; x <= cx + half + 2; x += 4) { const t = top(x); t0 = Math.min(t0, t); t1 = Math.max(t1, t); }
+    const ox = cx - half - 4, oy = Math.floor(t0) - 34, W = 2 * half + 9, H = Math.ceil(t1) + 3 - oy;
+    const key = `${r.car.id}|${paintHex(r.car.id) ?? r.car.color}|${r.crashes}|${grow.toFixed(3)}|${r.damage > 0.75 ? 3 : r.damage > 0.5 ? 2 : 1}|${W}x${H}|${ox},${oy}|${r.car.dash}`;
+    if (key !== hoodKey) {
+      hoodKey = key;
+      if (hoodCv.width !== W || hoodCv.height !== H) { hoodCv.width = W; hoodCv.height = H; }
+      const g = hoodCv.getContext('2d')!;
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.clearRect(0, 0, W, H);
+      g.translate(-ox, -oy);
+      paintHood(g, r, vp, top, cx, grow);
+    }
+    const sm = c.imageSmoothingEnabled;
+    c.imageSmoothingEnabled = false;
+    c.drawImage(hoodCv, ox, oy);
+    c.imageSmoothingEnabled = sm;
+  } else if (grow > 0) paintHood(c, r, vp, top, cx, grow);
+  if (r.smoke > 0.02) drawSmoke(c, cx, top(cx) + 2, vp.w * 0.5, r.smoke, r.crashes + 1);
+}
+function paintHood(c: CanvasRenderingContext2D, r: Race, vp: Viewport, top: (x: number) => number, cx: number, grow: number) {
   if (grow > 0) {
     const half = Math.round(vp.w * 0.27);
     const rand = rng(r.crashes * 53 + 11);
@@ -2991,7 +3019,6 @@ function drawDamage(c: CanvasRenderingContext2D, r: Race, vp: Viewport, art: Coc
       }
     }
   }
-  if (r.smoke > 0.02) drawSmoke(c, cx, top(cx) + 2, vp.w * 0.5, r.smoke, r.crashes + 1);
 }
 
 const roadCv = document.createElement('canvas');

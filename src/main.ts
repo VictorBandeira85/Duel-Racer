@@ -26,7 +26,7 @@ import { MUSIC_CREDITS } from './tracks';
 import { audioCtx, audioState, gainLevels, resumeAudio, sfxLevel, synthReady, setSfxVolume, initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicVolume, setSiren, setTires } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
 import { preloadSvg } from './svgsprites';
-import { FX_LABEL, fxMode, lowFx, perfSample, setFxMode, lowRes } from './perf';
+import { FX_LABEL, fxMode, lowFx, perfSample, setFxMode, lowRes, minRes, perfKey } from './perf';
 import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
 
 preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.sideMask, c.rear.img, c.rear.imgMask, c.rear.frontImg, c.rear.frontMask]).filter((s): s is string => !!s), ...TRAFFIC_IMAGES);
@@ -347,7 +347,7 @@ function resize() {
   const dense = dev >= (fxMode() === 'alto' ? 1.4 : 3.5);
   setRes(!lowFx() && !lowRes() && dense ? 4 : 2);
   // a tela continua em 4 (mostradores e menus nítidos); no gráfico baixo só a estrada cai para 2
-  setCanvasRes(dense ? 4 : 2);
+  setCanvasRes(dense && !minRes() ? 4 : 2); // (no degrau mínimo do automático a tela toda cai para 2x)
   canvas.width = view.w * CRES;
   canvas.height = view.h * CRES;
   ctx.setTransform(CRES, 0, 0, CRES, 0, 0);
@@ -816,7 +816,7 @@ function frame(now: number) {
   requestAnimationFrame(frame);
 }
 let frameErr = false;
-let lastLow = false, lastRes = false;
+let lastKey = '';
 const gearEl = document.getElementById('gearNum')!;
 function frameInner(now: number) {
   carSwapWatch(state.t);
@@ -870,9 +870,8 @@ function frameInner(now: number) {
       // a 30 FPS o tempo de quadro é avaliado pela metade: só baixa os gráficos se nem 30 segurar
       if (!paused) perfSample(prefs.fps30 ? dt / 2 : dt);
       // o econômico (escolhido ou automático) também baixa a resolução de desenho para 2x
-      if (lowFx() !== lastLow || lowRes() !== lastRes) {
-        lastLow = lowFx();
-        lastRes = lowRes();
+      if (perfKey() !== lastKey) {
+        lastKey = perfKey();
         resize();
       }
       renderCockpit(ctx, race, state.lives, `${race.stageIdx + 1}/${run.course.stages.length}`, totalTime(), paused ? 0 : dt);

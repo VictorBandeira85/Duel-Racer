@@ -1,4 +1,5 @@
 import { scratch, takeBudget } from './svgsprites';
+import { lowRes } from './perf';
 // Pixel art nítida a partir de desenho vetorial: o desenho é feito em 4x e reduzido
 // pegando um pixel por bloco (sem misturar cores), a transparência vira 0/1 e ganha um
 // contorno escuro de 1 pixel, como na arte dos carros. Cada tamanho fica em cache.
@@ -18,7 +19,13 @@ let work: HTMLCanvasElement | null = null;
 
 // tamanhos agrupados: pequenos de 1 em 1 px, médios de 2 em 2, grandes de 4 em 4 (menos redesenhos
 // enquanto o objeto cresce na tela; a ampliação final cobre a diferença)
-const bucket = (v: number) => (v <= 24 ? Math.max(1, Math.round(v)) : v <= 64 ? Math.round(v / 2) * 2 : v <= 160 ? Math.round(v / 4) * 4 : Math.round(v / 8) * 8);
+const fine = (v: number) => (v <= 24 ? Math.max(1, Math.round(v)) : v <= 64 ? Math.round(v / 2) * 2 : v <= 160 ? Math.round(v / 4) * 4 : Math.round(v / 8) * 8);
+// fora do máximo (degrau 1 em diante): tamanhos em passos de ~9% (metade dos redesenhos; cada sprite
+// novo custa um desenho em 4x, leitura de pixels e contorno, e era ~10% do tempo de quadro em
+// aparelho lento, com engasgos quando muitos objetos crescem juntos)
+const STEP = Math.log(1.09);
+const coarse = (v: number) => (v <= 12 ? Math.max(1, Math.round(v)) : Math.round(Math.exp(Math.round(Math.log(v) / STEP) * STEP)));
+const bucket = (v: number) => (lowRes() ? coarse(v) : fine(v));
 
 export function crisp(key: string, w: number, h: number, draw: Draw): Crisp {
   const bw = bucket(w), bh = bucket(h);
@@ -48,7 +55,7 @@ export function crisp(key: string, w: number, h: number, draw: Draw): Crisp {
   let sm = sizes.get(key);
   if (!sm) sizes.set(key, (sm = new Map()));
   sm.set(k, [bw, bh]);
-  const S = bw * bh > 30000 ? 2 : 4;
+  const S = bw * bh > 30000 || lowRes() ? 2 : 4; // (fora do máximo: desenho em 2x antes de reduzir)
   if (!work) work = document.createElement('canvas');
   if (work.width < bw * S || work.height < bh * S) {
     work.width = Math.max(work.width, bw * S);

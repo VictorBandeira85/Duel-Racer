@@ -700,8 +700,11 @@ export function prewarmAds(ids: number[]) {
     const i = todo.shift();
     if (i === undefined) return;
     adCanvas(i);
-    if (!cache.has(i) && tries++ < 200) todo.push(i); // fonte ou sprites ainda carregando: tenta depois
-    setTimeout(step, 30);
+    const wait = !cache.has(i);
+    if (wait && tries++ < 60) todo.push(i); // fonte ou sprites ainda carregando: tenta depois
+    // (com calma: cada tentativa desenha o anúncio inteiro num canvas novo; a cada 30 ms pesava
+    // nos primeiros segundos da corrida em aparelho lento)
+    setTimeout(step, wait ? 400 : 30);
   };
   setTimeout(step, 30);
 }

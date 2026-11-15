@@ -3,7 +3,7 @@ import { drawSmoke } from './smoke';
 import { drawCrisp } from './crisp';
 import { CAM_DEPTH, CAM_H, CAR_W, CRES, DRAW_DIST, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { CARS, drawCar } from './cars';
-import { lowFx, fxMode } from './perf';
+import { lowFx, fxMode, setPerfScene } from './perf';
 import { TEX, groundTex, kindOf, texSlice } from './groundtex';
 import { adsReady } from './billboards';
 import { drawGlow, type Stops } from './glowsprite';
@@ -37,7 +37,7 @@ function drawOfficer(c: CanvasRenderingContext2D, x: number, y: number, h: numbe
   const pose: CopPose = o.phase === 'show' ? 'paper'
     : o.moving ? (`walk${Math.floor((o.walked ?? 0) / STEP_UNITS) % 4}` as CopPose)
     : (`stop${Math.floor(performance.now() / 400) % 2}` as CopPose);
-  drawPerson(c, 'cop', pose, x, y, h, false, o.cop);
+  return drawPerson(c, 'cop', pose, x, y, h, false, o.cop);
 }
 
 // yaw: carro atravessado, a câmera gira (desloca mais quanto mais longe)
@@ -596,6 +596,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   beginLights();
   // escuro: noite ou dentro do túnel (faróis acesos, ofuscam no retrovisor)
   const lit = night || r.nightK > 0.15 || r.inTunnel > 0.5; // postes e faróis acendem já no lusco-fusco
+  setPerfScene(lit); // a qualidade automática tem um orçamento para o dia e outro para a noite
   setSceneryNight(lit); // construções com as janelas acesas
 
   const base = r.findSegment(r.position);
@@ -698,10 +699,10 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       // na neblina: o sprite já tingido sai do cache (antes cada objeto passava por uma camada
       // extra a cada quadro, o que derrubava os quadros por segundo)
       drawn = drawCrisp(c, `${sp.kind}${seed}${sceneryKey(sp.kind)}${sp.kind === 'billboard' && !adsReady(seed) ? 'w' : ''}`, sx, s.p1.screen.y, bw, sh, (o, w, h) => def.draw(o, w / 2, h, (w * sw) / bw, h, seed), 96, fk >= 0.02 ? [fogRgb, fk] : undefined);
-      // tapa o farol dos carros que estão atrás deste objeto
-      // (mureta, postes e balizas são baixos e finos: não escondem o clarão do farol)
+      // tapa as luzes do que está atrás deste objeto (farol e lanternas dos carros, o facho pintado
+      // no chão, a faixa dos postes): todos os objetos, inclusive guard-rail e balizas
       const dr = drawn as ReturnType<typeof drawCrisp>;
-      if (lit && dr && sp.kind !== 'rail' && sp.kind !== 'post') pushOccluder({ ...dr, idx: i, clip: s.clip });
+      if (lit && dr) pushOccluder({ ...dr, idx: i, clip: s.clip, d: dist, bx: sx });
       // poste aceso à noite: a lâmpada fica na ponta do braço, sobre o acostamento
       const behindTun = i > tunAhead;
       if (lit && !behindTun && (sp.kind === 'station' || sp.kind === 'gasSign')) pushFacade(sp.kind, sx, s.p1.screen.y, sw, sh);
@@ -783,7 +784,9 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         fogged(c, fk, cx - rw, cy - rw * 1.3, rw * 2, rw * 1.3 + 4, (g) => drawCar(g, cx, cy, rw, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: rv.recover > 0 || rv.mistake > 0, night: lit, paint: r.rivalPaint, signal: rv.signal, plate: r.rivalPlate, drop: r.rivalCar!.rideDrop, dent: r.rivalDmg }));
         beamAhead(e.z, ex, CAR_W * sc * vp.K);
       } else if ('phase' in e) {
-        drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, e as Officer);
+        // o policial também tapa as luzes do que está atrás dele (e recebe a luz do nosso farol por inteiro)
+        const od = drawOfficer(c, cx, cy, OFFICER_H * sc * vp.K, e as Officer);
+        if (lit && od) pushOccluder({ ...od, idx: i, clip: s.clip, d: dist, bx: cx });
       } else if ('spotZ' in e) {
         const p = e as Race['police'][number];
         const siren = p.state === 'chase' || p.state === 'pull' || p.state === 'stopped';

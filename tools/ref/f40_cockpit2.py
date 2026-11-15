@@ -68,6 +68,7 @@ OLD_K = 0.54                    # escala do retrovisor antigo em relação à ca
 OLD_HOUSING_LT = (28, 270)      # canto de cima à esquerda da carcaça na arte antiga
 OLD_GLASS = (62, 297, 232, 396, 16)   # vidro do retrovisor na arte antiga
 OLD_FRAME_SEED = (40, 350)      # um ponto da moldura vermelha na arte antiga
+FOOT = [(45, 137), (60, 135), (60, 160), (41, 160), (43, 156), (46, 150), (47, 143)]  # pé (col, linha do empilhado)
 OLD_MIR_AT = (19, 113)          # onde cai o canto da carcaça no empilhado (coluna, linha)
 MIR_MAX_COL = 100                # não passa daqui (à direita da coluna é o para-brisa)
 WS_PROBE = (200, 60)            # um ponto do para-brisa (col, linha)
@@ -317,6 +318,22 @@ def main():
             elif opart[ay, ax]:
                 st_rgb[y, x], st_al[y, x] = old[ay, ax], True
                 st_pz[y, x] = True
+    # pé do retrovisor: base triangular que desce da carcaça até a borda de cima da porta (o braço da arte
+    # antiga some atrás da coluna e ficava no ar); só onde é janela, então a coluna fica na frente dele.
+    # Sombreado como a carcaça: contorno escuro à esquerda, filete claro, vermelho e sombra à direita
+    foot = cv2.fillPoly(np.zeros(st_al.shape, np.uint8), [np.array(FOOT, np.int32)], 1) > 0
+    pal = [(16, 15, 18), (255, 96, 84), (226, 24, 22), (196, 14, 14), (150, 8, 10)]
+    for y in range(st_al.shape[0]):
+        xs = np.nonzero(foot[y])[0]
+        if not len(xs):
+            continue
+        xl = xs.min()
+        for x in xs:
+            if st_al[y, x] or not winreg[y, x]:
+                continue
+            k = x - xl
+            col = pal[0] if k == 0 else pal[1] if k == 1 else pal[2] if k <= 4 else pal[3] if k <= 6 else pal[4]
+            st_rgb[y, x], st_al[y, x], st_pz[y, x] = col, True, k > 0
     pm = red_mask(st_rgb, st_al) & st_pz
     for name, sl in (('top', slice(0, EXT)), ('dash', slice(EXT, None))):
         Image.fromarray(np.dstack([st_rgb[sl], st_al[sl].astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, f'f40-{name}.png'), optimize=True)

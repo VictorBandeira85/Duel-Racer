@@ -25,6 +25,7 @@ export interface Segment {
   cars: { z: number; x: number }[];
   clip: number;
   tunnel?: boolean; // dentro de um túnel (paredes e teto, sem cenário)
+  apron?: [number, number]; // asfalto além da borda direita (acesso e pátio do posto), em p1 e p2
 }
 
 export interface Track {
@@ -164,7 +165,28 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
   for (const k of [60, 35]) segments[finishIndex - k].sprites.push({ kind: 'gasSign', x: roadW + 2200, seed: 0 });
   segments[finishIndex + 4].sprites.push({ kind: 'station', x: roadW + 5200, seed: 0 });
   // placa de PARE: o trecho termina parando no posto, como no Test Drive II
-  segments[finishIndex + 2].sprites.push({ kind: 'stop', x: roadW + 700, seed: 0 });
+  segments[finishIndex + 2].sprites.push({ kind: 'stop', x: roadW + 3200, seed: 0 }); // no pátio, à direita de onde o carro para
+  // acesso ao posto: faixa de asfalto à direita que abre em rampa antes da chegada e vira o pátio
+  // do posto (até a cobertura); o carro sai da pista andando no asfalto, não na grama
+  const apronAt = (i: number) => {
+    const d = i - finishIndex;
+    const ACC = 2000, PATIO = 9200;
+    if (d < -70 || d > 26) return 0;
+    if (d < -40) return ACC * easeInOut(0, 1, (d + 70) / 30);
+    if (d < -12) return ACC;
+    if (d < -2) return ACC + (PATIO - ACC) * easeInOut(0, 1, (d + 12) / 10);
+    if (d <= 16) return PATIO;
+    return PATIO * (1 - easeInOut(0, 1, (d - 16) / 10));
+  };
+  for (let i = finishIndex - 72; i <= finishIndex + 28; i++) {
+    const sg = segments[i];
+    if (!sg) continue;
+    const a0 = apronAt(i), a1 = apronAt(i + 1);
+    if (a0 > 0 || a1 > 0) sg.apron = [a0, a1];
+    // nada no caminho do acesso e do pátio (o posto, o PARE e as placas do posto ficam)
+    const lim = roadW + Math.max(a0, a1) + 300;
+    sg.sprites = sg.sprites.filter((sp) => sp.x < 0 || sp.kind === 'station' || sp.kind === 'stop' || sp.kind === 'gasSign' || sp.kind === 'gasKm' || sp.x - SPRITES[sp.kind].w / 2 > lim);
+  }
 
   // cenário
   for (let i = 20; i < segments.length; i++) {

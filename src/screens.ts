@@ -1082,8 +1082,8 @@ function gasArrival(s: AppState) {
       blip = t < tb + 0.08;
     }
     setEngine(rpm, blip, true);
-    // pneu chiando de leve nos últimos metros
-    setTires(t > GAS_STOP - 0.45 ? 0.16 : 0, 0);
+    // sem chiado de pneu: o carro para devagar na bomba (o "tsss" ao parar não fazia sentido)
+    setTires(0, 0);
   } else if (st < GAS_IDLE) {
     setEngine(0.02, false, true);
     setTires(0, 0);

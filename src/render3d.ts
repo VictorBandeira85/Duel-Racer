@@ -1,9 +1,10 @@
 import { drawPerson } from './people';
 import { drawSmoke } from './smoke';
 import { drawCrisp } from './crisp';
-import { CAM_DEPTH, CAM_H, CAR_W, DRAW_DIST, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
+import { CAM_DEPTH, CAM_H, CAR_W, CRES, DRAW_DIST, PLAYER_Z, POLICE_W, SEG_LEN, TRUCK_W } from './config';
 import { CARS, drawCar } from './cars';
 import { lowFx, fxMode } from './perf';
+import { TEX, groundTex, kindOf, texSlice } from './groundtex';
 import { adsReady } from './billboards';
 import { drawGlow, type Stops } from './glowsprite';
 import { beginLights, finishNight, pushCarBeam, pushOccluder, sirenGlow, sirenWash, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, LAMP_H, inCone, type Pass, type RoadPt } from './nightlight';
@@ -119,22 +120,86 @@ function turf(c: CanvasRenderingContext2D, a: string, b: string, kind: 'grass' |
   return p;
 }
 
+// chão com textura presa ao mundo (groundtex.ts): o segmento é desenhado em fatias de ~3 px da
+// tela; em cada fatia a textura é esticada entre as profundidades reais da borda de cima e da de
+// baixo (perspectiva exata nas bordas), então ela rola com a pista em vez de "ferver" no lugar
+const SLICE = 3;
+function texturedGround(c: CanvasRenderingContext2D, s: Segment, r: Race, vp: Viewport, band: number): boolean {
+  const { x: x1, y: y1, w: w1, scale: s1 } = s.p1.screen;
+  const { x: x2, y: y2, w: w2, scale: s2 } = s.p2.screen;
+  const top = Math.max(y2, vp.y), bot = Math.min(y1, s.clip, vp.y + vp.h);
+  if (bot - top < 0.25 || s1 <= 0 || s2 <= 0) return true; // fora da tela: nada a desenhar
+  const th = r.theme, rw = r.track.roadW;
+  const gt = groundTex(c, kindOf(th.ground[0]), th.ground[0], th.ground[1]);
+  const st = groundTex(c, 'gravel', th.shoulder, th.shoulder, 64);
+  const at = groundTex(c, 'asphalt', th.road, th.road, Math.ceil((2 * rw) / TEX), r.track.lanes);
+  // nível do mipmap (um por segmento: trocar no meio pisca): pelo tamanho do texel na tela na
+  // parte de longe e pelas linhas da textura por pixel da tela
+  const sxFar = (TEX * w2) / rw, px = Math.max(0.05, (y1 - y2) * CRES);
+  const lvl = Math.max(0, Math.round(Math.log2(Math.max(1 / (sxFar * CRES), SEG_LEN / TEX / px, 1e-6))));
+  const inv1 = 1 / s1, inv2 = 1 / s2, z0 = s.index * SEG_LEN, H = Math.max(0.001, y1 - y2);
+  const ap = s.apron;
+  const at_ = (y: number) => { // profundidade, centro e meia largura na linha y da tela
+    const f = Math.max(0, Math.min(1, (y1 - y) / H));
+    const sc = s1 + (s2 - s1) * f;
+    const u = Math.abs(inv2 - inv1) < 1e-9 ? f : (1 / sc - inv1) / (inv2 - inv1);
+    return { z: z0 + u * SEG_LEN, xc: x1 + (x2 - x1) * f, w: w1 + (w2 - w1) * f, a: ap ? ap[0] + (ap[1] - ap[0]) * u : 0 };
+  };
+  const n = Math.max(1, Math.ceil((bot - top) / SLICE));
+  const hs = (bot - top) / n;
+  for (let k = 0; k < n; k++) {
+    const yA = top + k * hs, yB = yA + hs; // yA longe (em cima), yB perto
+    const A = at_(yA), B = at_(yB), mid = at_((yA + yB) / 2);
+    const sx = (TEX * mid.w) / rw;
+    const yb = yB + 0.02; // emenda sem fresta entre fatias
+    texSlice(c, gt, lvl, mid.xc, sx, A.z, B.z, yA, yb, () => c.rect(vp.x, yA, vp.w, yb - yA));
+    const shA = A.w * 1.1, shB = B.w * 1.1;
+    texSlice(c, st, lvl, mid.xc, sx, A.z, B.z, yA, yb, () => trap(c, A.xc - shA, A.xc + shA, yA, B.xc - shB, B.xc + shB, yb));
+    const rA = A.w * (1 + A.a / rw), rB = B.w * (1 + B.a / rw);
+    texSlice(c, at, lvl, mid.xc - mid.w, sx, A.z, B.z, yA, yb, () => trap(c, A.xc - A.w, A.xc + rA, yA, B.xc - B.w, B.xc + rB, yb));
+  }
+  if (band) {
+    c.fillStyle = 'rgba(255,255,230,0.045)';
+    c.fillRect(vp.x, top, vp.w, bot - top);
+  }
+  return true;
+}
+function trap(c: CanvasRenderingContext2D, la: number, ra: number, ya: number, lb: number, rb: number, yb: number) {
+  c.moveTo(la, ya);
+  c.lineTo(ra, ya);
+  c.lineTo(rb, yb);
+  c.lineTo(lb, yb);
+  c.closePath();
+}
+
 function drawSegment(c: CanvasRenderingContext2D, s: Segment, r: Race, vp: Viewport, ground: CanvasPattern, fogK: number) {
   const th = r.theme;
   const { x: x1, y: y1, w: w1 } = s.p1.screen;
   const { x: x2, y: y2, w: w2 } = s.p2.screen;
   const band = Math.floor(s.index / 3) & 1;
-  // no túnel, o que fica além do acostamento é o pé da parede
-  c.fillStyle = s.tunnel ? wallColor(s, 1) : band ? turf(c, th.ground[0], th.ground[1], 'grass', true) : ground;
-  c.fillRect(vp.x, y2, vp.w, y1 - y2);
-  const sh1 = w1 * 0.1, sh2 = w2 * 0.1;
-  c.fillStyle = turf(c, th.shoulder, th.shoulder, 'gravel', !!band);
-  quad(c, x1 - w1 - sh1, y1, x1 + w1 + sh1, y1, x2 + w2 + sh2, y2, x2 - w2 - sh2, y2);
-  c.fillStyle = turf(c, th.road, th.road, 'asphalt', !!band);
-  quad(c, x1 - w1, y1, x1 + w1, y1, x2 + w2, y2, x2 - w2, y2);
-  // faixas brancas contínuas da borda do asfalto
+  const ap = s.apron;
+  const tex = !lowFx() && !s.tunnel && y1 - y2 >= 0.75 && texturedGround(c, s, r, vp, band);
+  if (!tex) {
+    // no túnel, o que fica além do acostamento é o pé da parede
+    c.fillStyle = s.tunnel ? wallColor(s, 1) : band ? turf(c, th.ground[0], th.ground[1], 'grass', true) : ground;
+    c.fillRect(vp.x, y2, vp.w, y1 - y2);
+    const sh1 = w1 * 0.1, sh2 = w2 * 0.1;
+    c.fillStyle = turf(c, th.shoulder, th.shoulder, 'gravel', !!band);
+    quad(c, x1 - w1 - sh1, y1, x1 + w1 + sh1, y1, x2 + w2 + sh2, y2, x2 - w2 - sh2, y2);
+    c.fillStyle = turf(c, th.road, th.road, 'asphalt', !!band);
+    quad(c, x1 - w1, y1, x1 + w1, y1, x2 + w2, y2, x2 - w2, y2);
+  }
+  // acesso e pátio do posto: asfalto à direita da pista, com guia de concreto na borda de fora
+  if (ap) {
+    const rw = r.track.roadW, e1 = w1 * (1 + ap[0] / rw), e2 = w2 * (1 + ap[1] / rw);
+    if (!tex) quad(c, x1 + w1, y1, x1 + e1, y1, x2 + e2, y2, x2 + w2, y2);
+    const k1 = Math.max(0.6, w1 * 0.035), k2 = Math.max(0.6, w2 * 0.035);
+    c.fillStyle = band ? '#c9c6bc' : '#b4b1a8';
+    if (ap[0] > 0 || ap[1] > 0) quad(c, x1 + e1, y1, x1 + e1 + k1, y1, x2 + e2 + k2, y2, x2 + e2, y2);
+  }
+  // faixas brancas contínuas da borda do asfalto (tracejada onde abre o acesso ao posto)
   laneLine(c, s, -0.965, 0.018, '#e4e4dc');
-  laneLine(c, s, 0.965, 0.018, '#e4e4dc');
+  if (!ap || (s.index >> 1) & 1) laneLine(c, s, 0.965, 0.018, '#e4e4dc');
   const dash = (s.index >> 2) & 1;
   if (r.track.lanes === 2) {
     if (dash) laneLine(c, s, 0, 0.025, '#f2c81e');

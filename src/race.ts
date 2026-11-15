@@ -731,7 +731,7 @@ export class Race {
     // círculo de atrito mais tolerante (antes acelerar fundo na curva cortava até metade da
     // aderência e o carro saía de traseira à toa; o rival usa a aderência inteira)
     const shared = 1 - 0.28 * lonDrive * lonDrive - 0.25 * lonBrake * lonBrake;
-    const offGrip = Math.abs(this.x) > t.roadW + 700 ? 0.6 : 1;
+    const offGrip = this.offRoadAt(pSeg) ? 0.6 : 1;
     const grip = tire * aero * shared * (1 - this.air * 0.6) * offGrip;
     const demand = latG / grip;
     const excess = Math.max(0, demand - 1.1); // o pneu aguenta um pouco além do limite antes de soltar
@@ -813,7 +813,7 @@ export class Race {
       this.shake = 1;
     }
     if (this.slip > 0.45 || this.spinOut > 0 || (this.spin > 0.3 && this.speed > 50)) this.shake = 1;
-    if (Math.abs(this.x) > t.roadW + 700) {
+    if (this.offRoadAt(pSeg)) {
       const limit = max * 0.28;
       if (this.speed > limit) this.speed = Math.max(limit, this.speed - max * 0.6 * dt);
       if (this.speed > 100) this.shake = 1;
@@ -836,9 +836,15 @@ export class Race {
 
     this.updateSignal(dt, driving);
     // chegando ao posto: seta para a direita e o carro encosta à direita enquanto reduz
+    // freando para o posto: já entra no acesso de asfalto (o volante do jogador ainda vale)
+    if (driving && this.autoStop && pSeg.apron && pSeg.apron[0] > 1200 && this.x > 0) {
+      this.signal = 1;
+      this.x += clamp(t.roadW + 900 - this.x, -dt * 900, dt * 900);
+    }
     if (this.state === 'arrived') {
       this.signal = 1;
-      this.x += clamp(t.roadW - CAR_W * 0.7 - this.x, -dt * 1400, dt * 1400);
+      // sai da pista para o acesso de asfalto do posto (track: apron)
+      this.x += clamp(t.roadW + 900 - this.x, -dt * 1400, dt * 1400);
     }
     this.updateTraffic(dt);
     if (driving) this.stones(dt);
@@ -886,7 +892,7 @@ export class Race {
     // som: troca de marcha, pneus cantando (curva forte ou freada em alta) e trepidação fora da pista
     if (this.gear !== this.lastGear && this.speed > 200) shiftSound();
     this.lastGear = this.gear;
-    const offRoad = Math.abs(this.x) > t.roadW + 700;
+    const offRoad = this.offRoadAt(pSeg);
     // pneu canta só escorregando (derrapagem, rodada, patinando); frear em linha reta não
     const screech = driving && !offRoad ? Math.max(this.slip * 1.4, Math.abs(this.drift) * 2.2, this.spin * 0.55, this.spinOut > 0 ? 1 : 0) : 0;
     const surface = this.def.weather === 'snow' ? 'snow' : this.def.weather === 'rain' ? 'wet' : 'dry';
@@ -1112,7 +1118,13 @@ export class Race {
   }
 
   // piso: seco, chuva ou neve (multiplica aderência e freio); a tração integral perde menos
-  surface(car: CarSpec = this.car) {
+  // fora do asfalto: além do acostamento, menos onde há o acesso/pátio de asfalto do posto (à direita)
+  offRoadAt(seg: { apron?: [number, number] }) {
+    const lim = this.track.roadW + 700;
+    if (this.x < 0) return -this.x > lim;
+    return this.x > lim + (seg.apron ? Math.max(seg.apron[0], seg.apron[1]) : 0);
+  }
+    surface(car: CarSpec = this.car) {
     const awd = car.drive === 'integral';
     return this.def.weather === 'snow' ? (awd ? 0.86 : 0.72) : this.def.weather === 'rain' ? (awd ? 0.93 : 0.84) : 1;
   }

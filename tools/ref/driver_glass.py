@@ -317,10 +317,25 @@ def side_glass(key):
     return a, m & cols
 
 
+# comprimento real de cada carro (m): na lateral a cabeça (~21 cm de frente a nuca) sai na proporção do
+# carro inteiro da arte, igual em todos (antes vinha da altura do encosto medido, que variava muito)
+CAR_LEN = {
+    '959': 4.26, 'br-corsa': 3.73, 'br-golgti': 3.81, 'br-kadett': 4.03, 'br-monza': 4.36, 'br-monzacoupe': 4.26,
+    'br-passat': 4.19, 'br-pumagtb': 4.10, 'br-pumagte': 4.00, 'br-santana': 4.53, 'br-uno': 3.64, 'br-vectra': 4.43,
+    'br-voyage': 4.07, 'br-voyagesport': 4.07, 'countach': 4.14, 'diablo': 4.46, 'patrolsv': 4.46, 'f40': 4.36,
+    'nsx': 4.40, 'testarossa': 4.49, 'viper': 4.45, 'zr1': 4.53, 'patrol': 4.90,
+}
+HEAD_M = 0.21
+
+
 def side_seat(key):
     hr = SIDE[key][0]
     R = SIDE_REF
-    s = (hr[3] - hr[1]) / R['hr_h']
+    folder, name = key.split('/')
+    al = load(os.path.join(A, folder, name + '.png'))[..., 3] > 0
+    xs = np.nonzero(al.any(0))[0]
+    L = xs.max() - xs.min() + 1
+    s = HEAD_M / CAR_LEN[name.replace('-side-up', '').replace('-side', '')] * L / REF_HEAD
     hcx = (hr[0] + hr[2]) / 2
     cx = hcx - (R['hr_cx'] - R['head_cx']) * s
     top = hr[1] - R['hr_top'] * s

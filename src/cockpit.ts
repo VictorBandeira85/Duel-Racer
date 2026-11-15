@@ -3754,11 +3754,11 @@ function fineImg(cop: string): HTMLImageElement | null {
 function drawFineArt(c: CanvasRenderingContext2D, r: Race, vp: Viewport, im: HTMLImageElement, m: HandMeta) {
   const f = r.fine!;
   const t = r.officer!.t;
-  // a mão sai de onde o policial está (ele estica o braço em nossa direção): o punho fica na altura do peito
+  // a mão sai de onde o policial está (ele estica o braço em nossa direção; um pouco à direita dele, no meio do vidro): o punho fica na altura do peito
   // dele e cresce dali até o tamanho cheio; a folha inteira dentro do para-brisa
   const scr = (r.officer as { scr?: number[] }).scr;
   const fx = m.thumb[2] * 0.5, fy = (m.thumb[1] + m.thumb[3]) / 2; // meio do punho na arte
-  const sx = scr ? scr[0] : vp.x + vp.w * 0.3, sy = scr ? scr[1] - scr[2] * 0.62 : vp.y + vp.h / 2;
+  const sx = (scr ? scr[0] : vp.x + vp.w * 0.3) + vp.w * 0.07, sy = scr ? scr[1] - scr[2] * 0.62 : vp.y + vp.h / 2;
   const x0 = Math.round(Math.max(vp.x + 2, Math.min(vp.x + vp.w - m.w - 2, sx - fx)));
   const y0 = Math.round(Math.max(vp.y + 2, Math.min(vp.y + vp.h - m.h - 2, sy - fy)));
   const k = Math.min(1, t * 3.5), grow = 0.25 + 0.75 * (1 - (1 - k) ** 3);

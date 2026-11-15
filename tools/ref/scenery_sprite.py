@@ -2,7 +2,7 @@
 o sprite nativo do jogo (src/assets/scenery/<tipo>.png): acha a grade da arte (período e fase dos blocos
 pelas bordas, em x e em y), pega a cor do miolo de cada bloco, o magenta vira transparente e o desenho é
 recortado justo. O jogo (sprites.ts) desenha a imagem no lugar do desenho vetorial, na mesma base.
-Uso: python3 tools/ref/scenery_sprite.py <arte.png> <saida.png>
+Uso: python3 tools/ref/scenery_sprite.py <arte.png> <saida.png> [bloco]  (bloco: força o tamanho do pixel da arte quando a detecção erra)
 """
 import os
 import sys
@@ -23,7 +23,13 @@ def main():
     y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
     g = cv2.cvtColor(a.astype(np.uint8), cv2.COLOR_RGB2GRAY).astype(float)
     sub = g[y0:y1, x0:x1]
-    p, phx = period_phase(np.abs(np.diff(sub, axis=1)).sum(0), 8, 34)
+    ex = np.abs(np.diff(sub, axis=1)).sum(0)
+    if len(sys.argv) > 3:
+        p = float(sys.argv[3])
+        k = np.arange(len(ex)); exc = ex - ex.mean()
+        phx = (-np.angle((exc * np.exp(2j * np.pi * k / p)).sum()) / (2 * np.pi) * p) % p
+    else:
+        p, phx = period_phase(ex, 8, 34)
     ey = np.abs(np.diff(sub, axis=0)).sum(1)
     ey = ey - ey.mean()
     k = np.arange(len(ey))

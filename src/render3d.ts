@@ -8,7 +8,7 @@ import { adsReady } from './billboards';
 import { drawGlow, type Stops } from './glowsprite';
 import { beginLights, finishNight, pushCarBeam, pushOccluder, sirenGlow, sirenWash, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, LAMP_H, inCone, type Pass, type RoadPt } from './nightlight';
 import { trafficLook, type Officer, type Race, type TrafficCar } from './race';
-import { SPRITES, sceneryKey, setSceneryNight } from './sprites';
+import { SPRITES, sceneryKey, setSceneryNight, LAMP } from './sprites';
 import { FOG_COLOR, type BgLayer } from './themes';
 import type { Point, Segment } from './track';
 import { dither } from './ui';
@@ -622,7 +622,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       // desenhado como pixel art nítida (sem antialias, com contorno); a caixa é um pouco
       // mais larga que o objeto para caber o que passa da largura (braço do poste etc.)
       const seed = sp.kind === 'building' ? sp.seed % 45 : sp.kind === 'billboard' ? sp.seed % 100 : sp.kind === 'gasKm' ? sp.seed : sp.kind === 'house' ? sp.seed % 6 : sp.kind === 'autumn' || sp.kind === 'umbrella' ? sp.seed % 3 : 0;
-      const bw = sw * (sp.kind === 'lamp' ? 3.4 : 1.1);
+      const bw = sw * (sp.kind === 'lamp' ? LAMP.box : 1.1);
       let drawn = null as ReturnType<typeof drawCrisp>;
       // na neblina: o sprite já tingido sai do cache (antes cada objeto passava por uma camada
       // extra a cada quadro, o que derrubava os quadros por segundo)
@@ -635,7 +635,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       const behindTun = i > tunAhead;
       if (lit && !behindTun && (sp.kind === 'station' || sp.kind === 'gasSign')) pushFacade(sp.kind, sx, s.p1.screen.y, sw, sh);
       if (lit && !behindTun && REFLECT.has(sp.kind)) pushReflector(sp.kind, sx, s.p1.screen.y, sw, sh, dist);
-      if (lit && !behindTun && sp.kind === 'lamp') pushStreetLight(sx - sw * 1.3, s.p1.screen.y - sh + sw * 0.5, sw * 9, dist, (sx - sw * 1.3 - s.p1.screen.x) / Math.max(1, s.p1.screen.w), s.p1.screen.y, i);
+      if (lit && !behindTun && sp.kind === 'lamp') pushStreetLight(sx - sw * LAMP.hx, s.p1.screen.y - sh + sh * LAMP.hy + sw * LAMP.hyW, sw * 9, dist, (sx - sw * LAMP.hx - s.p1.screen.x) / Math.max(1, s.p1.screen.w), s.p1.screen.y, i);
     }
     // farol dos outros carros: luz no asfalto à frente de cada um, na faixa dele. Posições
     // calculadas pelo z contínuo do carro (interpolando dentro do segmento): o facho acompanha o

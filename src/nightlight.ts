@@ -102,11 +102,12 @@ function reflectors(g: CanvasRenderingContext2D, ox: number, oy: number, rgb: st
     // placas refletivas acendem mais que o papel dos outdoors
     const a = (r.kind === 'billboard' ? 0.75 : 0.95) * k * mul;
     g.fillStyle = `${rgb}${a.toFixed(3)})`;
-    if (r.kind === 'billboard') g.fillRect(x - w / 2, y - h, w, h * 0.52);
+    // proporções das artes da beira da estrada (tools/ref/road_objects.py)
+    if (r.kind === 'billboard') g.fillRect(x - w / 2, y - h * 0.88, w, h * 0.5);
     else if (r.kind === 'gasSign') g.fillRect(x - w / 2, y - h, w, h * 0.45);
-    else if (r.kind === 'gasKm') g.fillRect(x - w / 2, y - h, w, h * 0.57);
+    else if (r.kind === 'gasKm') g.fillRect(x - w / 2, y - h, w, h * 0.71);
     else if (r.kind.startsWith('warn') || r.kind.startsWith('sharp')) {
-      const cy = y - h * 0.78, rr = w * 0.5;
+      const cy = y - h * 0.75, rr = w * 0.5;
       g.beginPath();
       g.moveTo(x, cy - rr);
       g.lineTo(x + rr, cy);
@@ -115,7 +116,7 @@ function reflectors(g: CanvasRenderingContext2D, ox: number, oy: number, rgb: st
       g.closePath();
       g.fill();
     } else if (r.kind === 'stop') g.fillRect(x - w / 2, y - h, w, h * 0.45);
-    else g.fillRect(x - w / 2, y - h, w, h * 0.55);
+    else g.fillRect(x - w / 2, y - h, w, h * 0.63);
     g.restore();
   }
 }

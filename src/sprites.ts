@@ -1,4 +1,4 @@
-import { adCanvas } from './billboards';
+import { adCanvas, adsReady } from './billboards';
 import { dither } from './ui';
 
 // Objetos de cenário desenhados por código. Cada função desenha numa caixa:
@@ -895,6 +895,9 @@ const SCENERY_SIZE: Partial<Record<SpriteKind, [number, number]>> = {
   acacia: [110, 66], banana: [96, 102], spire: [82, 86], snowman: [62, 75],
   house: [166, 95], barn: [100, 75], building: [90, 155], factory: [142, 95], silo: [94, 76], chalet: [142, 101],
   snowchalet: [168, 123], kiosk: [138, 65], umbrella: [74, 71], lighthouse: [74, 126], station: [145, 64],
+  // beira da estrada (tools/ref/road_objects.py)
+  fence: [179, 32], post: [22, 59], rail: [42, 34], warnL: [58, 114], warnR: [58, 114], sharpL: [58, 114], sharpR: [58, 114],
+  signL: [110, 58], signR: [110, 58],
 };
 const sceneryImgs = new Map<string, HTMLImageElement>();
 // arte por nome de arquivo ('<tipo>', '<tipo>-2' = segundo modelo, '<tipo>-night' = luzes acesas)
@@ -922,6 +925,7 @@ const sceneryImg = (kind: SpriteKind, seed = 0) => artImg(artName(kind, seed));
 // e quando acende (noite)
 export const sceneryKey = (kind: SpriteKind) => (sceneryImg(kind) ? (sceneryNight && hasArt(`${kind}-night`) ? 'an' : 'a') : '');
 export const preloadScenery = () => Object.keys(SCENERY_ART).forEach((p) => artImg(p.slice(17, -4)));
+if (hasArt('signL')) { SPRITES.signL.h = 620; SPRITES.signR.h = 620; }
 for (const [kind, size] of Object.entries(SCENERY_SIZE) as [SpriteKind, [number, number]][]) {
   if (!SCENERY_ART[`./assets/scenery/${kind}.png`]) continue;
   const def = SPRITES[kind], vector = def.draw;
@@ -937,3 +941,64 @@ for (const [kind, size] of Object.entries(SCENERY_SIZE) as [SpriteKind, [number,
     c.imageSmoothingEnabled = sm;
   };
 }
+
+// ---- objetos com partes desenhadas pelo jogo por cima da arte ----
+const artDraw = (kind: SpriteKind, body: (c: CanvasRenderingContext2D, im: HTMLImageElement, x: number, y: number, w: number, h: number, seed: number) => void) => {
+  if (!hasArt(kind)) return;
+  const def = SPRITES[kind], vector = def.draw;
+  def.draw = (c, x, y, w, h, seed) => {
+    const im = sceneryImg(kind, seed);
+    if (!im) return vector(c, x, y, w, h, seed);
+    const sm = c.imageSmoothingEnabled;
+    c.imageSmoothingEnabled = false;
+    body(c, im, x, y, w, h, seed);
+    c.imageSmoothingEnabled = sm;
+  };
+};
+// outdoor (102 x 74): o anúncio vai no painel branco (x 4..97, y 12..41)
+if (hasArt('billboard')) SPRITES.billboard.w = Math.round(SPRITES.billboard.h * 102 / 74);
+artDraw('billboard', (c, im, x, y, w, h, seed) => {
+  c.drawImage(im, x - w / 2, y - h, w, h);
+  if (adsReady(seed)) c.drawImage(adCanvas(seed), x - w / 2 + (w * 4) / 102, y - h + (h * 12) / 74, (w * 94) / 102, (h * 30) / 74);
+});
+// placa azul do posto (42 x 62): a distância vai escrita na faixa branca (x 5..36, y 30..37)
+if (hasArt('gasKm')) SPRITES.gasKm.w = Math.round(SPRITES.gasKm.h * 42 / 62);
+artDraw('gasKm', (c, im, x, y, w, h, seed) => {
+  c.drawImage(im, x - w / 2, y - h, w, h);
+  if (w > 10) {
+    const label = seed >= 1000 ? `${seed / 1000} KM` : `${seed} M`;
+    c.font = `bold ${Math.max(4, Math.floor((h * 7) / 62))}px monospace`;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillStyle = '#12308a';
+    c.fillText(label, x - w / 2 + (w * 21) / 42, y - h + (h * 34) / 62);
+  }
+});
+// poste de luz (54 x 112, braço para a direita na arte): espelhado, com a coluna em x e o braço indo
+// para a pista (à esquerda). A caixa do desenho é LAMP.box vezes a largura (a coluna) e a luz da
+// lâmpada fica LAMP.hx larguras à esquerda e LAMP.hy alturas abaixo do topo (render3d)
+export const LAMP = { box: 3.4, hx: 1.3, hy: 0, hyW: 0.5 };
+if (hasArt('lamp')) {
+  const s = SPRITES.lamp.h / 112 / SPRITES.lamp.w; // pixel da arte em larguras do poste
+  LAMP.box = 2 * 46 * s; LAMP.hx = 32 * s; LAMP.hy = 10 / 112; LAMP.hyW = 0;
+}
+artDraw('lamp', (c, im, x, y, w, h) => {
+  const s = h / 112;
+  c.save();
+  c.translate(x + 9 * s, y - h); // coluna (x 45 da arte espelhada) em x
+  c.scale(-1, 1);
+  c.drawImage(im, 0, 0, 54 * s, h);
+  c.restore();
+});
+// viaduto (133 x 56): cabeceiras com os pilares (x 0..40 e 93..133) nas pontas e o tabuleiro do meio
+// (x 40..64, um poste da mureta) repetido até cobrir a largura, sem esticar
+artDraw('bridge', (c, im, x, y, w, h) => {
+  const s = h / 56, L = x - w / 2, R = x + w / 2;
+  c.drawImage(im, 0, 0, 40, 56, L, y - h, 40 * s, h);
+  c.drawImage(im, 93, 0, 40, 56, R - 40 * s, y - h, 40 * s, h);
+  const tw = 24 * s;
+  for (let tx = L + 40 * s; tx < R - 40 * s; tx += tw) {
+    const k = Math.min(1, (R - 40 * s - tx) / tw);
+    c.drawImage(im, 40, 0, 24 * k, 24, tx, y - h, tw * k, 24 * s);
+  }
+});

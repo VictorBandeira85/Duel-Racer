@@ -36,6 +36,10 @@ const softGpu = (() => {
 const IOS = typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1));
 const START = /swiftshader|llvmpipe|software|basic render/i.test(softGpu) ? 2 : (/intel/i.test(softGpu) && !/arc/i.test(softGpu)) || IOS ? 1 : 0;
 interface Budget { level: number; floor: number; slow: number; fast: number; since: number; rose: number }
+// no iPhone o automático não sobe sozinho para o degrau 0 (estrada em 4x = 4 vezes os pixels): a 60
+// quadros o tempo entre quadros não mostra folga, a subida era às cegas e no meio da corrida derrubava
+// para ~6 quadros por 1-3 s até voltar (vídeo da Metrópole à noite). MÁXIMO continua escolhível.
+const CEIL = IOS ? 1 : 0;
 const mk = (lv: number): Budget => ({ level: lv, floor: 0, slow: 0, fast: 0, since: 0, rose: Infinity });
 const budgets = { day: mk(START), night: mk(START) };
 let cur: Budget = budgets.day;
@@ -87,7 +91,7 @@ export function perfSample(dt: number) {
     b.fast += dt;
     b.slow = 0;
     // volta a subir só depois de um bom tempo folgado (e nunca acima de um degrau vetado)
-    if (b.fast > 30 && b.since > 30 && b.level > b.floor) {
+    if (b.fast > 30 && b.since > 30 && b.level > Math.max(b.floor, CEIL)) {
       b.level--;
       b.fast = b.since = 0;
       b.rose = 0;

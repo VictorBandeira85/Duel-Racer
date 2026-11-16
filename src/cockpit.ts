@@ -17,7 +17,7 @@ const GLOW_STOPS: Stops = [[0, 1], [0.7, 0.5], [1, 0]];
 import { F40_WHEEL } from './svg/f40';
 import { imageReady, preloadSvg, spriteAspect, svgSprite } from './svgsprites';
 import { drawWipers, type DashTop } from './wipers';
-import { drawSideMirror, findGlass } from './sidemirror';
+import { drawSideMirror, engineBehind, findGlass } from './sidemirror';
 import { drawSmoke } from './smoke';
 import { drawCrashFx, drawGlass, drawSparks } from './damage';
 import { blinkOn } from './cars';
@@ -1900,9 +1900,10 @@ const podFaces = new Map<string, HTMLCanvasElement>();
 const POD_LIT = { white: ['#f4f6ff', '#1b1c22'], green: ['#6dffa0', '#0c1a12'], blue: ['#7fc0ff', '#0b1220'], yellow: ['#ffd84a', '#1c1708'] } as const;
 // `lit`: versão acesa (noite): fundo escuro com um leve tom da luz e a escala/números na cor da iluminação
 // escalas dos relógios auxiliares: pressão do turbo, do compressor, de óleo e de combustível (injeção e carburador)
-type PodKind = 'turbo' | 'super' | 'oil' | 'fuel' | 'fuelcarb';
+type PodKind = 'turbo' | 'turbo4' | 'super' | 'oil' | 'fuel' | 'fuelcarb';
 const POD_SCALE: Record<PodKind, { max: number; big: number; mid: number; small: number; halves: boolean; label: string }> = {
   turbo: { max: 3, big: 1, mid: 0.5, small: 0.1, halves: true, label: 'TURBO' },
+  turbo4: { max: 4, big: 1, mid: 0.5, small: 0.1, halves: true, label: 'TURBO' }, // wastegate/boost controller acima de 2,75 bar
   super: { max: 1.5, big: 0.5, mid: 0.25, small: 0.05, halves: true, label: 'BLOWER' },
   oil: { max: 7, big: 1, mid: 0.5, small: 0.5, halves: false, label: 'OIL' },
   fuel: { max: 7, big: 1, mid: 0.5, small: 0.5, halves: false, label: 'FUEL' },
@@ -1996,7 +1997,7 @@ function auxPods(c: CanvasRenderingContext2D, r: Race, dt: number, ox: number, p
     c.restore();
   }
   for (const kind of pods) {
-    const k: PodKind = kind === 'boost' ? (car.forced === 'super' ? 'super' : 'turbo') : kind === 'fuel' && car.carb ? 'fuelcarb' : kind;
+    const k: PodKind = kind === 'boost' ? (car.forced === 'super' ? 'super' : (car.boostMax ?? 0) > 2.75 ? 'turbo4' : 'turbo') : kind === 'fuel' && car.carb ? 'fuelcarb' : kind;
     // turbo: enche com atraso e cai ao aliviar; compressor: acompanha o giro. Óleo: sobe com o giro
     // (1,5 na lenta, 5 em alta). Combustível: 3 kgf/cm² na injeção, somando a pressão do turbo; 0,3 no carburador
     const want = kind === 'boost' ? bar : kind === 'oil' ? (r.state === 'drive' || rpm > 0.05 ? 1.5 + 3.6 * rpm ** 0.7 : 0) : k === 'fuelcarb' ? 0.3 + (r.throttle ? -0.03 : 0.02) : 3 + bar + (r.throttle ? -0.12 : 0.08);
@@ -2991,7 +2992,8 @@ function drawDamage(c: CanvasRenderingContext2D, r: Race, vp: Viewport, art: Coc
     c.drawImage(hoodCv, ox, oy);
     c.imageSmoothingEnabled = sm;
   } else if (grow > 0) paintHood(c, r, vp, top, cx, grow);
-  if (r.smoke > 0.02) drawSmoke(c, cx, top(cx) + 2, vp.w * 0.5, r.smoke, r.crashes + 1);
+  // motor central ou traseiro: nada sai do capô; a fumaça aparece nos retrovisores (sidemirror.ts rearSmoke)
+  if (r.smoke > 0.02 && !engineBehind(r)) drawSmoke(c, cx, top(cx) + 2, vp.w * 0.5, r.smoke, r.crashes + 1);
 }
 function paintHood(c: CanvasRenderingContext2D, r: Race, vp: Viewport, top: (x: number) => number, cx: number, grow: number) {
   if (grow > 0) {
@@ -3325,9 +3327,7 @@ function drawDigitalHud(c: CanvasRenderingContext2D, r: Race, totalTime: number,
 
 // Marcha engatada (câmbio manual): visor pequeno no teto, à direita do retrovisor, como um
 // mostrador de LED âmbar; pisca enquanto a marcha está entrando
-// Vácuo: plaquinha discreta no alto do para-brisa (abaixo dos avisos) com "VÁCUO" e setinhas para a
-// frente dos dois lados, acesas conforme a força (1 a 3); aparece e some aos poucos. Com o motor
-// apagado (MANUAL + EMBREAGEM), no mesmo lugar, o lembrete de como religar
+// Com o motor apagado (MANUAL + EMBREAGEM), no alto do para-brisa, o lembrete de como religar
 function drawDraftHud(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
   // nos primeiros segundos (quadro dos desafios e "VAI!" no alto) fica mais embaixo
   const cx = Math.round(view.w / 2), by = vp.y + (r.time < 5 ? 48 : 20);
@@ -3340,28 +3340,7 @@ function drawDraftHud(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
     text(c, msg, cx, by + 2, 5, '#ffd400', 'center', null);
     return;
   }
-  const a = clamp((r.draft - 0.1) / 0.12, 0, 1) * clamp((r.speed * KMH - 70) / 15, 0, 1);
-  if (a <= 0) return;
-  const n = r.draft > 0.55 ? 3 : r.draft > 0.3 ? 2 : 1;
-  c.save();
-  c.globalAlpha = a;
-  c.fillStyle = 'rgba(10,8,6,0.6)';
-  c.fillRect(cx - 41, by, 82, 9);
-  text(c, 'VÁCUO', cx, by + 2, 5, '#9ee6ff', 'center', null);
-  // setinha para a frente (5 x 3 px), de dentro para fora: a de dentro acende primeiro
-  const chev = (x: number, on: boolean) => {
-    c.fillStyle = on ? '#9ee6ff' : '#28424e';
-    c.fillRect(x + 2, by + 3, 1, 1);
-    c.fillRect(x + 1, by + 4, 1, 1);
-    c.fillRect(x + 3, by + 4, 1, 1);
-    c.fillRect(x, by + 5, 1, 1);
-    c.fillRect(x + 4, by + 5, 1, 1);
-  };
-  for (let i = 0; i < 3; i++) {
-    chev(cx - 25 - i * 6, i < n);
-    chev(cx + 21 + i * 6, i < n);
-  }
-  c.restore();
+  // (o aviso de VÁCUO saiu a pedido do Victor: o vácuo continua valendo, só não aparece escrito)
 }
 
 function drawGearHud(c: CanvasRenderingContext2D, r: Race) {

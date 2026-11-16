@@ -1,5 +1,6 @@
 import { drawPerson, type CopPose } from './people';
 import { drawSmoke } from './smoke';
+import { MIRROR_REAR, MIRROR_TAIL, mirrorSmoke } from './sidemirror';
 import { drawCrisp } from './crisp';
 import { BARREL_H, CONE_H, HORSE_H, coneLine, coneW, drawCone, type Cone } from './blitz';
 import { FLAG_H, FLAG_W, PROP_SIZE, drawBarrel, drawDigger, drawFlagman, drawHorse, drawPile, drawRoller, drawWorkLight, inObra, type ObraProp } from './obra';
@@ -998,19 +999,24 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
   c.fillRect(x, hz, w, y + h - hz);
   const cx = x + w / 2;
   const bottom = y + h;
-  const sb = (w * 0.42) / r.track.roadW;
-  const at = (wx: number) => cx + (wx - r.x) * sb;
+  // câmera de verdade nos olhos do motorista, olhando para trás pelo vidro traseiro: a mesma escala
+  // na horizontal e na vertical, altura CAM_H e distância contada como no espelho lateral
+  // (mirrorDist): quem vem colado enche o espelho (cortado pela moldura) e mostra capô,
+  // para-brisa e teto; de longe, a base fica na estrada, logo abaixo do horizonte
+  const f = w * 1.1;
+  const px = (X: number, d: number) => cx + ((X - r.x) * f) / d;
+  const py = (d: number) => hz + (CAM_H * f) / d;
+  const dNear = (CAM_H * f) / (bottom - hz + 1), dFar = 200 * SEG_LEN;
   c.fillStyle = r.theme.road;
-  quad(c, at(-r.track.roadW), bottom, at(r.track.roadW), bottom, cx + 1, hz, cx - 1, hz);
+  const rw = r.track.roadW;
+  quad(c, px(-rw, dNear), py(dNear), px(rw, dNear), py(dNear), px(rw, dFar), py(dFar), px(-rw, dFar), py(dFar));
   c.strokeStyle = '#f2c81e';
   c.lineWidth = 1.5;
   c.beginPath();
-  c.moveTo(at(0), bottom);
-  c.lineTo(cx, hz);
+  c.moveTo(px(0, dNear), py(dNear));
+  c.lineTo(px(0, dFar), py(dFar));
   c.stroke();
 
-  // espelho plano, campo estreito: quem fica para trás continua visível por mais tempo
-  const D = 3600;
   const behind: { z: number; x: number; w: number; look: Parameters<typeof drawCar>[4]; fall?: (g: CanvasRenderingContext2D, x: number, y: number, w: number) => void }[] = [];
   const night = !!r.def.night || r.inTunnel > 0.5;
   const glareK = r.def.night ? 1 : night ? 0.7 : 0;
@@ -1027,35 +1033,37 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
   for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') behind.push({ z: p.z, x: p.x, w: copW(p.unit), look: copLook(p.unit, { siren: true, front: true, night, plate: r.copPlate, ...(r.copId === 'A2' ? { model: 'moto-copf' } : {}) }) });
   behind.sort((a, b) => a.z - b.z);
   let sirenNear = 0;
+  const pz = r.playerZ + MIRROR_REAR; // pz - z = mirrorDist
   for (const b of behind) {
-    const dz = r.position - b.z;
-    if (dz < 300 || dz > 200 * SEG_LEN) continue;
-    const k = D / dz;
-    // perspectiva de verdade: perto, a base do carro passa por baixo do espelho (que fica na altura
-    // dos olhos) e o que aparece é capô, para-brisa e teto, não o para-choque
-    const yy = hz + (bottom - hz) * k;
-    const bw = b.w * sb * k;
+    const dz = pz - b.z;
+    // já à frente da nossa traseira (emparelhado): sai do vidro traseiro
+    if (dz < MIRROR_TAIL || dz > dFar) continue;
+    const bw = (b.w * f) / dz;
+    const bx = px(b.x, dz), yy = py(dz);
+    if (bx + bw * 0.6 < x || bx - bw * 0.6 > x + w) continue;
     if (bw < 2) { // bem longe: um pontinho (os faróis, à noite)
       c.fillStyle = night && b.look.front ? '#fff6c0' : b.look.color;
-      c.fillRect(Math.round(cx + (b.x - r.x) * sb * k - 0.5), Math.round(yy - 1), 1, 1);
+      c.fillRect(Math.round(bx - 0.5), Math.round(yy - 1), 1, 1);
       continue;
     }
     if (b.fall) {
-      b.fall(c, cx + (b.x - r.x) * sb * k, yy, bw);
+      b.fall(c, bx, yy, bw);
       continue;
     }
-    drawCar(c, cx + (b.x - r.x) * sb * k, yy, bw, b.look);
+    drawCar(c, bx, yy, bw, b.look);
     if (glareK && b.look.front) {
-      const near = Math.max(0, 1 - dz / (SEG_LEN * 14));
+      const near = Math.max(0, 1 - (dz - MIRROR_REAR) / (SEG_LEN * 14));
       nearest = Math.max(nearest, near);
-      mirrorGlare(c, cx + (b.x - r.x) * sb * k, yy, bw, near, glareK);
+      mirrorGlare(c, bx, yy, bw, near, glareK);
       if (b.look.siren) {
-        const sn = Math.max(0, 1 - dz / (SEG_LEN * 25));
+        const sn = Math.max(0, 1 - (dz - MIRROR_REAR) / (SEG_LEN * 25));
         sirenNear = Math.max(sirenNear, sn);
-        sirenGlow(c, cx + (b.x - r.x) * sb * k, yy, bw, sn, glareK * 1.3, y + 4);
+        sirenGlow(c, bx, yy, bw, sn, glareK * 1.3, y + 4);
       }
     }
   }
+  // motor central/traseiro com dano: a fumaça sobe da tampa do motor, logo atrás do vidro traseiro
+  mirrorSmoke(c, r, (lat, d, yw) => [cx + (lat * f) / d, hz + ((CAM_H - yw) * f) / d, f / d], 0, 0.7, 0.6, night ? 0.4 : 1);
   mirrorWash(c, x, y, w, h, nearest, glareK);
   sirenWash(c, x, y, w, h, sirenNear, glareK, 1.8);
   c.restore();

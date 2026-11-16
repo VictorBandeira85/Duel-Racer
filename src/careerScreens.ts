@@ -1,5 +1,5 @@
 import { carSwap } from './carswap';
-import { buildKey, partCost, partInstalledMsg, partOf, slotArt, slotsFor, type Build, type SlotId } from './tuning';
+import { boostInfo, buildKey, fmtBar, heatWord, partCost, partInstalledMsg, partOf, slotArt, slotsFor, type Build, type SlotId } from './tuning';
 import { setEngine, setEngineProfile, starterSound } from './audio';
 import { lastDevice } from './input';
 import { drawShowroom, keyShowroom, openShowroom, show, showroomFocusables, tapShowroom } from './showroom';
@@ -351,10 +351,10 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   const pitch = sum.length > 10 ? 43 / Math.ceil(sum.length / 2) : 8.6;
   sum.forEach((sl, i) => {
     const pt = partOf(car, sl.id, buildOf(cs, car.id)[sl.id]);
-    const cx = pb.x + 5 + (i % 2) * 156, cy = pb.y + 11 + Math.floor(i / 2) * pitch;
+    const cx = pb.x + 5 + (i % 2) * 156, cy = Math.round(pb.y + 11 + Math.floor(i / 2) * pitch);
     const fs = sum.length > 10 ? 4 : 5;
-    ink(c, `${sl.id === 'bancos' ? 'Peso' : sl.id === 'pistoes' ? 'Pistões' : sl.name}:`, cx, cy, fs, GREY); // nomes longos não cabem na coluna
-    ink(c, pt.name, cx + 62, cy, fs, pt.id ? RED : INK);
+    ink(c, `${sl.id === 'bancos' ? 'Peso' : sl.id === 'pistoes' ? 'Pistões' : sl.id === 'pressao' ? 'Pressão' : sl.id === 'largada' ? 'Largada' : sl.name}:`, cx, cy, fs, GREY); // nomes longos não cabem na coluna
+    ink(c, pt.name.replace(/ \(.*\)$/, ''), cx + 62, cy, fs, pt.id ? RED : INK); // (sem o parêntese: "Sem restrições (corrida)" invadia a outra coluna)
   });
   const nParts = Object.values(buildOf(cs, car.id)).filter(Boolean).length;
   const lab = [`MARCHAS ${RATIO_LABEL[st.ratio + 1]}`, nParts ? `PREPARAÇÃO (${nParts}) ▶` : 'PREPARAÇÃO ▶', 'COR DAS RODAS ▶'];
@@ -520,7 +520,8 @@ function prepSwap(s: AppState) {
   ui.garage = (ui.garage + 1) % cars.length;
   openPrep(cs, cars[ui.garage]);
 }
-const ownsPart = (cs: CareerSave, car: CarSpec, slot: SlotId, id: string) => !id || (cs.parts?.[car.id] ?? []).includes(`${slot}:${id}`);
+// wastegate / boost controller: comprado uma vez, qualquer pressão depois é só regular
+const ownsPart = (cs: CareerSave, car: CarSpec, slot: SlotId, id: string) => !id || (cs.parts?.[car.id] ?? []).some((k) => k === `${slot}:${id}` || ((slot === 'pressao' || slot === 'largada') && k.startsWith(`${slot}:`)));
 
 function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const cs = s.career!;
@@ -547,11 +548,15 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
     const txt = `${a.toFixed(dec).replace('.', ',')} ${unit}`;
     return Math.abs(d) < 10 ** -dec / 2 ? txt : `${txt} (${d > 0 ? '+' : '-'}${Math.abs(d).toFixed(dec).replace('.', ',')})`;
   };
+  const slots = prepSel(car);
+  // turbo do kit com a vaga do turbo escolhida: a última linha mostra a pressão e a temperatura no lugar da curva
+  const bi = boostInfo(car, ui.prepView);
+  const turboRow = bi && ['inducao', 'turbina', 'intercooler', 'downpipe', 'pressao'].includes(slots[ui.prepRow]?.id ?? '');
   specRows(c, fr, [
     ['Pot.', diff(cv(ui.prepView), cv(cur), 'cv')], ['0-100', diff(t100(view), t100(now), 's', 1)],
-    ['Máx.', diff(Math.round(view.maxSpeed * KMH), Math.round(now.maxSpeed * KMH), 'km/h')], ['Curva', diff(view.lateralG, now.lateralG, 'g', 2)],
+    ['Máx.', diff(Math.round(view.maxSpeed * KMH), Math.round(now.maxSpeed * KMH), 'km/h')],
+    turboRow ? ['Turbo', `${fmtBar(bi.bar)} bar ${heatWord(bi.eq)}`] : ['Curva', diff(view.lateralG, now.lateralG, 'g', 2)],
   ], 9, 14);
-  const slots = prepSel(car);
   prepRows(slots.length).forEach((r, i) => {
     const sl = slots[i];
     const vp = partOf(car, sl.id, ui.prepView[sl.id]), installed = (cur[sl.id] ?? '') === vp.id;
@@ -563,7 +568,9 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
     ink(c, sl.name.toUpperCase(), r.x + 4, r.y + 2, 4, hot ? YELLOW : GREY);
     ink(c, vp.name, r.x + 4, r.y + 8.5, vp.name.length * 5.6 > r.w - 8 ? 4 : 5, hot ? '#fff' : vp.id ? RED : INK);
-    if (!installed) ink(c, 'EM VISTA', r.x + r.w - 4, r.y + 2, 4, hot ? YELLOW : RED, 'right');
+    // nome de vaga comprido (BOOST CONTROLLER): o aviso desce para a linha da peça, à direita
+    const low = sl.name.length * 4 + 44 > r.w;
+    if (!installed) ink(c, 'EM VISTA', r.x + r.w - 4, r.y + (low ? 10 : 2), 4, hot ? YELLOW : RED, 'right');
   });
   // barra da vaga escolhida: ◀ peça ▶ e o botão de comprar/instalar
   {
@@ -586,7 +593,9 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
       c.drawImage(ai, pb.name.x + 1, pb.name.y + 1, 19, 19);
     }
     const tx = art ? pb.name.x + 20 + (pb.name.w - 20) / 2 : pb.name.x + pb.name.w / 2;
-    ink(c, vp.id && sl.id !== 'rodas' ? `${n + 1}/${sl.parts.length} · ${vp.note}` : `${sl.name.toUpperCase()} ${n + 1}/${sl.parts.length}`, tx, pb.name.y + 3, 4, GREY, 'center');
+    // pressão: o efeito depende da turbina e do intercooler em vista (potência sobre a da turbina e o calor)
+    const pn = sl.id === 'pressao' && vp.id && bi ? `${bi.power >= 1 ? '+' : '-'}${Math.abs(Math.round((bi.power - 1) * 100))}% cv, calor ${heatWord(bi.eq)}` : vp.note;
+    ink(c, vp.id && sl.id !== 'rodas' ? `${n + 1}/${sl.parts.length} · ${pn}` : `${sl.name.toUpperCase()} ${n + 1}/${sl.parts.length}`, tx, pb.name.y + 3, 4, GREY, 'center');
     ink(c, vp.name, tx, pb.name.y + 10, vp.name.length > 18 ? 5 : 6, vp.id ? RED : INK, 'center');
     const own = ownsPart(cs, car, sl.id, vp.id), cost = partCost(car, vp);
     if (ui.demo) tag(c, pb.buy, vp.id ? `NA CARREIRA ${money(cost)}` : 'DE FÁBRICA'); // catálogo: só mostra o preço

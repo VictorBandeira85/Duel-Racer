@@ -14,6 +14,7 @@ import { brakeAmt, clutchAmt, gasAmt, steerAmt, takeShift } from './input';
 import { prefs } from './prefs';
 import { beep, radarBeep, bumpSound, crashSound, motoCrashSound, landSound, stoneSound, setTunnel, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setSirens, setTires, shiftSound, grindSound, starterSound, type SirenSrc } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
+import { HEAT_K, turboHeatAt } from './tuning';
 import { BLITZ_KMH, blitzEdge, coneSound, coneW, knockCone, makeBlitz, updateCones, type Blitz, type Closure } from './blitz';
 import { PROP_SIZE, SOLID_PROPS, makeObra, type Obra } from './obra';
 import { updateTrafficAudio } from './trafficaudio';
@@ -763,6 +764,7 @@ export class Race {
       this.throttle = this.gasPedal > 0.02;
       const want = 0.1 + 0.95 * this.gasPedal;
       this.rpm = clamp(this.rpm + (want - this.rpm) * Math.min(1, dt * (want > this.rpm ? 3.2 : 2.2)), 0.1, 1.04);
+      this.threeStep(dt, want);
       if (this.timer <= 0) {
         this.state = 'drive';
         // câmbio com embreagem: a saída acontece quando o jogador solta o pedal (clutchUp)
@@ -937,7 +939,12 @@ export class Race {
       const top = this.gear >= this.car.gears.length - 1;
       // (no vácuo a folga acima do corte não esquenta: só o corte de verdade, no fim da folga)
       const atCut = this.rpm >= (top ? 0.99 * (1 + this.pt.over) : 0.965) * cut && this.gasPedal > 0.5;
-      this.heat = clamp(this.heat + (atCut ? dt / 6 : this.rpm < 0.9 ? -dt / 8 : -dt / 20), 0, 1);
+      // turbo do kit (tuning.ts boostInfo): pé embaixo, a pressão esquenta conforme o giro (turbina
+      // pequena em pressão alta esquenta rápido; o intercooler segura em alta rotação) e o radiador só
+      // tira uma fração por segundo; aliviando, esfria como os demais
+      const th = this.car.turboHeat && this.gasPedal > 0.3 ? turboHeatAt(this.car.turboHeat, this.car.icEff ?? 0, this.rpm) * Math.min(1, this.gasPedal) : 0;
+      const dh = th > 0 ? (atCut ? 1 / 6 : 0) + th - HEAT_K * this.heat : atCut ? 1 / 6 : this.rpm < 0.9 ? -1 / 8 : -1 / 20;
+      this.heat = clamp(this.heat + dh * dt, 0, 1);
     } else this.heat = Math.max(0, this.heat - dt / 8);
     if (this.heat > 0.65 && !this.heatWarn && this.state === 'drive') {
       this.heatWarn = true;
@@ -984,6 +991,8 @@ export class Race {
       // cai para a marcha lenta; apagado, para. Ao soltar, clutchUp casa o giro com a marcha
       const want = this.stalled ? 0 : 0.1 + 0.95 * this.gasPedal;
       this.rpm = clamp(this.rpm + (want - this.rpm) * Math.min(1, dt * (want > this.rpm ? 3.6 : 2.2)), 0, 1.04);
+      // parado com a embreagem pisada (saída de câmbio manual): o 3-step segura o giro escolhido
+      if (this.speed / this.car.maxSpeed < 0.02) this.threeStep(dt, want);
       this.shownGear = this.gear;
       this.shiftLeft = 0;
     } else if (this.gear !== this.shownGear) {
@@ -1088,7 +1097,9 @@ export class Race {
     this.jolt = Math.max(0, this.jolt - dt * (this.state === 'crash' ? 1.6 : 4));
     if (this.jolt > 0.05) this.shake = 1 + this.jolt * 4;
     // a fumaça da batida vai virando um fio; com dano acumulado, o motor segue soltando vapor
-    this.smoke = Math.max(this.damage > 0.45 ? (this.damage - 0.45) * 1.2 : 0, this.wear.smoke, this.smoke - dt * (this.state === 'crash' ? 0.12 : 0.3));
+    // turbo do kit fervendo (calor extra acima de 0,9): vapor do motor até aliviar
+    const boil = this.car.turboHeat && this.heat > 0.9 ? (this.heat - 0.9) * 4 : 0;
+    this.smoke = Math.max(this.damage > 0.45 ? (this.damage - 0.45) * 1.2 : 0, this.wear.smoke, boil, this.smoke - dt * (this.state === 'crash' ? 0.12 : 0.3));
     if (this.scrapeT > 0) {
       this.scrapeT -= dt;
       this.shake = 1;
@@ -1189,7 +1200,7 @@ export class Race {
   // tração integral bem menos
   private launchK() {
     const cvkg = Number(this.car.power.replace(/\D/g, '')) / this.car.mass;
-    return clamp(0.25 + (cvkg - 0.06) / 0.25, 0.3, 1) * (this.car.drive === 'integral' ? 0.45 : 1);
+    return clamp(0.25 + (cvkg - 0.06) / 0.25, 0.3, 1) * (this.car.drive === 'integral' ? 0.45 : this.car.drive === 'dianteira' ? 0.7 : 1);
   }
   // largou com o motor embaixo (sem acelerar na contagem): até o giro subir, ele quase afoga
   private bog() {
@@ -1251,6 +1262,15 @@ export class Race {
     this.shiftFrom = this.rpm;
     this.shiftDur = this.shiftLeft = 0.18;
     this.shownGear = g;
+  }
+  // controle de largada (3-step, preparação): parado, o giro não passa do escolhido pelo jogador,
+  // batendo no corte dele (o ronco pipoca no limite) — pé no fundo segura ali até a largada
+  private limT = 0;
+  private threeStep(dt: number, want: number) {
+    const cap = this.car.launchCap;
+    if (!cap || this.rpm < cap - 0.005) return;
+    this.limT += dt;
+    this.rpm = want > cap ? cap - (Math.sin(this.limT * 48) > 0.2 ? 0.018 : 0) : Math.min(this.rpm, cap);
   }
   private stall() {
     this.stalled = true;

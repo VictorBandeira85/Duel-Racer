@@ -89,6 +89,8 @@ export interface CarSpec {
   forced?: 'turbo' | 'super'; // turbo/supercharger instalado na preparação: a cabine ganha o manômetro auxiliar
   boostMax?: number; // pressão máxima (kgf/cm²) do manômetro
   boostMul?: number; // turbo de fábrica com turbina maior: pressão multiplicada (manômetro do quadro)
+  turboHeat?: number; // turbo do kit (tuning.ts boostInfo): calor por segundo no giro máximo, pé no fundo
+  icEff?: number; // intercooler do kit: fração do calor do turbo que ele tira em alta rotação
   pods?: ('boost' | 'oil' | 'fuel')[]; // relógios auxiliares na cabine, conforme as peças instaladas
   prep?: number; // multiplicador de potência das peças (1 = original): tração dianteira preparada patina mais
   carb?: boolean; // alimentação por carburador (escala do relógio de combustível)
@@ -114,6 +116,7 @@ export interface CarSpec {
   brakeG: number; // força de frenagem (g)
   aero: number; // ganho de aderência a 300 km/h pela asa e o fundo (negativo: a frente flutua)
   traction?: number; // aderência na largada (em g), calibrada pelo 0-100
+  launchCap?: number; // controle de largada (3-step da preparação): giro máximo parado, fração do corte
   launch?: number; // força extra do motor em 1ª (calibrada pelo 0-100 quando só a aderência não basta)
   drag?: number; // arrasto aerodinâmico (por m), calibrado pela velocidade máxima
   handling: number;
@@ -603,9 +606,12 @@ export class Powertrain {
     // sobra bem mais potência do que isso (integral quase nunca, motor central menos que dianteiro)
     // tração dianteira preparada: a frente alivia ao acelerar e a potência a mais sobra nas rodas,
     // então patina (canta pneu) também em segunda e, com muita potência, em terceira, e perde tração
-    const fwdPrep = car.drive === 'dianteira' ? clamp(((car.prep ?? 1) - 1) / 0.4, 0, 1) : 0;
-    const loose = cap * (car.drive === 'integral' ? 2.5 : car.position === 'dianteira' ? 1.6 - 0.75 * fwdPrep : 1.8);
-    this.spin = clamp((aPow / loose - 1) * 0.6, 0, 1);
+    // (antes a folga caía para baixo da própria aderência e o dianteiro preparado patinava a 1ª
+    // inteira com pouca potência; agora só patina quando a força passa bem da aderência, e menos)
+    const fwd = car.drive === 'dianteira';
+    const fwdPrep = fwd ? clamp(((car.prep ?? 1) - 1) / 0.4, 0, 1) : 0;
+    const loose = cap * (car.drive === 'integral' ? 2.5 : fwd ? 1.6 - 0.2 * fwdPrep : car.position === 'dianteira' ? 1.6 : 1.8);
+    this.spin = clamp((aPow / loose - 1) * (fwd ? 0.3 : 0.6), 0, 1);
     return Math.min(aPow, cap * (1 - 0.06 * fwdPrep * this.spin));
   }
 }

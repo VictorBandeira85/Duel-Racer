@@ -203,6 +203,12 @@ export function loadCareer(): CareerSave | null {
     for (const k of ['usedSold', 'rematches'] as const) if (s[k] !== undefined) s[k] = list(s[k]);
     for (const k of ['wins', 'races', 'earned'] as const) if (typeof s[k] !== 'number' || !Number.isFinite(s[k])) s[k] = 0;
     for (const k of ['setup', 'builds', 'parts', 'paint', 'wear', 'odo', 'beatenAt', 'stats'] as const) if (s[k] !== undefined && !isObj(s[k])) delete s[k];
+    // peças instaladas: cada vaga guarda o id da peça (texto); valor estranho sai e a vaga volta à original
+    // (id desconhecido, como uma pressão fora da lista do wastegate, já cai na original em partOf)
+    if (s.builds) for (const [id, b] of Object.entries(s.builds as Record<string, unknown>)) {
+      if (!isObj(b)) delete s.builds[id];
+      else for (const [k, v] of Object.entries(b as Record<string, unknown>)) if (typeof v !== 'string') delete (b as Record<string, unknown>)[k];
+    }
     if (!isObj(s.upgrades)) s.upgrades = {};
     if (s.wanted !== undefined && (typeof s.wanted !== 'number' || !Number.isFinite(s.wanted))) s.wanted = 0;
     // melhorias genéricas antigas (motor/câmbio/pneus por nível) saíram: o que foi gasto volta em dinheiro

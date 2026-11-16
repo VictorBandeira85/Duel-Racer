@@ -4,6 +4,8 @@ import { fxTick, perfLevel } from './perf';
 import { mirrorGlare, mirrorWash, sirenGlow, sirenWash } from './nightlight';
 import { copLook, copW, trafficLook, trafficW, type Race } from './race';
 import { drawFallMoto, drawFallRider, fallPx } from './motofall';
+import { drawSmokeTrail } from './smoke';
+import { clamp } from './util';
 
 // Retrovisor externo do lado do motorista, funcionando: o vidro das cabines desenhadas a partir
 // da arte é encontrado pela cor (claro e azulado, à esquerda do painel) e, no lugar dele, entra
@@ -17,6 +19,31 @@ interface Glass {
   h: number;
   mask: HTMLCanvasElement; // vidro em branco, na resolução da tela (RES)
   edge: HTMLCanvasElement; // contorno interno do vidro (sombra da moldura)
+}
+
+// Distância (unidades do mundo) do espelho até a frente de quem vem atrás. No jogo os carros são
+// pontos (colidem a 0,8 segmento um do outro) e não têm comprimento; nos retrovisores a distância
+// conta a partir da nossa frente (playerZ) mais a cabine e a traseira do próprio carro: colado atrás
+// (~170) o outro fica logo depois da nossa traseira (MIRROR_TAIL) e enche o espelho; ao lado, a
+// distância chega à da nossa traseira e ele sai pelo canto de fora do espelho lateral.
+export const MIRROR_REAR = 1240;
+export const MIRROR_TAIL = 1150; // do espelho até a nossa traseira
+export const mirrorDist = (r: Race, z: number) => r.playerZ - z + MIRROR_REAR;
+
+// Fumaça do motor de trás (motor central ou traseiro, car.position): com dano sai da tampa do motor
+// e só se vê pelos retrovisores (na frente não sai nada). Motor estourado = temperatura no máximo
+// (r.heat, giro no corte por muito tempo ou turbo fervendo): fumaça densa e escura.
+export const engineBehind = (r: Race) => r.car.position === 'central' || r.car.position === 'traseira';
+export function rearSmoke(r: Race): { power: number; dense: number } | null {
+  if (!engineBehind(r)) return null;
+  const dense = r.state === 'crash' ? 0 : clamp((r.heat - 0.93) / 0.07, 0, 1);
+  const power = Math.max(r.smoke, dense);
+  return power > 0.02 ? { power, dense } : null;
+}
+// fumaça vista no espelho: sai da tampa do motor (logo antes da traseira, abaixo dos olhos)
+export function mirrorSmoke(c: CanvasRenderingContext2D, r: Race, proj: (lat: number, dist: number, y: number) => [number, number, number], lat0: number, k = 1, sizeK = 1, dim = 1) {
+  const s = rearSmoke(r);
+  if (s) drawSmokeTrail(c, proj, lat0, MIRROR_TAIL - 250, CAM_H * 0.72, Math.min(1, s.power * k), r.crashes + 1, r.speed, s.dense, sizeK, dim);
 }
 
 const glasses = new Map<string, Glass | null>();
@@ -168,12 +195,14 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
   v.clearRect(0, 0, w, h);
 
   // câmera: no retrovisor, um pouco à esquerda do carro, olhando para trás; o espelho
-  // está virado para fora, então o ponto de fuga fica à direita do centro
-  // mesma escala na horizontal e na vertical (como uma câmera de verdade) e campo de visão
-  // estreito de espelho plano: quem se aproxima cresce e sai pela borda de fora
+  // está virado para fora, então o ponto de fuga fica à direita do centro (a lateral do próprio
+  // carro, que converge para ele, ocupa a borda de dentro)
+  // mesma escala na horizontal e na vertical (como uma câmera de verdade): quem se aproxima na
+  // faixa ao lado cresce e sai pela borda de fora quando chega à nossa traseira; quem vem colado
+  // na mesma faixa aparece só pela metade, rente à nossa lateral (como no espelho de verdade)
   const hz = Math.round(h * 0.45);
-  const vx = w * 0.8;
-  const f = w * 1.25;
+  const vx = w * 0.62;
+  const f = w;
   const xm = r.x - 800;
   const sx = (X: number, dz: number) => vx + ((X - xm) * f) / dz;
   const sy = (dz: number) => hz + (CAM_H * f) / dz;
@@ -231,7 +260,7 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
   }
   // quem vem atrás (do mais longe para o mais perto)
   const behind: { dz: number; x: number; w: number; look: Parameters<typeof drawCar>[4]; fall?: (g: CanvasRenderingContext2D, x: number, y: number, w: number) => void }[] = [];
-  const pz = r.position;
+  const pz = r.playerZ + MIRROR_REAR; // pz - z = mirrorDist
   for (const t of r.traffic) {
     const fl = t.fall;
     if (fl) { // moto caída e o piloto (src/motofall.ts), vistos pelo outro lado: espelhados
@@ -244,11 +273,14 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
   for (const p of r.police) if (p.state !== 'done') behind.push({ dz: pz - p.z, x: p.x, w: copW(p.unit), look: copLook(p.unit, { siren: p.state === 'chase' || p.state === 'pull', front: true, night, plate: r.copPlate, ...(r.copId === 'A2' ? { model: 'moto-copf' } : {}) }) });
   behind.sort((a, b) => b.dz - a.dz);
   for (const b of behind) {
-    if (b.dz < near * 0.5 || b.dz > 200 * SEG_LEN) continue;
+    // já à frente da nossa traseira (emparelhado ou passando): fora do espelho
+    if (b.dz < MIRROR_TAIL || b.dz > 200 * SEG_LEN) continue;
     const bw = (b.w * f) / b.dz;
+    const bx = sx(b.x, b.dz);
+    if (bx + bw * 0.6 < 0 || bx - bw * 0.6 > w) continue; // fora do vidro
     if (bw < 2) { // bem longe: um pontinho
       v.fillStyle = night && b.look.front ? '#fff6c0' : b.look.color;
-      v.fillRect(Math.round(sx(b.x, b.dz) - 0.5), Math.round(sy(b.dz) - 1), 1, 1);
+      v.fillRect(Math.round(bx - 0.5), Math.round(sy(b.dz) - 1), 1, 1);
       continue;
     }
     if (b.fall) {
@@ -257,16 +289,18 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
     }
     drawCar(v, sx(b.x, b.dz), sy(b.dz), bw, b.look);
     if (glareK && b.look.front) {
-      const near = Math.max(0, 1 - b.dz / (SEG_LEN * 14));
+      const near = Math.max(0, 1 - (b.dz - MIRROR_REAR) / (SEG_LEN * 14));
       nearest = Math.max(nearest, near);
       glares.push([sx(b.x, b.dz), sy(b.dz), bw, near]);
       if (b.look.siren) {
-        const sn = Math.max(0, 1 - b.dz / (SEG_LEN * 25));
+        const sn = Math.max(0, 1 - (b.dz - MIRROR_REAR) / (SEG_LEN * 25));
         sirens.push([sx(b.x, b.dz), sy(b.dz), bw, sn]);
         sirenNear = Math.max(sirenNear, sn);
       }
     }
   }
+  // fumaça do motor de trás (central/traseiro) saindo da tampa do motor, atrás da nossa lateral
+  mirrorSmoke(v, r, (lat, d, y) => [vx + (lat * f) / d, hz + ((CAM_H - y) * f) / d, f / d], r.x - xm, 1.4);
   // o espelho escurece um pouco a imagem (mais à noite)
   v.fillStyle = night ? 'rgba(0,0,24,0.5)' : 'rgba(10,20,40,0.12)';
   v.fillRect(0, 0, w, h);

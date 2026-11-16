@@ -23,7 +23,8 @@ import { formatTime } from './util';
 import { drawPortrait, preLine, rivalOf, wrapLines } from './rivals';
 import { drawFixPanel, drawFixTag, drawStats, drawUsed, fixFocusables, fixTag, keyFix, keyStats, keyUsed, openUsed, pg, statsFocusables, tapFix, tapStats, tapUsed, usedFocusables } from './careerPages';
 import { drawUsedSide, forgetCar } from './usedcars';
-import { rematchCount, rematchEvent, rematchOpen, spend, wearOf, type CareerEvent } from './career';
+import { rematchCount, rematchEvent, rematchOpen, spend, wearOf, type CareerEvent, type Defect } from './career';
+import { arcadeBuildOf, arcadePrepped, arcadeTuned, setArcadePart } from './arcadeprep';
 
 const STYLE: Record<string, [string, string]> = {
   agressivo: ['AGRESSIVO', RED], cauteloso: ['CAUTELOSO', '#1a6a2a'], imprevisivel: ['IMPREVISÍVEL', '#b07000'],
@@ -32,8 +33,9 @@ export const money = (v: number) => `$${Math.round(v).toLocaleString('pt-BR')}`;
 
 // estado da interface da carreira (não vai para o save)
 // demo: oficina de preparação aberta fora da carreira (catálogo): id do carro em vista; nada é comprado
+// arc: oficina do Arcade (id do carro em vista): instala de graça, nas preparações do Arcade (arcadeprep.ts)
 // rematch: o evento aberto (ou a última corrida) é a revanche do rival
-export const ui = { rematch: false, demo: '',demoBack: 'title' as ScreenId, prep: false, prepRow: 0, prepView: {} as Build, revT0: -9, region: 0, event: 0, dealer: 0, garage: 0, gFocus: 6, rimPick: false, rimView: '', msg: '', msgT: 0, filter: null as ClassFilter };
+export const ui = { rematch: false, demo: '', arc: '', demoBack: 'title' as ScreenId, prep: false, prepRow: 0, prepView: {} as Build, revT0: -9, region: 0, event: 0, dealer: 0, garage: 0, gFocus: 6, rimPick: false, rimView: '', msg: '', msgT: 0, filter: null as ClassFilter };
 export function flash(s: AppState, msg: string) {
   ui.msg = msg;
   ui.msgT = s.t + 2.2;
@@ -507,6 +509,7 @@ function openPrep(cs: CareerSave, car: CarSpec) {
     saveCareer(cs);
   }
   ui.demo = ''; // oficina da carreira: compra e instala de verdade (nunca o modo catálogo)
+  ui.arc = '';
   ui.prep = true;
   ui.prepRow = 0;
   ui.prepView = { ...buildOf(cs, car.id) };
@@ -523,16 +526,24 @@ function prepSwap(s: AppState) {
 // wastegate / boost controller: comprado uma vez, qualquer pressão depois é só regular
 const ownsPart = (cs: CareerSave, car: CarSpec, slot: SlotId, id: string) => !id || (cs.parts?.[car.id] ?? []).some((k) => k === `${slot}:${id}` || ((slot === 'pressao' || slot === 'largada') && k.startsWith(`${slot}:`)));
 
+// o que vale na tela de preparação: na carreira, os ajustes e defeitos do carro e as peças instaladas;
+// no Arcade, o carro de fábrica e as peças da oficina do Arcade; no catálogo, nada instalado
+const ZERO_LV: Record<Upgrade, number> = { motor: 0, cambio: 0, pneus: 0 };
+function prepCtx(s: AppState, car: CarSpec) {
+  const cs = s.career;
+  if (ui.arc || !cs) return { lv: ZERO_LV, st: DEFAULT_SETUP, cur: ui.arc ? arcadeBuildOf(car.id) : {}, wear: [] as Defect[] };
+  return { lv: levels(cs, car.id), st: setupOf(cs, car.id), cur: ui.demo ? {} : buildOf(cs, car.id), wear: wearOf(cs, car.id) };
+}
 function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
-  const cs = s.career!;
+  const cs = s.career;
   const x = ox();
-  const lv = levels(cs, car.id), st = setupOf(cs, car.id);
-  const cur = ui.demo ? {} : buildOf(cs, car.id);
-  const now = tunedFor(car, lv, st, cur), view = tunedFor(car, lv, st, ui.prepView);
-  kicker(c, ui.demo ? 'CATÁLOGO' : 'PREPARAÇÃO', x + 4, 20, RED, '#fff');
+  const { lv, st, cur, wear } = prepCtx(s, car);
+  const tf = (b: Build, set: Setup = st) => tunedFor(car, lv, set, b, wear);
+  const now = tf(cur), view = tf(ui.prepView);
+  kicker(c, ui.arc ? 'ARCADE' : ui.demo ? 'CATÁLOGO' : 'PREPARAÇÃO', x + 4, 20, RED, '#fff');
   // título na linha do selo: a foto ganha a altura para a lateral grande
-  headline(c, car.name.toUpperCase(), x + 62, 21, 6, INK);
-  classBadge(c, x + 62 + car.name.length * 6 + 6, 20, view, true, 8);
+  headline(c, car.name.toUpperCase(), x + (ui.arc ? 46 : 62), 21, 6, INK);
+  classBadge(c, x + (ui.arc ? 46 : 62) + car.name.length * 6 + 6, 20, view, true, 8);
   const ph: Rect = { x: x + 4, y: 35, w: 198, h: 59 };
   photo(c, ph, () => {
     // só a lateral, grande (altura, rodas e o que mais vier aparecem melhor)
@@ -541,7 +552,7 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const fr: Rect = { x: x + 208, y: 43, w: 108, h: 51 };
   box(c, fr, 'COMO FICA');
   // potência pela razão com a ficha (o 'accel' de alguns carros já vem ajustado); 0-100 medido na física
-  const cv = (b: Build) => Math.round((parseInt(car.power) * tunedFor(car, lv, DEFAULT_SETUP, b).accel) / car.accel);
+  const cv = (b: Build) => Math.round((parseInt(car.power) * tf(b, DEFAULT_SETUP).accel) / car.accel);
   const t100 = (t: CarSpec) => accelCurve(t, 30).t100 || t.zeroTo100;
   const diff = (a: number, b: number, unit: string, dec = 0) => {
     const d = a - b;
@@ -597,16 +608,20 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
     const pn = sl.id === 'pressao' && vp.id && bi ? `${bi.power >= 1 ? '+' : '-'}${Math.abs(Math.round((bi.power - 1) * 100))}% cv, calor ${heatWord(bi.eq)}` : vp.note;
     ink(c, vp.id && sl.id !== 'rodas' ? `${n + 1}/${sl.parts.length} · ${pn}` : `${sl.name.toUpperCase()} ${n + 1}/${sl.parts.length}`, tx, pb.name.y + 3, 4, GREY, 'center');
     ink(c, vp.name, tx, pb.name.y + 10, vp.name.length > 18 ? 5 : 6, vp.id ? RED : INK, 'center');
-    const own = ownsPart(cs, car, sl.id, vp.id), cost = partCost(car, vp);
-    if (ui.demo) tag(c, pb.buy, vp.id ? `NA CARREIRA ${money(cost)}` : 'DE FÁBRICA'); // catálogo: só mostra o preço
-    else tag(c, pb.buy, installed ? 'INSTALADA' : own ? 'INSTALAR' : `COMPRAR ${money(cost)}`, !installed && (own || cs.money >= cost));
+    const cost = partCost(car, vp);
+    if (ui.arc) tag(c, pb.buy, installed ? 'INSTALADA' : vp.id ? 'INSTALAR GRÁTIS' : 'VOLTAR AO ORIGINAL', !installed); // Arcade: sem dinheiro
+    else if (ui.demo || !cs) tag(c, pb.buy, vp.id ? `NA CARREIRA ${money(cost)}` : 'DE FÁBRICA'); // catálogo: só mostra o preço
+    else {
+      const own = ownsPart(cs, car, sl.id, vp.id);
+      tag(c, pb.buy, installed ? 'INSTALADA' : own ? 'INSTALAR' : `COMPRAR ${money(cost)}`, !installed && (own || cs.money >= cost));
+    }
   }
   const b = prepButtons();
-  tag(c, b.back, ui.demo ? '◀ VOLTAR' : '◀ OFICINA');
+  tag(c, b.back, ui.demo || ui.arc ? '◀ VOLTAR' : '◀ OFICINA');
   tag(c, b.rev, 'OUVIR O RONCO'); // (sem o vermelho fixo: parecia o item escolhido; o foco é o contorno amarelo)
   // catálogo: passa pelos carros do showroom; carreira: troca entre os carros da garagem (só se houver outro)
-  if (ui.demo) tag(c, b.stock, 'OUTRO CARRO ▶');
-  else if (ownedCars(cs).length > 1) tag(c, b.stock, 'TROCAR CARRO ▶');
+  if (ui.demo || ui.arc) tag(c, b.stock, 'OUTRO CARRO ▶');
+  else if (cs && ownedCars(cs).length > 1) tag(c, b.stock, 'TROCAR CARRO ▶');
   // ronco de teste: partida e duas aceleradas com as peças em vista
   const t = s.t - ui.revT0;
   if (t >= 0 && t < 2.6) {
@@ -624,6 +639,14 @@ function prepStep(car: CarSpec, slot: SlotId, d: number) {
   ui.prepView = { ...ui.prepView, [slot]: parts[(i + d + parts.length) % parts.length].id };
 }
 function prepInstall(s: AppState, car: CarSpec, slot: SlotId) {
+  if (ui.arc) {
+    // Arcade: instala de graça, nas preparações do Arcade (a carreira não muda)
+    const p = partOf(car, slot, ui.prepView[slot]), cur = arcadeBuildOf(car.id);
+    if ((cur[slot] ?? '') === p.id) return flash(s, 'Já está instalada');
+    if (!slotsFor(car, cur).some((sl) => sl.id === slot)) return flash(s, ui.prepView.inducao === 'super' ? 'Instale o supercharger primeiro' : 'Instale o turbo primeiro');
+    setArcadePart(car.id, slot, p.id);
+    return flash(s, p.id ? partInstalledMsg(car, slot, p) : 'Peça original de volta');
+  }
   const cs = s.career!;
   if (ui.demo) return flash(s, 'Catálogo: compre e instale na oficina da carreira');
   const p = partOf(car, slot, ui.prepView[slot]);
@@ -642,8 +665,8 @@ function prepInstall(s: AppState, car: CarSpec, slot: SlotId) {
   flash(s, p.id ? partInstalledMsg(car, slot, p) : 'Peça original de volta');
 }
 function prepRev(s: AppState, car: CarSpec) {
-  const cs = s.career!;
-  const view = tunedFor(car, levels(cs, car.id), setupOf(cs, car.id), ui.prepView);
+  const { lv, st, wear } = prepCtx(s, car);
+  const view = tunedFor(car, lv, st, ui.prepView, wear);
   setEngineProfile(view.engine, car.id, view.soundMods);
   starterSound();
   ui.revT0 = s.t;
@@ -668,8 +691,7 @@ function tapPrep(s: AppState, car: CarSpec, x: number, y: number) {
 }
 
 function keyPrep(s: AppState, k: MenuKey) {
-  const cs = s.career!;
-  const car = ui.demo ? demoCar() : ownedCars(cs)[ui.garage];
+  const car = ui.arc ? arcCar() : ui.demo ? demoCar() : ownedCars(s.career!)[ui.garage];
   const slots = prepSel(car);
   if (k === 'back') return closePrep();
   if (k === 'up') ui.prepRow = (ui.prepRow + slots.length - 1) % slots.length;
@@ -700,6 +722,7 @@ export function openPrepDemo(s: AppState, a: Actions, carId = '', back: ScreenId
   const list = demoCars();
   ui.demo = (list.find((k) => k.id === carId) ?? list.find((k) => k.id === 'br-golgti') ?? list[0]).id;
   ui.demoBack = back;
+  ui.arc = '';
   ui.prep = true;
   ui.prepRow = 0;
   ui.prepView = {};
@@ -732,6 +755,106 @@ function tapPrepDemo(s: AppState, a: Actions, x: number, y: number) {
   const ph: Rect = { x: ox() + 4, y: 35, w: 198, h: 59 };
   if (inside(x, y, ph)) return demoStep(x < ph.x + ph.w / 2 ? -1 : 1);
   tapPrep(s, demoCar(), x, y);
+}
+
+// ---------- Arcade: CORRER ou OFICINA ----------
+// CORRER: o fluxo de sempre (carro, rival, roteiro), com as peças da oficina do Arcade em cada carro.
+// OFICINA: a tela de preparação com qualquer carro do Arcade; sem dinheiro, instalar é de graça.
+const arcCar = () => CARS.find((k) => k.id === ui.arc) ?? CARS[0];
+const arcTiles = () => careerTiles();
+const arcBack = () => careerMenuBack();
+function arcPick(s: AppState, a: Actions, i: number) {
+  if (i === 0) return a.go('car');
+  openArcadePrep(s, a);
+}
+function drawArcadeMenu(c: CanvasRenderingContext2D, s: AppState) {
+  const x = ox();
+  paper(c);
+  masthead(c, 'ARCADE');
+  kicker(c, 'MODO ARCADE', x + 4, 20, RED, '#fff');
+  const [run, shop] = arcTiles();
+  const frame = (r: Rect, hot: boolean) => {
+    c.fillStyle = hot ? RED : INK;
+    c.fillRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2);
+    c.fillStyle = '#f8f2e2';
+    c.fillRect(r.x, r.y, r.w, r.h);
+  };
+  const hot = (i: number) => lastDevice.kind !== 'touch' && s.sel % 2 === i;
+  const cur = CARS[s.carIdx] ?? CARS[0];
+  // correr: o último carro escolhido, já com as peças da oficina do Arcade
+  frame(run, hot(0));
+  const ph: Rect = { x: run.x + 4, y: run.y + 4, w: run.w - 8, h: 92 };
+  photo(c, ph, () => drawCarSide(c, ph.x + 6, ph.y + 84, ph.w - 12, arcadeTuned(cur), paintHex(cur.id)), ['#3a5a8a', '#c8b89a']);
+  if (arcadePrepped(cur.id)) kicker(c, 'PREPARADO', ph.x + 2, ph.y + 2, RED, YELLOW);
+  headline(c, 'CORRER', run.x + 6, run.y + 102, 16, INK);
+  ink(c, 'Carro, rival e roteiro', run.x + 6, run.y + 124, 5, GREY);
+  ink(c, 'Cada carro com as suas peças', run.x + 6, run.y + 134, 5, GREY);
+  tag(c, { x: run.x + 6, y: run.y + run.h - 20, w: run.w - 12, h: 15 }, 'ESCOLHER CARRO ▶', hot(0));
+  // oficina: até três carros já preparados (ou o carro escolhido, se nenhum foi mexido)
+  frame(shop, hot(1));
+  const gp: Rect = { x: shop.x + 4, y: shop.y + 4, w: shop.w - 8, h: 92 };
+  const prepped = CARS.filter((k) => arcadePrepped(k.id));
+  photo(c, gp, () => {
+    const show = prepped.length ? prepped.slice(0, 3) : [cur];
+    const ys = [[84], [50, 84], [36, 60, 84]][Math.max(0, show.length - 1)];
+    show.forEach((cc, i) => drawCarSide(c, gp.x + 6 + (i % 2) * 8, gp.y + ys[i], show.length > 1 ? gp.w - 30 : gp.w - 12, arcadeTuned(cc), paintHex(cc.id)));
+  }, ['#4a4238', '#a89a86']);
+  kicker(c, 'GRÁTIS', gp.x + 2, gp.y + 2, '#1a6a2a', '#fff');
+  headline(c, 'OFICINA', shop.x + 6, shop.y + 102, 16, INK);
+  ink(c, prepped.length ? `${prepped.length} carro${prepped.length === 1 ? '' : 's'} preparado${prepped.length === 1 ? '' : 's'}` : 'Nenhum carro preparado', shop.x + 6, shop.y + 124, 5, GREY);
+  ink(c, 'Peças de graça, sem dinheiro', shop.x + 6, shop.y + 134, 5, GREY);
+  tag(c, { x: shop.x + 6, y: shop.y + shop.h - 20, w: shop.w - 12, h: 15 }, 'PREPARAR CARRO ▶', hot(1));
+  tag(c, arcBack(), '◀ CAPA');
+}
+function tapArcadeMenu(s: AppState, a: Actions, x: number, y: number) {
+  if (inside(x, y, arcBack())) return a.go('title');
+  arcTiles().forEach((r, i) => inside(x, y, r) && arcPick(s, a, i));
+}
+export function openArcadePrep(s: AppState, a: Actions, carId = (CARS[s.carIdx] ?? CARS[0]).id) {
+  a.go('arcadePrep');
+  ui.demo = '';
+  ui.arc = carId;
+  ui.prep = true;
+  ui.prepRow = 0;
+  ui.prepView = { ...arcadeBuildOf(carId) };
+}
+function arcStep(d: number) {
+  const i = Math.max(0, CARS.findIndex((k) => k.id === ui.arc));
+  ui.arc = CARS[(i + d + CARS.length) % CARS.length].id;
+  ui.prepRow = 0;
+  ui.prepView = { ...arcadeBuildOf(ui.arc) };
+  ui.revT0 = -9;
+  setEngine(0, false, false);
+}
+// volta à escolha CORRER/OFICINA com o carro da oficina já escolhido para correr
+function closeArcadePrep(s: AppState, a: Actions) {
+  const i = CARS.findIndex((k) => k.id === ui.arc);
+  if (i >= 0) s.carIdx = i;
+  closePrep();
+  ui.arc = '';
+  a.go('arcadeMenu');
+  s.sel = 1;
+}
+function drawArcadePrep(c: CanvasRenderingContext2D, s: AppState) {
+  if (!ui.arc) ui.arc = (CARS[s.carIdx] ?? CARS[0]).id;
+  paper(c);
+  masthead(c, 'OFICINA DO ARCADE');
+  // no lugar do saldo da carreira: no Arcade não há dinheiro
+  const x = ox() + SAFE_W - 4, lab = 'ARCADE: GRÁTIS';
+  c.font = '5px "Press Start 2P", monospace';
+  const w = Math.ceil(c.measureText(lab).width) + 7;
+  c.fillStyle = '#1a6a2a';
+  c.fillRect(x - w, 19, w, 11);
+  text(c, lab, x - 3, 22, 5, '#fff', 'right', null);
+  drawPrep(c, s, arcCar());
+}
+function tapArcadePrep(s: AppState, a: Actions, x: number, y: number) {
+  const b = prepButtons();
+  if (inside(x, y, b.back)) return closeArcadePrep(s, a);
+  if (inside(x, y, b.stock)) return arcStep(1);
+  const ph: Rect = { x: ox() + 4, y: 35, w: 198, h: 59 };
+  if (inside(x, y, ph)) return arcStep(x < ph.x + ph.w / 2 ? -1 : 1);
+  tapPrep(s, arcCar(), x, y);
 }
 
 // ---------- minha garagem: os carros comprados num pôster de revista ----------
@@ -1053,6 +1176,9 @@ export function openCareer(s: AppState, a: Actions) {
 }
 
 export function drawCareerScreen(c: CanvasRenderingContext2D, s: AppState) {
+  // telas do Arcade: não dependem da carreira
+  if (s.screen === 'arcadeMenu') return drawArcadeMenu(c, s);
+  if (s.screen === 'arcadePrep') return drawArcadePrep(c, s);
   // sem carreira carregada (não deveria acontecer): volta para a capa em vez de quebrar
   if (!s.career) {
     s.screen = 'title';
@@ -1087,6 +1213,8 @@ export function tapCareerScreen(s: AppState, a: Actions, x: number, y: number) {
     case 'careerMenu': return tapCareerMenu(s, a, x, y);
     case 'showroom': return tapShowroom(s, a, x, y);
     case 'prepDemo': return tapPrepDemo(s, a, x, y);
+    case 'arcadeMenu': return tapArcadeMenu(s, a, x, y);
+    case 'arcadePrep': return tapArcadePrep(s, a, x, y);
   }
 }
 
@@ -1097,6 +1225,15 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
     case 'usedCars': return keyUsed(s, a, k);
     case 'careerStats': return keyStats(s, a, k);
     case 'showroom': return keyShowroom(s, a, k);
+    case 'arcadeMenu':
+      if (k === 'left' || k === 'right' || k === 'up' || k === 'down') s.sel = 1 - (s.sel % 2);
+      if (k === 'ok') arcPick(s, a, s.sel % 2);
+      if (k === 'back') a.go('title');
+      return;
+    case 'arcadePrep':
+      if (k === 'back') return closeArcadePrep(s, a);
+      if (k === 'prevTab' || k === 'nextTab') return arcStep(k === 'nextTab' ? 1 : -1);
+      return keyPrep(s, k);
     case 'prepDemo':
       if (k === 'back') return closeDemo(a);
       if (k === 'prevTab' || k === 'nextTab') return demoStep(k === 'nextTab' ? 1 : -1);
@@ -1151,21 +1288,23 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
 // ---------- foco (setas, A/Enter e mouse) das telas da carreira, da oficina e do catálogo ----------
 export function careerFocusables(s: AppState, a: Actions): FocusSet | null {
   const cs = s.career;
-  if (!cs && s.screen !== 'showroom') return null;
   const sel = (i: number, r: Rect, extra: Partial<Focusable> = {}): Focusable => ({ r, is: () => s.sel === i, pick: () => { s.sel = i; }, ...extra });
+  if (s.screen === 'arcadeMenu') return { key: 'arcadeMenu', items: [...arcTiles().map((r, i) => sel(i, r, { act: () => arcPick(s, a, i) })), { r: arcBack() }] };
+  if (!cs && s.screen !== 'showroom' && s.screen !== 'arcadePrep') return null;
   // catálogo de peças (oficina da carreira e o de fora dela): as vagas são a "linha" da tela
   const prep = (car: CarSpec, demo: boolean): FocusSet => {
     const slots = prepSel(car), pb = prepBar(), bt = prepButtons();
     const rows = prepRows(slots.length).map((r, i): Focusable => ({ r, is: () => ui.prepRow === i, pick: () => { ui.prepRow = i; }, lr: (d) => prepStep(car, slots[i].id, d), act: () => prepInstall(s, car, slots[i].id) }));
     const items: Focusable[] = [{ r: pb.prev }, { r: pb.name }, { r: pb.next }, { r: pb.buy }, ...rows, { r: bt.back }, { r: bt.rev }, { r: bt.stock }];
-    if (demo) items.unshift({ r: { x: ox() + 4, y: 35, w: 198, h: 59 }, lr: demoStep, act: () => demoStep(1) });
-    return { key: `prep:${demo}`, items, def: items.indexOf(rows[0]) };
+    if (demo) items.unshift({ r: { x: ox() + 4, y: 35, w: 198, h: 59 }, lr: ui.arc ? arcStep : demoStep, act: () => (ui.arc ? arcStep(1) : demoStep(1)) });
+    return { key: `prep:${demo}:${ui.arc ? 'arc' : ''}`, items, def: items.indexOf(rows[0]) };
   };
   switch (s.screen) {
     case 'usedCars': return usedFocusables(s, a);
     case 'careerStats': return statsFocusables(s, a);
     case 'showroom': return showroomFocusables(s, a);
     case 'prepDemo': return prep(demoCar(), true);
+    case 'arcadePrep': return prep(arcCar(), true);
     case 'careerMenu': return { key: 'careerMenu', items: [...careerTiles().map((r, i) => sel(i, r, { act: () => careerMenuPick(s, a, i) })), { r: careerMenuBack() }, ...careerMenuExtra().map((r, i) => ({ r, act: () => careerMenuExtraPick(s, a, i) }))] };
     case 'career': {
       const b = hubButtons();

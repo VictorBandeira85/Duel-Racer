@@ -1,5 +1,5 @@
 // Recordes e fantasma, guardados no aparelho.
-// Recorde: o melhor tempo de cada trecho com cada carro. Fantasma: a melhor passagem de cada
+// Recorde: o melhor tempo de cada trecho com cada carro (de fábrica e preparado, separados). Fantasma: a melhor passagem de cada
 // trecho (com qualquer carro), gravada como a posição na pista a cada décimo de segundo, que
 // volta transparente nas próximas tentativas para você disputar com ela.
 import type { Race } from './race';
@@ -58,9 +58,11 @@ export function loadGhost(course: string, stage: number, force = false): Ghost |
 
 // Fim do trecho: grava o recorde do carro e, se for a melhor passagem do trecho, o fantasma.
 // Devolve o recorde anterior (do carro) e se este tempo é novo recorde.
-export function saveRun(r: Race, course: string, stage: number, paint?: string): { prev?: number; record: boolean; ghost: boolean } {
+// prepped: carro com peças da preparação; o recorde dele fica numa chave à parte ("carro+prep"), para
+// não misturar com o de fábrica (o fantasma continua sendo a melhor passagem do trecho, com qualquer carro)
+export function saveRun(r: Race, course: string, stage: number, paint?: string, prepped = false): { prev?: number; record: boolean; ghost: boolean } {
   const times = read<Record<string, number>>(KEY_T, {});
-  const k = `${stageKey(course, stage)}:${r.car.id}`;
+  const k = `${stageKey(course, stage)}:${r.car.id}${prepped ? '+prep' : ''}`;
   const prev = times[k];
   const record = prev === undefined || r.time < prev;
   if (record) {

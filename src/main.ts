@@ -5,6 +5,8 @@ import { carSwapWatch } from './carswap';
 import { freeBudget, newFrame } from './svgsprites';
 import { VIEW_LEVELS, gearLabel, nextGearMode, prefs, raceViewSize, savePrefs, volLabel } from './prefs';
 import { clearArcade, loadArcade, saveArcade } from './arcadesave';
+import { arcadePrepped, arcadeTuned } from './arcadeprep';
+import { buildKey } from './tuning';
 import { capsHtml } from './ui';
 import { stageResult } from './score';
 import '@fontsource/press-start-2p/400.css';
@@ -96,12 +98,12 @@ function showControls(on: boolean) {
   paused = false;
 }
 
-// Arcade: o carro que o jogador tem na garagem da carreira entra com as peças e ajustes da oficina
+// Arcade: o carro entra com as peças da OFICINA do Arcade (arcadeprep.ts, separadas da carreira)
 function arcadeCar() {
-  const car = CARS[state.carIdx], cs = state.career;
-  if (!cs || !cs.owned.includes(car.id)) return car;
-  return tunedCar(car, levels(cs, car.id), setupOf(cs, car.id), buildOf(cs, car.id));
+  return arcadeTuned(CARS[state.carIdx]);
 }
+// carro preparado (peças instaladas): o recorde por trecho fica separado do de fábrica
+const runPrepped = () => (state.mode === 'arcade' ? arcadePrepped(run.car.id) : state.mode === 'career' && !!state.career && !!buildKey(buildOf(state.career, run.car.id)));
 const actions: Actions = {
   go(s: ScreenId) {
     binding.action = null; // saiu da tela CONTROLES no meio da troca de tecla: cancela
@@ -301,7 +303,7 @@ function makeRace(i: number) {
   liveDone = new Set();
   r.onArrive = () => {
     const res = stageResult(r);
-    const sv = saveRun(r, run.course.id, i, paintHex(run.car.id));
+    const sv = saveRun(r, run.course.id, i, paintHex(run.car.id), runPrepped());
     res.best = sv.prev;
     res.record = sv.record;
     // desafios do trecho: medalha (1 bronze, 2 prata, 3 ouro) e, na carreira, dinheiro
@@ -403,7 +405,7 @@ function finishCourse() {
   const rival = state.results.reduce((a, r) => a + r.rival, 0);
   // percurso concluído: libera o próximo mapa
   state.newMap = completeCourse(state.courseIdx) ? COURSES[state.courseIdx + 1].name : null;
-  saveScore(course, { time: total, car: CARS[state.carIdx].name, won: !rivalOk || total <= rival, score: state.results.reduce((a, r) => a + r.score, 0) });
+  saveScore(course, { time: total, car: CARS[state.carIdx].name + (runPrepped() ? ' PREPARADO' : ''), won: !rivalOk || total <= rival, score: state.results.reduce((a, r) => a + r.score, 0) });
   actions.go('end');
 }
 

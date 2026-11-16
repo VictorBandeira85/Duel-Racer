@@ -13,6 +13,7 @@ import { ACHIEVEMENTS, MEDAL_COLOR, loadStats, medalName, medals, takeToast, unl
 import { RIVAL_STYLE } from './race';
 import type { CareerSave, EventResult } from './career';
 import { newCareer, saveCareer } from './career';
+import { arcadeTuned } from './arcadeprep';
 import { careerFocusables, drawCareerScreen, keyCareerScreen, openPrepDemo, tapCareerScreen, ui as careerUi } from './careerScreens';
 import { openShowroom, show } from './showroom';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
@@ -37,8 +38,9 @@ import { todayKey } from './daily';
 export type ScreenId = 'loading' | 'title' | 'options' | 'controls' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores' | 'achievements'
   | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd' | 'collection' | 'careerMenu' | 'showroom' | 'prepDemo'
   | 'usedCars' | 'careerStats' // classificados de usados e estatísticas da carreira (careerPages.ts)
-  | 'daily' | 'dailyEnd'; // desafio do dia (dailyScreens.ts)
-const CAREER_SCREENS: ScreenId[] = ['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection', 'careerMenu', 'showroom', 'prepDemo', 'usedCars', 'careerStats'];
+  | 'daily' | 'dailyEnd' // desafio do dia (dailyScreens.ts)
+  | 'arcadeMenu' | 'arcadePrep'; // Arcade: CORRER ou OFICINA, e a oficina do Arcade (careerScreens.ts)
+const CAREER_SCREENS: ScreenId[] = ['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection', 'careerMenu', 'showroom', 'prepDemo', 'usedCars', 'careerStats', 'arcadeMenu', 'arcadePrep'];
 // prevTab/nextTab: LB/RB do controle (ou Q/E, PageUp/PageDown) nos menus: filtro de classe
 export type MenuKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back' | 'prevTab' | 'nextTab';
 
@@ -453,7 +455,7 @@ function activateTitle(s: AppState, i: number, a: Actions) {
     dsel.date = todayKey(); // o selo abre sempre o desafio de hoje
     return a.go('daily');
   }
-  a.go((['car', 'careerMenu', 'showroom', 'scores', 'options'] as ScreenId[])[i]);
+  a.go((['arcadeMenu', 'careerMenu', 'showroom', 'scores', 'options'] as ScreenId[])[i]);
 }
 
 // ---------- opções: quatro abas (fichas no alto da página) ----------
@@ -712,8 +714,22 @@ export function verdictBox(c: CanvasRenderingContext2D, r: Rect, car: CarSpec) {
 // nota em estrelas pelo índice de desempenho
 export const carStars = (car: CarSpec) => Math.max(1, Math.min(5, Math.round(perfIndex(car) / 160)));
 
+// ficha do carro com as peças da oficina do Arcade: a potência escrita é a das peças (com o 'accel'
+// compensado, para a física da classe e do gráfico continuar a mesma), o 0-100 é medido na física e o
+// motor fica o da ficha (o " turbo" do kit já aparece na potência e não cabe na linha)
+const prepShown = new Map<CarSpec, CarSpec>();
+function arcadeShown(car0: CarSpec): CarSpec {
+  const t = arcadeTuned(car0);
+  if (t === car0) return car0;
+  let v = prepShown.get(t);
+  if (!v) {
+    const cv0 = parseInt(car0.power), cv = Math.round((cv0 * t.accel) / car0.accel);
+    prepShown.set(t, (v = { ...t, power: `${cv} cv`, accel: (t.accel * cv0) / cv, engine: car0.engine, zeroTo100: accelCurve(t, 30).t100 || t.zeroTo100 }));
+  }
+  return v;
+}
 function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
-  const car = CARS[s.carIdx];
+  const car = arcadeShown(CARS[s.carIdx]);
   const x = ox();
   paper(c);
   masthead(c, 'TESTE COMPLETO');
@@ -732,14 +748,17 @@ function drawCarSelect(c: CanvasRenderingContext2D, s: AppState) {
   headline(c, car.name.toUpperCase(), x + (br ? 26 : 4), 50, 16, INK);
   ink(c, 'NOTA', x + 214, 40, 5, GREY);
   stars(c, x + 236, 39, carStars(car), 6);
+
   const ids = filtered(CARS, s.carFilter);
   ink(c, `${ids.indexOf(s.carIdx) + 1} de ${ids.length}`, x + SAFE_W - 4, 54, 5, GREY, 'right');
   // foto de estúdio
   const ph: Rect = { x: x + 4, y: 70, w: 204, h: 82 };
   photo(c, ph, () => {
-    const sw = carSwap('select', car, s.t); // troca animada: sai acelerando, o outro chega
+    const sw = carSwap('select', arcadeTuned(CARS[s.carIdx]), s.t); // troca animada: sai acelerando, o outro chega
     drawCarSide(c, x + 14 + sw.dx * ph.w, ph.y + 74, 184, sw.car, paintHex(sw.car.id), sw.roll ? (sw.roll * ph.w) / (0.058 * 184) : undefined);
   });
+  // peças da oficina do Arcade: a ficha, a classe e o gráfico já são do carro preparado
+  if (car !== CARS[s.carIdx]) kicker(c, 'PREPARADO', ph.x + 3, ph.y + 3, RED, YELLOW);
   arrow(c, b.prev, 'left');
   arrow(c, b.next, 'right');
   // cores
@@ -1819,7 +1838,7 @@ function drawLegend(c: CanvasRenderingContext2D, s: AppState) {
     if (sc === 'course') items.push('◀▶: horário');
     if (sc === 'options' && isVolItem(s.sel)) items.push('◀▶: volume');
     if (sc === 'options') items.push(`${cls}: aba`);
-    if ((sc === 'garage' && !careerUi.prep) || sc === 'prepDemo') items.push(`${cls}: carro`);
+    if ((sc === 'garage' && !careerUi.prep) || sc === 'prepDemo' || sc === 'arcadePrep') items.push(`${cls}: carro`);
     items.push(`${ok}: ${sc === 'showroom' && !detail ? 'ver' : sc === 'dealer' ? 'comprar' : 'escolher'}`);
     if (sc !== 'title' || DESKTOP_UA) items.push(`${back}: ${sc === 'title' ? 'sair' : 'voltar'}`);
     if (sc === 'car' || sc === 'opponent' || (sc === 'showroom' && !detail) || sc === 'dealer') items.push(`${cls}: classe`);
@@ -1895,7 +1914,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
       } else if (inside(x, y, b.prev)) s.carIdx = stepCar(CARS, s.carFilter, s.carIdx, -1);
       else if (inside(x, y, b.next)) s.carIdx = stepCar(CARS, s.carFilter, s.carIdx, 1);
       else if (inside(x, y, b.ok)) a.go('opponent');
-      else if (inside(x, y, b.back)) a.go('title');
+      else if (inside(x, y, b.back)) a.go('arcadeMenu');
       else {
         // toque com folga em volta de cada cor (dedos maiores que os quadradinhos)
         swatches().forEach((r, i) => {
@@ -2004,7 +2023,7 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
     // cima/baixo (e LB/RB, como nos classificados) trocam o filtro de classe
     if (k === 'up' || k === 'down' || k === 'prevTab' || k === 'nextTab') setCarFilter(s, nextFilter(s.carFilter, k === 'down' || k === 'nextTab' ? 1 : -1, (c2) => filtered(CARS, c2).length > 0));
     if (k === 'ok') a.go('opponent');
-    if (k === 'back') a.go('title');
+    if (k === 'back') a.go('arcadeMenu');
     return;
   }
   if (s.screen === 'gas') {

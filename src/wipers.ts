@@ -161,14 +161,18 @@ export function drawWipers(c: CanvasRenderingContext2D, r: Race, vp: Viewport, d
     if (sHi > sLo) {
       for (const pv of pivots) {
         const lo = pv.rest - SWEEP * sHi - 0.04, hi = pv.rest - SWEEP * sLo + 0.04;
+        // (só as colunas ao alcance da palheta; raio comparado ao quadrado antes do ângulo)
+        const r0 = (L * 0.1) ** 2, r1 = (L + 1) ** 2;
+        const i0 = Math.max(0, Math.floor((pv.x - (L + 2) / view.aspect) / CELL - 1));
+        const i1 = Math.min(filmW - 1, Math.ceil((pv.x + (L + 2) / view.aspect) / CELL + 1));
         for (let j = 0; j < filmH; j++) {
           const cy = filmY0 + (j + 0.5) * CELL;
           const dy = (cy - pv.y) / FORE;
           if (Math.abs(dy) > L + 2) continue;
-          for (let i = 0; i < filmW; i++) {
+          for (let i = i0; i <= i1; i++) {
             const dx = ((i + 0.5) * CELL - pv.x) * view.aspect;
-            const rr = Math.hypot(dx, dy);
-            if (rr < L * 0.1 || rr > L + 1) continue;
+            const rr = dx * dx + dy * dy;
+            if (rr < r0 || rr > r1) continue;
             const ang = Math.atan2(dy, dx);
             if (ang >= lo && ang <= hi) film[j * filmW + i] = 0;
           }
@@ -228,25 +232,22 @@ export function drawWipers(c: CanvasRenderingContext2D, r: Race, vp: Viewport, d
     c.drawImage(filmCv, 0, filmY0, filmW * CELL, filmH * CELL);
     c.imageSmoothingEnabled = sm;
   }
-  for (const p of parts) {
-    const x = Math.round(p.x * 2) / 2, y = Math.round(p.y * 2) / 2;
-    if (p.snow) {
-      // floco: centro branco e borda azulada
-      const s = p.s === 2 ? 1.5 : 1;
-      c.fillStyle = 'rgba(190,205,230,0.8)';
-      c.fillRect(x - 0.5, y - 0.5, s + 1, s + 1);
-      c.fillStyle = '#fbfdff';
-      c.fillRect(x, y, s, s);
-    } else {
-      // gota: um pixel de água com brilho em cima e sombra embaixo (lente)
-      const s = p.s === 2 ? 1.5 : 1;
-      c.fillStyle = 'rgba(150,175,205,0.45)';
-      c.fillRect(x, y, s, s);
-      c.fillStyle = 'rgba(245,250,255,0.85)';
-      c.fillRect(x, y, 0.5, 0.5);
-      c.fillStyle = 'rgba(15,25,45,0.45)';
-      c.fillRect(x, y + s, s, 0.5);
-    }
+  // gotas/flocos: cada camada (borda, centro, brilho, sombra) num comando de desenho só, em vez de
+  // 2 a 3 por gota (até ~780 por quadro com o vidro cheio)
+  if (parts.length) {
+    const layer = (col: string, rect: (p: Part, x: number, y: number, s: number) => void, snow: boolean) => {
+      c.fillStyle = col;
+      c.beginPath();
+      for (const p of parts) if (p.snow === snow) rect(p, Math.round(p.x * 2) / 2, Math.round(p.y * 2) / 2, p.s === 2 ? 1.5 : 1);
+      c.fill();
+    };
+    // floco: centro branco e borda azulada
+    layer('rgba(190,205,230,0.8)', (_p, x, y, s) => c.rect(x - 0.5, y - 0.5, s + 1, s + 1), true);
+    layer('#fbfdff', (_p, x, y, s) => c.rect(x, y, s, s), true);
+    // gota: um pixel de água com brilho em cima e sombra embaixo (lente)
+    layer('rgba(150,175,205,0.45)', (_p, x, y, s) => c.rect(x, y, s, s), false);
+    layer('rgba(245,250,255,0.85)', (_p, x, y) => c.rect(x, y, 0.5, 0.5), false);
+    layer('rgba(15,25,45,0.45)', (_p, x, y, s) => c.rect(x, y + s, s, 0.5), false);
   }
   for (const pv of pivots) drawWiper(c, pv.x, pv.y, L, pv.rest - SWEEP * sNow);
   c.restore();

@@ -3,13 +3,12 @@
 // seu melhor do dia, regra cumprida e o botão de copiar o código para os amigos).
 import { SAFE_W, view } from './config';
 import { drawCarSide } from './cars';
-import { paintHex } from './paint';
 import { toast as notify } from './challenges';
 import { inside, type Focusable, type FocusSet, type Rect } from './ui';
 import { BLUE, GREY, INK, RED, YELLOW, box, burst, headline, ink, kicker, masthead, paper, photo, rule, specRows, tag } from './mag';
 import {
   TIME_NAME, WEATHER_NAME, acceptCode, dailyFor, dateLabel, dateShort, dayEntry, daysPlayed, fmtLap, friendResult, mapLabel,
-  playerName, resultCode, resultCodeWithGhost, ruleShort, ruleText, setPlayerName, streak, todayKey, type Daily,
+  playerName, resultCode, resultCodeWithGhost, ruleShort, ruleText, setPlayerName, streak, todayKey,
 } from './daily';
 import type { Actions, AppState, MenuKey } from './screens';
 

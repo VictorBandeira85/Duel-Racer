@@ -26,3 +26,36 @@ export function formatTime(t: number) {
   const s = t - m * 60;
   return `${m}:${s.toFixed(2).padStart(5, '0')}`;
 }
+
+// cache com limite (o mais antigo sai primeiro): texturas e padrões feitos por cor, que no pôr do
+// sol, no amanhecer e com o tempo virando ganham uma versão nova a cada degrau da mistura de cores
+// e cresciam sem fim ao longo da sessão. get() devolve e põe no fim (o que está em uso não sai).
+export class Lru<K, V> {
+  private m = new Map<K, V>();
+  constructor(private max: number, private onDrop?: (v: V) => void) {}
+  get(k: K): V | undefined {
+    const v = this.m.get(k);
+    if (v !== undefined) {
+      this.m.delete(k);
+      this.m.set(k, v);
+    }
+    return v;
+  }
+  set(k: K, v: V) {
+    this.m.delete(k);
+    this.m.set(k, v);
+    while (this.m.size > this.max) {
+      const old = this.m.keys().next().value as K;
+      const ov = this.m.get(old)!;
+      this.m.delete(old);
+      this.onDrop?.(ov);
+    }
+  }
+  get size() {
+    return this.m.size;
+  }
+}
+
+// objeto comum (não nulo, não lista): conferência dos saves lidos do armazenamento, que podem vir de
+// versões antigas ou estragados
+export const isObj = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v);

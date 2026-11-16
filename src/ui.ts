@@ -93,6 +93,8 @@ export function dither(c: CanvasRenderingContext2D, a: string, b: string): Canva
     x.fillRect(0, 0, 1, 1);
     x.fillRect(1, 1, 1, 1);
     p = c.createPattern(t, 'repeat')!;
+    // limite: as cores do céu e do chão mudam em degraus no pôr do sol (centenas de pares por trecho)
+    if (patterns.size >= 1024) patterns.delete(patterns.keys().next().value!);
     patterns.set(key, p);
   }
   return p;

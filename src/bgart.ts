@@ -3,7 +3,7 @@
 // gerada uma vez por tema e reaproveitada.
 import { need } from './imgprio';
 import type { BgLayer } from './themes';
-import { rng } from './util';
+import { Lru, rng } from './util';
 
 export const PANO_W = 1024;
 export const PANO_H = 64;
@@ -403,7 +403,7 @@ export const skyline = (cv: HTMLCanvasElement) => skylines.get(cv);
 
 // Nuvens em pixel art para o céu de dia (camada própria, bem lenta): cúmulos com topo
 // claro, miolo e base sombreada puxando para a cor do céu, e pontilhado nas emendas.
-const clouds = new Map<string, HTMLCanvasElement>();
+const clouds = new Lru<string, HTMLCanvasElement>(8); // (no pôr do sol a cor do céu muda em degraus: uma faixa nova por degrau)
 export const CLOUD_H = 44;
 export function cloudStrip(seed: number, sky: string, amount = 1): HTMLCanvasElement {
   const key = `${seed}:${sky}:${amount}`;

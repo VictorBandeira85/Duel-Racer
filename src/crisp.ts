@@ -15,6 +15,23 @@ export interface Crisp {
 const cache = new Map<string, Crisp>();
 const sizes = new Map<string, Map<string, [number, number]>>();
 const MAX = 900;
+// limite também em pixels somados (sprites grandes de perto): no iPhone o Safari derruba a página se
+// os canvas passam de algumas centenas de MB
+const MAX_PIXELS = 12e6;
+let pixels = 0;
+function drop(k: string) {
+  const old = cache.get(k);
+  if (!old) return;
+  cache.delete(k);
+  pixels -= old.cv.width * old.cv.height;
+  // (o canvas não é zerado: quem o pegou neste quadro, como a lista de sombras da noite, ainda desenha)
+  const base = k.slice(0, k.lastIndexOf(':'));
+  const sm = sizes.get(base);
+  if (sm) {
+    sm.delete(k);
+    if (!sm.size) sizes.delete(base);
+  }
+}
 let work: HTMLCanvasElement | null = null;
 
 // tamanhos agrupados: pequenos de 1 em 1 px, médios de 2 em 2, grandes de 4 em 4 (menos redesenhos
@@ -99,7 +116,8 @@ export function crisp(key: string, w: number, h: number, draw: Draw): Crisp {
   cv.height = H;
   cv.getContext('2d')!.putImageData(img, 0, 0);
   const out = { cv, w: bw, h: bh };
-  if (cache.size >= MAX) cache.delete(cache.keys().next().value!);
+  pixels += W * H;
+  while (cache.size && (cache.size >= MAX || pixels > MAX_PIXELS)) drop(cache.keys().next().value!);
   cache.set(k, out);
   return out;
 }

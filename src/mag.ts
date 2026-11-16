@@ -6,7 +6,6 @@ import { fixGlyphs, inside, text, type Rect } from './ui';
 
 export const INK = '#1a1614';
 export const PAPER = '#efe6d2';
-export const PAPER2 = '#e4d9c0';
 export const RED = '#d01f26';
 export const YELLOW = '#ffd21a';
 export const BLUE = '#1e4fb8';

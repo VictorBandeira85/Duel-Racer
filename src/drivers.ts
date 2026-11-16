@@ -15,7 +15,6 @@ interface Glass { s: number[][]; d: number[]; g?: number[]; t?: number[]; p?: nu
 
 const ART = import.meta.glob('./assets/people/drv-*.png', { eager: true, import: 'default' }) as Record<string, string>;
 const drvPng = (id: DriverId, view: View) => ART[`./assets/people/drv-${id}-${view}.png`];
-export const DRIVER_IMAGES = Object.values(ART);
 
 // endereço da arte -> nome do sprite no glass.json (traffic/sedan-rear, cars/diablo-front, ...)
 const SPRITES = {

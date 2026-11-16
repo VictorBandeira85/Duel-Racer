@@ -1,4 +1,4 @@
-import { CAM_H, CAR_W, POLICE_W, RES, SEG_LEN } from './config';
+import { CAM_H, CAR_W, RES, SEG_LEN } from './config';
 import { drawCar } from './cars';
 import { fxTick, perfLevel } from './perf';
 import { mirrorGlare, mirrorWash, sirenGlow, sirenWash } from './nightlight';

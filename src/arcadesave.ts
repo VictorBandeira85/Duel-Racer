@@ -9,7 +9,11 @@ const KEY = 'duel-racer:arcade-andamento';
 export function loadArcade(): ArcadeSave | null {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) || 'null');
-    return v && Array.isArray(v.results) ? v : null;
+    // (save estragado ou de outra versão: sem andamento, em vez de travar o CONTINUAR)
+    if (!v || !Array.isArray(v.results) || !Number.isInteger(v.courseIdx) || v.courseIdx < 0) return null;
+    v.results = v.results.filter((q: unknown) => !!q && typeof (q as StageResult).time === 'number');
+    if (typeof v.lives !== 'number' || !Number.isFinite(v.lives) || v.lives < 1) v.lives = 1;
+    return v;
   } catch {
     return null;
   }

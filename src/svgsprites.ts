@@ -226,6 +226,8 @@ export function svgSprite(svg: string, w: number, h: number, paint?: Paint, post
     pixels -= oc.width * oc.height;
     oc.width = oc.height = 0; // devolve a memória já
     rasters.delete(old);
+    const sm = sizes.get(old.slice(0, old.lastIndexOf(':')));
+    if (sm) sm.delete(old);
   }
   rasters.set(key, cv);
   return cv;

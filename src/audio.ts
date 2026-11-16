@@ -77,11 +77,27 @@ let lastBoost = 0, lastThrottle = false;
 export const audioCtx = () => ctx;
 export const audioOut = () => fxBus;
 export const synthReady = () => !!synth;
+// ruído branco pronto, reaproveitado por duração (cada troca de marcha, cone, derrapagem e batida criava
+// um buffer novo com dezenas de milhares de amostras); duas versões alternadas por duração, para dois
+// sons iguais ao mesmo tempo não somarem o mesmo ruído
+const noiseBufs = new Map<string, AudioBuffer>();
+let noiseFlip = 0, noiseLen = 0;
 export function noiseBuffer(seconds: number) {
   const len = Math.floor(ctx!.sampleRate * seconds);
-  const buf = ctx!.createBuffer(1, len, ctx!.sampleRate);
+  const key = `${len}:${(noiseFlip ^= 1)}`;
+  let buf = noiseBufs.get(key);
+  if (buf) return buf;
+  buf = ctx!.createBuffer(1, len, ctx!.sampleRate);
   const d = buf.getChannelData(0);
   for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  // (no máximo ~2,5 MB guardados: as durações sorteadas das batidas saem logo)
+  noiseBufs.set(key, buf);
+  noiseLen += len;
+  while (noiseLen > 640000 && noiseBufs.size > 1) {
+    const old = noiseBufs.keys().next().value!;
+    noiseLen -= noiseBufs.get(old)!.length;
+    noiseBufs.delete(old);
+  }
   return buf;
 }
 
@@ -93,11 +109,22 @@ function loopNoise() {
   return src;
 }
 
+// áudio que não sobe (navegador sem Web Audio, contexto recusado, nó que não existe nesse aparelho):
+// o jogo segue mudo, sem erro que pare o menu ou a largada
 export function initAudio() {
   if (ctx) {
-    ctx.resume();
+    ctx.resume().catch(() => {});
     return;
   }
+  try {
+    buildAudio();
+  } catch (e) {
+    console.warn('áudio indisponível', e);
+    try { (ctx as AudioContext | null)?.close().catch(() => {}); } catch { /* já fechado */ }
+    ctx = null;
+  }
+}
+function buildAudio() {
   const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
   if (!AC) return;
   ctx = new AC();
@@ -764,6 +791,8 @@ export function setSirens(list: SirenSrc[]) {
     const cut = (1100 + 1500 / (1 + d / 25)) * (s.dz < 0 ? 0.85 : 1);
     const gain = 0.055 / (1 + (d / 40) ** 2);
     const pn = Math.max(-0.9, Math.min(0.9, (s.dx / d) * 1.3));
+    // posição inválida (NaN): o setTargetAtTime lançaria erro e pararia o resto do quadro; fica como está
+    if (!Number.isFinite(freq + cut + gain + pn)) continue;
     v.osc.frequency.setTargetAtTime(freq, t, 0.06);
     v.lfoGain.gain.setTargetAtTime(v.depth * pitch, t, 0.06);
     v.filter.frequency.setTargetAtTime(cut, t, 0.1);
@@ -1041,10 +1070,10 @@ export function setMusicOn(on: boolean) {
 export function suspendAudio(hidden: boolean) {
   if (!ctx) return;
   if (hidden) {
-    ctx.suspend();
+    ctx.suspend().catch(() => {});
     fileEl?.pause();
   } else {
-    ctx.resume();
+    ctx.resume().catch(() => {});
     if (fileEl && fileIdx >= 0) fileEl.play().catch(() => {});
   }
 }

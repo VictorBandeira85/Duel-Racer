@@ -1,7 +1,6 @@
 import { need } from './imgprio';
 import { COP_HAND } from './people';
 import handMeta from './assets/people/hand.json';
-import { brandOf, drawLogo } from './brands';
 import { prefs, viewZoom } from './prefs';
 import { binds, keyName, pad, touch } from './input';
 import { STATIONS, radioStation, radioTuning } from './audio';
@@ -1556,7 +1555,6 @@ COCKPIT_ART.nsx = {
 // Serpe V10 (Viper RT/10): interior do Victor (tools/ref/viper_cockpit.py), mostradores brancos com
 // números pretos e ponteiros vermelhos: velocímetro e conta-giros (faixa amarela e vermelha) atrás
 // do volante e os quatro pequenos no meio do painel: água, pressão do óleo, combustível e bateria
-const VP_INK = '#16161a', VP_BG = '#ecebe2';
 COCKPIT_ART.viper = {
   dash: cp('viper-dash'), top: cp('viper-top'), wheel: cp('viper-wheel'), dashMask: cp('viper-dash-mask'), topMask: cp('viper-top-mask'), // capô e retrovisor na cor do carro
   pivot: [131, 105], wheelDx: -14.4, wheelTop: 14, tachReal: true, speedMax: 322, needle: '#e3241c', needleW: 2.2, needleTail: 0, needleFine: true, hub: '#151517', hubR: 3.4, pod: { x: -14, y: -51, r: 9, dx: -4.8, dy: 22.8, pillar: '#22212b', face: 'white', bezel: 'chrome', lit: 'green' }, radar: [102, 22],
@@ -2667,16 +2665,6 @@ function smallGauge(c: CanvasRenderingContext2D, cx: number, cy: number, r: numb
   c.stroke();
 }
 
-// luz-espia vermelha redonda (apagada: vermelho escuro)
-function warnLamp(c: CanvasRenderingContext2D, x: number, y: number, on: boolean) {
-  c.fillStyle = '#0a0a0c';
-  c.fillRect(x - 1.5, y - 1.5, 4, 4);
-  c.fillStyle = on ? '#ff3020' : '#4a1010';
-  c.fillRect(x - 1, y - 1, 3, 3);
-  c.fillStyle = on ? '#ffb0a0' : '#6a2020';
-  c.fillRect(x - 0.5, y - 0.5, 1, 0.5);
-}
-
 // luzes-espia da seta no quadro: duas setinhas verdes (esquerda e direita), centradas em (x, y);
 // a do lado ligado pisca junto com o relé
 function turnDot(c: CanvasRenderingContext2D, ox: number, d: NonNullable<CockpitArt['turnDot']>, signal: number) {
@@ -2747,25 +2735,28 @@ function weather(c: CanvasRenderingContext2D, r: Race, vp: Viewport, dt: number)
   if (w === 'rain') {
     c.strokeStyle = 'rgba(200,215,235,0.55)';
     c.lineWidth = 1;
+    // todas as gotas num traço só (eram ~70 comandos de desenho por quadro)
+    c.beginPath();
     for (const d of drops) {
       d.y += dt * 260 * d.v;
       d.x -= dt * (40 + sp * 120) * d.v;
       if (d.y > vp.h || d.x < 0) { d.y = -5; d.x = Math.random() * (vp.w + 60); }
-      c.beginPath();
       c.moveTo(vp.x + d.x, vp.y + d.y);
       c.lineTo(vp.x + d.x - 3, vp.y + d.y + 7);
-      c.stroke();
     }
+    c.stroke();
   } else {
     c.fillStyle = 'rgba(255,255,255,0.9)';
     const cx = vp.w / 2, cy = vp.horizon - vp.y;
+    c.beginPath(); // (todos os flocos num desenho só)
     for (const d of drops) {
       d.y += dt * (25 + sp * 60) * d.v + (d.y - cy) * dt * sp * 1.5;
       d.x += (d.x - cx) * dt * sp * 1.5;
       if (d.y > vp.h || d.x < 0 || d.x > vp.w) { d.x = cx + (Math.random() - 0.5) * vp.w * 0.8; d.y = cy + (Math.random() - 0.7) * 40; }
       const s = d.v > 1 ? 2 : 1;
-      c.fillRect(vp.x + d.x, vp.y + d.y, s, s);
+      c.rect(vp.x + d.x, vp.y + d.y, s, s);
     }
+    c.fill();
   }
   c.restore();
 }
@@ -2816,7 +2807,7 @@ function pillarExt(id: string, top: CanvasImageSource & { width: number; height:
     return [m(rs), m(gs), m(bs)];
   };
   const rgb = (c: number[], f: number) => `rgb(${Math.round(c[0] * f)},${Math.round(c[1] * f)},${Math.round(c[2] * f)})`;
-  const r0 = runs(0), dy = Math.min(rowsN - 1, Math.round(10 * sc)), r1 = runs(dy);
+  const r0 = runs(0), dy = Math.min(rowsN - 1, Math.round(10 * sc));
   const wideMin = W * 0.25, maxSlope = 1.2 * sc;
   // forro: trechos largos da primeira linha, juntando os trechos e vãos pequenos em volta
   // (retrovisor interno recortado, luz de teto) para o teto ficar inteiro
@@ -3280,23 +3271,40 @@ function drawDigitalHud(c: CanvasRenderingContext2D, r: Race, totalTime: number,
     if (d < arc) { const an = Math.PI + d / R; return [cx + Math.cos(an) * R, cy + Math.sin(an) * R, an]; }
     return [cx + (d - arc), cy - R, Math.PI * 1.5];
   };
+  // retângulo girado em (px, py): os cantos já transformados entram no caminho (um desenho por cor, em vez
+  // de save/translate/rotate/fillRect/restore para cada um dos 91 pedaços)
+  const rot = (px: number, py: number, an: number, w: number, h: number) => {
+    const ca = Math.cos(an + Math.PI / 2), sa = Math.sin(an + Math.PI / 2);
+    const pt = (x: number, y: number) => [px + x * ca - y * sa, py + x * sa + y * ca] as const;
+    const [ax, ay] = pt(-w / 2, -h / 2), [bx2, by2] = pt(w / 2, -h / 2), [cx2, cy2] = pt(w / 2, h / 2), [dx, dy] = pt(-w / 2, h / 2);
+    c.moveTo(ax, ay); c.lineTo(bx2, by2); c.lineTo(cx2, cy2); c.lineTo(dx, dy); c.closePath();
+  };
   // faixa preta por baixo de todos os segmentos
   c.fillStyle = '#000';
+  c.beginPath();
   for (let k = 0; k <= 60; k++) {
     const [px, py, an] = at((k / 60) * L);
-    c.save(); c.translate(px, py); c.rotate(an + Math.PI / 2); c.fillRect(-1.6, -4.4, 3.2, 8.8); c.restore();
+    rot(px, py, an, 3.2, 8.8);
   }
+  c.fill('nonzero');
+  // segmentos agrupados por cor (o degradê do verde ao amarelo e ao vermelho, como no original; apagado =
+  // a mesma cor bem escura)
+  let cur = '';
   for (let i = 0; i < N; i++) {
     const f = i / (N - 1);
     const [px, py, an] = at(((i + 0.5) / N) * L);
-    // degradê do verde ao amarelo e ao vermelho, como no original; apagado = a mesma cor bem escura
     const col = f >= redFrom ? ['#ff2418', '#4a0e0a'] : f >= yelFrom ? (f < (yelFrom + redFrom) / 2 ? ['#c8e020', '#33380a'] : ['#f0b818', '#3e2c08']) : ['#30e038', '#0a3a10'];
     const lit = rpm >= f - 0.001 && r.rpm > 0.02;
-    c.save(); c.translate(px, py); c.rotate(an + Math.PI / 2);
-    c.fillStyle = lit ? col[0] : col[1];
-    c.fillRect(-1.1, -3.6, 2.2, 7.2);
-    c.restore();
+    const want = lit ? col[0] : col[1];
+    if (want !== cur) {
+      if (cur) c.fill();
+      cur = want;
+      c.fillStyle = want;
+      c.beginPath();
+    }
+    rot(px, py, an, 2.2, 7.2);
   }
+  if (cur) c.fill();
   // caixa preta da velocidade
   const bx = x0 + 22, by = y0 + 11, bw = W - 22, bh = 19;
   c.fillStyle = '#000';

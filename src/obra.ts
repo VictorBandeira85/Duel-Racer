@@ -1,5 +1,5 @@
 import { LANE_W, SEG_LEN } from './config';
-import { BARREL_W, BLITZ_SIGNS_M, HORSE_W, coneLine, drawWorkSign, type Closure, type Cone } from './blitz';
+import { BLITZ_SIGNS_M, HORSE_W, coneLine, drawWorkSign, type Closure, type Cone } from './blitz';
 import type { Segment, Track } from './track';
 import { rng } from './util';
 
@@ -117,7 +117,6 @@ const hash = (n: number) => {
 
 // cavalete de obra: duas tábuas listradas laranja/branco em diagonal sobre pés de ferro, com o
 // pisca âmbar no alto à esquerda (apagado no sprite: o jogo acende por cima, piscando)
-export const HORSE_LAMP = { x: -0.32, y: 0.92, w: 0.14, h: 0.11 }; // lente: centro em frações (x do meio, y da base para cima)
 export function drawHorse(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
   const p = grid(c, x, y, w, h, 22, 20);
   // pisca
@@ -247,7 +246,6 @@ export function drawDigger(c: CanvasRenderingContext2D, x: number, y: number, w:
 }
 
 // semáforo portátil do pare-e-siga: caixa preta com as três lentes (o verde aceso) num poste com base
-export const LIGHT_GREEN = { x: 0, y: 0.58 }; // lente verde (fração da largura a partir do centro; altura da base)
 export function drawWorkLight(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
   const p = grid(c, x, y, w, h, 6, 26);
   p(0, 24, 6, 2, '#26262c'); p(0, 24, 6, 1, '#3a3a40'); // base

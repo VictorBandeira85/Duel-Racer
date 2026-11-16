@@ -396,8 +396,16 @@ export class Race {
   blitz: Blitz | null = null; // blitz do trecho (src/blitz.ts): cones, policial anotando, placas
   obra: Obra | null = null; // obra do trecho (src/obra.ts): faixa fechada por cones e cavaletes
   // faixas fechadas por cones (blitz e obra): ninguém da nossa mão atravessa a linha deles
+  // (montada uma vez: blitz e obra só mudam no construtor; era uma lista nova por carro do trânsito a cada passo)
+  private closureList: Closure[] | null = null;
   private closures(): Closure[] {
-    return this.blitz ? (this.obra ? [this.blitz, this.obra] : [this.blitz]) : this.obra ? [this.obra] : [];
+    const l = this.closureList;
+    if (!l || l.length !== (this.blitz ? 1 : 0) + (this.obra ? 1 : 0)) {
+      this.closureList = [];
+      if (this.blitz) this.closureList.push(this.blitz);
+      if (this.obra) this.closureList.push(this.obra);
+    }
+    return this.closureList!;
   }
   // até onde (x) se pode ir na nossa mão nesse z sem pegar cones da blitz ou da obra
   private closedEdge(z: number) {
@@ -436,7 +444,7 @@ export class Race {
     this.rivalPaint = opts.rivalPaint;
     this.pt = new Powertrain(car);
     this.rivalStyleOverride = opts.rivalStyle;
-    this.wanted = clamp(opts.wanted ?? 0, 0, 1);
+    this.wanted = Number.isFinite(opts.wanted) ? clamp(opts.wanted!, 0, 1) : 0;
     setEngineProfile(car.engine, car.id, car.soundMods);
     // cópia: o pôr do sol acende a noite no meio do trecho sem mexer na definição do percurso
     this.def = { ...course.stages[stageIdx] };

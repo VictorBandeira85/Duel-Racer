@@ -8,7 +8,7 @@ import { SAFE_W, view, KMH, RES } from './config';
 import { svgSprite } from './svgsprites';
 const PARTPNG = import.meta.glob('./assets/parts/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 const partPng = (n: string) => PARTPNG[`./assets/parts/${n}.png`];
-import { CARS, DEALER_CARS, RIMS, accelCurve, drawCar, drawCarSide, wheelPng, gearbox, layout, perfClass, type CarSpec } from './cars';
+import { CARS, DEALER_CARS, RIMS, accelCurve, drawCarSide, wheelPng, perfClass, type CarSpec } from './cars';
 import { classBadge, classLetter, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import {
   DEFAULT_SETUP, RATIO_LABEL, REGIONS, SUSP_LABEL, setupOf, buildOf, classFits, type Setup, carById, eventUnlocked, levels, newCareer, priceOf, regionUnlocked, regionsAfter, saveCareer,
@@ -18,18 +18,13 @@ import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
 import type { ScreenId, AppState, Actions, MenuKey } from './screens';
 import { accelChart, carRows, carStars, ox, padlock, stageChip, verdictBox } from './screens';
 import { BLUE, GREY, INK, RED, YELLOW, arrow, box, burst, headline, ink, kicker, masthead, paper, photo, rule, specRows, stars, tag } from './mag';
-import type { ThemeId } from './themes';
-import { focusRing, inside, panel, text, type Focusable, type FocusSet, type Rect } from './ui';
+import { focusRing, inside, text, type Focusable, type FocusSet, type Rect } from './ui';
 import { formatTime } from './util';
 import { drawPortrait, preLine, rivalOf, wrapLines } from './rivals';
 import { drawFixPanel, drawFixTag, drawStats, drawUsed, fixFocusables, fixTag, keyFix, keyStats, keyUsed, openUsed, pg, statsFocusables, tapFix, tapStats, tapUsed, usedFocusables } from './careerPages';
 import { drawUsedSide, forgetCar } from './usedcars';
 import { rematchCount, rematchEvent, rematchOpen, spend, wearOf, type CareerEvent } from './career';
 
-const THEME_NAME: Record<ThemeId, string> = {
-  forest: 'Floresta', farm: 'Fazenda', desert: 'Deserto', city: 'Cidade', mountain: 'Serra', snow: 'Neve', coast: 'Litoral',
-  canyon: 'Cânion', jungle: 'Selva', autumn: 'Outono', beach: 'Praia', savanna: 'Savana', industrial: 'Indústria', alpine: 'Alpes', alpinesnow: 'Alpes nevados',
-};
 const STYLE: Record<string, [string, string]> = {
   agressivo: ['AGRESSIVO', RED], cauteloso: ['CAUTELOSO', '#1a6a2a'], imprevisivel: ['IMPREVISÍVEL', '#b07000'],
 };

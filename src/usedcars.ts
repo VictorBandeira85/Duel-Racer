@@ -4,7 +4,7 @@
 import { DEALER_CARS, PERF_CLASSES, drawCarSide, perfClass, type CarSpec } from './cars';
 import { DEFECTS, DEFECT_IDS, REGIONS, priceOf, regionUnlocked, repairCost, saveCareer, spend, wearOf, type CareerSave, type Defect } from './career';
 import { drawSideDamage, type GlassMark } from './damage';
-import { PAINTS, paintHex, setPaint } from './paint';
+import { PAINTS, setPaint } from './paint';
 import { rng } from './util';
 
 export interface UsedAd { key: string; car: CarSpec; km: number; defects: Defect[]; price: number; paint: number; seller: string; phone: string; extra: string; sold: boolean }
@@ -145,4 +145,3 @@ export function drawUsedSide(c: CanvasRenderingContext2D, x: number, y: number, 
   }
 }
 export const paintOfAd = (ad: UsedAd) => PAINTS[ad.paint]?.hex;
-export const carPaint = (car: CarSpec) => paintHex(car.id) ?? car.color;

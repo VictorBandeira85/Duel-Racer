@@ -23,7 +23,7 @@ import { CARS, CLASS_COLOR, accelCurve, drawCar, drawCarSide, sideLamps, gearbox
 import { COURSES, TIME_LABEL, TIME_NEXT, unlockedCourses, withTimeOfDay, type ArcadeTime, type Course } from './courses';
 import { classBadge, drawFilter, filterAt, filterRects, filtered, nextFilter, stepCar, type ClassFilter } from './classui';
 import { THEMES } from './themes';
-import { dither, focusRing, inside, panel, spatialStep, text, type Focusable, type FocusSet, type Rect } from './ui';
+import { focusRing, inside, spatialStep, text, type Focusable, type FocusSet, type Rect } from './ui';
 import { hasCockpitArt, interiorPhoto } from './cockpit';
 import { BLUE, GREY, INK, RED, YELLOW, arrow, barcode, box, burst, halftone, headline, ink, kicker, logo, masthead, paper, photo, rule, specRows, stars, tag } from './mag';
 import { formatTime, shade } from './util';
@@ -94,7 +94,8 @@ export const ox = () => Math.floor((view.w - SAFE_W) / 2);
 export interface ScoreEntry { time: number; car: string; won: boolean; score?: number }
 export function loadScores(course: Course): ScoreEntry[] {
   try {
-    return JSON.parse(localStorage.getItem(`duel-racer:scores:${course.id}`) || '[]');
+    const v = JSON.parse(localStorage.getItem(`duel-racer:scores:${course.id}`) || '[]');
+    return Array.isArray(v) ? v.filter((e) => e && typeof e.time === 'number') : [];
   } catch {
     return [];
   }
@@ -898,68 +899,6 @@ function scrollCourses(s: AppState) {
   s.courseTop = Math.max(0, Math.min(COURSES.length - COURSE_ROWS, s.courseTop));
 }
 
-function drawCourseStrip(c: CanvasRenderingContext2D, r: Rect, course: Course, t: number) {
-  c.save();
-  c.beginPath();
-  c.roundRect(r.x, r.y, r.w, r.h, 8);
-  c.clip();
-  const n = course.stages.length;
-  const sw = r.w / n;
-  course.stages.forEach((st, i) => {
-    const th = THEMES[st.theme];
-    c.fillStyle = st.night ? shade(th.mapColor, -0.5) : th.mapColor;
-    c.fillRect(r.x + i * sw, r.y, sw + 1, r.h);
-    c.fillStyle = dither(c, 'rgba(0,0,0,0.12)', 'rgba(0,0,0,0)');
-    c.fillRect(r.x + i * sw, r.y, sw + 1, r.h);
-    const cx = r.x + i * sw + sw / 2;
-    if (st.night) {
-      c.fillStyle = '#ffe680';
-      c.beginPath();
-      c.arc(cx + 14, r.y + 10, 5, 0, Math.PI * 2);
-      c.fill();
-      c.fillStyle = shade(th.mapColor, -0.5);
-      c.beginPath();
-      c.arc(cx + 16, r.y + 8, 5, 0, Math.PI * 2);
-      c.fill();
-    }
-    if (st.weather) {
-      c.fillStyle = '#6a6a78';
-      c.beginPath();
-      c.ellipse(cx - 12, r.y + 10, 10, 5, 0, 0, Math.PI * 2);
-      c.fill();
-      c.fillStyle = st.weather === 'snow' ? '#fff' : '#9ac0ff';
-      if (st.weather === 'fog') { // neblina: faixas cinzentas no lugar das gotas
-        c.fillStyle = '#c8ccd2';
-        for (let k = 0; k < 3; k++) c.fillRect(cx - 22 + k * 3, r.y + 17 + k * 3, 16, 1);
-      } else for (let k = 0; k < 4; k++) c.fillRect(cx - 18 + k * 4, r.y + 17 + (k % 2) * 3, 1, 3);
-    }
-    if (st.theme === 'city') {
-      c.fillStyle = st.night ? '#ffd86b' : '#d8d0e8';
-      for (let k = 0; k < 4; k++) c.fillRect(cx - 20 + k * 9, r.y + r.h - 18 - (k % 3) * 4, 6, 12 + (k % 3) * 4);
-    }
-  });
-  // estrada
-  const wave = (x: number) => r.y + r.h / 2 + Math.sin((x - r.x) * 0.045 * (1 + course.stages[0].curviness * 0.3)) * 8 * (0.6 + course.rivalSkill - 0.9);
-  c.strokeStyle = '#3a3a3a';
-  c.lineWidth = 6;
-  c.beginPath();
-  for (let x = r.x; x <= r.x + r.w; x += 2) c.lineTo(x, wave(x));
-  c.stroke();
-  c.strokeStyle = '#e8c018';
-  c.lineWidth = 1;
-  c.beginPath();
-  for (let x = r.x; x <= r.x + r.w; x += 2) c.lineTo(x, wave(x));
-  c.stroke();
-  for (let i = 1; i <= n; i++) {
-    const gx = r.x + i * sw - 26;
-    c.fillStyle = '#1a3aa8';
-    c.fillRect(gx - 1, wave(gx) - 15, 22, 9);
-    text(c, 'GAS', gx + 10, wave(gx) - 14, 5, '#ffd400', 'center', null);
-  }
-  c.restore();
-  void t;
-}
-
 // cadeado de pixel (aro e corpo com o buraco da chave)
 export function padlock(c: CanvasRenderingContext2D, cx: number, cy: number) {
   c.strokeStyle = INK;
@@ -1231,7 +1170,7 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   // lanternas deixam um vermelho fraco no chão atrás. Tudo preso ao carro: acompanha a chegada
   const lamps = night ? sideLamps(carX, GY + arr.dip, 170, car, paintHex(car.id)) : null;
   if (lamps) {
-    const [hx, hy] = lamps.head, [tx, ty] = lamps.tail;
+    const [hx, hy] = lamps.head, [tx] = lamps.tail;
     const oval = (cx: number, cy: number, rx: number, ry: number) => {
       c.beginPath();
       c.ellipse(Math.round(cx), Math.round(cy), rx, ry, 0, 0, Math.PI * 2);

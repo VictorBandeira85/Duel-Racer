@@ -3,6 +3,7 @@
 // trecho (com qualquer carro), gravada como a posição na pista a cada décimo de segundo, que
 // volta transparente nas próximas tentativas para você disputar com ela.
 import type { Race } from './race';
+import { isObj } from './util';
 
 const KEY_T = 'duel-racer:recordes';
 const KEY_G = 'duel-racer:fantasmas';
@@ -22,11 +23,15 @@ export interface Ghost {
 const read = <T>(key: string, empty: T): T => {
   try {
     const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : empty;
+    if (!raw) return empty;
+    const v = JSON.parse(raw);
+    // save estragado ou de outra versão (número, lista, texto): vale o vazio (gravar num número lançaria erro)
+    return (typeof empty === 'object' ? isObj(v) : typeof v === typeof empty) ? (v as T) : empty;
   } catch {
     return empty;
   }
 };
+const okGhost = (g: unknown): g is Ghost => isObj(g) && typeof g.time === 'number' && Array.isArray(g.z) && Array.isArray(g.x) && g.z.length === g.x.length;
 const write = (key: string, v: unknown) => {
   try {
     localStorage.setItem(key, JSON.stringify(v));
@@ -42,16 +47,13 @@ export function setGhostOn(on: boolean) {
   write(KEY_ON, on);
 }
 
-export function bestTime(course: string, stage: number, car: string): number | undefined {
-  return read<Record<string, number>>(KEY_T, {})[`${stageKey(course, stage)}:${car}`];
-}
-
 // force: carrega mesmo com o fantasma desligado (para poder ligá-lo na pausa)
 export function loadGhost(course: string, stage: number, force = false): Ghost | null {
   if (!force && !ghostOn()) return null;
   // o fantasma de um amigo (código colado) tem a vez sobre o seu
   const friend = read<Record<string, Ghost>>('duel-racer:fantasmas-amigo', {})[stageKey(course, stage)];
-  return friend ?? read<Record<string, Ghost>>(KEY_G, {})[stageKey(course, stage)] ?? null;
+  const g = okGhost(friend) ? friend : read<Record<string, Ghost>>(KEY_G, {})[stageKey(course, stage)];
+  return okGhost(g) ? g : null;
 }
 
 // Fim do trecho: grava o recorde do carro e, se for a melhor passagem do trecho, o fantasma.
@@ -175,6 +177,10 @@ export async function loadGhostCode(code: string): Promise<{ course: string; n: 
     const bytes = await unpack(body);
     const friends = read<Record<string, FriendGhost>>(KEY_F, {});
     let p = 0;
+    // código truncado ou adulterado: recusa em vez de guardar um fantasma com posições inválidas (NaN)
+    if (!isObj(meta) || typeof meta.c !== 'string' || !Array.isArray(meta.s)) return null;
+    if (meta.s.some((m) => !isObj(m) || ![m.i, m.time, m.z0, m.x0, m.n].every(Number.isFinite) || m.n < 1 || m.n > 1e5)) return null;
+    if (meta.s.reduce((a, m) => a + (m.n - 1) * 2, 0) > bytes.length) return null;
     for (const m of meta.s) {
       const z = [m.z0], x = [m.x0];
       let qz = Math.round(m.z0 / ZQ), qx = Math.round(m.x0 / XQ);

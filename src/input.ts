@@ -36,7 +36,11 @@ const DEFAULT_BIND: Record<Key, string> = { left: 'KeyA', right: 'KeyD', gas: 'K
 const BIND_KEY = 'duel-racer:teclas';
 export const binds: Record<Key, string> = (() => {
   try {
-    return { ...DEFAULT_BIND, ...JSON.parse(localStorage.getItem(BIND_KEY) || '{}') };
+    const v = JSON.parse(localStorage.getItem(BIND_KEY) || '{}');
+    const out = { ...DEFAULT_BIND };
+    // (só as ações conhecidas, com o código da tecla em texto: save estragado não quebra a tela CONTROLES)
+    if (v && typeof v === 'object') for (const k of Object.keys(out) as Key[]) if (typeof v[k] === 'string') out[k] = v[k];
+    return out;
   } catch {
     return { ...DEFAULT_BIND };
   }

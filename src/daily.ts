@@ -121,7 +121,7 @@ const KEY = 'duel-racer:desafio';
 function load(): DailySave {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) || 'null');
-    return s && s.days ? s : { days: {} };
+    return s && typeof s.days === 'object' && s.days && !Array.isArray(s.days) ? s : { days: {} };
   } catch {
     return { days: {} };
   }

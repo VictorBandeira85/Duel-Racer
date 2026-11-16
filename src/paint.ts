@@ -21,7 +21,8 @@ export const PAINTS = [
 const KEY = 'duel-racer:paint';
 let chosen: Record<string, number> = {};
 try {
-  chosen = JSON.parse(localStorage.getItem(KEY) || '{}');
+  const v = JSON.parse(localStorage.getItem(KEY) || '{}');
+  if (v && typeof v === 'object' && !Array.isArray(v)) chosen = v;
 } catch {
   chosen = {};
 }

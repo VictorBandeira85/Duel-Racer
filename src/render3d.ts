@@ -3,7 +3,7 @@ import { drawSmoke } from './smoke';
 import { drawCrisp } from './crisp';
 import { BARREL_H, CONE_H, HORSE_H, coneLine, coneW, drawCone, type Cone } from './blitz';
 import { FLAG_H, FLAG_W, PROP_SIZE, drawBarrel, drawDigger, drawFlagman, drawHorse, drawPile, drawRoller, drawWorkLight, inObra, type ObraProp } from './obra';
-import { CAM_DEPTH, CAM_H, CAR_W, CRES, DRAW_DIST, PLAYER_Z, POLICE_W, SEG_LEN } from './config';
+import { CAM_DEPTH, CAM_H, CAR_W, CRES, DRAW_DIST, PLAYER_Z, SEG_LEN } from './config';
 import { CARS, drawCar } from './cars';
 import { lowFx, fxMode, setPerfScene } from './perf';
 import { TEX, groundTex, kindOf, texSlice } from './groundtex';
@@ -17,7 +17,7 @@ import { FOG_COLOR, type BgLayer } from './themes';
 import type { Point, Segment } from './track';
 import { dither } from './ui';
 import { PANO_H, PANO_W, cloudStrip, panorama, skyline } from './bgart';
-import { lerp, shade } from './util';
+import { Lru, lerp } from './util';
 
 export interface Viewport {
   dash?: number; // linha onde começa o painel (a pista visível acaba ali)
@@ -78,7 +78,7 @@ function laneLine(c: CanvasRenderingContext2D, s: Segment, at: number, width: nu
 
 // Chão e asfalto no estilo 16 bits: textura em tufos (grama) e grãos (asfalto) com faixas claras e
 // escuras alternadas a cada 3 segmentos, que passam por baixo do carro e dão a sensação de velocidade
-const turfs = new Map<string, CanvasPattern>();
+const turfs = new Lru<string, CanvasPattern>(96);
 function turf(c: CanvasRenderingContext2D, a: string, b: string, kind: 'grass' | 'asphalt' | 'gravel', light: boolean): CanvasPattern {
   const key = `${a}|${b}|${kind}|${light}`;
   let p = turfs.get(key);

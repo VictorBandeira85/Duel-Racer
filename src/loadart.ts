@@ -9,19 +9,6 @@ const px = (c: CanvasRenderingContext2D, col: string, x: number, y: number, w: n
   c.fillStyle = col;
   c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
 };
-function disc(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, col: string, ry = r) {
-  c.fillStyle = col;
-  c.beginPath();
-  c.ellipse(cx, cy, r, ry, 0, 0, Math.PI * 2);
-  c.fill();
-}
-function ring(c: CanvasRenderingContext2D, cx: number, cy: number, r: number, col: string, w = 1, ry = r) {
-  c.strokeStyle = col;
-  c.lineWidth = w;
-  c.beginPath();
-  c.ellipse(cx, cy, r, ry, 0, 0, Math.PI * 2);
-  c.stroke();
-}
 
 // parede da oficina com azulejo e piso, comum às fotos de oficina
 function garage(c: CanvasRenderingContext2D, r: Rect) {

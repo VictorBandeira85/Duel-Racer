@@ -15,7 +15,8 @@ export const prefs: Prefs = (() => {
   const d: Prefs = { viewV: 2, hud: true, menuPct: 50, menuPrev: 50, musSet: false, view: 1, auto: true, clutch: false, hints: true, fps: false, fps30: false, sfxPct: 100, musPct: 50, sfxPrev: 100, musPrev: 50, radio: 0 }; // música começa em 50% (pedido do Victor)
   let saved: Record<string, unknown> = {};
   try {
-    saved = JSON.parse(localStorage.getItem(KEY) || '{}');
+    const v = JSON.parse(localStorage.getItem(KEY) || '{}');
+    if (v && typeof v === 'object' && !Array.isArray(v)) saved = v; // ("null", número ou lista: fica o padrão)
   } catch {
     /* sem armazenamento ou salvo estragado: fica o padrão */
   }

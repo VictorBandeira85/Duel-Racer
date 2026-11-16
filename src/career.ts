@@ -5,6 +5,7 @@ import { CARS, PERF_CLASSES, prepareCar, type CarSpec, type PerfClass } from './
 import type { Course, StageDef } from './courses';
 import type { RivalStyle } from './race';
 import type { ThemeId } from './themes';
+import { isObj } from './util';
 
 export interface Driver { name: string; car: string; style: RivalStyle; skill: number; paint: string; quote: string }
 // rematch: revanche contra um rival já vencido (evento opcional; o id leva -rv e não entra em done)
@@ -97,11 +98,6 @@ export const REGIONS: Region[] = [
 
 // ---------- melhorias ----------
 export type Upgrade = 'motor' | 'cambio' | 'pneus';
-export const UPGRADES: { id: Upgrade; name: string; desc: string }[] = [
-  { id: 'motor', name: 'Motor', desc: '+velocidade máxima e +força' },
-  { id: 'cambio', name: 'Câmbio', desc: '+aceleração' },
-  { id: 'pneus', name: 'Pneus', desc: '+aderência nas curvas' },
-];
 export const MAX_LEVEL = 3;
 export const priceOf = (car: CarSpec) => Number(car.price.replace(/\D/g, ''));
 export const upgradeCost = (car: CarSpec, level: number) => Math.round((priceOf(car) * 0.07 * level) / 500) * 500;
@@ -199,7 +195,16 @@ export const TEST_MONEY = 1_000_000;
 export function loadCareer(): CareerSave | null {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (!s || typeof s.money !== 'number') return null;
+    if (!s || typeof s !== 'object' || typeof s.money !== 'number' || !Number.isFinite(s.money)) return null;
+    // save de outra versão ou estragado: cada campo volta ao tipo certo (lista, número, objeto) em vez de
+    // derrubar a tela da carreira; carro que saiu do jogo deixa de contar
+    const list = (v: unknown) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
+    for (const k of ['owned', 'done'] as const) s[k] = list(s[k]);
+    for (const k of ['usedSold', 'rematches'] as const) if (s[k] !== undefined) s[k] = list(s[k]);
+    for (const k of ['wins', 'races', 'earned'] as const) if (typeof s[k] !== 'number' || !Number.isFinite(s[k])) s[k] = 0;
+    for (const k of ['setup', 'builds', 'parts', 'paint', 'wear', 'odo', 'beatenAt', 'stats'] as const) if (s[k] !== undefined && !isObj(s[k])) delete s[k];
+    if (!isObj(s.upgrades)) s.upgrades = {};
+    if (s.wanted !== undefined && (typeof s.wanted !== 'number' || !Number.isFinite(s.wanted))) s.wanted = 0;
     // melhorias genéricas antigas (motor/câmbio/pneus por nível) saíram: o que foi gasto volta em dinheiro
     for (const [id, lv] of Object.entries((s.upgrades ?? {}) as Record<string, Record<string, number>>)) {
       const car = CARS.find((c) => c.id === id);
@@ -217,6 +222,8 @@ export function loadCareer(): CareerSave | null {
       for (const k of ['builds', 'parts', 'setup', 'paint'] as const) if (s[k]) delete s[k][OLD];
     }
     if (s.car === OLD) s.car = NEW;
+    s.owned = s.owned.filter((id: string) => CARS.some((c) => c.id === id));
+    if (typeof s.car !== 'string' || !s.owned.includes(s.car)) s.car = s.owned[0] ?? '';
     if (s.money < TEST_MONEY) s.money = TEST_MONEY;
     return s;
   } catch {

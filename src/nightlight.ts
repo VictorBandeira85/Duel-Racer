@@ -155,7 +155,7 @@ const moonCv = document.createElement('canvas');
 const REACH = 64; // alcance do farol, em segmentos (~90 m de chão iluminado)
 // para onde o facho aponta: posição do carro na pista (meias larguras, do centro) e o volante
 // (suavizado: no teclado ele vai de 0 a 1 de uma vez e o facho pularia)
-let aimU = 0, aimSteer = 0;
+let aimSteer = 0;
 // bordas do facho (em meias larguras da pista) a uma fração t do alcance (0 junto ao carro, 1 no
 // fim): nasce na frente do carro e abre com a distância até pegar a pista toda.
 // l / r: até onde o facho vai para a esquerda e para a direita do eixo do carro. Os dois lados abrem
@@ -1054,8 +1054,6 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   g.fillRect(0, 0, W, H);
   g.globalCompositeOperation = 'destination-out';
   const ground = groundAhead(rd);
-  // o facho sai do carro: a posição dele na pista vem do trecho mais perto (centro da tela)
-  if (ground.length && ground[0].w > 0) aimU = Math.max(-3, Math.min(3, (cx - ground[0].x) / ground[0].w));
   aimSteer += (Math.max(-1, Math.min(1, steer)) - aimSteer) * 0.2;
   beamPitch = pitch;
   beamCx = cx;

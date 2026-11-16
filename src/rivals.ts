@@ -258,7 +258,6 @@ export function rivalOf(d: Driver): RivalProfile {
     look: { skin: '#d8a070', hair: '#1a1410', hairStyle: 'curto', top: d.paint, topStyle: 'jaqueta' },
   };
 }
-export const portraitId = (d: Driver) => `rival-${rivalOf(d).id}`;
 // fala antes da corrida: a frase do evento e depois as da ficha, mudando a cada tentativa
 export function preLine(d: Driver, attempt: number) {
   const lines = [d.quote, ...rivalOf(d).pre];

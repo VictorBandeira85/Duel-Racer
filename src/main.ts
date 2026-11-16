@@ -142,7 +142,7 @@ const actions: Actions = {
   // e o rival escolhidos agora (pode trocar de carro no meio do roteiro)
   resumeCourse() {
     const sv = loadArcade();
-    if (!sv) return;
+    if (!sv || !COURSES[sv.courseIdx]) return;
     Object.assign(state, { courseIdx: sv.courseIdx, arcadeTime: (sv.time as ArcadeTime | undefined) ?? (sv.night ? 'night' : 'day') });
     state.mode = 'arcade';
     run = {
@@ -285,7 +285,7 @@ function makeRace(i: number) {
   const prev = i > 0 ? state.results[i - 1] : undefined;
   const rivalAhead = !prev || !(prev.rival < 0 || prev.time <= prev.rival);
   // procurado pela polícia: na carreira, multas e fugas acumuladas no save; no Arcade, as multas do roteiro
-  const wanted = state.mode === 'career' ? (state.career?.wanted ?? 0) / 6 : state.results.reduce((a, q) => a + q.tickets, 0) * 0.2;
+  const wanted = state.mode === 'career' ? (state.career?.wanted ?? 0) / 6 : state.results.reduce((a, q) => a + (q.tickets || 0), 0) * 0.2; // (saves antigos sem multas: 0)
   const r = new Race(run.course, i, run.car, run.rival, state.auto, { ...run.opts, rivalAhead, wanted });
   preloadGasArt(r.def.theme); // posto do mapa deste trecho
   r.ghostRun = loadGhost(run.course.id, i, true);

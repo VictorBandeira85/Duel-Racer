@@ -1,3 +1,4 @@
+import { Lru } from './util';
 // Chão com textura em pixel art presa ao mundo (asfalto, grama, areia, neve, terra, cascalho do
 // acostamento): cada faixa fina da tela pega a linha da textura que corresponde à distância real
 // daquele ponto da estrada (em perspectiva), então a textura rola junto com a pista em vez de
@@ -11,7 +12,8 @@ const LEVELS = 5;
 
 type Kind = 'grass' | 'sand' | 'snow' | 'dirt' | 'gravel' | 'asphalt';
 export interface GroundTex { pats: CanvasPattern[]; w: number }
-const cache = new Map<string, GroundTex>();
+// (limite: no pôr do sol cada degrau de cor fazia 3 texturas novas com mipmaps, ~20 MB por trecho)
+const cache = new Lru<string, GroundTex>(18);
 
 const rgbOf = (col: string) => (col.startsWith('#') ? [1, 3, 5].map((i) => parseInt(col.slice(i, i + 2), 16)) : (col.match(/\d+/g) ?? ['0', '0', '0']).slice(0, 3).map(Number));
 const shade = ([r, g, b]: number[], k: number) => `rgb(${Math.max(0, Math.min(255, Math.round(r * k)))},${Math.max(0, Math.min(255, Math.round(g * k)))},${Math.max(0, Math.min(255, Math.round(b * k)))})`;

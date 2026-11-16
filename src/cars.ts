@@ -534,13 +534,6 @@ function engineAcc(car: CarSpec, speed: number, gearMax: number, mult = 1, slip 
   return (powerW(car) * powerShape(re, car.curve) * mult) / (car.mass * Math.max(toMs(re * gearMax), 0.5));
 }
 
-// aceleração do motor (m/s²) na marcha atual; zero no corte de giro
-export function driveAcc(car: CarSpec, gear: number, speed: number) {
-  const gearMax = car.maxSpeed * car.gears[gear];
-  if (speed >= gearMax) return 0;
-  return Math.min(engineAcc(car, speed, gearMax, gear === 0 ? car.launch ?? 1 : 1, gear === 0 ? launchRpm(car.curve) : SLIP_RPM), (car.traction ?? 1) * G);
-}
-
 // resistência: ar (v²) + pneus (m/s²)
 export function resistAcc(car: CarSpec, speed: number, dragMul = 1) {
   const v = toMs(speed);
@@ -553,13 +546,6 @@ export function autoGear(car: CarSpec, gear: number, speed: number, throttle: bo
   if (rpm >= 0.97 - 0.07 * (1 - pedal) && throttle && gear < car.gears.length - 1) return gear + 1;
   if (gear > 0 && speed < car.maxSpeed * car.gears[gear - 1] * 0.85) return gear - 1;
   return gear;
-}
-
-// marcha que o câmbio automático usaria nesta velocidade (rival e gráficos)
-export function gearFor(car: CarSpec, speed: number) {
-  let g = 0;
-  while (g < car.gears.length - 1 && speed >= car.maxSpeed * car.gears[g] * 0.97) g++;
-  return g;
 }
 
 // ---------- trem de força: câmbio com tempo de troca, turbo com atraso e patinação ----------
@@ -1558,7 +1544,6 @@ const LENGTH_M: Record<string, number> = {
 // rodas aftermarket: o aro escolhido por cima do aro original (mesmo centro e raio de WHEELS), girando junto
 const WPNG = import.meta.glob('./assets/wheels/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 export const wheelPng = (id: string) => WPNG[`./assets/wheels/${id}.png`];
-export const WHEEL_IMAGES = Object.values(WPNG);
 function drawRims(c: CanvasRenderingContext2D, car: CarSpec, L: number, T: number, W: number, H: number, spin?: number) {
   const url = car.wheelArt && wheelPng(car.wheelArt);
   if (!url || !car.wheels) return;

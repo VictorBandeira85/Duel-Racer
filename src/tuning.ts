@@ -23,6 +23,7 @@ export interface Part {
   flow?: number; // turbina: pressão (bar) que ela sustenta com eficiência; acima disso só esquenta
   ic?: number; // intercooler: quanto do calor do turbo ele tira em alta rotação (0..1)
   bar?: number; // wastegate / boost controller: pressão escolhida (bar)
+  spool?: [number, number]; // turbina: [rapidez com que enche, giro (fração do corte) em que a pressão aparece]
   launch?: number; // controle de largada (3-step): giro de largada, fração do corte
   sound?: SoundMods;
 }
@@ -148,10 +149,10 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
   const turbo = ind === 'turbo' || ind === 'all', sup = ind === 'super' || ind === 'all';
   const extra: Slot[] = [];
   if (turbo && !ft) extra.push({ id: 'turbina', name: 'Turbina', parts: [ORIGINAL('.32 (do kit)'),
-    { id: 't40', name: '.40', note: '+8% cv', cost: 0.05, power: 1.08, boost: 1.2, flow: 1.6, sound: { spool: 0.2, low: 0.94, pops: 0.1 } },
-    { id: 't50', name: '.50', note: '+15% cv', cost: 0.09, power: 1.15, boost: 1.6, flow: 2.1, sound: { spool: 0.4, low: 0.88, pops: 0.2 } },
-    { id: 't60', name: '.60', note: '+22% cv', cost: 0.13, power: 1.22, boost: 2.0, flow: 2.6, sound: { spool: 0.6, low: 0.83, pops: 0.28 } },
-    { id: 't70', name: '.70', note: '+30% cv', cost: 0.18, power: 1.3, boost: 2.4, flow: 3.1, sound: { spool: 0.8, low: 0.78, pops: 0.35 } }] });
+    { id: 't40', name: '.40', note: '+8% cv, enche a ~35%', cost: 0.05, spool: [1.3, 0.35], power: 1.08, boost: 1.2, flow: 1.6, sound: { spool: 0.2, low: 0.94, pops: 0.1 } },
+    { id: 't50', name: '.50', note: '+15% cv, enche a ~45%', cost: 0.09, spool: [1.0, 0.45], power: 1.15, boost: 1.6, flow: 2.1, sound: { spool: 0.4, low: 0.88, pops: 0.2 } },
+    { id: 't60', name: '.60', note: '+22% cv, enche a ~55%', cost: 0.13, spool: [0.78, 0.55], power: 1.22, boost: 2.0, flow: 2.6, sound: { spool: 0.6, low: 0.83, pops: 0.28 } },
+    { id: 't70', name: '.70', note: '+30% cv, enche a ~65%', cost: 0.18, spool: [0.6, 0.65], power: 1.3, boost: 2.4, flow: 3.1, sound: { spool: 0.8, low: 0.78, pops: 0.35 } }] });
   if (sup && !ft) extra.push({ id: 'polia', name: 'Polia', parts: [ORIGINAL('60 mm (do kit)'),
     { id: 'p40', name: '40 mm', note: '+8% cv', cost: 0.03, power: 1.08, boost: 0.65, sound: { whine: 0.15, blower: 0.25 } },
     { id: 'p30', name: '30 mm', note: '+14% cv', cost: 0.05, power: 1.14, boost: 0.85, sound: { whine: 0.3, blower: 0.5, drive: 1.05 } }] });
@@ -231,7 +232,7 @@ export const buildKey = (b: Build | undefined) => (b ? Object.entries(b).filter(
 export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
   if (!build || !buildKey(build)) return car;
   let boostMul = 1;
-  let power = 1, grip = 1, brake = 1, handling = 1, traction = 1, drop = 0, mass = 1, boost = 0, launchCap: number | undefined;
+  let power = 1, grip = 1, brake = 1, handling = 1, traction = 1, drop = 0, mass = 1, boost = 0, launchCap: number | undefined, spool: [number, number] | undefined;
   let forced: 'turbo' | 'super' | undefined;
   let wheel: string | undefined;
   const snd: SoundMods = {};
@@ -239,6 +240,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     const p = partOf(car, sl.id, build[sl.id]);
     power *= p.power ?? 1;
     if (p.launch) launchCap = p.launch;
+    if (p.spool) spool = p.spool;
     grip *= p.grip ?? 1;
     brake *= p.brake ?? 1;
     handling *= p.handling ?? 1;
@@ -285,6 +287,8 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     carb: isCarb(car),
     prep: power,
     launchCap,
+    // turbo do kit: a .32 (original do kit) enche rápido e cedo; as maiores, devagar e mais em cima
+    spool: forced === 'turbo' && !factoryTurbo(car) ? spool ?? [1.6, 0.25] : undefined,
     wheelArt: wheel,
     soundMods: snd,
   };

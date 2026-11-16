@@ -209,7 +209,7 @@ class Engine extends AudioWorkletProcessor {
     this.port.onmessage = (e) => {
       const m = e.data;
       if (m.spec) this.setSpec(m.spec);
-      if (m.rpm !== undefined) { this.rpm = m.rpm; this.load = m.load; this.on = m.on; this.boost = m.boost; this.pitch = m.pitch ?? 1; }
+      if (m.rpm !== undefined) { this.rpm = m.rpm; this.load = m.load; this.on = m.on; this.boost = m.boost; this.pitch = m.pitch ?? 1; this.anti = m.anti || 0; }
     };
     // estado inicial pelas opções (renderização fora do tempo real: medidas em tools/qa/sound_check.cjs)
     const o = options && options.processorOptions;
@@ -296,6 +296,13 @@ class Engine extends AudioWorkletProcessor {
         if (burble > 0 && a > 0) a *= this.rand() < burble * 0.3 ? 0.15 : 0.6 + this.rand() * burble * 1.5;
         let pop = 0;
         if (load < 0.15 && this.rpmS > 0.45 && this.rand() < s.pops * 0.05) pop = 2.2 + this.rand() * 1.5;
+        // 3-step (controle de largada) batendo no corte: a ignição atrasa e corta, o combustível
+        // explode no escape em rajadas de estouros (PAPAPRAPRAPA); falhas e estalos fortes misturados
+        if (this.anti) {
+          const q = this.rand();
+          if (q < 0.42) { a = 0; if (this.rand() < 0.75) pop = 2.6 + this.rand() * 2.2; }
+          else if (q < 0.6) a *= 0.35;
+        }
         if (a > 0 || pop) this.pulses.push({ t: 0, len: pulseLen * (pop ? 1.8 : 1), a: pop ? amp * pop + 0.25 * this.onS : a, b: s.banks[this.next], noise: pop ? 1 : s.rasp * (0.4 + load) + intake });
         this.next = (this.next + 1) % E;
       } else if (crossed) this.next = (this.next + 1) % E;

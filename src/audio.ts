@@ -254,7 +254,8 @@ export function setEngineProfile(desc: string, carId = '', mods?: import('./tuni
 }
 
 // pedal: liga/desliga (true/false) ou a posição do acelerador (0..1, gatilho do controle)
-export function setEngine(rpm: number, pedal: boolean | number, on: boolean, boost = 0) {
+// anti: 3-step (controle de largada) segurando o giro: estouros no escape
+export function setEngine(rpm: number, pedal: boolean | number, on: boolean, boost = 0, anti = false) {
   if (!ctx) return;
   const t = ctx.currentTime;
   const r = Math.max(0, Math.min(1.1, rpm));
@@ -264,7 +265,7 @@ export function setEngine(rpm: number, pedal: boolean | number, on: boolean, boo
   if (synth) {
     const dip = shiftDip > t;
     // carga do ronco segue o pé (meio acelerador = ronco mais manso), com um mínimo audível
-    synth.port.postMessage({ rpm: r, load: throttle && !dip ? 0.25 + 0.75 * amt : 0, on: on ? 1 : 0, boost });
+    synth.port.postMessage({ rpm: r, load: throttle && !dip ? 0.25 + 0.75 * amt : 0, on: on ? 1 : 0, boost, anti: anti && on ? 1 : 0 });
     gain.gain.setTargetAtTime(0, t, 0.04);
     // turbo: assobio que acompanha a pressão; ao tirar o pé com pressão alta, a válvula de alívio chia
     const tb = spec.turbo && on ? boost * (throttle ? 0.4 + 0.6 * amt : 0.25) : 0;

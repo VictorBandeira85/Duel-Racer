@@ -749,6 +749,8 @@ export class Race {
 
   update(dt: number) {
     if (this.messageT > 0) this.messageT -= dt;
+    this.antiT = Math.max(0, this.antiT - dt);
+    this.antiOn = this.antiT > 0 && this.gasPedal > 0.3;
     const max = this.car.maxSpeed;
     const t = this.track;
     const pSeg = this.findSegment(this.playerZ);
@@ -774,7 +776,7 @@ export class Race {
       }
       // segurando o giro na contagem o turbo já sobe pressão
       if (this.pt.boost < 1) this.pt.boost = lerp(this.pt.boost, 0.1 + (LAUNCH_BOOST - 0.1) * this.gasPedal, Math.min(1, dt * 2));
-      setEngine(this.rpm, this.gasPedal, true, this.pt.boost < 1 ? this.pt.boost : 0);
+      setEngine(this.rpm, this.gasPedal, true, this.pt.boost < 1 ? this.pt.boost : 0, this.antiOn);
       // o trânsito não espera a largada: segue circulando (quem vem atrás na faixa do jogador freia)
       this.updateTraffic(dt);
       this.rivalTraffic();
@@ -991,8 +993,8 @@ export class Race {
       // cai para a marcha lenta; apagado, para. Ao soltar, clutchUp casa o giro com a marcha
       const want = this.stalled ? 0 : 0.1 + 0.95 * this.gasPedal;
       this.rpm = clamp(this.rpm + (want - this.rpm) * Math.min(1, dt * (want > this.rpm ? 3.6 : 2.2)), 0, 1.04);
-      // parado com a embreagem pisada (saída de câmbio manual): o 3-step segura o giro escolhido
-      if (this.speed / this.car.maxSpeed < 0.02) this.threeStep(dt, want);
+      // embreagem pisada (parado ou andando): o 3-step segura o giro escolhido
+      this.threeStep(dt, want);
       this.shownGear = this.gear;
       this.shiftLeft = 0;
     } else if (this.gear !== this.shownGear) {
@@ -1192,7 +1194,7 @@ export class Race {
     const wind = driving || this.state === 'arrived' ? clamp((this.speed * KMH) / 260, 0, 1) ** 2 * (1 - 0.7 * this.draft) : 0;
     setTires(screech, offRoad && this.speed > 100 ? 0.4 + speedPct * 0.6 : 0, surface, driving || this.state === 'arrived' ? speedPct : 0, wind);
     // durante a troca o pé sai do acelerador: o ronco perde carga até a marcha entrar (motor apagado: mudo)
-    setEngine(Math.max(this.stalled ? 0 : 0.1, this.rpm), this.pt.shiftT <= 0 ? this.gasPedal : 0, !this.stalled, this.turboCar ? this.pt.boost : 0);
+    setEngine(Math.max(this.stalled ? 0 : 0.1, this.rpm), this.pt.shiftT <= 0 ? this.gasPedal : 0, !this.stalled, this.turboCar ? this.pt.boost : 0, this.antiOn);
     setSteam(this.smoke);
   }
 
@@ -1266,9 +1268,12 @@ export class Race {
   // controle de largada (3-step, preparação): parado, o giro não passa do escolhido pelo jogador,
   // batendo no corte dele (o ronco pipoca no limite) — pé no fundo segura ali até a largada
   private limT = 0;
+  antiOn = false; // 3-step batendo no limite (estouros no escape); vale só no quadro em que segurou
+  private antiT = 0;
   private threeStep(dt: number, want: number) {
     const cap = this.car.launchCap;
     if (!cap || this.rpm < cap - 0.005) return;
+    this.antiT = 0.12;
     this.limT += dt;
     this.rpm = want > cap ? cap - (Math.sin(this.limT * 48) > 0.2 ? 0.018 : 0) : Math.min(this.rpm, cap);
   }

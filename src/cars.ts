@@ -116,6 +116,7 @@ export interface CarSpec {
   brakeG: number; // força de frenagem (g)
   aero: number; // ganho de aderência a 300 km/h pela asa e o fundo (negativo: a frente flutua)
   traction?: number; // aderência na largada (em g), calibrada pelo 0-100
+  spool?: [number, number]; // turbo do kit: [rapidez, giro em que a pressão aparece] pela turbina
   launchCap?: number; // controle de largada (3-step da preparação): giro máximo parado, fração do corte
   launch?: number; // força extra do motor em 1ª (calibrada pelo 0-100 quando só a aderência não basta)
   drag?: number; // arrasto aerodinâmico (por m), calibrado pela velocidade máxima
@@ -589,8 +590,12 @@ export class Powertrain {
     if (tb) {
       // enche mais devagar em giro baixo; alivia (válvula de alívio) ao tirar o pé ou trocar marcha
       // (meio pé enche só parte da pressão)
-      const rate = on ? tb.rate * (0.4 + clamp(rpm, 0, 1)) : 2;
-      this.boost += ((on ? clamp(0.15 + 0.85 * pedal, 0, 1) : 0) - this.boost) * Math.min(1, dt * rate);
+      // turbo do kit: turbina pequena (.32) enche rápido e em giro baixo; grande (.70) demora e só
+      // enche em giro alto (abaixo do giro dela quase não há pressão)
+      const sp = car.spool;
+      const rate = on ? tb.rate * (sp ? sp[0] : 1) * (0.4 + clamp(rpm, 0, 1)) : 2;
+      const zone = sp ? 0.12 + 0.88 * clamp((rpm - sp[1] + 0.12) / 0.24, 0, 1) : 1;
+      this.boost += ((on ? clamp(0.15 + 0.85 * pedal, 0, 1) * zone : 0) - this.boost) * Math.min(1, dt * rate);
     }
     this.spin = 0;
     // última marcha com folga (vácuo): acima do corte a força vai sumindo até o limite da folga

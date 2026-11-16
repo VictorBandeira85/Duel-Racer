@@ -577,6 +577,7 @@ export class Powertrain {
   shiftT = 0;
   spin = 0; // rodas patinando (0..1): potência sobrando acima da aderência
   slipRpm: number; // giro da saída em 1ª (embreagem patinando); a corrida troca pelo do jogador
+  over = 0; // folga acima do corte na última marcha (vácuo: o carro passa um pouco da máxima de ficha)
   constructor(public car: CarSpec) {
     this.slipRpm = launchRpm(car.curve);
   }
@@ -603,8 +604,11 @@ export class Powertrain {
       this.boost += ((on ? clamp(0.15 + 0.85 * pedal, 0, 1) : 0) - this.boost) * Math.min(1, dt * rate);
     }
     this.spin = 0;
-    if (!on || speed >= gearMax) return 0;
-    const mult = tb ? 1 - tb.k * (1 - this.boost) : 1;
+    // última marcha com folga (vácuo): acima do corte a força vai sumindo até o limite da folga
+    const lim = gearMax * (1 + (this.gear === car.gears.length - 1 ? this.over : 0));
+    if (!on || speed >= lim) return 0;
+    const fade = speed > gearMax ? (lim - speed) / (lim - gearMax) : 1;
+    const mult = (tb ? 1 - tb.k * (1 - this.boost) : 1) * fade;
     // borboleta parcial: a força do motor acompanha o pedal, progressiva como a de verdade (o
     // começo do curso abre mais: 30% de pedal ~ metade do torque)
     const aPow = engineAcc(car, speed, gearMax, mult * (1 - (1 - clamp(pedal, 0, 1)) ** 2) * (this.gear === 0 ? car.launch ?? 1 : 1), this.gear === 0 ? this.slipRpm : SLIP_RPM);

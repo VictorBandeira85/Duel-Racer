@@ -3,7 +3,7 @@ import { carSwap } from './carswap';
 import { ACTIONS, binding, binds, keyName, lastDevice, resetBinds } from './input';
 import { drawPerson, attFor, attImg, ATT_META, ATT_H } from './people';
 import { drawSideDamage } from './damage';
-import { VIEW_LEVELS, prefs, savePrefs, volLabel } from './prefs';
+import { VIEW_LEVELS, gearLabel, nextGearMode, prefs, savePrefs, volLabel } from './prefs';
 import { clearArcade, loadArcade } from './arcadesave';
 import { gasQuip } from './score';
 import { clearFriendGhosts, friendGhostCount, ghostCode, ghostOn, loadGhostCode, setGhostOn } from './records';
@@ -31,10 +31,14 @@ import { drawEngine, drawParts, drawStation } from './loadart';
 import { DIA_PHOTOS, F4_PHOTOS, GOL_PHOTOS, LP5_PHOTOS, MZ_PHOTOS, VG_PHOTOS, VS_PHOTOS, SN_PHOTOS, PS_PHOTOS, PG_PHOTOS, P9_PHOTOS, NX_PHOTOS, PC_PHOTOS, TR_PHOTOS, VP_PHOTOS, drawPhoto } from './photos';
 import { brandOf, drawLogo } from './brands';
 import { setEngine, setTires, shiftSound } from './audio';
+import { dailyEndFocusables, dailyFocusables, dailySealRect, drawDaily, drawDailyEnd, drawDailySeal, dsel, keyDaily, tapDaily, tapDailyEnd } from './dailyScreens';
+import { todayKey } from './daily';
 
 export type ScreenId = 'loading' | 'title' | 'options' | 'controls' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores' | 'achievements'
-  | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd' | 'collection' | 'careerMenu' | 'showroom' | 'prepDemo';
-const CAREER_SCREENS: ScreenId[] = ['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection', 'careerMenu', 'showroom', 'prepDemo'];
+  | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd' | 'collection' | 'careerMenu' | 'showroom' | 'prepDemo'
+  | 'usedCars' | 'careerStats' // classificados de usados e estatísticas da carreira (careerPages.ts)
+  | 'daily' | 'dailyEnd'; // desafio do dia (dailyScreens.ts)
+const CAREER_SCREENS: ScreenId[] = ['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection', 'careerMenu', 'showroom', 'prepDemo', 'usedCars', 'careerStats'];
 // prevTab/nextTab: LB/RB do controle (ou Q/E, PageUp/PageDown) nos menus: filtro de classe
 export type MenuKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back' | 'prevTab' | 'nextTab';
 
@@ -63,7 +67,7 @@ export interface AppState {
   gasWeather?: string; // clima do trecho que acabou: chuva e neve continuam na tela do posto
   gasDmg?: number; // marcas do trecho no carro (0..1)
   gameOver: boolean;
-  mode: 'arcade' | 'career';
+  mode: 'arcade' | 'career' | 'daily';
   career: CareerSave | null;
   careerResult: EventResult | null;
   gasPage: number; // posto: 0 = chegada com o frentista, 1 = resultado do trecho
@@ -80,8 +84,9 @@ export interface Actions {
   startCourse: () => void;
   nextStage: () => void;
   setVolume: (kind: 'sfx' | 'music' | 'menu', pct: number) => void;
-  startEvent: (region: number, event: number) => void;
+  startEvent: (region: number, event: number, rematch?: boolean) => void; // rematch: revanche do rival já vencido
   resumeCourse: () => void;
+  startDaily: (date: string) => void; // desafio do dia (AAAA-MM-DD)
 }
 
 export const ox = () => Math.floor((view.w - SAFE_W) / 2);
@@ -422,9 +427,12 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
     ink(c, calls[i][1], r.x + 7, r.y + 17, 5, hot ? RED : INK);
     if (hot && Math.floor(s.t * 3) % 2 === 0) ink(c, '▶', r.x + r.w - 10, r.y + 4, 8, RED);
   });
+  // selo do desafio do dia, colado no canto da capa (s.sel 5)
+  drawDailySeal(c, s, s.sel === 5);
 }
 
 function tapTitle(s: AppState, a: Actions, x: number, y: number) {
+  if (inside(x, y, dailySealRect())) return activateTitle(s, 5, a);
   if (inside(x, y, coverRect()) && coverCarId) return coverKind === 'pc' ? openPrepDemo(s, a, '', 'title') : openShowroom(s, a, coverCarId, 'title');
   titleSigns().forEach((r, i) => {
     if (inside(x, y, r)) activateTitle(s, i, a);
@@ -440,6 +448,10 @@ function activateTitle(s: AppState, i: number, a: Actions) {
     return a.go('careerMenu');
   }
   if (i === 2) return openShowroom(s, a, '', 'title');
+  if (i === 5) {
+    dsel.date = todayKey(); // o selo abre sempre o desafio de hoje
+    return a.go('daily');
+  }
   a.go((['car', 'careerMenu', 'showroom', 'scores', 'options'] as ScreenId[])[i]);
 }
 
@@ -512,7 +524,7 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
   });
   const fx = FX_LABEL[fxMode()] + (fxMode() === 'auto' && lowFx() ? ' (ECO)' : '');
   const info: Record<Exclude<OptId, 'back'>, [string, string, string]> = {
-    gear: ['CÂMBIO', s.auto ? 'AUTOMÁTICO' : 'MANUAL', 'Automático troca sozinho; manual na sua mão'],
+    gear: ['CÂMBIO', gearLabel(s.auto), s.auto || !prefs.clutch ? 'Automático troca sozinho; manual na sua mão' : 'Pise na embreagem para trocar e para sair'],
     buttons: ['BOTÕES', BTN_SIZES[btnSizeIdx()].label, 'Tamanho dos botões de toque na corrida'],
     keys: ['TECLAS', 'TROCAR ▶', 'Teclas do teclado e mapa do controle'],
     fx: ['GRÁFICOS', fx, 'Automático vira econômico se o jogo pesar'],
@@ -548,7 +560,7 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
   MUSIC_CREDIT_LINES.forEach((l, i) => ink(c, l, x + SAFE_W / 2, Math.min(view.h - 13, 227) + i * 6, 4, 'rgba(26,22,20,0.45)', 'center'));
 }
 // ---------- controles: teclas do teclado (trocáveis) e o mapa do controle ----------
-const ctrlRects = () => [...ACTIONS.map((_, i): Rect => ({ x: ox() + 20, y: 40 + i * 18, w: 160, h: 16 })), { x: ox() + 20, y: 166, w: 160, h: 15 } as Rect, { x: ox() + 20, y: 186, w: 160, h: 15 } as Rect];
+const ctrlRects = () => [...ACTIONS.map((_, i): Rect => ({ x: ox() + 20, y: 36 + i * 16, w: 160, h: 15 })), { x: ox() + 20, y: 166, w: 160, h: 15 } as Rect, { x: ox() + 20, y: 186, w: 160, h: 15 } as Rect];
 function drawControls(c: CanvasRenderingContext2D, s: AppState) {
   const x = ox();
   paper(c);
@@ -572,9 +584,9 @@ function drawControls(c: CanvasRenderingContext2D, s: AppState) {
   });
   // controle de videogame (fixo)
   box(c, { x: x + 192, y: 38, w: 124, h: 146 }, 'CONTROLE');
-  [['Acelerar', 'RT (gradual)  ou  A / X'], ['Frear', 'LT (gradual)  ou  B / O'], ['Direção', 'Alavanca (gradual) / direc.'], ['Marchas', 'LB  /  RB'], ['Pausa', 'Start'], ['Rádio', 'Select / Back'], ['Menus', 'Direcional / alavanca + A'], ['Voltar', 'B / O']].forEach(([k, v], i) => {
-    ink(c, k, x + 198, 54 + i * 16, 5, INK);
-    ink(c, v, x + 198, 61 + i * 16, 4, GREY);
+  [['Acelerar', 'RT (gradual)  ou  A / X'], ['Frear', 'LT (gradual)  ou  B / O'], ['Direção', 'Alavanca (gradual) / direc.'], ['Marchas', 'LB  /  RB'], ['Pausa', 'Start'], ['Rádio', 'Select / Back'], ['Menus', 'Direcional / alavanca + A'], ['Voltar', 'B / O'], ['Embreagem', 'L3  ou  Y / △ (no modo)']].forEach(([k, v], i) => {
+    ink(c, k, x + 198, 52 + i * 14, 5, INK);
+    ink(c, v, x + 198, 59 + i * 14, 4, GREY);
   });
   ink(c, 'Esc: pausa  ·  F11: tela cheia', x + 20, 210, 5, GREY);
 }
@@ -601,10 +613,7 @@ function switchOptTab(s: AppState, i: number) {
 }
 function activateOption(s: AppState, a: Actions, i: number) {
   const id = optItems()[i], vk = volKindAt(i);
-  if (id === 'gear') {
-    s.auto = !s.auto;
-    savePrefs({ auto: s.auto });
-  }
+  if (id === 'gear') s.auto = nextGearMode(s.auto);
   // volumes (efeitos e música): Enter/A aumenta 10% e, passando de 100%, volta ao mudo;
   // esquerda/direita e o toque nas metades do item diminuem/aumentam (stepVolume)
   else if (vk) {
@@ -1405,6 +1414,7 @@ function drawStageResult(c: CanvasRenderingContext2D, s: AppState) {
 
 // posto: chegada -> resultado -> desafios -> próximo trecho
 function gasNext(s: AppState, a: Actions) {
+  if (s.mode === 'daily') return a.nextStage(); // desafio do dia: da chegada direto ao resultado dele
   if (!s.gasPage) s.gasPage = 1;
   else if (s.gasPage === 1 && s.results[s.results.length - 1]?.challenges) s.gasPage = 2;
   else a.nextStage();
@@ -1730,7 +1740,11 @@ export function focusables(s: AppState): FocusSet | null {
   const sel = (i: number, r: Rect, extra: Partial<Focusable> = {}): Focusable => ({ r, is: () => s.sel === i, pick: () => { s.sel = i; }, ...extra });
   switch (s.screen) {
     case 'title':
-      return { key: 'title', items: [...titleSigns().map((r, i) => sel(i, r)), { r: coverRect() }] };
+      return { key: 'title', items: [...titleSigns().map((r, i) => sel(i, r)), { r: coverRect() }, sel(5, dailySealRect(), { act: () => activateTitle(s, 5, a) })] };
+    case 'daily':
+      return dailyFocusables(s, a);
+    case 'dailyEnd':
+      return dailyEndFocusables(s, a);
     case 'options': {
       // fichas das abas (alcançadas com cima a partir do primeiro item): esquerda/direita trocam
       // de aba ali mesmo, A/Enter também; depois os itens da aba
@@ -1909,6 +1923,8 @@ function drawScreenInner(c: CanvasRenderingContext2D, s: AppState) {
     case 'end': return drawEnd(c, s);
     case 'scores': return drawScores(c, s);
     case 'achievements': return drawAchievements(c, s);
+    case 'daily': return drawDaily(c, s, -1);
+    case 'dailyEnd': return drawDailyEnd(c, s);
     default: return drawCareerScreen(c, s);
   }
 }
@@ -1917,6 +1933,8 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
   if (CAREER_SCREENS.includes(s.screen)) return tapCareerScreen(s, a, x, y);
   switch (s.screen) {
     case 'title': return tapTitle(s, a, x, y);
+    case 'daily': return tapDaily(s, a, x, y);
+    case 'dailyEnd': return tapDailyEnd(s, a, x, y);
     case 'options':
       optTabRects().forEach((r, t) => {
         if (inside(x, y, { x: r.x, y: r.y - 3, w: r.w, h: r.h + 3 })) switchOptTab(s, t);
@@ -2032,6 +2050,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
 export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (navKey(s, a, k)) return;
   if (CAREER_SCREENS.includes(s.screen)) return keyCareerScreen(s, a, k);
+  if (s.screen === 'daily' || s.screen === 'dailyEnd') return keyDaily(s, a, k);
   const counts: Partial<Record<ScreenId, number>> = { title: 5, options: optItems().length, opponent: oppList(s).length, course: COURSES.length };
   // percursos: cima/baixo escolhem, esquerda/direita trocam a hora (dia, entardecer, amanhecer, noite)
   if (s.screen === 'course' && (k === 'left' || k === 'right')) {

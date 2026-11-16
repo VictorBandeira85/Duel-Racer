@@ -25,18 +25,29 @@ export interface Cone {
   rot: number; // giro (0 = em pé; ±π/2 = deitado)
   vr: number;
   hit: boolean; // derrubado
+  kind?: 'horse' | 'barrel'; // cavalete ou barril da obra (src/obra.ts); sem nada: cone
+}
+
+// largura no mundo de cada peça que fecha a faixa (cone, cavalete listrado, barril)
+export const HORSE_W = 760, HORSE_H = 620, BARREL_W = 400, BARREL_H = 560;
+export const coneW = (c: Cone) => (c.kind === 'horse' ? HORSE_W : c.kind === 'barrel' ? BARREL_W : CONE_W);
+
+// faixa fechada por uma fileira de cones (blitz e obra): afunila de outer até inner entre z0 e z1,
+// segue fechada até z2 e abre de novo até z3. pad: meia largura da peça mais larga da fileira
+export interface Closure {
+  inner: number;
+  outer: number;
+  z0: number; z1: number; z2: number; z3: number;
+  cones: Cone[];
+  pad?: number;
 }
 
 // policial da blitz: em pé ao lado da viatura, anotando no bloco
 export interface BlitzCop { blitzCop: true; z: number; x: number }
 
-export interface Blitz {
+export interface Blitz extends Closure {
   z: number; // onde fica a viatura
   copX: number;
-  inner: number; // linha dos cones com a faixa fechada
-  outer: number; // linha dos cones no começo e no fim (no acostamento)
-  z0: number; z1: number; z2: number; z3: number; // começa a fechar, fechada, começa a abrir, aberta
-  cones: Cone[];
   officer: BlitzCop;
   max: number; // maior velocidade do jogador chegando na viatura (vale para a perseguição e a multa)
 }
@@ -59,7 +70,7 @@ export function pickBlitz(track: Pick<Track, 'segments' | 'startZ' | 'finishZ'>,
 }
 
 // linha dos cones num z (fora da blitz: no acostamento)
-export function coneLine(b: Blitz, z: number) {
+export function coneLine(b: Closure, z: number) {
   if (z <= b.z0 || z >= b.z3) return b.outer;
   if (z < b.z1) return lerp(b.outer, b.inner, (z - b.z0) / (b.z1 - b.z0));
   if (z <= b.z2) return b.inner;
@@ -67,9 +78,9 @@ export function coneLine(b: Blitz, z: number) {
 }
 
 // até onde (x) um carro na nossa mão pode ir nesse z sem pegar os cones (Infinity: fora da blitz)
-export function blitzEdge(b: Blitz | null, z: number) {
+export function blitzEdge(b: Closure | null, z: number) {
   if (!b || z < b.z0 - SEG_LEN * 2 || z > b.z3) return Infinity;
-  return coneLine(b, z) - CONE_W / 2 - 90;
+  return coneLine(b, z) - (b.pad ?? CONE_W / 2) - 90;
 }
 
 export function makeBlitz(track: Track, z: number): Blitz {
@@ -95,14 +106,15 @@ export function knockCone(c: Cone, speed: number, side: number, rand: () => numb
   if (c.hit) return;
   c.hit = true;
   const v = Math.max(1500, speed);
-  c.vz = v * (0.55 + rand() * 0.25);
-  c.vx = side * (900 + rand() * 1400 + v * 0.08);
-  c.vy = 900 + Math.min(1800, v * 0.12) + rand() * 400;
-  c.vr = side * (7 + rand() * 6);
+  const m = c.kind ? 0.6 : 1; // cavalete e barril: mais pesados, voam menos e giram mais devagar
+  c.vz = v * (0.55 + rand() * 0.25) * m;
+  c.vx = side * (900 + rand() * 1400 + v * 0.08) * m;
+  c.vy = (900 + Math.min(1800, v * 0.12) + rand() * 400) * m;
+  c.vr = side * (7 + rand() * 6) * m;
 }
 
 const CONE_G = 7000; // gravidade do cone (na escala vertical do desenho)
-export function updateCones(b: Blitz, dt: number) {
+export function updateCones(b: Closure, dt: number) {
   for (const c of b.cones) {
     if (!c.hit) continue;
     if (c.y > 0 || c.vy > 0) {
@@ -182,6 +194,11 @@ export function drawCone(c: CanvasRenderingContext2D, x: number, y: number, w: n
 
 // placa de blitz (temporária, de obra: laranja com borda e letras pretas) em dois postes
 export function drawBlitzSign(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+  drawWorkSign(c, x, y, w, h, 'BLITZ', 'REDUZA');
+}
+// placa temporária laranja (blitz e obra): duas linhas de letra, ou a de baixo trocada por uma seta
+// (arrow: -1 para a esquerda, 1 para a direita)
+export function drawWorkSign(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, l1: string, l2: string, arrow = 0) {
   for (const px of [-0.32, 0.32]) {
     c.fillStyle = '#6a6a72';
     c.fillRect(x + w * px - w * 0.035, y - h * 0.45, w * 0.07, h * 0.45);
@@ -204,11 +221,23 @@ export function drawBlitzSign(c: CanvasRenderingContext2D, x: number, y: number,
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillStyle = '#111';
-    c.font = `bold ${Math.max(4, Math.floor(ph * 0.34))}px monospace`;
-    c.fillText('BLITZ', x, top + ph * 0.33);
+    c.font = `bold ${Math.max(4, Math.floor(Math.min(ph * 0.34, (w * 0.86) / (l1.length * 0.6))))}px monospace`; // (palavra comprida: letra menor)
+    c.fillText(l1, x, top + ph * 0.33);
     c.fillRect(x - w * 0.36, top + ph * 0.54, w * 0.72, Math.max(0.5, ph * 0.03));
-    c.font = `bold ${Math.max(3, Math.floor(ph * 0.22))}px monospace`;
-    c.fillText('REDUZA', x, top + ph * 0.73);
+    if (arrow) {
+      // seta grossa: haste e ponta em degraus
+      const ay = top + ph * 0.75, aw = w * 0.26, ah = ph * 0.09;
+      c.fillRect(x - aw * 0.8, ay - ah / 2, aw * 1.4, ah);
+      c.beginPath();
+      c.moveTo(x + arrow * aw * 1.1, ay);
+      c.lineTo(x + arrow * aw * 0.45, ay - ah * 1.9);
+      c.lineTo(x + arrow * aw * 0.45, ay + ah * 1.9);
+      c.closePath();
+      c.fill();
+    } else {
+      c.font = `bold ${Math.max(3, Math.floor(ph * 0.22))}px monospace`;
+      c.fillText(l2, x, top + ph * 0.73);
+    }
   } else {
     // longe: só as duas linhas de letra
     c.fillStyle = '#111';

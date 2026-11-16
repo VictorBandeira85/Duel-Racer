@@ -4,14 +4,15 @@
 // sfxPrev/musPrev: o volume de antes do atalho de mudo da pausa (para voltar a ele)
 // view: VISÃO DO PAINEL, o zoom da cabine (0 perto: ampliada; 1 normal; 2 longe: reduzida). viewV: versão
 // desse ajuste (até a 0.55 os níveis só mudavam a altura da cabine: quem vem de lá volta para o normal)
-export interface Prefs { viewV: number; hud: boolean; menuPct: number; menuPrev: number; musSet: boolean; view: number; auto: boolean; hints: boolean; fps: boolean; fps30: boolean; sfxPct: number; musPct: number; sfxPrev: number; musPrev: number; radio: number }
+export interface Prefs { viewV: number; hud: boolean; menuPct: number; menuPrev: number; musSet: boolean; view: number; auto: boolean; clutch: boolean; hints: boolean; fps: boolean; fps30: boolean; sfxPct: number; musPct: number; sfxPrev: number; musPrev: number; radio: number }
 // radio: última estação do rádio do carro escolhida (STATIONS em audio.ts)
+// clutch: com o câmbio manual, a embreagem é do jogador (MANUAL + EMBREAGEM; desligado por padrão)
 const KEY = 'duel-racer:ajustes';
 // versões antigas: sound/music (ligado/desligado) + sfxVol/musVol (índice em 25/50/75/100%)
 const OLD_VOLS = [25, 50, 75, 100];
 const step10 = (v: number) => Math.max(0, Math.min(100, Math.round(v / 10) * 10));
 export const prefs: Prefs = (() => {
-  const d: Prefs = { viewV: 2, hud: true, menuPct: 50, menuPrev: 50, musSet: false, view: 1, auto: true, hints: true, fps: false, fps30: false, sfxPct: 100, musPct: 50, sfxPrev: 100, musPrev: 50, radio: 0 }; // música começa em 50% (pedido do Victor)
+  const d: Prefs = { viewV: 2, hud: true, menuPct: 50, menuPrev: 50, musSet: false, view: 1, auto: true, clutch: false, hints: true, fps: false, fps30: false, sfxPct: 100, musPct: 50, sfxPrev: 100, musPrev: 50, radio: 0 }; // música começa em 50% (pedido do Victor)
   let saved: Record<string, unknown> = {};
   try {
     saved = JSON.parse(localStorage.getItem(KEY) || '{}');
@@ -66,6 +67,13 @@ export function savePrefs(p: Partial<Prefs>) {
     /* sem armazenamento */
   }
 }
+// CÂMBIO nos ajustes: automático → manual → manual com embreagem → automático (devolve o novo auto)
+export function nextGearMode(auto: boolean) {
+  const next = { auto: !auto && prefs.clutch, clutch: !auto && !prefs.clutch };
+  savePrefs(next);
+  return next.auto;
+}
+export const gearLabel = (auto: boolean) => (auto ? 'AUTOMÁTICO' : prefs.clutch ? 'MANUAL + EMBR.' : 'MANUAL');
 // texto do volume nos ajustes
 export const volLabel = (pct: number) => (pct <= 0 ? 'MUDO' : `${pct}%`);
 // VISÃO DO PAINEL: zoom da cabine (a câmera do motorista mais perto ou mais longe do painel). O HUD não

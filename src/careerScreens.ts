@@ -21,6 +21,10 @@ import { BLUE, GREY, INK, RED, YELLOW, arrow, box, burst, headline, ink, kicker,
 import type { ThemeId } from './themes';
 import { focusRing, inside, panel, text, type Focusable, type FocusSet, type Rect } from './ui';
 import { formatTime } from './util';
+import { drawPortrait, preLine, rivalOf, wrapLines } from './rivals';
+import { drawFixPanel, drawFixTag, drawStats, drawUsed, fixFocusables, fixTag, keyFix, keyStats, keyUsed, openUsed, pg, statsFocusables, tapFix, tapStats, tapUsed, usedFocusables } from './careerPages';
+import { drawUsedSide, forgetCar } from './usedcars';
+import { rematchCount, rematchEvent, rematchOpen, spend, wearOf, type CareerEvent } from './career';
 
 const THEME_NAME: Record<ThemeId, string> = {
   forest: 'Floresta', farm: 'Fazenda', desert: 'Deserto', city: 'Cidade', mountain: 'Serra', snow: 'Neve', coast: 'Litoral',
@@ -33,7 +37,8 @@ export const money = (v: number) => `$${Math.round(v).toLocaleString('pt-BR')}`;
 
 // estado da interface da carreira (não vai para o save)
 // demo: oficina de preparação aberta fora da carreira (catálogo): id do carro em vista; nada é comprado
-export const ui = { demo: '', demoBack: 'title' as ScreenId, prep: false, prepRow: 0, prepView: {} as Build, revT0: -9, region: 0, event: 0, dealer: 0, garage: 0, gFocus: 6, rimPick: false, rimView: '', msg: '', msgT: 0, filter: null as ClassFilter };
+// rematch: o evento aberto (ou a última corrida) é a revanche do rival
+export const ui = { rematch: false, demo: '',demoBack: 'title' as ScreenId, prep: false, prepRow: 0, prepView: {} as Build, revT0: -9, region: 0, event: 0, dealer: 0, garage: 0, gFocus: 6, rimPick: false, rimView: '', msg: '', msgT: 0, filter: null as ClassFilter };
 export function flash(s: AppState, msg: string) {
   ui.msg = msg;
   ui.msgT = s.t + 2.2;
@@ -132,19 +137,25 @@ export function drawCareer(c: CanvasRenderingContext2D, s: AppState) {
     c.lineWidth = hot || ev.boss ? 2 : 1;
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
     // retrato do rival e o carro dele
-    helmet(c, r.x + 13, r.y + 14, 8, can ? ev.driver.paint : '#9a9286', ei + 1);
+    // liberado: o retrato do rival; trancado: só o capacete apagado (ainda não se sabe quem é)
+    if (can) drawPortrait(c, ev.driver, { x: r.x + 3, y: r.y + 3, w: 20, h: r.h - 6 });
+    else helmet(c, r.x + 13, r.y + 14, 8, '#9a9286', ei + 1);
     const rc = carById(ev.driver.car);
     if (can) drawCarSide(c, r.x + r.w - 122, r.y + 25, 54, rc, ev.driver.paint, undefined, undefined, 'rival');
     if (ev.boss) kicker(c, 'CHEFÃO', r.x + 26, r.y + 3, RED, '#fff');
     ink(c, ev.name.toUpperCase(), r.x + (ev.boss ? 64 : 26), r.y + 5, 5, can ? INK : GREY);
     ink(c, `vs ${ev.driver.name} • ${ev.stages.length} trecho${ev.stages.length > 1 ? 's' : ''}`, r.x + 26, r.y + 17, 5, can ? BLUE : GREY);
     ink(c, money(done ? ev.prize / 2 : ev.prize), r.x + r.w - 6, r.y + 5, 5, can ? '#1a6a2a' : GREY, 'right');
-    if (done) ink(c, 'VENCIDO ✓', r.x + r.w - 6, r.y + 17, 5, '#1a6a2a', 'right');
+    if (done && rematchOpen(cs, ev)) {
+      // rival vencido voltou pedindo revanche (opcional, com prêmio): selo piscando
+      if (Math.floor(s.t * 2) % 2 === 0) kicker(c, 'REVANCHE!', r.x + r.w - 52, r.y + 15, RED, YELLOW);
+      else ink(c, 'REVANCHE!', r.x + r.w - 6, r.y + 17, 5, RED, 'right');
+    } else if (done) ink(c, 'VENCIDO ✓', r.x + r.w - 6, r.y + 17, 5, '#1a6a2a', 'right');
     else if (!can) padlock(c, r.x + r.w - 60, r.y + 15); // ao lado do prêmio, sem cobrir o valor
   });
   tag(c, b.collection, 'GARAGEM');
   tag(c, b.garage, 'OFICINA');
-  tag(c, b.dealer, 'CLASSIFICADOS');
+  tag(c, b.dealer, 'CONCESSIONÁRIA');
   tag(c, b.back, '◀ VOLTAR');
   toast(c, s);
 }
@@ -153,6 +164,7 @@ function pickEvent(s: AppState, a: Actions, ei: number) {
   const cs = s.career!;
   if (!eventUnlocked(cs, ui.region, ei)) return flash(s, regionUnlocked(cs, ui.region) ? 'Vença os eventos anteriores primeiro' : 'Região trancada');
   ui.event = ei;
+  ui.rematch = rematchOpen(cs, REGIONS[ui.region].events[ei]); // rival vencido pedindo revanche: abre nela
   a.go('event');
 }
 
@@ -168,59 +180,77 @@ function tapCareer(s: AppState, a: Actions, x: number, y: number) {
 }
 
 // ---------- evento (antes da corrida) ----------
-const eventButtons = () => ({ go: { x: ox() + 216, y: 211, w: 100, h: 15 }, back: { x: ox() + 4, y: 211, w: 100, h: 15 } });
+// normal: na revanche, botão para correr a prova de sempre (sem a revanche)
+const eventButtons = () => ({ go: { x: ox() + 216, y: 211, w: 100, h: 15 }, back: { x: ox() + 4, y: 211, w: 100, h: 15 }, normal: { x: ox() + 110, y: 211, w: 100, h: 15 } });
+// o evento aberto: o da lista ou a revanche dele
+export function eventShown(): CareerEvent {
+  const ev = REGIONS[ui.region].events[ui.event];
+  return ui.rematch ? rematchEvent(ev) : ev;
+}
+const ASK = ['Um recado para o leitor?', 'Qual é o plano para hoje?', 'Está confiante?', 'O que acha do novato?', 'Medo de perder?'];
 
+// O ADVERSÁRIO: entrevista curta de revista antes da prova (retrato, ficha, história e a fala dele)
 export function drawEvent(c: CanvasRenderingContext2D, s: AppState) {
   const cs = s.career!;
   const reg = REGIONS[ui.region];
-  const ev = reg.events[ui.event];
+  const ev = eventShown();
   const d = ev.driver;
+  const p = rivalOf(d);
   const x = ox();
   paper(c);
-  topBar(c, s, 'ENTREVISTA EXCLUSIVA', cs);
-  kicker(c, ev.boss ? 'CHEFÃO DA REGIÃO' : reg.name.toUpperCase(), x + 4, 20, ev.boss ? RED : INK, ev.boss ? '#fff' : YELLOW);
-  // o piloto: retrato, nome, a frase dele
-  helmet(c, x + 20, 50, 14, d.paint, ui.event + 1);
-  headline(c, d.name.toUpperCase(), x + 40, 36, 16, ev.boss ? RED : INK);
-  text(c, '"', x + 40, 52, 16, RED, 'left', null);
-  ink(c, d.quote, x + 54, 56, 5, INK);
+  topBar(c, s, ui.rematch ? 'REVANCHE' : 'O ADVERSÁRIO', cs);
+  const hot = ev.boss || ui.rematch;
+  kicker(c, ui.rematch ? 'ELE VOLTOU E QUER REVANCHE' : `${ev.boss ? 'CHEFÃO DA REGIÃO' : reg.name.toUpperCase()} · ${ev.name.toUpperCase()}`, x + 4, 20, hot ? RED : INK, hot ? '#fff' : YELLOW);
+  // retrato e ficha: nome, apelido, idade, cidade, estilo e nível
+  drawPortrait(c, d, { x: x + 4, y: 33, w: 52, h: 60 });
+  headline(c, d.name.toUpperCase(), x + 62, 34, 8, ev.boss ? RED : INK);
+  const nick = `"${p.nick.toUpperCase()}"`;
+  ink(c, nick, x + 62, 45, 5, RED);
+  ink(c, `${typeof p.age === 'number' ? `${p.age} anos` : `idade ${p.age}`} · ${p.city}`, x + 62 + (nick.length + 1) * 5, 45, 5, GREY);
   const [label, col] = STYLE[d.style];
-  ink(c, 'ESTILO', x + 40, 68, 5, GREY);
-  ink(c, label, x + 76, 68, 5, col);
+  ink(c, 'ESTILO', x + 62, 54, 5, GREY);
+  ink(c, label, x + 98, 54, 5, col);
   const lvl = Math.max(1, Math.min(5, Math.round((d.skill - 0.86) / 0.032)));
-  ink(c, 'NÍVEL', x + 160, 68, 5, GREY);
-  stars(c, x + 190, 67, lvl, 6);
-  // o carro dele, em foto de estúdio, e a ficha
+  ink(c, 'NÍVEL', x + 190, 54, 5, GREY);
+  stars(c, x + 220, 53, lvl, 6);
+  wrapLines(c, `${p.bio[0]} ${p.bio[1]}`, SAFE_W - 66, 5).slice(0, 3).forEach((l, i) => ink(c, l, x + 62, 64 + i * 8, 5, INK));
+  // a entrevista: a pergunta da revista e a resposta dele (muda a cada tentativa)
+  const n = cs.races;
+  rule(c, x + 4, 97, SAFE_W - 8, RED);
+  ink(c, `REVISTA: ${ui.rematch ? 'Por que a revanche?' : ASK[n % ASK.length]}`, x + 4, 101, 5, GREY);
+  text(c, '"', x + 4, 108, 16, RED, 'left', null);
+  wrapLines(c, ui.rematch ? p.rematch : preLine(d, n), SAFE_W - 26, 5).slice(0, 2).forEach((l, i) => ink(c, l, x + 20, 111 + i * 8, 5, INK));
+  // o carro dele e o roteiro
   const rc = carById(d.car);
-  const ph: Rect = { x: x + 4, y: 80, w: 190, h: 76 };
-  photo(c, ph, () => drawCarSide(c, ph.x + 8, ph.y + 70, 174, rc, d.paint, undefined, undefined, 'rival'));
-  ink(c, `O ${rc.name} de ${d.name}`, ph.x, ph.y + ph.h + 5, 5, GREY);
-  const fr: Rect = { x: x + 200, y: 77, w: 116, h: 82 };
-  box(c, fr, `FICHA: ${rc.name.toUpperCase()}`);
-  specRows(c, fr, carRows(rc).filter(([k]) => k !== 'Preço' && k !== 'Layout'), 11, 15);
-  // o roteiro e o prêmio
-  ink(c, 'ROTEIRO', x + 4, 172, 5, GREY);
-  ev.stages.forEach((st, k) => stageChip(c, x + 44 + k * 42, 169, st));
+  const ph: Rect = { x: x + 4, y: 132, w: 150, h: 46 };
+  photo(c, ph, () => drawCarSide(c, ph.x + 6, ph.y + 42, ph.w - 12, rc, d.paint, undefined, undefined, 'rival'));
+  ink(c, `O ${rc.name} de ${p.nick}`, ph.x, ph.y + ph.h + 4, 4, GREY);
+  ink(c, 'ROTEIRO', x + 162, 131, 5, GREY);
+  ev.stages.forEach((st, k) => stageChip(c, x + 162 + k * 42, 139, st));
+  ink(c, `${rc.power} · ${Math.round(rc.maxSpeed * KMH)} km/h`, x + 162, 160, 4, INK);
+  ink(c, rc.engine.slice(0, 26), x + 162, 168, 4, GREY);
   const done = cs.done.includes(ev.id);
-  burst(c, x + 290, 182, 22, ['PRÊMIO', money(done ? ev.prize / 2 : ev.prize)], YELLOW, '#1a6a2a', s.t);
+  burst(c, x + 294, 176, 21, ['PRÊMIO', money(done ? ev.prize / 2 : ev.prize)], YELLOW, '#1a6a2a', s.t);
   const np = Object.values(buildOf(cs, cs.car)).filter(Boolean).length;
-  if (fits(cs, ui.region)) ink(c, `Seu carro: ${carById(cs.car).name}, classe ${myClass(cs)} (${np ? `${np} peça${np > 1 ? 's' : ''} de preparação` : 'original'})`, x + 4, 197, 5, INK);
-  else ink(c, `Seu ${carById(cs.car).name} é classe ${myClass(cs)}: aqui só até a classe ${reg.cls}`, x + 4, 197, 5, RED);
+  if (fits(cs, ui.region)) ink(c, `Seu carro: ${carById(cs.car).name}, classe ${myClass(cs)} (${np ? `${np} peça${np > 1 ? 's' : ''}` : 'original'})`, x + 4, 199, 4, INK);
+  else ink(c, `Seu ${carById(cs.car).name} é classe ${myClass(cs)}: aqui só até a classe ${reg.cls}`, x + 4, 199, 4, RED);
   const b = eventButtons();
   tag(c, b.back, '◀ VOLTAR');
-  tag(c, b.go, 'CORRER ▶', Math.floor(s.t * 2) % 2 === 0);
+  if (ui.rematch) tag(c, b.normal, 'PROVA NORMAL');
+  tag(c, b.go, ui.rematch ? 'REVANCHE ▶' : 'CORRER ▶', Math.floor(s.t * 2) % 2 === 0);
   toast(c, s);
 }
 
 // largada do evento: só com carro da classe da região ou abaixo
 function goEvent(s: AppState, a: Actions) {
   if (!fits(s.career!, ui.region)) return flash(s, noFit(s.career!, ui.region));
-  a.startEvent(ui.region, ui.event);
+  a.startEvent(ui.region, ui.event, ui.rematch);
 }
 function tapEvent(s: AppState, a: Actions, x: number, y: number) {
   const b = eventButtons();
   if (inside(x, y, b.go)) goEvent(s, a);
   else if (inside(x, y, b.back)) a.go('career');
+  else if (ui.rematch && inside(x, y, b.normal)) ui.rematch = false; // a prova de sempre (a revanche fica para depois)
 }
 
 // ---------- garagem ----------
@@ -249,10 +279,12 @@ const ownedCars = (cs: CareerSave) => CARS.filter((c) => cs.owned.includes(c.id)
 
 // carro com melhorias, guardado por nível (o índice de desempenho é medido uma vez)
 const tunedCache = new Map<string, CarSpec>();
-function tunedFor(car: CarSpec, lv: Record<Upgrade, number>, st: Setup = DEFAULT_SETUP, build?: Build) {
-  const key = `${car.id}:${lv.motor}${lv.cambio}${lv.pneus}:${st.ratio}${st.susp}${st.rims}:${buildKey(build)}`;
+// carreira em uso (os defeitos do carro usado entram na ficha de qualquer tela)
+let curCareer: CareerSave | null = null;
+function tunedFor(car: CarSpec, lv: Record<Upgrade, number>, st: Setup = DEFAULT_SETUP, build?: Build, wear = wearOf(curCareer, car.id)) {
+  const key = `${car.id}:${lv.motor}${lv.cambio}${lv.pneus}:${st.ratio}${st.susp}${st.rims}:${buildKey(build)}:${wear.join()}`;
   let t = tunedCache.get(key);
-  if (!t) tunedCache.set(key, (t = tunedCar(car, lv, st, build)));
+  if (!t) tunedCache.set(key, (t = tunedCar(car, lv, st, build, wear)));
   return t;
 }
 
@@ -278,8 +310,13 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
     // troca de carro animada: o que está sai acelerando e o outro chega (cada um com o seu ronco)
     const sw = carSwap('garage', car, s.t);
     const shown = sw.car.id === car.id ? tuned : tunedFor(sw.car, levels(cs, sw.car.id), setupOf(cs, sw.car.id), buildOf(cs, sw.car.id));
-    drawCarSide(c, ph.x + 8 + sw.dx * ph.w, ph.y + 68, 182, shown, paintHex(sw.car.id), sw.roll ? (sw.roll * ph.w) / (0.058 * 182) : undefined);
+    const spin = sw.roll ? (sw.roll * ph.w) / (0.058 * 182) : undefined;
+    // carro usado: riscos, amassados, trinca e fumaça dos defeitos ainda não consertados
+    const wear = wearOf(cs, sw.car.id);
+    if (wear.length) drawUsedSide(c, ph.x + 8 + sw.dx * ph.w, ph.y + 68, 182, shown, paintHex(sw.car.id), wear, s.t, spin);
+    else drawCarSide(c, ph.x + 8 + sw.dx * ph.w, ph.y + 68, 182, shown, paintHex(sw.car.id), spin);
   }, ['#4a4238', '#a89a86']);
+  drawFixTag(c, cs, car);
   const b = garageButtons();
   if (cars.length > 1) {
     arrow(c, b.prev, 'left');
@@ -287,7 +324,7 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   }
   const fr: Rect = { x: x + 208, y: 43, w: 108, h: 80 };
   box(c, fr, 'COM AS PEÇAS');
-  specRows(c, fr, [['Potência', `${Math.round((parseInt(car.power) * tunedFor(car, levels(cs, car.id), DEFAULT_SETUP, buildOf(cs, car.id)).accel) / car.accel)} cv`] /* a relação de marchas não muda a potência */, ['0-100', `${(accelCurve(tuned, 30).t100 || tuned.zeroTo100).toFixed(1).replace('.', ',')} s`], ['Máxima', `${Math.round(tuned.maxSpeed * KMH)} km/h`], ['Curva', `${tuned.lateralG.toFixed(2).replace('.', ',')} g`], ['Revenda', money(sellValue(car))]], 12, 15);
+  specRows(c, fr, [['Potência', `${Math.round((parseInt(car.power) * tunedFor(car, levels(cs, car.id), DEFAULT_SETUP, buildOf(cs, car.id)).accel) / car.accel)} cv`] /* a relação de marchas não muda a potência */, ['0-100', `${(accelCurve(tuned, 30).t100 || tuned.zeroTo100).toFixed(1).replace('.', ',')} s`], ['Máxima', `${Math.round(tuned.maxSpeed * KMH)} km/h`], ['Curva', `${tuned.lateralG.toFixed(2).replace('.', ',')} g`], ['Revenda', money(sellValue(car, cs))]], 12, 15);
   ink(c, 'PINTURA', x + 4, 129, 5, GREY);
   const cur = paintIdx(car.id) ?? nearestPaint(car.color);
   swatchRects().forEach((r, i) => {
@@ -300,6 +337,11 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   if (ui.rimPick) {
     drawRimPick(c);
     toast(c, s, 141);
+    return;
+  }
+  if (pg.fix) {
+    drawFixPanel(c, s, car);
+    toast(c, s, 100);
     return;
   }
   const pb = prepBox();
@@ -393,6 +435,12 @@ function tapGarage(s: AppState, a: Actions, x: number, y: number) {
   const cars = ownedCars(cs);
   const car = cars[ui.garage];
   if (ui.prep) return tapPrep(s, car, x, y);
+  if (pg.fix) return tapFix(s, car, x, y);
+  if (wearOf(cs, car.id).length && !ui.rimPick && inside(x, y, fixTag())) {
+    pg.fix = true; // painel de consertos do usado
+    pg.fixRow = 0;
+    return;
+  }
   if (ui.rimPick) {
     const rb = rimButtons();
     if (inside(x, y, rb.back)) ui.rimPick = false;
@@ -582,6 +630,7 @@ function prepInstall(s: AppState, car: CarSpec, slot: SlotId) {
     const cost = partCost(car, p);
     if (cs.money < cost) return flash(s, `Falta ${money(cost - cs.money)}`);
     cs.money -= cost;
+    spend(cs, cost);
     cs.parts = { ...(cs.parts ?? {}), [car.id]: [...(cs.parts?.[car.id] ?? []), `${slot}:${p.id}`] };
   }
   cs.builds = { ...(cs.builds ?? {}), [car.id]: { ...buildOf(cs, car.id), [slot]: p.id } };
@@ -700,7 +749,7 @@ function drawCollection(c: CanvasRenderingContext2D, s: AppState) {
   const cars = ownedCars(cs);
   const pages = Math.max(1, Math.ceil(cars.length / COL_PER_PAGE));
   colPage = Math.min(colPage, pages - 1);
-  const total = cars.reduce((t, car) => t + sellValue(car), 0);
+  const total = cars.reduce((t, car) => t + sellValue(car, cs), 0);
   kicker(c, 'PÔSTER DO LEITOR', x + 4, 20, RED, '#fff');
   ink(c, `${cars.length} carro${cars.length > 1 ? 's' : ''} • vale ${money(total)}`, x + 4, 34, 5, GREY);
   collectionCards().forEach((r, i) => {
@@ -797,7 +846,7 @@ export function drawDealer(c: CanvasRenderingContext2D, s: AppState) {
   tag(c, b.back, first ? '◀ CAPA' : '◀ VOLTAR');
   if (owned) {
     const canSell = cs.owned.length > 1 && cs.car !== car.id;
-    tag(c, b.buy, canSell ? `VENDER POR ${money(sellValue(car))}` : car.id === cs.car ? 'EM USO' : 'NA SUA GARAGEM');
+    tag(c, b.buy, canSell ? `VENDER POR ${money(sellValue(car, cs))}` : car.id === cs.car ? 'EM USO' : 'NA SUA GARAGEM');
   } else {
     const ok = cs.money >= price;
     tag(c, b.buy, ok ? `COMPRAR ${money(price)}` : `FALTA ${money(price - cs.money)}`, ok && Math.floor(s.t * 2) % 2 === 0);
@@ -819,10 +868,12 @@ function tapDealer(s: AppState, a: Actions, x: number, y: number) {
     if (cs.owned.includes(car.id)) {
       if (cs.owned.length > 1 && cs.car !== car.id) {
         cs.owned = cs.owned.filter((id) => id !== car.id);
-        cs.money += sellValue(car);
+        const v = sellValue(car, cs);
+        cs.money += v;
         delete cs.upgrades[car.id];
+        forgetCar(cs, car.id); // defeitos e km do usado vão junto com ele
         saveCareer(cs);
-        flash(s, `${car.name} vendido por ${money(sellValue(car))}`);
+        flash(s, `${car.name} vendido por ${money(v)}`);
       }
       return;
     }
@@ -830,6 +881,7 @@ function tapDealer(s: AppState, a: Actions, x: number, y: number) {
     if (cs.money < price) return flash(s, `Falta ${money(price - cs.money)}`);
     const first = cs.owned.length === 0;
     cs.money -= price;
+    spend(cs, price);
     cs.owned.push(car.id);
     if (first || !cs.car) cs.car = car.id;
     saveCareer(cs);
@@ -849,15 +901,14 @@ export function drawCareerEnd(c: CanvasRenderingContext2D, s: AppState) {
     s.screen = 'career'; // sem resultado para mostrar: volta ao campeonato
     return;
   }
-  const reg = REGIONS[ui.region];
-  const ev = reg.events[ui.event];
+  const ev = eventShown(); // o evento corrido (ou a revanche dele)
   const x = ox();
   paper(c);
   topBar(c, s, 'RESULTADO DO DESAFIO', cs);
   kicker(c, ev.name.toUpperCase(), x + 4, 20, INK);
   const title = res.gameOver ? 'SEUS CARROS ACABARAM' : res.won ? 'VOCÊ VENCEU!' : `${ev.driver.name.toUpperCase()} VENCEU`;
   headline(c, title, x + 4, 34, 8, res.won ? '#1a6a2a' : RED);
-  helmet(c, x + SAFE_W - 20, 40, 10, ev.driver.paint, ui.event + 1);
+  drawPortrait(c, ev.driver, { x: x + SAFE_W - 28, y: 31, w: 24, h: 28 });
   const total = s.results.reduce((a2, r) => a2 + r.time, 0);
   const rival = s.results.reduce((a2, r) => a2 + Math.max(0, r.rival), 0);
   if (!res.gameOver) ink(c, `Você ${formatTime(total)}  •  ${ev.driver.name} ${formatTime(rival)}`, x + 4, 48, 5, INK);
@@ -882,6 +933,15 @@ export function drawCareerEnd(c: CanvasRenderingContext2D, s: AppState) {
     burst(c, x + 266, 170, 30, ['CHEFÃO', 'DERROTADO!'], YELLOW, RED, s.t);
   }
   headline(c, note, x + 4, 166, res.firstWin && ev.boss ? 8 : 5, res.firstWin && ev.boss ? '#1a6a2a' : INK);
+  // a fala do rival depois do resultado (derrota dele ou vitória dele)
+  const p = rivalOf(ev.driver);
+  const said = `${p.nick.toUpperCase()}: "${res.won ? p.lose : p.win}"`;
+  const bw = res.firstWin && ev.boss ? 226 : SAFE_W - 8;
+  c.fillStyle = '#f8f2e4';
+  c.fillRect(x + 4, 178, bw, 28);
+  c.fillStyle = res.won ? '#1a6a2a' : RED;
+  c.fillRect(x + 4, 178, 3, 28);
+  wrapLines(c, said, bw - 14, 5).slice(0, 3).forEach((l, i) => ink(c, l, x + 11, 181 + i * 8, 5, INK));
   if (Math.floor(s.t * 2) % 2) ink(c, 'TOQUE PARA CONTINUAR ▶', x + 160, 222, 5, RED, 'center');
   toast(c, s);
 }
@@ -892,6 +952,13 @@ const careerTiles = () => {
   return [{ x: x + 4, y: 34, w: 154, h: 168 }, { x: x + 162, y: 34, w: 154, h: 168 }] as Rect[];
 };
 const careerMenuBack = () => ({ x: ox() + 4, y: 211, w: 100, h: 15 }) as Rect;
+// classificados de usados e estatísticas (careerPages.ts)
+const careerMenuExtra = () => [{ x: ox() + 110, y: 211, w: 100, h: 15 }, { x: ox() + 216, y: 211, w: 100, h: 15 }] as Rect[];
+function careerMenuExtraPick(s: AppState, a: Actions, i: number) {
+  if (i === 0) return openUsed(s, a, 'careerMenu');
+  pg.back = 'careerMenu';
+  a.go('careerStats');
+}
 
 function drawCareerMenu(c: CanvasRenderingContext2D, s: AppState) {
   const cs = s.career!;
@@ -934,11 +1001,17 @@ function drawCareerMenu(c: CanvasRenderingContext2D, s: AppState) {
   }, ['#4a4238', '#a89a86']);
   if (!owned.length) ink(c, 'GARAGEM VAZIA', gp.x + gp.w / 2, gp.y + 42, 5, '#fff', 'center');
   headline(c, 'GARAGEM', gar.x + 6, gar.y + 102, 16, INK);
-  const total = owned.reduce((t, car) => t + sellValue(car), 0);
+  const total = owned.reduce((t, car) => t + sellValue(car, cs), 0);
   ink(c, `${owned.length} carro${owned.length === 1 ? '' : 's'} • vale ${money(total)}`, gar.x + 6, gar.y + 124, 5, GREY);
   ink(c, 'Oficina, cores e ajustes', gar.x + 6, gar.y + 134, 5, GREY);
   tag(c, { x: gar.x + 6, y: gar.y + gar.h - 20, w: gar.w - 12, h: 15 }, 'VER GARAGEM ▶', hot(1));
   tag(c, careerMenuBack(), '◀ CAPA');
+  const [ub, sb] = careerMenuExtra();
+  tag(c, ub, 'CLASSIFICADOS');
+  tag(c, sb, 'ESTATÍSTICAS');
+  // rivais vencidos pedindo revanche: aviso no canto da foto de correr
+  const nr = rematchCount(cs);
+  if (nr) kicker(c, `${nr} REVANCHE${nr > 1 ? 'S' : ''}!`, run.x + 6, run.y + 6, RED, YELLOW);
   toast(c, s);
 }
 
@@ -952,6 +1025,8 @@ function careerMenuPick(s: AppState, a: Actions, i: number) {
 }
 function tapCareerMenu(s: AppState, a: Actions, x: number, y: number) {
   if (inside(x, y, careerMenuBack())) return a.go('title');
+  const ex = careerMenuExtra().findIndex((r) => inside(x, y, r));
+  if (ex >= 0) return careerMenuExtraPick(s, a, ex);
   careerTiles().forEach((r, i) => inside(x, y, r) && careerMenuPick(s, a, i));
 }
 
@@ -979,7 +1054,10 @@ export function drawCareerScreen(c: CanvasRenderingContext2D, s: AppState) {
     s.screen = 'title';
     return;
   }
+  curCareer = s.career;
   switch (s.screen) {
+    case 'usedCars': return drawUsed(c, s);
+    case 'careerStats': return drawStats(c, s);
     case 'career': return drawCareer(c, s);
     case 'event': return drawEvent(c, s);
     case 'garage': return drawGarage(c, s);
@@ -994,6 +1072,8 @@ export function drawCareerScreen(c: CanvasRenderingContext2D, s: AppState) {
 
 export function tapCareerScreen(s: AppState, a: Actions, x: number, y: number) {
   switch (s.screen) {
+    case 'usedCars': return tapUsed(s, a, x, y);
+    case 'careerStats': return tapStats(s, a, x, y);
     case 'career': return tapCareer(s, a, x, y);
     case 'event': return tapEvent(s, a, x, y);
     case 'garage': return tapGarage(s, a, x, y);
@@ -1010,6 +1090,8 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
   const cs = s.career!;
   const b = (r: Rect) => tapCareerScreen(s, a, r.x + r.w / 2, r.y + r.h / 2);
   switch (s.screen) {
+    case 'usedCars': return keyUsed(s, a, k);
+    case 'careerStats': return keyStats(s, a, k);
     case 'showroom': return keyShowroom(s, a, k);
     case 'prepDemo':
       if (k === 'back') return closeDemo(a);
@@ -1034,6 +1116,7 @@ export function keyCareerScreen(s: AppState, a: Actions, k: MenuKey) {
       return;
     case 'garage': {
       if (ui.prep) return keyPrep(s, k);
+      if (pg.fix) return keyFix(s, ownedCars(cs)[ui.garage], k);
       if (ui.rimPick) {
         if (k === 'back') ui.rimPick = false;
         return;
@@ -1075,9 +1158,11 @@ export function careerFocusables(s: AppState, a: Actions): FocusSet | null {
     return { key: `prep:${demo}`, items, def: items.indexOf(rows[0]) };
   };
   switch (s.screen) {
+    case 'usedCars': return usedFocusables(s, a);
+    case 'careerStats': return statsFocusables(s, a);
     case 'showroom': return showroomFocusables(s, a);
     case 'prepDemo': return prep(demoCar(), true);
-    case 'careerMenu': return { key: 'careerMenu', items: [...careerTiles().map((r, i) => sel(i, r, { act: () => careerMenuPick(s, a, i) })), { r: careerMenuBack() }] };
+    case 'careerMenu': return { key: 'careerMenu', items: [...careerTiles().map((r, i) => sel(i, r, { act: () => careerMenuPick(s, a, i) })), { r: careerMenuBack() }, ...careerMenuExtra().map((r, i) => ({ r, act: () => careerMenuExtraPick(s, a, i) }))] };
     case 'career': {
       const b = hubButtons();
       const reg = (d: number) => { ui.region = (ui.region + REGIONS.length + d) % REGIONS.length; };
@@ -1085,11 +1170,12 @@ export function careerFocusables(s: AppState, a: Actions): FocusSet | null {
     }
     case 'event': {
       const b = eventButtons();
-      return { key: 'event', def: 1, items: [{ r: b.back }, { r: b.go, act: () => goEvent(s, a) }] };
+      return { key: `event:${ui.rematch}`, def: 1, items: [{ r: b.back }, { r: b.go, act: () => goEvent(s, a) }, ...(ui.rematch ? [{ r: b.normal }] : [])] };
     }
     case 'garage': {
       const cars = ownedCars(cs!);
       if (ui.prep) return prep(cars[ui.garage], false);
+      if (pg.fix) return fixFocusables(s, cars[ui.garage]);
       if (ui.rimPick) {
         const rb = rimButtons();
         const chips = rimChips().map((r, i): Focusable => ({ r, is: () => ui.rimView === RIM_IDS()[i], pick: () => { ui.rimView = RIM_IDS()[i]; }, lr: rimStep, act: () => rimConfirm(s) }));
@@ -1102,7 +1188,7 @@ export function careerFocusables(s: AppState, a: Actions): FocusSet | null {
         key: 'garage', items: rects.map((r, i): Focusable => ({
           r, is: () => ui.gFocus % rects.length === i, pick: () => { ui.gFocus = i; },
           ...(i === 7 ? { lr: paint, act: () => paint(1) } : {}),
-        })),
+        })).concat(wearOf(cs!, car().id).length ? [{ r: fixTag(), act: () => { pg.fix = true; pg.fixRow = 0; } }] : []),
       };
     }
     case 'dealer': {

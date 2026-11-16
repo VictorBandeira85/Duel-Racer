@@ -3,7 +3,7 @@ import { baseline, lowPrio } from './imgprio';
 import { preloadBgArt } from './bgart';
 import { carSwapWatch } from './carswap';
 import { freeBudget, newFrame } from './svgsprites';
-import { VIEW_LEVELS, prefs, raceViewSize, savePrefs, volLabel } from './prefs';
+import { VIEW_LEVELS, gearLabel, nextGearMode, prefs, raceViewSize, savePrefs, volLabel } from './prefs';
 import { clearArcade, loadArcade, saveArcade } from './arcadesave';
 import { capsHtml } from './ui';
 import { stageResult } from './score';
@@ -12,7 +12,8 @@ import { CRES, RES, setCanvasRes, setRes, view } from './config';
 import { CARS, TRAFFIC_IMAGES, carArtReady, trafficReady } from './cars';
 import { COURSES, completeCourse, unlockedCourses, withTimeOfDay, type ArcadeTime, type Course } from './courses';
 import { ui as careerUi } from './careerScreens';
-import { setupOf, buildOf, REGIONS, carById, eventCourse, levels, loadCareer, saveCareer, settleEvent, tunedCar } from './career';
+import { setupOf, buildOf, REGIONS, carById, eventCourse, levels, loadCareer, logStage, rematchEvent, saveCareer, settleEvent, tunedCar, wearOf } from './career';
+import { raceWear } from './usedcars';
 import type { CarSpec } from './cars';
 import { Race } from './race';
 import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
@@ -26,6 +27,8 @@ import { setHorn, setHornCar } from './horn';
 import { MUSIC_CREDITS } from './tracks';
 import { audioCtx, audioState, gainLevels, resumeAudio, sfxLevel, synthReady, setSfxVolume, initAudio, musicTitle, suspendAudio, playMusic, setEngine, setMusicVolume, setSiren, setTires, STATIONS, nextRadioStation, radioStation, setRadioStation } from './audio';
 import { stopTrafficAudio } from './trafficaudio';
+import { dailyFor, markStart, ruleOk, saveDaily } from './daily';
+import { dlast, dsel, setEndFocus } from './dailyScreens';
 import { preloadSvg } from './svgsprites';
 import { FX_LABEL, fxMode, lowFx, perfSample, setFxMode, lowRes, minRes, perfKey } from './perf';
 import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
@@ -64,7 +67,7 @@ interface Run {
   car: CarSpec;
   rival: CarSpec | null;
   opts: { rivalStyle?: import('./race').RivalStyle; rivalPaint?: string; copClass?: import('./cars').PerfClass };
-  event?: { region: number; event: number };
+  event?: { region: number; event: number; rematch?: boolean };
 }
 let run: Run = { course: COURSES[0], car: CARS[0], rival: null, opts: {} };
 let race: Race | null = null;
@@ -88,6 +91,7 @@ function showControls(on: boolean) {
   $('radioBtn').classList.toggle('hidden', !on);
   if (!on) $('radioTag').classList.add('hidden');
   $('gearBtns').classList.toggle('hidden', state.auto);
+  $('clutchBtn').classList.toggle('hidden', state.auto || !prefs.clutch);
   $('pause').classList.add('hidden');
   paused = false;
 }
@@ -121,6 +125,19 @@ const actions: Actions = {
     };
     begin(5);
   },
+  // desafio do dia: um trecho, o carro de fábrica e o rival sorteados pela data (daily.ts)
+  startDaily(date: string) {
+    const d = dailyFor(date);
+    dsel.date = date;
+    dlast.r = null;
+    dlast.code = '';
+    setEndFocus(0);
+    state.mode = 'daily';
+    markStart();
+    state.courseIdx = d.courseIdx; // música do roteiro de onde saiu o trecho
+    run = { course: d.course, car: d.car, rival: d.rival, opts: {} };
+    begin(3);
+  },
   // continua o roteiro do Arcade de onde parou (trechos feitos e carros restantes), com o carro
   // e o rival escolhidos agora (pode trocar de carro no meio do roteiro)
   resumeCourse() {
@@ -140,16 +157,19 @@ const actions: Actions = {
     if (state.results.length >= run.course.stages.length) finishCourse();
     else startStage(state.results.length);
   },
-  startEvent(region: number, event: number) {
+  startEvent(region: number, event: number, rematch = false) {
     const cs = state.career!;
-    const ev = REGIONS[region].events[event];
+    const base = REGIONS[region].events[event];
+    const ev = rematch ? rematchEvent(base) : base; // revanche: o rival vencido, mais afiado
     careerUi.region = region;
     careerUi.event = event;
+    careerUi.rematch = rematch;
     state.mode = 'career';
     state.carIdx = CARS.findIndex((c) => c.id === cs.car);
     run = {
-      course: eventCourse(ev, cs.races), car: tunedCar(carById(cs.car), levels(cs, cs.car), setupOf(cs, cs.car), buildOf(cs, cs.car)), rival: carById(ev.driver.car),
-      opts: { rivalStyle: ev.driver.style, rivalPaint: ev.driver.paint, copClass: REGIONS[region].cls }, event: { region, event },
+      // carro usado: os defeitos entram na ficha (potência, aderência)
+      course: eventCourse(ev, cs.races), car: tunedCar(carById(cs.car), levels(cs, cs.car), setupOf(cs, cs.car), buildOf(cs, cs.car), wearOf(cs, cs.car)), rival: carById(ev.driver.car),
+      opts: { rivalStyle: ev.driver.style, rivalPaint: ev.driver.paint, copClass: REGIONS[region].cls }, event: { region, event, rematch },
     };
     begin(4);
   },
@@ -264,11 +284,20 @@ function makeRace(i: number) {
   // larga atrás e o outro à frente (vale no Arcade e na Carreira)
   const prev = i > 0 ? state.results[i - 1] : undefined;
   const rivalAhead = !prev || !(prev.rival < 0 || prev.time <= prev.rival);
-  const r = new Race(run.course, i, run.car, run.rival, state.auto, { ...run.opts, rivalAhead });
+  // procurado pela polícia: na carreira, multas e fugas acumuladas no save; no Arcade, as multas do roteiro
+  const wanted = state.mode === 'career' ? (state.career?.wanted ?? 0) / 6 : state.results.reduce((a, q) => a + q.tickets, 0) * 0.2;
+  const r = new Race(run.course, i, run.car, run.rival, state.auto, { ...run.opts, rivalAhead, wanted });
   preloadGasArt(r.def.theme); // posto do mapa deste trecho
   r.ghostRun = loadGhost(run.course.id, i, true);
   r.showGhost = ghostOn();
   r.challenges = stageChallenges(r);
+  // carro usado da carreira: capô amassado, fumaça e trincas desde a largada (e de novo no carro novo)
+  const wear = state.mode === 'career' && state.career ? wearOf(state.career, run.car.id) : [];
+  if (wear.length) {
+    r.wear = raceWear(wear, run.car.id.length * 131 + 7);
+    r.damage = r.wear.damage;
+    r.glass = [...r.wear.glass];
+  }
   liveDone = new Set();
   r.onArrive = () => {
     const res = stageResult(r);
@@ -279,17 +308,28 @@ function makeRace(i: number) {
     res.challenges = r.challenges.map((ch) => ({ label: ch.label, done: checkChallenge(ch, r, true) }));
     const medal = res.challenges.filter((q) => q.done).length;
     res.medal = medal;
-    res.medalNew = saveMedal(run.course.id, i, medal);
+    res.medalNew = state.mode === 'daily' ? false : saveMedal(run.course.id, i, medal); // medalhas são dos roteiros
     if (state.mode === 'career' && state.career && medal) {
       res.prize = medal * CHALLENGE_PRIZE;
       state.career.money += res.prize;
       saveCareer(state.career);
+    }
+    // ficha na polícia (carreira): cada multa e cada fuga somam; trecho sem nada com a polícia alivia
+    if (state.mode === 'career' && state.career) {
+      const w = state.career.wanted ?? 0, hits = r.tickets + r.escapes;
+      const nw = hits ? Math.min(12, w + hits) : Math.max(0, w - 0.5);
+      if (nw !== w) {
+        state.career.wanted = nw;
+        saveCareer(state.career);
+      }
     }
     stageAchievements(r, {
       won: res.rival >= 0 && res.time <= res.rival, record: sv.record && sv.prev !== undefined, medal,
       unlocked: unlockedCourses(), legend: run.course.id === 'lendas' && i === run.course.stages.length - 1,
     });
     state.results.push(res);
+    // estatísticas da carreira: km, multas, fugas, batidas, motos derrubadas e máxima do trecho
+    if (state.mode === 'career' && state.career) logStage(state.career, run.car.id, { ...res, escapes: r.escapes, falls: r.stats.falls });
     if (r.clean) state.lives++;
     if (state.mode === 'arcade') {
       saveArcade({ course: run.course.id, courseIdx: state.courseIdx, carIdx: state.carIdx, oppIdx: state.oppIdx, night: state.arcadeTime === 'night', time: state.arcadeTime, lives: state.lives, results: state.results });
@@ -307,6 +347,7 @@ function makeRace(i: number) {
     if (state.lives <= 0) {
       state.gameOver = true;
       if (state.mode === 'career') settle(false, r);
+      else if (state.mode === 'daily') finishDaily(r);
       else {
         clearArcade(); // sem carros: o roteiro acabou
         actions.go('end');
@@ -318,15 +359,37 @@ function makeRace(i: number) {
 
 // resultado de um evento da carreira (dinheiro, prêmio, progresso)
 function settle(won: boolean, last?: Race) {
-  const ev = REGIONS[run.event!.region].events[run.event!.event];
+  const base = REGIONS[run.event!.region].events[run.event!.event];
+  const ev = run.event!.rematch ? rematchEvent(base) : base;
   const res = state.results;
   const fines = res.reduce((a, r) => a + (r.fines ?? 0), 0) + (last && state.gameOver ? last.fines : 0);
   const crashes = res.reduce((a, r) => a + r.crashes, 0) + (last && state.gameOver ? last.crashes : 0);
-  state.careerResult = settleEvent(state.career!, ev, won, state.gameOver, res.filter((r) => r.clean).length, fines, crashes);
+  // trecho interrompido (os carros acabaram): o que rodou dele também conta nas estatísticas
+  if (last && state.gameOver && state.career) {
+    const done = stageResult(last);
+    logStage(state.career, run.car.id, { km: done.km * last.progress, top: done.top, tickets: last.tickets, crashes: last.crashes, escapes: last.escapes, falls: last.stats.falls });
+  }
+  const time = won ? res.reduce((a, r) => a + r.time, 0) : 0;
+  state.careerResult = settleEvent(state.career!, ev, won, state.gameOver, res.filter((r) => r.clean).length, fines, crashes, time);
   actions.go('careerEnd');
 }
 
+// fim do desafio do dia: confere a regra, guarda o melhor tempo do dia e mostra o resultado.
+// crashed: os carros acabaram no meio do trecho (sem tempo)
+function finishDaily(crashed?: Race) {
+  const d = dailyFor(dsel.date);
+  const res = crashed ? null : state.results[state.results.length - 1];
+  const ok = !!res && ruleOk(d, res);
+  const sv = saveDaily(d, res ? res.time : null, ok);
+  dlast.r = {
+    time: res ? res.time : null, ok, prev: sv.prev, best: sv.best, gameOver: !res,
+    crashes: res ? res.crashes : crashed!.crashes, avg: res ? res.avg : 0, top: res ? res.top : 0, rival: res ? res.rival : -1,
+  };
+  actions.go('dailyEnd');
+}
+
 function finishCourse() {
+  if (state.mode === 'daily') return finishDaily();
   if (state.mode === 'career') {
     const total = totalTime();
     const rival = state.results.reduce((a, r) => a + Math.max(0, r.rival), 0);
@@ -738,7 +801,7 @@ function settingsLabels() {
     sfxvol: ['VOL. EFEITOS', `◀ ${volLabel(prefs.sfxPct)} ▶`],
     track: ['FAIXA ▶', musicTitle() || '-'],
     radio: ['RÁDIO ▶', `${STATIONS[radioStation()].freq} ${STATIONS[radioStation()].name}`],
-    gear: ['CÂMBIO', state.auto ? 'AUTOMÁTICO' : 'MANUAL'],
+    gear: ['CÂMBIO', gearLabel(state.auto)],
     buttons: ['BOTÕES', btnSizeLabel()],
     ghost: ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO'],
     hints: ['DICAS', prefs.hints ? 'LIGADAS' : 'DESLIGADAS'],
@@ -784,10 +847,10 @@ document.querySelectorAll<HTMLButtonElement>('#settings [data-set]').forEach((b)
     case 'track': playMusic(`race:${state.courseIdx * 5 + (race?.stageIdx ?? 0) + ++trackStep}`); break;
     case 'radio': savePrefs({ radio: nextRadioStation() }); break;
     case 'gear':
-      state.auto = !state.auto;
-      savePrefs({ auto: state.auto });
+      state.auto = nextGearMode(state.auto);
       if (race) race.auto = state.auto;
       $('gearBtns').classList.toggle('hidden', state.auto);
+      $('clutchBtn').classList.toggle('hidden', state.auto || !prefs.clutch);
       break;
     case 'buttons': cycleBtnSize(); break;
     case 'ghost':

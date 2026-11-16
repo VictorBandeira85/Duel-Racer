@@ -374,9 +374,11 @@ function buildTires() {
 
 export type Surface = 'dry' | 'wet' | 'snow';
 // screech 0..1 (derrapagem, freada, patinada); speed 0..1 (para o chiado da pista molhada)
-export function setTires(screech: number, rumble: number, surface: Surface = 'dry', speed = 0) {
+// wind 0..1: vento na carroceria (cresce com a velocidade, cai no vácuo); setTires(0, 0) cala junto
+export function setTires(screech: number, rumble: number, surface: Surface = 'dry', speed = 0, wind = 0) {
   if (!ctx) return;
   const t = ctx.currentTime;
+  setWind(wind);
   const s = Math.min(1, screech);
   // o guincho começa num limiar (pneu no limite) e cresce rápido
   const lvl = s < 0.08 ? 0 : Math.pow((s - 0.08) / 0.92, 0.8);
@@ -565,6 +567,58 @@ export function setTunnel(k: number) {
 
 // vapor/fumaça do motor batido: chiado contínuo
 let steamGain: GainNode | null = null;
+// vento: ruído grave e abafado (passa-baixa, sem chiado agudo) que sobe com a velocidade; no vácuo
+// do carro da frente o ar fica mais calmo e o vento cai
+let windGain: GainNode | undefined, windFilter: BiquadFilterNode | undefined;
+function setWind(level: number) {
+  if (!ctx) return;
+  if (!windGain) {
+    if (level <= 0) return;
+    windGain = ctx.createGain();
+    windGain.gain.value = 0;
+    windFilter = ctx.createBiquadFilter();
+    windFilter.type = 'lowpass';
+    windFilter.frequency.value = 400;
+    windFilter.Q.value = 0.9;
+    loopNoise().connect(windFilter).connect(windGain).connect(sfx);
+  }
+  const l = Math.max(0, Math.min(1, level));
+  windFilter!.frequency.setTargetAtTime(260 + 520 * l, ctx.currentTime, 0.25);
+  windGain.gain.setTargetAtTime(l * 0.07, ctx.currentTime, 0.25);
+}
+
+// marcha arranhando (trocou sem pisar na embreagem): raspado curto e grave de engrenagem, com
+// trepidação (dentes batendo), sem agudo
+export function grindSound() {
+  if (!ctx) return;
+  const t = ctx.currentTime, dur = 0.32;
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuffer(dur);
+  const f = ctx.createBiquadFilter();
+  f.type = 'bandpass';
+  f.frequency.setValueAtTime(900, t);
+  f.frequency.linearRampToValueAtTime(650, t + dur);
+  f.Q.value = 2.2;
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 1500;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.13, t + 0.02);
+  g.gain.setValueAtTime(0.11, t + dur - 0.08);
+  g.gain.linearRampToValueAtTime(0.0001, t + dur);
+  const lfo = ctx.createOscillator(); // dentes batendo (~38 vezes por segundo)
+  lfo.type = 'square';
+  lfo.frequency.value = 38;
+  const lg = ctx.createGain();
+  lg.gain.value = 0.06;
+  lfo.connect(lg).connect(g.gain);
+  src.connect(f).connect(lp).connect(g).connect(sfx);
+  src.start(t);
+  lfo.start(t);
+  lfo.stop(t + dur + 0.02);
+}
+
 export function setSteam(level: number) {
   if (!ctx) return;
   if (!steamGain) {
@@ -657,26 +711,70 @@ export function scrapeSound() {
 }
 
 // ---------- sirene da polícia ----------
-let siren: OscillatorNode | null = null;
-let sirenGain: GainNode | null = null;
-export function setSiren(on: boolean) {
+// uma voz por viatura (até duas), cada uma com posição: volume pela distância, lado no estéreo e
+// Doppler (sobe chegando, cai indo embora, pela velocidade relativa). A segunda é um pouco
+// desafinada e oscila em outro ritmo, como duas sirenes de verdade. Triângulo com passa-baixa que
+// fecha com a distância: sem agudo estridente.
+export interface SirenSrc { dz: number; dx: number; vz: number } // m à frente (+)/atrás (-), m de lado, m/s relativa
+interface SirenVoice { osc: OscillatorNode; lfoGain: GainNode; filter: BiquadFilterNode; gain: GainNode; pan: StereoPannerNode; base: number; depth: number }
+const SIREN_TUNE = [{ base: 720, depth: 180, rate: 1.6 }, { base: 745, depth: 168, rate: 1.74 }];
+const sirens: SirenVoice[] = [];
+// o que cada sirene recebeu por último (conferência nos testes)
+export const sirenState: { freq: number; pan: number; gain: number; cut: number; pitch: number }[] = [];
+function makeSiren(i: number): SirenVoice {
+  const c = ctx!, tune = SIREN_TUNE[i];
+  const osc = c.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.value = tune.base;
+  const lfo = c.createOscillator();
+  lfo.frequency.value = tune.rate;
+  const lfoGain = c.createGain();
+  lfoGain.gain.value = tune.depth;
+  lfo.connect(lfoGain).connect(osc.frequency);
+  const filter = c.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 2400;
+  filter.Q.value = 0.5;
+  const gain = c.createGain();
+  gain.gain.value = 0;
+  const pan = c.createStereoPanner();
+  osc.connect(filter).connect(gain).connect(pan).connect(fxBus);
+  osc.start();
+  lfo.start();
+  return { osc, lfoGain, filter, gain, pan, base: tune.base, depth: tune.depth };
+}
+export function setSirens(list: SirenSrc[]) {
   if (!ctx) return;
-  if (!siren) {
-    siren = ctx.createOscillator();
-    siren.type = 'triangle';
-    sirenGain = ctx.createGain();
-    sirenGain.gain.value = 0;
-    const lfo = ctx.createOscillator();
-    const lfoGain = ctx.createGain();
-    lfo.frequency.value = 1.6;
-    lfoGain.gain.value = 180;
-    lfo.connect(lfoGain).connect(siren.frequency);
-    siren.frequency.value = 720;
-    siren.connect(sirenGain).connect(fxBus);
-    siren.start();
-    lfo.start();
+  const t = ctx.currentTime;
+  for (let i = 0; i < SIREN_TUNE.length; i++) {
+    const s = list[i];
+    if (!s && !sirens[i]) continue;
+    const v = (sirens[i] ??= makeSiren(i));
+    if (!s) {
+      v.gain.gain.setTargetAtTime(0, t, 0.15);
+      if (sirenState[i]) sirenState[i].gain = 0;
+      continue;
+    }
+    const d = Math.hypot(s.dz, s.dx, 2);
+    // velocidade com que a viatura se afasta (+) ou se aproxima (-) do jogador
+    const vr = (s.dz * s.vz) / d;
+    const pitch = Math.max(0.8, Math.min(1.22, 343 / (343 + vr)));
+    const freq = v.base * pitch;
+    // o ar e a carroceria abafam o agudo: mais longe (e vindo de trás), mais fechado
+    const cut = (1100 + 1500 / (1 + d / 25)) * (s.dz < 0 ? 0.85 : 1);
+    const gain = 0.055 / (1 + (d / 40) ** 2);
+    const pn = Math.max(-0.9, Math.min(0.9, (s.dx / d) * 1.3));
+    v.osc.frequency.setTargetAtTime(freq, t, 0.06);
+    v.lfoGain.gain.setTargetAtTime(v.depth * pitch, t, 0.06);
+    v.filter.frequency.setTargetAtTime(cut, t, 0.1);
+    v.gain.gain.setTargetAtTime(gain, t, 0.08);
+    v.pan.pan.setTargetAtTime(pn, t, 0.08);
+    sirenState[i] = { freq, pan: pn, gain, cut, pitch };
   }
-  sirenGain!.gain.setTargetAtTime(on ? 0.04 : 0, ctx.currentTime, 0.1);
+}
+// liga/desliga geral (fim do trecho, pausa): ligada sem posição soa logo atrás do jogador
+export function setSiren(on: boolean) {
+  setSirens(on ? [{ dz: -8, dx: 0, vz: 0 }] : []);
 }
 
 // ---------- trilha synthwave (music.ts) ----------

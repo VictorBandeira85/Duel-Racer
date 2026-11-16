@@ -7,7 +7,8 @@ import type { RivalStyle } from './race';
 import type { ThemeId } from './themes';
 
 export interface Driver { name: string; car: string; style: RivalStyle; skill: number; paint: string; quote: string }
-export interface CareerEvent { id: string; name: string; driver: Driver; stages: StageDef[]; prize: number; boss?: boolean }
+// rematch: revanche contra um rival já vencido (evento opcional; o id leva -rv e não entra em done)
+export interface CareerEvent { id: string; name: string; driver: Driver; stages: StageDef[]; prize: number; boss?: boolean; rematch?: boolean }
 // after: região cujo chefão libera esta (sem isso, a anterior da lista)
 export interface Region { id: string; cls: PerfClass; name: string; desc: string; color: string; events: CareerEvent[]; after?: string }
 
@@ -104,7 +105,44 @@ export const UPGRADES: { id: Upgrade; name: string; desc: string }[] = [
 export const MAX_LEVEL = 3;
 export const priceOf = (car: CarSpec) => Number(car.price.replace(/\D/g, ''));
 export const upgradeCost = (car: CarSpec, level: number) => Math.round((priceOf(car) * 0.07 * level) / 500) * 500;
-export const sellValue = (car: CarSpec) => Math.round((priceOf(car) * 0.6) / 1000) * 1000;
+// revenda: 60% do preço; carro rodado (comprado usado) perde pelo km e pelos defeitos ainda não consertados
+export const sellValue = (car: CarSpec, cs?: CareerSave) => {
+  const km = cs?.odo?.[car.id] ?? 0;
+  const fix = wearOf(cs, car.id).reduce((t, d) => t + repairCost(car, d), 0);
+  return Math.max(1000, Math.round((priceOf(car) * 0.6 * Math.max(0.45, 1 - km / 400000) - fix) / 1000) * 1000);
+};
+
+// ---------- defeitos de carro usado (classificados) ----------
+// Cada defeito aparece no jogo (lateral riscada/amassada, trinca no para-brisa, fumaça) e pesa na ficha;
+// fix = fração do preço de 0 km que a oficina cobra para consertar
+export type Defect = 'pintura' | 'amassado' | 'parabrisa' | 'fumaca' | 'pneus' | 'suspensao';
+export const DEFECTS: Record<Defect, { name: string; ad: string; effect: string; fix: number }> = {
+  pintura: { name: 'Pintura queimada', ad: 'pintura queimada de sol, riscos', effect: 'só a aparência', fix: 0.05 },
+  amassado: { name: 'Lataria amassada', ad: 'amassados na lateral', effect: '-2% máxima, capô torto', fix: 0.05 },
+  parabrisa: { name: 'Para-brisa trincado', ad: 'para-brisa trincado', effect: 'trinca na vista da cabine', fix: 0.02 },
+  fumaca: { name: 'Motor cansado', ad: 'motor soltando fumaça', effect: '-15% potência, fumaça', fix: 0.12 },
+  pneus: { name: 'Pneus carecas', ad: 'pneus carecas', effect: '-12% aderência e freio', fix: 0.03 },
+  suspensao: { name: 'Suspensão com ruído', ad: 'barulho na suspensão', effect: '-10% dirigibilidade', fix: 0.04 },
+};
+export const DEFECT_IDS = Object.keys(DEFECTS) as Defect[];
+export const wearOf = (cs: CareerSave | undefined | null, id: string): Defect[] => (cs?.wear?.[id] ?? []).filter((d) => d in DEFECTS);
+export const repairCost = (car: CarSpec, d: Defect) => Math.max(300, Math.round((priceOf(car) * DEFECTS[d].fix) / 100) * 100);
+// ficha com os defeitos: motor cansado perde força, pneu careca e suspensão gasta perdem aderência
+export function wornCar(car: CarSpec, wear?: Defect[]): CarSpec {
+  if (!wear?.length) return car;
+  const has = (d: Defect) => wear.includes(d);
+  const power = has('fumaca') ? 0.85 : 1;
+  const grip = (has('pneus') ? 0.88 : 1) * (has('suspensao') ? 0.95 : 1);
+  return {
+    ...car,
+    accel: car.accel * power,
+    maxSpeed: car.maxSpeed * Math.cbrt(power) * (has('amassado') ? 0.98 : 1),
+    lateralG: car.lateralG * grip,
+    brakeG: car.brakeG * (has('pneus') ? 0.92 : 1),
+    traction: (car.traction ?? 1) * (has('pneus') ? 0.9 : 1),
+    handling: car.handling * (has('suspensao') ? 0.9 : 1),
+  };
+}
 export const START_MONEY = 20000; // dá para um carro da classe D (o primeiro da carreira)
 // a classe do carro (com as peças) cabe na região? (carro de classe abaixo também corre)
 export const classFits = (carCls: PerfClass, regionCls: PerfClass) => PERF_CLASSES.indexOf(carCls) <= PERF_CLASSES.indexOf(regionCls);
@@ -118,10 +156,10 @@ export const SUSP_LABEL = ['ORIGINAL', 'ESPORTIVA', 'REBAIXADA'];
 export const setupOf = (cs: CareerSave, id: string): Setup => ({ ...DEFAULT_SETUP, ...(cs.setup?.[id] ?? {}) });
 export const buildOf = (cs: CareerSave, id: string): Build => cs.builds?.[id] ?? {};
 
-export function tunedCar(car0: CarSpec, _lv?: unknown, st: Setup = DEFAULT_SETUP, build?: Build): CarSpec {
+export function tunedCar(car0: CarSpec, _lv?: unknown, st: Setup = DEFAULT_SETUP, build?: Build, wear?: Defect[]): CarSpec {
   // as peças da preparação (tuning.ts) são o único caminho de melhoria; aqui entram os ajustes de graça:
-  // relação curta arranca mais e perde máxima, longa o contrário
-  const car = applyBuild(car0, build);
+  // relação curta arranca mais e perde máxima, longa o contrário (e os defeitos do carro usado)
+  const car = wornCar(applyBuild(car0, build), wear);
   const tuned: CarSpec = {
     ...car,
     rims: st.rims || undefined,
@@ -144,6 +182,14 @@ export interface CareerSave {
   wins: number;
   races: number;
   earned: number;
+  // (campos novos, todos opcionais: saves antigos carregam sem eles)
+  wear?: Record<string, Defect[]>; // defeitos do carro comprado usado, até a oficina consertar
+  odo?: Record<string, number>; // hodômetro (km) do carro comprado usado (km do anúncio + rodados)
+  usedSold?: string[]; // anúncios dos classificados já comprados ("semente:carro")
+  beatenAt?: Record<string, number>; // vitórias que o jogador tinha quando venceu o evento pela 1ª vez (revanche)
+  rematches?: string[]; // revanches já vencidas (id do evento)
+  stats?: CareerStats; // estatísticas da carreira (tela ESTATÍSTICAS)
+  wanted?: number; // ficha na polícia: multas e fugas acumuladas (perseguição mais dura); saves antigos sem isso = 0
 }
 
 const KEY = 'duel-racer:career';
@@ -233,8 +279,67 @@ export interface EventResult {
   firstWin: boolean;
 }
 
-export function settleEvent(s: CareerSave, ev: CareerEvent, won: boolean, gameOver: boolean, cleanStages: number, fines: number, crashes: number): EventResult {
-  const firstWin = won && !s.done.includes(ev.id);
+// ---------- estatísticas da carreira ----------
+// km e contagens somadas no fim de cada trecho (logStage); eventos, dinheiro e recordes no resultado
+export interface CareerStats {
+  km: number; stages: number; events: number; eventWins: number; eventLosses: number;
+  tickets: number; finesPaid: number; escapes: number; crashes: number; falls: number;
+  top: number; topCar: string; carKm: Record<string, number>;
+  earned: number; spent: number;
+  best: Record<string, { t: number; car: string }>; // melhor tempo total de cada evento vencido
+}
+// estatísticas do save (save antigo: começa das contagens que ele já tinha)
+export function statsOf(s: CareerSave): CareerStats {
+  const d: CareerStats = {
+    km: 0, stages: 0, events: s.races ?? 0, eventWins: s.wins ?? 0, eventLosses: Math.max(0, (s.races ?? 0) - (s.wins ?? 0)),
+    tickets: 0, finesPaid: 0, escapes: 0, crashes: 0, falls: 0, top: 0, topCar: '', carKm: {}, earned: s.earned ?? 0, spent: 0, best: {},
+  };
+  s.stats = { ...d, ...(s.stats ?? {}) };
+  return s.stats;
+}
+// dinheiro gasto (compras, peças, consertos, multas): entra nas estatísticas
+export function spend(s: CareerSave, v: number) {
+  if (v > 0) statsOf(s).spent += v;
+}
+// fim de um trecho: km rodados (também no hodômetro do carro usado), multas, fugas, batidas, máxima
+export function logStage(s: CareerSave, carId: string, r: { km: number; top: number; tickets: number; crashes: number; escapes?: number; falls?: number }) {
+  const st = statsOf(s);
+  const km = Math.max(0, r.km || 0);
+  st.km += km;
+  st.stages++;
+  st.carKm[carId] = (st.carKm[carId] ?? 0) + km;
+  if (s.odo?.[carId] !== undefined) s.odo[carId] += km;
+  st.tickets += r.tickets || 0;
+  st.crashes += r.crashes || 0;
+  st.escapes += r.escapes || 0;
+  st.falls += r.falls || 0;
+  if (r.top > st.top) {
+    st.top = r.top;
+    st.topCar = carId;
+  }
+  saveCareer(s);
+}
+
+// ---------- revanche ----------
+// Rival vencido volta desafiando depois de mais duas vitórias do jogador (save antigo: já pode)
+export const REMATCH_AFTER = 2;
+export function rematchOpen(s: CareerSave, ev: CareerEvent) {
+  if (!s.done.includes(ev.id) || (s.rematches ?? []).includes(`${ev.id}-rv`)) return false;
+  // save antigo sem beatenAt: a ordem em done serve de aproximação (1º vencido = 1 vitória)
+  return s.wins >= (s.beatenAt?.[ev.id] ?? s.done.indexOf(ev.id) + 1) + REMATCH_AFTER;
+}
+// a revanche: o mesmo rival um pouco mais afiado, mesmo roteiro com outro trânsito, prêmio de 80%
+export function rematchEvent(ev: CareerEvent): CareerEvent {
+  return {
+    ...ev, id: `${ev.id}-rv`, name: `${ev.name} (revanche)`, rematch: true, prize: Math.round((ev.prize * 0.8) / 500) * 500,
+    driver: { ...ev.driver, skill: Math.min(0.995, ev.driver.skill + 0.012) },
+  };
+}
+export const rematchCount = (s: CareerSave) => REGIONS.reduce((n, r) => n + r.events.filter((e) => rematchOpen(s, e)).length, 0);
+
+export function settleEvent(s: CareerSave, ev: CareerEvent, won: boolean, gameOver: boolean, cleanStages: number, fines: number, crashes: number, time = 0): EventResult {
+  const doneList = ev.rematch ? (s.rematches ??= []) : s.done;
+  const firstWin = won && !doneList.includes(ev.id);
   // vitória: prêmio (metade na repetição); derrota terminando a prova: 15% de participação
   const prize = won ? (firstWin ? ev.prize : Math.round(ev.prize / 2 / 500) * 500) : gameOver ? 0 : Math.round((ev.prize * 0.15) / 100) * 100;
   const clean = won ? Math.round((ev.prize * 0.1 * cleanStages) / 100) * 100 : 0;
@@ -245,9 +350,18 @@ export function settleEvent(s: CareerSave, ev: CareerEvent, won: boolean, gameOv
   s.races++;
   if (won) {
     s.wins++;
-    if (firstWin) s.done.push(ev.id);
+    if (firstWin) doneList.push(ev.id);
+    if (firstWin && !ev.rematch) s.beatenAt = { ...(s.beatenAt ?? {}), [ev.id]: s.wins };
   }
   s.earned += Math.max(0, prize + clean);
+  const st = statsOf(s);
+  st.events++;
+  if (won) st.eventWins++;
+  else st.eventLosses++;
+  st.earned += Math.max(0, prize + clean);
+  st.finesPaid += fines;
+  st.spent += fines + repairs;
+  if (won && time > 0 && time < (st.best[ev.id]?.t ?? Infinity)) st.best[ev.id] = { t: time, car: s.car };
   saveCareer(s);
   return { won, gameOver, prize, clean, fines, repairs, total, firstWin };
 }

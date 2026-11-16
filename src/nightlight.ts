@@ -98,7 +98,7 @@ function reflectorFace(g: CanvasRenderingContext2D, r: Reflector, ox: number, oy
   if (r.kind === 'billboard') g.fillRect(x - w / 2, y - h * 0.88, w, h * 0.5);
   else if (r.kind === 'gasSign') g.fillRect(x - w / 2, y - h, w, h * 0.45);
   else if (r.kind === 'gasKm') g.fillRect(x - w / 2, y - h, w, h * 0.71);
-  else if (r.kind === 'blitz') g.fillRect(x - w / 2, y - h, w, h * 0.6); // placa da blitz (src/blitz.ts)
+  else if (r.kind === 'blitz' || r.kind === 'obras' || r.kind === 'desvio') g.fillRect(x - w / 2, y - h, w, h * 0.6); // placas da blitz e da obra (src/blitz.ts)
   else if (r.kind.startsWith('warn') || r.kind.startsWith('sharp')) {
     const cy = y - h * 0.75, rr = w * 0.5;
     g.beginPath();
@@ -1240,6 +1240,18 @@ export function sirenGlow(c: CanvasRenderingContext2D, x: number, y: number, bw:
   c.globalCompositeOperation = 'lighter';
   blob(c, x - bw * 0.18, top, r, ry, '70,110,255', (on ? 0.95 : 0.25) * (0.5 + 0.5 * near) * strength);
   blob(c, x + bw * 0.18, top, r, ry, '255,40,40', (on ? 0.25 : 0.95) * (0.5 + 0.5 * near) * strength);
+  c.restore();
+}
+// luzinhas da obra (pisca âmbar dos cavaletes, giroflex da máquina, semáforo): halo somado por cima
+// da escuridão; list: [x, y, raio, força] na tela
+export function beaconGlow(c: CanvasRenderingContext2D, list: number[][], rgb: string, strength: number) {
+  if (strength <= 0.02 || !list.length) return;
+  c.save();
+  c.globalCompositeOperation = 'lighter';
+  for (const [x, y, r, a] of list) {
+    blob(c, x, y, r * 3.2, r * 2.4, rgb, 0.55 * a * strength);
+    blob(c, x, y, r * 1.2, r, rgb, 0.9 * a * strength);
+  }
   c.restore();
 }
 // o espelho todo e a cabine tingidos pela luz que vem de trás, trocando de cor

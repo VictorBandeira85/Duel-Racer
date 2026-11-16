@@ -3193,7 +3193,7 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
     const n = Math.ceil(r.timer);
     text(c, n > 3 ? 'PRONTO?' : String(n), w / 2, vp.y + 28, 16, '#ffd400', 'center');
     // no computador: lembrete dos comandos do teclado (o controle segue o padrão dos consoles)
-    if (!touch.ui && prefs.hints) text(c, `SETAS OU ${[binds.gas, binds.left, binds.brake, binds.right].map(keyName).join('')}: DIRIGIR · ${keyName(binds.shiftDown)}/${keyName(binds.shiftUp)}: MARCHAS · ${keyName(binds.radio)}: RÁDIO · ESC: PAUSA`, w / 2, vp.y + vp.h - 10, 5, '#ffd400', 'center');
+    if (!touch.ui && prefs.hints) text(c, `SETAS OU ${[binds.gas, binds.left, binds.brake, binds.right].map(keyName).join('')}: DIRIGIR · ${r.clutchMode ? `${keyName(binds.clutch)} + ` : ''}${keyName(binds.shiftDown)}/${keyName(binds.shiftUp)}: MARCHAS · ${keyName(binds.radio)}: RÁDIO · ESC: PAUSA`, w / 2, vp.y + vp.h - 10, 5, '#ffd400', 'center');
   } else if (r.state === 'drive' && r.time < 1 && r.crashes === 0) {
     text(c, 'VAI!', w / 2, vp.y + 28, 16, '#30e060', 'center');
   }
@@ -3227,6 +3227,7 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
     c.restore();
   }
   if (r.messageT > 0) text(c, r.message, w / 2, vp.y + 10, 8, '#ffd400', 'center');
+  drawDraftHud(c, r, vp);
   if (r.officer?.cop) fineImg(r.officer.cop); // carrega a mão com o papel da classe enquanto ele vem andando
   if (r.officer?.phase === 'show' && r.fine) drawFine(c, r, vp);
   // câmbio manual no teclado/controle: a marcha engatada no teto (no toque ela já fica entre os botões)
@@ -3316,6 +3317,45 @@ function drawDigitalHud(c: CanvasRenderingContext2D, r: Race, totalTime: number,
 
 // Marcha engatada (câmbio manual): visor pequeno no teto, à direita do retrovisor, como um
 // mostrador de LED âmbar; pisca enquanto a marcha está entrando
+// Vácuo: plaquinha discreta no alto do para-brisa (abaixo dos avisos) com "VÁCUO" e setinhas para a
+// frente dos dois lados, acesas conforme a força (1 a 3); aparece e some aos poucos. Com o motor
+// apagado (MANUAL + EMBREAGEM), no mesmo lugar, o lembrete de como religar
+function drawDraftHud(c: CanvasRenderingContext2D, r: Race, vp: Viewport) {
+  // nos primeiros segundos (quadro dos desafios e "VAI!" no alto) fica mais embaixo
+  const cx = Math.round(view.w / 2), by = vp.y + (r.time < 5 ? 48 : 20);
+  if (r.state !== 'drive') return;
+  if (r.stalled) {
+    const msg = 'PARA LIGAR: EMBREAGEM + ACELERADOR';
+    const hw = Math.ceil(msg.length * 2.6) + 4;
+    c.fillStyle = 'rgba(10,8,6,0.6)';
+    c.fillRect(cx - hw, by, hw * 2, 9);
+    text(c, msg, cx, by + 2, 5, '#ffd400', 'center', null);
+    return;
+  }
+  const a = clamp((r.draft - 0.1) / 0.12, 0, 1) * clamp((r.speed * KMH - 70) / 15, 0, 1);
+  if (a <= 0) return;
+  const n = r.draft > 0.55 ? 3 : r.draft > 0.3 ? 2 : 1;
+  c.save();
+  c.globalAlpha = a;
+  c.fillStyle = 'rgba(10,8,6,0.6)';
+  c.fillRect(cx - 41, by, 82, 9);
+  text(c, 'VÁCUO', cx, by + 2, 5, '#9ee6ff', 'center', null);
+  // setinha para a frente (5 x 3 px), de dentro para fora: a de dentro acende primeiro
+  const chev = (x: number, on: boolean) => {
+    c.fillStyle = on ? '#9ee6ff' : '#28424e';
+    c.fillRect(x + 2, by + 3, 1, 1);
+    c.fillRect(x + 1, by + 4, 1, 1);
+    c.fillRect(x + 3, by + 4, 1, 1);
+    c.fillRect(x, by + 5, 1, 1);
+    c.fillRect(x + 4, by + 5, 1, 1);
+  };
+  for (let i = 0; i < 3; i++) {
+    chev(cx - 25 - i * 6, i < n);
+    chev(cx + 21 + i * 6, i < n);
+  }
+  c.restore();
+}
+
 function drawGearHud(c: CanvasRenderingContext2D, r: Race) {
   const x = coreX() + 246, y = 3;
   const g = r.speed < 1 && !r.throttle ? 'N' : String(r.gear + 1);

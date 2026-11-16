@@ -2,6 +2,7 @@ import { need } from './imgprio';
 import { adCanvas, adsReady } from './billboards';
 import { dither } from './ui';
 import { drawBlitzSign } from './blitz';
+import { drawDesvioSign, drawObrasSign } from './obra';
 
 // Objetos de cenário desenhados por código. Cada função desenha numa caixa:
 // x = centro, y = base, w/h em pixels. O desenho passa pelo crisp.ts (pixel art nítida,
@@ -13,7 +14,7 @@ export type SpriteKind =
   | 'rail' | 'billboard' | 'bridge' | 'barn' | 'stop'
   | 'autumn' | 'acacia' | 'umbrella' | 'kiosk' | 'factory' | 'silo' | 'banana' | 'spire' | 'lighthouse' | 'chalet'
   | 'snowrock' | 'snowchalet' | 'snowman'
-  | 'warnL' | 'warnR' | 'sharpL' | 'sharpR' | 'gasKm' | 'blitz';
+  | 'warnL' | 'warnR' | 'sharpL' | 'sharpR' | 'gasKm' | 'blitz' | 'obras' | 'desvio';
 
 type Draw = (c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, seed: number) => void;
 
@@ -868,6 +869,8 @@ export const SPRITES: Record<SpriteKind, { w: number; h: number; draw: Draw; sol
   gasSign: { w: 1600, h: 2600, draw: gasSign, solid: true },
   gasKm: { w: 1500, h: 1500, draw: gasKm, solid: true },
   blitz: { w: 1300, h: 1500, draw: drawBlitzSign, solid: true }, // placa BLITZ / REDUZA (src/blitz.ts)
+  obras: { w: 1300, h: 1500, draw: drawObrasSign, solid: true }, // placas da obra (src/obra.ts)
+  desvio: { w: 1300, h: 1500, draw: drawDesvioSign, solid: true },
   station: { w: 6500, h: 3200, draw: station, solid: true },
   stop: { w: 900, h: 1900, draw: stop, solid: false },
   rail: { w: 700, h: 420, draw: rail, solid: false },

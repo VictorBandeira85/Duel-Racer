@@ -5,7 +5,7 @@ import { carSwap } from './carswap';
 import { SAFE_W, KMH } from './config';
 import { DEALER_CARS, drawCarSide, perfClass, type CarSpec } from './cars';
 import { classBadge, drawFilter, filterAt, filterRects, nextFilter, type ClassFilter } from './classui';
-import { newCareer, priceOf, saveCareer } from './career';
+import { newCareer, priceOf, saveCareer, spend } from './career';
 import { flash, money, openPrepDemo, toast, topBar } from './careerScreens';
 import { BRANDS, brandOf, drawLogo } from './brands';
 import { paintHex } from './paint';
@@ -219,6 +219,7 @@ function buy(s: AppState, car: CarSpec) {
   if (cs.money < price) return flash(s, `Falta ${money(price - cs.money)}`);
   const first = cs.owned.length === 0;
   cs.money -= price;
+  spend(cs, price); // estatísticas da carreira
   cs.owned.push(car.id);
   if (first || !cs.car) cs.car = car.id;
   saveCareer(cs);

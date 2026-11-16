@@ -1,5 +1,6 @@
 // Controles: teclado (desenvolvimento) e botões de toque (celular)
-export const input = { left: false, right: false, gas: false, brake: false };
+import { prefs } from './prefs';
+export const input = { left: false, right: false, gas: false, brake: false, clutch: false }; // clutch: embreagem (MANUAL + EMBREAGEM)
 // há tela de toque? (no computador os botões de toque somem e aparecem as dicas do teclado)
 export const touch = { ui: navigator.maxTouchPoints > 0 || matchMedia('(pointer: coarse)').matches };
 // último jeito de jogar usado (legenda de botões dos menus): controle, teclado (ou mouse) ou toque
@@ -28,10 +29,10 @@ const press = (k: Key, down: boolean) => {
 export const ACTIONS: { id: Key; label: string }[] = [
   { id: 'gas', label: 'ACELERAR' }, { id: 'brake', label: 'FREAR' }, { id: 'left', label: 'ESQUERDA' },
   { id: 'right', label: 'DIREITA' }, { id: 'shiftUp', label: 'SOBE MARCHA' }, { id: 'shiftDown', label: 'REDUZ MARCHA' },
-  { id: 'radio', label: 'RÁDIO' },
+  { id: 'radio', label: 'RÁDIO' }, { id: 'clutch', label: 'EMBREAGEM' },
 ];
 const FIXED: Record<string, Key> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'gas', ArrowDown: 'brake', KeyX: 'shiftUp', KeyZ: 'shiftDown' };
-const DEFAULT_BIND: Record<Key, string> = { left: 'KeyA', right: 'KeyD', gas: 'KeyW', brake: 'KeyS', shiftUp: 'KeyE', shiftDown: 'KeyQ', radio: 'KeyR' };
+const DEFAULT_BIND: Record<Key, string> = { left: 'KeyA', right: 'KeyD', gas: 'KeyW', brake: 'KeyS', shiftUp: 'KeyE', shiftDown: 'KeyQ', radio: 'KeyR', clutch: 'ShiftLeft' };
 const BIND_KEY = 'duel-racer:teclas';
 export const binds: Record<Key, string> = (() => {
   try {
@@ -44,7 +45,8 @@ let KEYMAP: Record<string, Key> = {};
 function rebuild() {
   KEYMAP = { ...FIXED };
   // o rádio (ação nova) não toma a tecla R de quem já a tinha escolhido para outra ação
-  for (const a of ACTIONS) if (a.id !== 'radio' || !ACTIONS.some((b) => b.id !== 'radio' && binds[b.id] === binds.radio)) KEYMAP[binds[a.id]] = a.id;
+  // (a embreagem, ação nova, também não toma a tecla de outra ação)
+  for (const a of ACTIONS) if ((a.id !== 'radio' && a.id !== 'clutch') || !ACTIONS.some((b) => b.id !== a.id && binds[b.id] === binds[a.id])) KEYMAP[binds[a.id]] = a.id;
 }
 rebuild();
 // troca a tecla de uma ação (a que já usava essa tecla fica com a antiga desta)
@@ -128,8 +130,9 @@ export function setupInput() {
 }
 
 export function releaseAll() {
-  input.left = input.right = input.gas = input.brake = false;
+  input.left = input.right = input.gas = input.brake = input.clutch = false;
   pad.gas = pad.brake = pad.steer = 0;
+  pad.clutch = false;
   queue.shiftUp = queue.shiftDown = queue.radio = 0;
   horn.key = horn.touch = horn.pad = false;
 }
@@ -143,7 +146,8 @@ export function releaseAll() {
 export type PadKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back' | 'start' | 'prevTab' | 'nextTab';
 // comandos proporcionais do controle (0..1 nos pedais, -1..1 na direção); o teclado e o toque
 // continuam em input (liga/desliga) e valem por inteiro por cima destes
-export const pad = { gas: 0, brake: 0, steer: 0, connected: false, id: '', mapping: '' };
+// clutch: embreagem no controle (L3, ou Y/triângulo no modo MANUAL + EMBREAGEM, quando ele deixa de buzinar)
+export const pad = { gas: 0, brake: 0, steer: 0, clutch: false, connected: false, id: '', mapping: '' };
 const padPrev: Record<string, boolean> = {};
 const padHeld = { left: false, right: false, gas: false, brake: false };
 const repeatAt: Record<string, number> = {};
@@ -165,6 +169,7 @@ const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 // pedais e direção da corrida: o maior entre teclado/toque (inteiro) e o controle (proporcional)
 export const gasAmt = () => (input.gas ? 1 : pad.gas);
 export const brakeAmt = () => (input.brake ? 1 : pad.brake);
+export const clutchAmt = () => input.clutch || pad.clutch;
 export function steerAmt() {
   const d = (input.left ? -1 : 0) + (input.right ? 1 : 0);
   return d !== 0 ? d : pad.steer;
@@ -199,6 +204,7 @@ export function pollGamepad(): PadKey[] {
   pad.connected = pads.length > 0;
   if (!pads.length) {
     if (pad.gas || pad.brake || pad.steer) pad.gas = pad.brake = pad.steer = 0;
+    pad.clutch = false;
     for (const k of ['left', 'right', 'gas', 'brake'] as const) if (padHeld[k]) input[k] = padHeld[k] = false;
     horn.pad = false;
     return [];
@@ -207,7 +213,8 @@ export function pollGamepad(): PadKey[] {
   pad.mapping = pads[0].mapping;
   const now: Record<string, boolean> = { left: false, right: false, up: false, down: false, gas: false, brake: false, ok: false, back: false, shiftUp: false, shiftDown: false, start: false, radio: false };
   const nav = { left: false, right: false, up: false, down: false };
-  let gas = 0, brake = 0, steer = 0, honk = false;
+  let gas = 0, brake = 0, steer = 0, honk = false, clutch = false;
+  const clutchY = !prefs.auto && prefs.clutch; // Y/triângulo vira embreagem (a buzina fica no X/quadrado)
   for (const gp of pads) {
     const b = (i: number) => gp.buttons[i];
     const btn = (i: number) => !!b(i) && (b(i).pressed || b(i).value > 0.5);
@@ -230,7 +237,8 @@ export function pollGamepad(): PadKey[] {
     now.shiftDown ||= btn(4);
     now.start ||= btn(9);
     now.radio ||= btn(8); // Select/Back/View/Share: troca a estação do rádio
-    honk ||= btn(2) || btn(3); // X/quadrado ou Y/triângulo: buzina
+    honk ||= btn(2) || (btn(3) && !clutchY); // X/quadrado ou Y/triângulo: buzina
+    clutch ||= btn(10) || (btn(3) && clutchY); // L3 (alavanca esquerda apertada) ou Y/triângulo: embreagem
     nav.left ||= dl;
     nav.right ||= dr;
     nav.up ||= du;
@@ -247,6 +255,7 @@ export function pollGamepad(): PadKey[] {
   pad.brake = brake;
   pad.steer = steer;
   horn.pad = honk;
+  pad.clutch = clutch;
   if (gas > 0.1 || brake > 0.1 || Math.abs(steer) > 0.2 || Object.values(now).some(Boolean) || nav.up || nav.down || nav.left || nav.right) lastDevice.kind = 'pad';
   Object.assign(now, { up: nav.up, down: nav.down, navLeft: nav.left, navRight: nav.right });
   // botões digitais seguem o botão enquanto ele estiver apertado (como as teclas)

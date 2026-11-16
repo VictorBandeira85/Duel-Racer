@@ -4,6 +4,7 @@ import { SPRITES, type SpriteKind } from './sprites';
 import type { Theme } from './themes';
 import { easeIn, easeInOut, rng } from './util';
 import { BLITZ_SIGNS_M, pickBlitz } from './blitz';
+import { OBRA_SIGNS_M, pickObra } from './obra';
 
 export interface Point {
   world: { y: number; z: number };
@@ -37,6 +38,7 @@ export interface Track {
   finishZ: number;
   policeSpots: number[];
   blitz?: number; // z do ponto de polícia que virou blitz (src/blitz.ts), se houver
+  obra?: number; // z onde começam os cones da obra (src/obra.ts), se houver
 }
 
 const point = (y: number, z: number): Point => ({
@@ -277,6 +279,9 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
   const bi = pickBlitz({ segments, startZ, finishZ }, policeSpots, seed);
   const blitz = bi >= 0 ? policeSpots[bi] : undefined;
   if (blitz !== undefined) for (const m of BLITZ_SIGNS_M) signAt(Math.floor(blitz / SEG_LEN) - Math.round(m / SEG_M), 'blitz');
+  // obra (src/obra.ts): no máximo uma, longe da blitz, com as placas OBRAS 500 m e DESVIO antes
+  const obra = pickObra({ segments, startZ, finishZ, policeSpots, blitz }, seed);
+  if (obra !== undefined) OBRA_SIGNS_M.forEach((m, k) => signAt(Math.floor(obra / SEG_LEN) - Math.round(m / SEG_M), k ? 'desvio' : 'obras'));
 
-  return { segments, roadW, lanes: def.lanes, startZ, finishZ, policeSpots, blitz };
+  return { segments, roadW, lanes: def.lanes, startZ, finishZ, policeSpots, blitz, obra };
 }

@@ -10,10 +10,12 @@ import { makePlate, modelYear, themeRegion, REGION_PLATE, type Plate } from './p
 import { THEMES, blendTheme, fogTheme, nightTheme, rainTheme, sunsetTheme, goldenTheme, type Theme, type ThemeId } from './themes';
 import { SPRITES, type SpriteKind } from './sprites';
 import { buildTrack, laneCenter, type Segment, type Track } from './track';
-import { brakeAmt, gasAmt, steerAmt, takeShift } from './input';
-import { beep, radarBeep, bumpSound, crashSound, motoCrashSound, landSound, stoneSound, setTunnel, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setTires, shiftSound } from './audio';
+import { brakeAmt, clutchAmt, gasAmt, steerAmt, takeShift } from './input';
+import { prefs } from './prefs';
+import { beep, radarBeep, bumpSound, crashSound, motoCrashSound, landSound, stoneSound, setTunnel, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setSirens, setTires, shiftSound, grindSound, starterSound, type SirenSrc } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
-import { BLITZ_KMH, CONE_W, blitzEdge, coneSound, knockCone, makeBlitz, updateCones, type Blitz } from './blitz';
+import { BLITZ_KMH, blitzEdge, coneSound, coneW, knockCone, makeBlitz, updateCones, type Blitz, type Closure } from './blitz';
+import { PROP_SIZE, SOLID_PROPS, makeObra, type Obra } from './obra';
 import { updateTrafficAudio } from './trafficaudio';
 import { GHOST_DT, ghostAt, type Ghost } from './records';
 import { startFall, updateFall, type MotoFall } from './motofall';
@@ -21,6 +23,8 @@ import { startFall, updateFall, type MotoFall } from './motofall';
 // curvatura da pista por unidade de curva (1/m): curva 4 = fechada (~175 km/h a 1 g)
 const CURVE_K = 0.00105;
 const TRAFFIC_KG = 1300;
+const M_LON = KMH / 3.6; // unidades do mundo -> metros, no sentido da pista (sirenes)
+const M_LAT = 1.8 / CAR_W; // e de lado (o carro tem 1,8 m)
 const BRAKE_BOOST = 1.2; // freios 20% mais fortes que a ficha (pedido de jogabilidade)
 const SIGNAL_LEAD = 0.8; // s de pisca antes de trocar de faixa (mão dupla)
 const FLASH_T = 2.2; // s do pedido de passagem: sobe o farol, pisca três vezes, abaixa
@@ -57,6 +61,13 @@ export function copLook(unit: PerfClass | undefined, base: Partial<CarLook>): Ca
   return { color: '#fff', police: true, ...base };
 }
 const TRUCK_KG = 9000;
+// vácuo (draftAhead): alcance em segmentos (~35 m), quanto do arrasto some colado num caminhão e
+// quanto o giro pode passar do corte na última marcha no vácuo (a máxima de ficha é no corte: sem
+// essa folga o vácuo só ajudaria a chegar nela, nunca a passar dela)
+const DRAFT_SEGS = 25;
+export const DRAFT_DRAG = 0.5;
+const DRAFT_OVER = 0.07;
+const BOXY = new Set<string>(['van', 'kombi', 'pickup', 'suv']); // utilitários: buraco maior no ar
 
 export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck' | 'fusca' | 'kombi' | 'suv' | 'sedan90' | TruckModel | MotoModel;
 // Caminhões (arte do Victor, tools/ref/truck_art.py): Kenworth W900 graneleiro (deserto, cânion), F-4000
@@ -122,7 +133,7 @@ function pickGameCar(u: number): CarSpec | undefined {
 const ROADSIDE: Partial<Record<SpriteKind, 'scrape' | 'knock'>> = {
   rail: 'scrape', fence: 'scrape',
   post: 'knock', bush: 'knock', umbrella: 'knock', snowman: 'knock', stop: 'knock',
-  signL: 'knock', signR: 'knock', warnL: 'knock', warnR: 'knock', sharpL: 'knock', sharpR: 'knock', gasKm: 'knock', blitz: 'knock',
+  signL: 'knock', signR: 'knock', warnL: 'knock', warnR: 'knock', sharpL: 'knock', sharpR: 'knock', gasKm: 'knock', blitz: 'knock', obras: 'knock', desvio: 'knock',
 };
 export function trafficLook(t: TrafficCar, front: boolean, night: boolean, flash = false): CarLook {
   // freando: mais devagar do que gosta de andar (trânsito na mesma mão, atrás de alguém ou em pânico)
@@ -216,6 +227,13 @@ export interface Police {
   sv?: boolean; // Diablo SV da polícia (classe S): bem mais rápida
   unit?: PerfClass; // classe da viatura (COP_UNIT)
   blitz?: boolean; // viatura da blitz: encostada na faixa, giroflex aceso, sai atrás de quem passa rápido
+  backup?: boolean; // reforço chamado por rádio (vem de trás ou sai do ponto seguinte, à frente)
+  block?: boolean; // reforço à frente: entra na pista e fecha a linha do jogador até ele passar
+  fleeT?: number; // há quanto tempo o jogador vem abrindo distância (chama o reforço)
+  lostT?: number; // há quanto tempo o jogador está longe demais (a viatura desiste)
+  lastGap?: number;
+  called?: boolean; // já pediu reforço nesta perseguição
+  nudgeT?: number; // intervalo entre os encostões de lado
 }
 
 // Policial que desce da viatura e mostra a multa
@@ -325,7 +343,9 @@ export class Race {
   // contagens do trecho para os desafios e as conquistas
   private airPending = 0;
   private airPendT = 0;
-  stats = { passes: 0, near: 0, brakeT: 0, airT: 0, bestAir: 0, scrapes: 0, tunnels: 0 };
+  stats = { passes: 0, near: 0, brakeT: 0, airT: 0, bestAir: 0, scrapes: 0, tunnels: 0, falls: 0 };
+  // carro usado da carreira (classificados): dano, fumaça e trincas que vêm de fábrica e voltam no carro novo
+  wear: { damage: number; smoke: number; glass: GlassMark[] } = { damage: 0, smoke: 0, glass: [] };
   challenges: import('./challenges').Challenge[] = [];
   private wasTunnel = false;
   crashSlide = 0; // (público: a cabine usa o sinal para o lado das faíscas)
@@ -367,10 +387,29 @@ export class Race {
   region = 'costa'; // região do trecho (placas)
   private rivalStyleOverride?: RivalStyle;
   fines = 0; // soma das multas do trecho
+  escapes = 0; // vezes que o jogador despistou a polícia no trecho
+  wanted = 0; // quanto o jogador é "procurado" (0 a 1): multas/fugas de antes (carreira) ou do roteiro (Arcade)
+  backups = 0; // reforços chamados no trecho
   private caughtKmh = 0;
   traffic: TrafficCar[] = [];
   police: Police[] = [];
   blitz: Blitz | null = null; // blitz do trecho (src/blitz.ts): cones, policial anotando, placas
+  obra: Obra | null = null; // obra do trecho (src/obra.ts): faixa fechada por cones e cavaletes
+  // faixas fechadas por cones (blitz e obra): ninguém da nossa mão atravessa a linha deles
+  private closures(): Closure[] {
+    return this.blitz ? (this.obra ? [this.blitz, this.obra] : [this.blitz]) : this.obra ? [this.obra] : [];
+  }
+  // até onde (x) se pode ir na nossa mão nesse z sem pegar cones da blitz ou da obra
+  private closedEdge(z: number) {
+    return Math.min(blitzEdge(this.blitz, z), blitzEdge(this.obra, z));
+  }
+  // pare-e-siga da obra em mão dupla: segura a contramão até o jogador e o rival (se vier perto) passarem
+  private obraHold() {
+    const o = this.obra;
+    if (!o || !o.two) return false;
+    const r = this.rival;
+    return this.playerZ < o.z3 + SEG_LEN || (!!r && r.z < o.z3 + SEG_LEN && r.z > o.z0 - 400 * SEG_LEN);
+  }
   officer: Officer | null = null;
   copId = 'D1';
   copPlate?: Plate; // placa da viatura feita de carro do jogo
@@ -392,11 +431,12 @@ export class Race {
     public car: CarSpec,
     public rivalCar: CarSpec | null,
     public auto: boolean,
-    opts: { rivalStyle?: RivalStyle; rivalPaint?: string; rivalAhead?: boolean; copClass?: PerfClass } = {},
+    opts: { rivalStyle?: RivalStyle; rivalPaint?: string; rivalAhead?: boolean; copClass?: PerfClass; wanted?: number } = {},
   ) {
     this.rivalPaint = opts.rivalPaint;
     this.pt = new Powertrain(car);
     this.rivalStyleOverride = opts.rivalStyle;
+    this.wanted = clamp(opts.wanted ?? 0, 0, 1);
     setEngineProfile(car.engine, car.id, car.soundMods);
     // cópia: o pôr do sol acende a noite no meio do trecho sem mexer na definição do percurso
     this.def = { ...course.stages[stageIdx] };
@@ -472,6 +512,8 @@ export class Race {
       const bp = this.police.find((p) => p.spotZ === t.blitz);
       if (bp) { bp.blitz = true; bp.x = this.blitz.copX; }
     }
+    // obra (no máximo uma por trecho, longe da blitz)
+    if (t.obra !== undefined) this.obra = makeObra(t, t.obra, seed);
     // policial da vez: um dos dois da classe, conforme o trecho
     this.copId = unit + String(1 + ((seed >> 3) % 2));
     preloadCops(this.copId);
@@ -642,6 +684,9 @@ export class Race {
     const oncoming = lane < lanes / 2;
     // não nasce em cima de outro carro da mesma faixa: avança até achar espaço
     const lx = laneCenter(this.track, lane);
+    // pare-e-siga da obra: quem vem de lá não nasce dentro dela, nasce na fila
+    const ob = this.obra;
+    if (oncoming && ob && this.obraHold() && z > ob.z0 - 30 * SEG_LEN && z < ob.holdZ) z = ob.holdZ + 6 * SEG_LEN;
     for (let k = 0; k < 6 && this.traffic.some((o) => o !== c && Math.abs(o.x - lx) < CAR_W && Math.abs(o.z - z) < 5 * SEG_LEN); k++) z += 6 * SEG_LEN;
     c.z = z;
     c.x = lx + (r() - 0.5) * 300;
@@ -712,7 +757,10 @@ export class Race {
       this.rpm = clamp(this.rpm + (want - this.rpm) * Math.min(1, dt * (want > this.rpm ? 3.2 : 2.2)), 0.1, 1.04);
       if (this.timer <= 0) {
         this.state = 'drive';
-        this.startLaunch();
+        // câmbio com embreagem: a saída acontece quando o jogador solta o pedal (clutchUp)
+        this.clutchWas = this.clutchMode && clutchAmt();
+        if (this.clutchMode && !this.clutchWas) this.clutchUp(0); // sem o pedal pisado: é como soltar agora
+        else if (!this.clutchWas) this.startLaunch();
       }
       // segurando o giro na contagem o turbo já sobe pressão
       if (this.pt.boost < 1) this.pt.boost = lerp(this.pt.boost, 0.1 + (LAUNCH_BOOST - 0.1) * this.gasPedal, Math.min(1, dt * 2));
@@ -734,9 +782,23 @@ export class Race {
     this.ghostPos = gp ? { z: gp.z, x: gp.x, ghost: true } : null;
 
     // ---- câmbio ----
+    // com embreagem (MANUAL + EMBREAGEM nos ajustes): sem o pedal pisado a marcha arranha e não
+    // entra; com ele, entra na hora (o corte de força é o próprio pedal, não o tempo da troca)
+    const cm = this.clutchMode;
+    this.clutchIn = cm && driving && clutchAmt();
     if (driving && !this.auto) {
-      if (takeShift('shiftUp')) this.pt.shift(Math.min(this.car.gears.length - 1, this.pt.gear + 1));
-      if (takeShift('shiftDown')) this.pt.shift(Math.max(0, this.pt.gear - 1));
+      const up = takeShift('shiftUp'), down = takeShift('shiftDown');
+      const to = up ? Math.min(this.car.gears.length - 1, this.pt.gear + 1) : down ? Math.max(0, this.pt.gear - 1) : this.pt.gear;
+      if (to !== this.pt.gear) {
+        if (cm && !this.clutchIn && !this.stalled) {
+          grindSound();
+          this.message = 'EMBREAGEM!';
+          this.messageT = 0.9;
+        } else {
+          this.pt.shift(to);
+          if (cm) this.pt.shiftT = 0;
+        }
+      }
     } else {
       takeShift('shiftUp');
       takeShift('shiftDown');
@@ -759,6 +821,8 @@ export class Race {
     this.brakePedal = driving ? brakeAmt() : 1;
     this.throttle = this.gasPedal > 0.02;
     this.braking = driving ? this.brakePedal > 0.02 : pulling ? copAhead : this.state !== 'ticket' || this.speed > 0;
+    if (cm && driving) this.clutchStep(dt);
+    else if (!cm) this.stalled = this.clutchWas = false;
     // chegando ao posto: o carro começa a frear sozinho a tempo de chegar na bomba (4 segmentos
     // depois da linha) já perto da velocidade de parada, em vez de frear só na linha e parar longe
     if (driving && this.speed > 0) {
@@ -863,7 +927,8 @@ export class Race {
     if (this.state === 'drive') {
       // na última marcha a máxima chega devagarinho perto do corte: só conta se estiver mesmo nele
       const top = this.gear >= this.car.gears.length - 1;
-      const atCut = this.rpm >= (top ? 0.99 : 0.965) * cut && this.gasPedal > 0.5;
+      // (no vácuo a folga acima do corte não esquenta: só o corte de verdade, no fim da folga)
+      const atCut = this.rpm >= (top ? 0.99 * (1 + this.pt.over) : 0.965) * cut && this.gasPedal > 0.5;
       this.heat = clamp(this.heat + (atCut ? dt / 6 : this.rpm < 0.9 ? -dt / 8 : -dt / 20), 0, 1);
     } else this.heat = Math.max(0, this.heat - dt / 8);
     if (this.heat > 0.65 && !this.heatWarn && this.state === 'drive') {
@@ -872,15 +937,19 @@ export class Race {
       this.messageT = 2.2;
     }
     if (this.heat < 0.3) this.heatWarn = false;
-    const aDrive0 = this.pt.step(this.speed, this.throttle, dt, surf * (1 - this.air * 0.6), this.auto, this.gasPedal) * hurt * (1 - 0.3 * heatLoss) * (1 - 0.5 * this.launchSpin) * this.bog();
+    // embreagem pisada ou motor apagado: nada chega às rodas
+    const engaged = !this.clutchIn && !this.stalled;
+    // vácuo na última marcha: o giro pode passar um pouco do corte (o ar a menos deixa ir além da máxima)
+    this.pt.over = DRAFT_OVER * this.draft;
+    const aDrive0 = this.pt.step(this.speed, this.throttle && engaged, dt, surf * (1 - this.air * 0.6), this.auto, this.gasPedal) * hurt * (1 - 0.3 * heatLoss) * (1 - 0.5 * this.launchSpin) * this.bog();
     // motor quente: a central corta no giro mais baixo (corte cai até 7%)
     const aDrive = cut < 1 && this.speed >= max * this.car.gears[this.pt.gear] * cut ? 0 : aDrive0;
     this.gear = this.pt.gear;
     const gearMax = max * this.car.gears[this.gear];
     const rpmNow = this.speed / gearMax;
-    // vácuo tira até 35% do arrasto; sem acelerar, o freio-motor segura conforme o giro
-    // (com meio pé o freio-motor some na mesma proporção)
-    const aResist = resistAcc(this.car, this.speed, 1 - 0.35 * this.draft) + (1 - clamp(this.gasPedal, 0, 1)) * (0.6 + 1.2 * clamp(rpmNow, 0, 1));
+    // vácuo tira até metade do arrasto (colado num caminhão); sem acelerar, o freio-motor segura
+    // conforme o giro (com meio pé o freio-motor some na mesma proporção; embreagem pisada, some)
+    const aResist = resistAcc(this.car, this.speed, 1 - DRAFT_DRAG * this.draft) + (this.clutchIn ? 0 : (1 - clamp(this.gasPedal, 0, 1)) * (0.6 + 1.2 * clamp(rpmNow, 0, 1)));
     // a pista desenhada exagera as rampas (~2,5×): a gravidade usa a inclinação de verdade
     const realSlope = slope * RELIEF;
     const aGrav = (G * realSlope) / Math.sqrt(1 + realSlope * realSlope);
@@ -892,23 +961,32 @@ export class Race {
       else this.speed -= toGame(G * this.car.brakeG * BRAKE_BOOST * surf * aero * (1 - this.air * 0.5)) * this.brakePedal * dt; // freio parcial = freada parcial
     }
     // acima do corte de giro (reduziu marcha ou embalou na descida): o motor segura
-    if (this.speed > gearMax * cut) this.speed -= (this.speed - gearMax * cut) * (slope < -0.05 ? 0.4 : 1.5) * dt;
+    const limMax = gearMax * cut * (1 + (this.gear === this.car.gears.length - 1 ? this.pt.over : 0));
+    if (this.speed > limMax) this.speed -= (this.speed - limMax) * (slope < -0.05 ? 0.4 : 1.5) * dt;
     this.speed = clamp(this.speed, 0, max * 1.12);
     // patinando, o giro sobe sem o carro andar
     this.spin = lerp(this.spin, Math.max(this.pt.spin, this.launchSpin * clamp(this.gasPedal * 1.4, 0, 1)), Math.min(1, dt * 8));
     // rodas patinando: o giro dispara, e mais ainda em alta rotação nos carros preparados
     const rpmBase = this.speed / (max * this.car.gears[this.gear]);
-    const rpmGear = Math.min(1.02, rpmBase + this.spin * (0.3 + ((this.car.prep ?? 1) > 1 ? 0.4 * clamp(rpmBase, 0, 1) : 0)));
+    const rpmGear = Math.min(1.02 + this.pt.over, rpmBase + this.spin * (0.3 + ((this.car.prep ?? 1) > 1 ? 0.4 * clamp(rpmBase, 0, 1) : 0)));
     // troca de marcha de câmbio manual: embreagem pisada, o giro cai devagar no começo e depressa
     // depois, e casa com a marcha nova quando ela entra (na redução, sobe no "punta-tacco")
-    if (this.gear !== this.shownGear) {
+    if (cm && driving && (this.clutchIn || this.stalled)) {
+      // embreagem pisada: o motor gira solto, sobe com o pé (o golpe de acelerador da redução) e
+      // cai para a marcha lenta; apagado, para. Ao soltar, clutchUp casa o giro com a marcha
+      const want = this.stalled ? 0 : 0.1 + 0.95 * this.gasPedal;
+      this.rpm = clamp(this.rpm + (want - this.rpm) * Math.min(1, dt * (want > this.rpm ? 3.6 : 2.2)), 0, 1.04);
+      this.shownGear = this.gear;
+      this.shiftLeft = 0;
+    } else if (this.gear !== this.shownGear) {
       const up = this.gear > this.shownGear;
       this.shiftFrom = this.rpm;
       this.shiftDur = up ? SHIFT_T : 0.25;
       this.shiftLeft = this.shiftDur;
       this.shownGear = this.gear;
     }
-    if (this.shiftLeft > 0) {
+    if (cm && driving && (this.clutchIn || this.stalled)) { /* giro solto (acima) */ }
+    else if (this.shiftLeft > 0) {
       this.shiftLeft -= dt;
       const u = clamp(this.shiftLeft / this.shiftDur, 0, 1);
       this.rpm = rpmGear + (this.shiftFrom - rpmGear) * u * u * (3 - 2 * u);
@@ -1002,7 +1080,7 @@ export class Race {
     this.jolt = Math.max(0, this.jolt - dt * (this.state === 'crash' ? 1.6 : 4));
     if (this.jolt > 0.05) this.shake = 1 + this.jolt * 4;
     // a fumaça da batida vai virando um fio; com dano acumulado, o motor segue soltando vapor
-    this.smoke = Math.max(this.damage > 0.45 ? (this.damage - 0.45) * 1.2 : 0, this.smoke - dt * (this.state === 'crash' ? 0.12 : 0.3));
+    this.smoke = Math.max(this.damage > 0.45 ? (this.damage - 0.45) * 1.2 : 0, this.wear.smoke, this.smoke - dt * (this.state === 'crash' ? 0.12 : 0.3));
     if (this.scrapeT > 0) {
       this.scrapeT -= dt;
       this.shake = 1;
@@ -1091,9 +1169,11 @@ export class Race {
     // pneu canta só escorregando (derrapagem, rodada, patinando); frear em linha reta não
     const screech = driving && !offRoad ? Math.max(this.slip * 1.4, Math.abs(this.drift) * 2.2, this.spin * 0.55, this.spinOut > 0 ? 1 : 0) : 0;
     const surface = this.wetK < 0.4 ? 'dry' : this.wx === 'snow' ? 'snow' : this.wx === 'rain' ? 'wet' : 'dry';
-    setTires(screech, offRoad && this.speed > 100 ? 0.4 + speedPct * 0.6 : 0, surface, driving || this.state === 'arrived' ? speedPct : 0);
-    // durante a troca o pé sai do acelerador: o ronco perde carga até a marcha entrar
-    setEngine(Math.max(0.1, this.rpm), this.pt.shiftT <= 0 ? this.gasPedal : 0, true, this.turboCar ? this.pt.boost : 0);
+    // vento: cresce com a velocidade (forte acima de ~250 km/h) e cai até 70% no vácuo
+    const wind = driving || this.state === 'arrived' ? clamp((this.speed * KMH) / 260, 0, 1) ** 2 * (1 - 0.7 * this.draft) : 0;
+    setTires(screech, offRoad && this.speed > 100 ? 0.4 + speedPct * 0.6 : 0, surface, driving || this.state === 'arrived' ? speedPct : 0, wind);
+    // durante a troca o pé sai do acelerador: o ronco perde carga até a marcha entrar (motor apagado: mudo)
+    setEngine(Math.max(this.stalled ? 0 : 0.1, this.rpm), this.pt.shiftT <= 0 ? this.gasPedal : 0, !this.stalled, this.turboCar ? this.pt.boost : 0);
     setSteam(this.smoke);
   }
 
@@ -1110,6 +1190,68 @@ export class Race {
   // VAI!: o resultado depende do giro e do pé nessa hora. Giro alto (acima da faixa de torque) com
   // pé fundo = rodas patinando; giro na faixa = sai forte; giro baixo = a embreagem segura o
   // motor embaixo e ele "afoga" até subir (sem acelerar nada, sai devagar)
+  // ---- câmbio com embreagem (MANUAL + EMBREAGEM) ----
+  clutchIn = false; // pedal da embreagem pisado (motor solto das rodas)
+  stalled = false; // motor apagou: precisa religar (embreagem pisada + acelerador)
+  private clutchWas = false;
+  private crankT = 0; // motor de arranque girando
+  get clutchMode() {
+    return !this.auto && prefs.clutch;
+  }
+  // a cada quadro: soltou o pedal agora, deixou o giro cair demais com a marcha engatada, religando
+  private clutchStep(dt: number) {
+    const wheel = this.speed / (this.car.maxSpeed * this.car.gears[this.pt.gear]);
+    if (this.stalled) {
+      if (this.crankT > 0) {
+        this.crankT -= dt;
+        if (this.crankT <= 0) {
+          // pegou: sobe um pouco acima da lenta (soltar a embreagem agora conta como uma saída)
+          this.stalled = false;
+          this.rpm = 0.28;
+          this.clutchWas = true;
+        }
+      } else if (this.clutchIn && this.gasPedal > 0.2) {
+        this.crankT = 0.65;
+        starterSound(0.65);
+      }
+      return;
+    }
+    if (this.clutchWas && !this.clutchIn) this.clutchUp(wheel);
+    // engatado, o motor não gira abaixo da lenta: marcha alta quase parado morre (em 1ª, com o pé
+    // no acelerador, a embreagem "patina" como na saída e ele segura)
+    else if (!this.clutchIn && !this.autoStop && (this.pt.gear > 0 ? wheel < 0.1 : wheel < 0.05 && this.gasPedal < 0.25)) this.stall();
+    this.clutchWas = this.clutchIn;
+  }
+  // soltou a embreagem: parado, depende do giro (pouco = morre, na faixa = sai, alto com o pé no
+  // fundo = patina, reaproveitando a largada); andando, o motor casa com a marcha (reduzir sem o
+  // golpe de acelerador dá um tranco e a traseira escorrega; soltar de giro alto em marcha baixa patina)
+  private clutchUp(wheel: number) {
+    const g = this.pt.gear;
+    if (wheel < 0.12) {
+      const need = g === 0 ? 0.2 : g === 1 ? 0.36 : 0.62;
+      if (this.rpm < need) return this.stall();
+      this.startLaunch();
+      return;
+    }
+    const diff = this.rpm - Math.min(1.05, wheel);
+    if (diff < -0.22) {
+      this.speed *= 1 - 0.05 * Math.min(1, -diff);
+      this.slip = Math.max(this.slip, Math.min(0.6, -diff));
+    } else if (diff > 0.3 && this.gasPedal > 0.5 && g <= 1) {
+      this.launchSpin = Math.max(this.launchSpin, clamp((diff - 0.3) / 0.4, 0, 1) * this.launchK());
+    }
+    this.shiftFrom = this.rpm;
+    this.shiftDur = this.shiftLeft = 0.18;
+    this.shownGear = g;
+  }
+  private stall() {
+    this.stalled = true;
+    this.crankT = 0;
+    this.launchSpin = 0;
+    this.message = 'MOTOR APAGOU!';
+    this.messageT = 2;
+  }
+
   private startLaunch() {
     const ideal = launchRpm(this.car.curve);
     this.launchHeld = this.rpm;
@@ -1277,8 +1419,8 @@ export class Race {
     this.state = 'drive';
     this.speed = 0;
     this.smoke = 0; // carro novo
-    this.damage = 0;
-    this.glass = [];
+    this.damage = this.wear.damage; // carro usado: os defeitos de fábrica continuam
+    this.glass = [...this.wear.glass];
     this.overheat = false;
     this.heat = 0;
     this.jolt = 0;
@@ -1352,6 +1494,9 @@ export class Race {
     };
     for (const o of this.traffic) if (o !== c && !o.hit) look(o.z, o.x, o.speed);
     if (dir > 0) look(this.playerZ, this.x, this.speed); // não atropela o jogador parado
+    // obra em mão dupla (pare-e-siga): a contramão espera parada antes dela enquanto o jogador ou o
+    // rival ainda não passaram (a nossa mão usa a faixa deles ao lado dos cavaletes)
+    if (dir < 0 && this.obraHold()) look(this.obra!.holdZ, c.x, 0);
     if (this.rival && dir > 0) look(this.rival.z, this.rival.x, this.rival.speed);
     let desired = c.base;
     // distância segura do carro da frente: a velocidade se ajusta para ficar a ~3,5 segmentos dele
@@ -1381,9 +1526,10 @@ export class Race {
 
     // blitz: na nossa mão ninguém passa por cima dos cones (quem está na linha deles é espremido para
     // o lado); com quatro faixas, quem vem na faixa fechada liga a seta e sai dela bem antes
-    const bz = this.blitz;
-    const nearBlitz = !!bz && dir > 0 && c.z > bz.z0 - 150 * SEG_LEN && c.z < bz.z2;
-    if (bz && dir > 0) c.x = Math.min(c.x, blitzEdge(bz, c.z) - this.carHalf(c));
+    // (a obra fecha a faixa do mesmo jeito: bz é a faixa fechada mais perto à frente)
+    const bz = dir > 0 ? this.closures().find((b) => c.z > b.z0 - 150 * SEG_LEN && c.z < b.z3) : undefined;
+    const nearBlitz = !!bz && c.z < bz.z2;
+    if (dir > 0) c.x = Math.min(c.x, this.closedEdge(c.z) - this.carHalf(c));
     if (t.lanes < 4) return; // uma faixa por sentido: não há para onde ir
     if (bz && nearBlitz && c.tx > bz.inner - CAR_W * 0.6) {
       c.tx = laneCenter(t, t.lanes - 2) + laneOff(c);
@@ -1449,18 +1595,27 @@ export class Race {
     return (Math.sqrt(v2) * 3.6) / KMH;
   }
 
-  // vácuo: há um carro logo à frente na mesma faixa, no mesmo sentido?
+  // vácuo: há um veículo à frente na mesma faixa, no mesmo sentido? (0..1) Vale até ~35 m
+  // (DRAFT_SEGS; caminhão um pouco mais longe), mais forte quanto mais perto e quanto maior o
+  // buraco que ele abre no ar: caminhão 1, utilitário (van, kombi, picape, SUV) 0,75, carro 0,6,
+  // moto quase nada. Quem usa: arrasto × (1 − DRAFT_DRAG × vácuo)
   draftAhead(z: number, x: number, speed: number) {
     let best = 0;
-    const consider = (cz: number, cx: number, cs: number) => {
-      const dz = cz - z;
-      if (cs <= 0 || dz < SEG_LEN * 0.8 || dz > SEG_LEN * 7 || Math.abs(cx - x) > CAR_W * 0.6 || speed < 4000) return;
-      best = Math.max(best, 1 - (dz - SEG_LEN * 0.8) / (SEG_LEN * 6.2));
+    if (speed < 2800) return 0; // abaixo de ~70 km/h o ar quase não pesa
+    const consider = (cz: number, cx: number, cs: number, half: number, size: number) => {
+      const dz = cz - z, reach = DRAFT_SEGS * SEG_LEN * (size >= 1 ? 1.2 : 1), d0 = SEG_LEN * 0.8;
+      if (cs <= 0 || dz < d0 || dz > reach || Math.abs(cx - x) > half + CAR_W * 0.1) return;
+      best = Math.max(best, size * (1 - (dz - d0) / (reach - d0)) ** 1.5);
     };
-    for (const c of this.traffic) if (!c.hit) consider(c.z, c.x, c.speed);
-    if (this.rival && this.rival.z !== z) consider(this.rival.z, this.rival.x, this.rival.speed);
-    if (z !== this.playerZ) consider(this.playerZ, this.x, this.speed);
-    return best;
+    for (const c of this.traffic) {
+      if (c.hit) continue;
+      const moto = !c.car && isMoto(c.model);
+      const size = c.truck ? 1 : moto ? 0.15 : !c.car && BOXY.has(c.model) ? 0.75 : 0.6;
+      consider(c.z, c.x, c.speed, (c.truck ? TRUCK_W : moto ? CAR_W * 0.4 : CAR_W) / 2, size);
+    }
+    if (this.rival && this.rival.z !== z) consider(this.rival.z, this.rival.x, this.rival.speed, CAR_W / 2, 0.6);
+    if (z !== this.playerZ) consider(this.playerZ, this.x, this.speed, CAR_W / 2, 0.6);
+    return Math.min(1, best);
   }
 
   // tempo até alcançar o próximo obstáculo numa faixa
@@ -1507,9 +1662,9 @@ export class Race {
     };
     for (const c of this.traffic) if (!c.hit) check(c.z, c.x, c.speed);
     check(this.playerZ, this.x, this.speed);
-    // faixa fechada pela blitz (quatro faixas): um obstáculo parado onde os cones chegam nela
-    const b = this.blitz;
-    if (b && this.track.lanes === 4 && r.z < b.z2) {
+    // faixa fechada pela blitz ou pela obra (quatro faixas): um obstáculo parado onde os cones chegam nela
+    for (const b of this.closures()) {
+      if (this.track.lanes !== 4 || r.z >= b.z2) continue;
       for (let z = Math.max(b.z0, r.z); z <= b.z2; z += 2 * SEG_LEN) {
         if (laneX + CAR_W / 2 > blitzEdge(b, z)) { check(z, laneX, 0); break; }
       }
@@ -1572,6 +1727,10 @@ export class Race {
     const rSeg = this.findSegment(r.z);
     const sharp = Math.abs(rSeg.curve) >= 3;
     const gap = (r.z - this.playerZ) / SEG_LEN; // > 0: rival na frente
+    // vácuo do rival (no jogador, num carro do trânsito ou caminhão): menos arrasto e, na última
+    // marcha, a mesma folga acima do corte que o jogador tem
+    const rd = this.draftAhead(r.z, r.x, r.speed);
+    r.pt.over = DRAFT_OVER * rd;
     let target = 0;
     let cornerCap = Infinity;
     // posto: depois da linha o rival freia como o jogador e para na bomba ao lado (não segue embora);
@@ -1589,8 +1748,8 @@ export class Race {
       // limite de curva igual ao do jogador: olha as próximas curvas e alivia antes de
       // entrar (o agressivo vai mais perto do limite, o cauteloso com folga)
       if (r.style === 'agressivo') target *= sharp ? 1 : 1.015;
-      // vácuo atrás de outro carro
-      target *= 1 + 0.04 * this.draftAhead(r.z, r.x, r.speed);
+      // vácuo atrás de outro carro (rd: calculado uma vez por quadro, lá em cima)
+      target *= 1 + 0.06 * rd;
       // ultrapassado agora há pouco: o agressivo e o imprevisível devolvem a pressão
       if (r.wasAhead && gap < 0 && gap > -3 && r.style !== 'cauteloso' && r.boost <= 0) r.boost = 2;
       if (r.boost > 0 && r.style !== 'imprevisivel') target *= 1.05;
@@ -1640,6 +1799,10 @@ export class Race {
       const margin = r.style === 'cauteloso' ? 0.6 : r.style === 'agressivo' ? 0.2 : 0.4;
       const pass2 = lanes === 2 ? this.twoWayPass(wantPass) : { need: false, ok: false, meet: Infinity };
       // nota de cada faixa: tempo livre à frente, com ajustes de estratégia
+      // jogador à frente: até onde o rival chega antes de sair para ultrapassar (a distância em que
+      // ele passaria a seguir o jogador, como em follow lá embaixo, e mais um pouco); além dela, no
+      // alcance do vácuo, ele entra atrás do jogador
+      const pullOut = Math.max(9, (SEG_LEN * 1.4 + this.speed * 0.25) / SEG_LEN + 3);
       const laneScore = (lx: number, i: number) => {
         // com a velocidade que ele quer (atrás de alguém mais lento, a faixa dele "fecha")
         let score = this.laneTTC(lx, Math.max(r.speed, wantPass)) * (i < lanes / 2 ? 0.85 : 1);
@@ -1650,7 +1813,12 @@ export class Race {
         // o agressivo fecha a faixa do jogador quando ele vem colado atrás
         if (r.style === 'agressivo' && gap > 0.5 && gap < 7 && playerLane) score += 1.5;
         // jogador logo à frente: não fica preso atrás dele, prepara a ultrapassagem pelo lado
-        if (gap < -0.5 && gap > -9) score += playerLane ? -2 : 0.6;
+        // (a partir da distância em que ele passaria a seguir o jogador, senão ficaria preso no vácuo)
+        if (gap < -0.5 && gap > -pullOut) score += playerLane ? -2 : 0.6;
+        // jogador um pouco mais à frente (até onde o vácuo pega): entra atrás dele para pegar o
+        // vácuo, e só sai (a regra de cima) quando chega perto, já embalado, para ultrapassar
+        // (a faixa livre ao lado vale "infinito": no vácuo ela fica limitada abaixo da do jogador)
+        else if (gap > -DRAFT_SEGS && r.finishTime < 0 && this.state === 'drive') score = playerLane ? Math.max(score, 30) : Math.min(score, 20);
         return score;
       };
       let bestX = r.targetX;
@@ -1749,7 +1917,7 @@ export class Race {
     const accel = target > r.speed;
     const aDrive = r.pt.step(r.speed, accel, dt, this.surface(this.rivalCar));
     if (accel) {
-      const acc = toGame(aDrive - resistAcc(this.rivalCar, r.speed, 1 - 0.35 * this.draftAhead(r.z, r.x, r.speed)));
+      const acc = toGame(aDrive - resistAcc(this.rivalCar, r.speed, 1 - DRAFT_DRAG * rd));
       r.speed = Math.min(target, r.speed + Math.max(0, acc) * dt);
     } else r.speed = Math.max(target, r.speed - toGame(G * this.rivalCar.brakeG * BRAKE_BOOST * this.surface(this.rivalCar) * aeroMul(this.rivalCar, r.speed)) * dt);
     // não fecha ninguém ao trocar de faixa: espera se houver carro bem ao lado no caminho
@@ -1765,7 +1933,7 @@ export class Race {
     }
     r.x += dx;
     // blitz: não atravessa os cones (espremido para o lado deles)
-    if (this.blitz) r.x = Math.min(r.x, blitzEdge(this.blitz, r.z) - CAR_W / 2);
+    r.x = Math.min(r.x, this.closedEdge(r.z) - CAR_W / 2); // (e os da obra)
     r.z += r.speed * dt;
     if (r.finishTime < 0) this.rivalTop = Math.max(this.rivalTop, r.speed);
   }
@@ -1813,23 +1981,68 @@ export class Race {
         // viatura preparada (V8 de interceptador): ~245 km/h de máxima e aceleração de sedã,
         // que cai com a velocidade; um esportivo de pé no fundo consegue fugir
         // a SV: ~300 km/h e o dobro do fôlego (o sedã continua como está)
+        // procurado (multas e fugas de antes): a viatura acelera mais, chega mais perto e encosta antes
+        const ag = this.copHeat();
         const cu = COP_UNIT[p.unit ?? 'C'];
-        const copMax = cu.kmh / KMH;
-        const target = Math.min(copMax, this.speed + 2500);
-        const acc = cu.acc * Math.max(0.15, 1 - p.speed / copMax);
-        // linha: atrás do jogador, pelo lado mais livre (esquerda ou direita), desviando do trânsito
-        const cap = this.copPlan(p, this.x + this.copSide(p, dt) * CAR_W * 1.3, dt);
-        p.speed += clamp(Math.min(target, cap) - p.speed, -toGame(G * 1.05) * dt, acc * dt);
+        const copMax = (cu.kmh / KMH) * (1 + 0.05 * ag);
+        const ph = copW(p.unit) / 2;
         const gapNow = pz - p.z;
-        if (gapNow < SEG_LEN * 1.5) p.speed = Math.min(p.speed, this.speed); // não ultrapassa antes da abordagem
-        p.z += p.speed * dt;
+        // reforço que saiu do ponto à frente: entra na pista devagar e fecha a linha do jogador; se ele
+        // chegar na traseira dela na mesma linha, está cercado (abordagem); passou por ela, vira perseguição
+        if (p.block && gapNow < -SEG_LEN) {
+          const cap = this.copPlan(p, this.x, dt, 3);
+          p.speed += clamp(Math.min(copMax, this.speed * 0.55, cap) - p.speed, -toGame(G) * dt, cu.acc * dt);
+          p.z += p.speed * dt;
+          this.copTraffic(p, dt);
+          if (this.state === 'drive' && pz - p.z > -SEG_LEN * 2.5 && overlap(this.x, CAR_W * 0.45, p.x, ph)) this.startPullover(p);
+          continue;
+        }
+        if (p.block) {
+          p.block = false;
+          p.speed = Math.max(p.speed, this.speed * 0.8); // o jogador passou de lado: sai atrás dele
+        }
+        const target = Math.min(copMax, this.speed + 2500 + 1500 * ag);
+        const acc = cu.acc * (1 + 0.6 * ag) * Math.max(0.15, 1 - p.speed / copMax);
+        // linha: longe, a mais livre do trânsito (ultrapassa pela faixa que estiver vazia) cortando por
+        // dentro das curvas; perto, atrás do jogador pelo lado mais livre, e emparelhando cola nele
+        const far = clamp((gapNow - 6 * SEG_LEN) / (20 * SEG_LEN), 0, 1);
+        const bend = this.findSegment(p.z + 6 * SEG_LEN).curve;
+        const inside = Math.sign(bend) * Math.min(1, Math.abs(bend) / 3) * this.track.roadW * 0.6;
+        const close = clamp(1 - gapNow / (3 * SEG_LEN), 0, 1);
+        const off = CAR_W * lerp(1.3, 0.92 - 0.1 * ag, close);
+        const want = this.x + this.copSide(p, dt) * off + inside * far;
+        const cap = this.copPlan(p, want, dt, lerp(1, 0.35, far));
+        p.speed += clamp(Math.min(target, cap) - p.speed, -toGame(G * 1.05) * dt, acc * dt);
+        if (gapNow < SEG_LEN * 0.2) p.speed = Math.min(p.speed, this.speed); // emparelha, mas não passa antes da abordagem
+        // por dentro da curva o caminho é mais curto
+        const inLine = clamp((p.x * Math.sign(bend)) / this.track.roadW, 0, 1) * Math.min(1, Math.abs(bend) / 3);
+        p.z += p.speed * dt * (1 + 0.03 * inLine);
         this.copTraffic(p, dt);
         const gap = pz - p.z;
-        if (this.state === 'drive' && p.chaseT > 4 && gap < SEG_LEN * 2) this.startPullover(p);
-        else if (gap > 160 * SEG_LEN || p.chaseT > 25) { // ~220 m de vantagem (ou desistiu)
-          p.state = 'done';
-          this.say('ESCAPOU!');
+        // emparelhada: encosta de lado, empurrando o jogador para o acostamento
+        p.nudgeT = Math.max(0, (p.nudgeT ?? 0) - dt);
+        if (this.state === 'drive' && this.ghost <= 0 && Math.abs(gap) < SEG_LEN * 0.8 && Math.abs(p.x - this.x) < ph + CAR_W * 0.6) {
+          const sd = this.x >= p.x ? 1 : -1;
+          this.x += sd * dt * (700 + 900 * ag);
+          this.speed *= 1 - dt * 0.25;
+          if (p.nudgeT <= 0) {
+            scrapeSound();
+            this.jolt = Math.max(this.jolt, 0.15);
+            p.nudgeT = 0.6;
+          }
         }
+        // fugindo: o jogador vem abrindo distância há alguns segundos → a viatura pede reforço pelo rádio
+        if (gap > 20 * SEG_LEN && this.speed > p.speed + 150) p.fleeT = (p.fleeT ?? 0) + dt;
+        else p.fleeT = Math.max(0, (p.fleeT ?? 0) - dt * 0.5);
+        if (!p.called && !p.backup && p.fleeT > 3.5 - 1.5 * ag) {
+          p.called = true;
+          if (this.backups < 2 && this.rand() < 0.5 + 0.5 * ag) this.callBackup(p);
+        }
+        // longe demais por alguns segundos (ou sumiu de vista de vez): desiste
+        if (gap > 110 * SEG_LEN * (1 + 0.3 * ag)) p.lostT = (p.lostT ?? 0) + dt;
+        else p.lostT = Math.max(0, (p.lostT ?? 0) - dt);
+        if (this.state === 'drive' && p.chaseT > 4 - 2 * ag && gap < SEG_LEN * (2 + ag)) this.startPullover(p);
+        else if ((p.lostT ?? 0) > 3 + 2 * ag || gap > 240 * SEG_LEN || p.chaseT > 45) this.copGiveUp(p);
       } else if (p.state === 'pull') {
         siren = true;
         p.chaseT += dt;
@@ -1859,30 +2072,38 @@ export class Race {
         if (p.z - pz > 300 * SEG_LEN) p.state = 'done';
       }
     }
-    setSiren(siren);
+    // sirenes com posição: cada viatura ligada soa de onde está (volume, lado e Doppler em audio.ts)
+    const sirens: SirenSrc[] = [];
+    if (siren) for (const p of this.police) {
+      if (p.state !== 'chase' && p.state !== 'pull') continue;
+      sirens.push({ dz: (p.z - pz) * M_LON, dx: (p.x - this.x) * M_LAT, vz: (p.speed - this.speed) * M_LON });
+    }
+    if (sirens.length > 2) sirens.sort((a, b) => Math.abs(a.dz) - Math.abs(b.dz)); // só as duas mais perto
+    setSirens(sirens);
     this.radarAlarm(dt);
     this.updateBlitz(dt);
   }
 
   // cones da blitz: os derrubados voam e rolam; a viatura saindo atrás de alguém (e quem mais
   // encostar neles: rival, trânsito) derruba os que estiverem no caminho
+  // (a obra usa o mesmo: cones, cavaletes e barris dela)
   private updateBlitz(dt: number) {
-    const b = this.blitz;
-    if (!b) return;
+    for (const b of this.closures()) {
     updateCones(b, dt);
     const movers: { z: number; x: number; half: number; speed: number }[] = [];
-    for (const p of this.police) if (p.blitz && (p.state === 'chase' || p.state === 'pull')) movers.push({ z: p.z, x: p.x, half: copW(p.unit) / 2, speed: p.speed });
+    for (const p of this.police) if ((p.blitz || b === this.obra) && (p.state === 'chase' || p.state === 'pull')) movers.push({ z: p.z, x: p.x, half: copW(p.unit) / 2, speed: p.speed });
     if (this.rival) movers.push({ z: this.rival.z, x: this.rival.x, half: CAR_W / 2, speed: this.rival.speed });
-    for (const c of this.traffic) if (c.speed > 0 && !c.hit && Math.abs(c.z - b.z) < 60 * SEG_LEN) movers.push({ z: c.z, x: c.x, half: this.carHalf(c), speed: c.speed });
+    for (const c of this.traffic) if (c.speed > 0 && !c.hit && c.z > b.z0 - 4 * SEG_LEN && c.z < b.z3 + 4 * SEG_LEN) movers.push({ z: c.z, x: c.x, half: this.carHalf(c), speed: c.speed });
     for (const cn of b.cones) {
       if (cn.hit) continue;
       for (const m of movers) {
-        if (Math.abs(m.z - cn.z) > SEG_LEN * 0.6 || !overlap(m.x, m.half, cn.x, CONE_W / 2)) continue;
+        if (Math.abs(m.z - cn.z) > SEG_LEN * 0.6 || !overlap(m.x, m.half, cn.x, coneW(cn) / 2)) continue;
         knockCone(cn, m.speed, cn.x > m.x ? 1 : -1, this.rand);
         const dd = Math.abs(cn.z - this.playerZ) / SEG_LEN;
         if (dd < 30) coneSound(Math.max(0.15, 0.5 - dd / 60));
         break;
       }
+    }
     }
   }
 
@@ -1914,7 +2135,8 @@ export class Race {
   // viatura no trânsito: escolhe a linha (faixas e o lado do jogador) com mais tempo livre à
   // frente, olhando ~25 trechos, sem ficar ziguezagueando; e limita a velocidade pelo carro que
   // ficar na linha dela, freando com antecedência (não chega colada para frear de uma vez)
-  private copPlan(p: Police, want: number, dt: number) {
+  // (wantK: peso da linha pedida; menor = escolhe mais pela faixa livre)
+  private copPlan(p: Police, want: number, dt: number, wantK = 1) {
     const ph = copW(p.unit) / 2;
     const edge = this.track.roadW - ph;
     const v = Math.max(p.speed, 1500);
@@ -1938,7 +2160,7 @@ export class Race {
       // na mão dupla, a contramão só com folga de verdade
       const oncoming = this.track.lanes === 2 && x < 0;
       const t = free(x);
-      let sc = Math.min(t, 4) - Math.abs(x - want) / 2500 - Math.abs(x - p.x) / 6000;
+      let sc = Math.min(t, 4) - (Math.abs(x - want) * wantK) / 2500 - Math.abs(x - p.x) / 6000;
       if (oncoming && t < 3) sc -= 3;
       if (Math.abs(x - (p.planX ?? p.x)) < 120) sc += 0.4; // mantém o plano
       if (sc > bestS) { bestS = sc; best = x; }
@@ -2011,7 +2233,46 @@ export class Race {
     }
   }
 
+  // quanto a polícia está atrás do jogador (0 a 1): o que veio de antes mais as multas e fugas do trecho
+  copHeat() {
+    return clamp(this.wanted + 0.15 * (this.tickets + this.escapes), 0, 1);
+  }
+
+  // reforço pelo rádio: o ponto de polícia seguinte (se estiver a uma distância boa) sai antes da hora
+  // e fecha a estrada à frente; sem nenhum perto, uma segunda viatura vem de trás
+  private callBackup(from: Police) {
+    const pz = this.playerZ;
+    this.backups++;
+    const spot = this.police.find((q) => q.state === 'parked' && !q.blitz && q.spotZ - pz > 60 * SEG_LEN && q.spotZ - pz < 450 * SEG_LEN);
+    if (spot) {
+      Object.assign(spot, { state: 'chase', chaseT: 0, backup: true, block: true, called: true, speed: this.speed * 0.35 });
+      this.say('REFORÇO À FRENTE!', 2.2);
+      return;
+    }
+    // de trás, pela faixa da direita (a do sentido), fora de vista e mais rápida que o jogador
+    this.police.push({
+      spotZ: -1, z: pz - 75 * SEG_LEN, x: laneCenter(this.track, this.track.lanes - 1), speed: Math.max(this.speed, from.speed) * 1.05,
+      state: 'chase', chaseT: 0, sv: from.sv, unit: from.unit, backup: true, called: true,
+    });
+    this.say('REFORÇO A CAMINHO!', 2.2);
+  }
+
+  // a viatura desiste; se era a última atrás do jogador, ele despistou a polícia
+  private copGiveUp(p: Police) {
+    p.state = 'done';
+    p.block = false;
+    if (this.police.some((q) => q.state === 'chase' || q.state === 'pull')) {
+      this.say('UMA VIATURA FICOU!');
+      return;
+    }
+    this.escapes++;
+    this.say('PERDEU A POLÍCIA!', 2.2);
+  }
+
   private startPullover(p: Police) {
+    // quem pegou o jogador faz a abordagem; as outras viaturas passam direto
+    for (const q of this.police) if (q !== p && q.state === 'chase') { q.state = 'leaving'; q.block = false; }
+    p.block = false;
     p.state = 'pull';
     this.state = 'pullover';
     this.clean = false;
@@ -2156,6 +2417,7 @@ export class Race {
           c.speed = Math.max(c.speed, this.speed * 0.9); // jogada para a frente (cai à vista, não embaixo do carro)
           c.z = pz + SEG_LEN * 1.4;
           startFall(c, side); // derrapa, o piloto voa, rola e fica sentado tonto (src/motofall.ts)
+          this.stats.falls++; // motos derrubadas (estatísticas da carreira)
           this.speed *= 0.86;
           this.x += side * Math.min(depth, 200) * 0.3;
           this.ghost = 0.5;
@@ -2197,14 +2459,28 @@ export class Race {
     }
 
     // cones da blitz: derruba (voa e rola), tranco leve, nada de batida
-    if (this.blitz) {
-      for (const cn of this.blitz.cones) {
-        if (cn.hit || Math.abs(cn.z - pz) > SEG_LEN * 0.6 || !overlap(this.x, CAR_W / 2, cn.x, CONE_W / 2)) continue;
+    // (e os da obra: cavalete e barril são mais pesados, seguram mais e dão tranco maior)
+    for (const b of this.closures()) {
+      for (const cn of b.cones) {
+        if (cn.hit || Math.abs(cn.z - pz) > SEG_LEN * 0.6 || !overlap(this.x, CAR_W / 2, cn.x, coneW(cn) / 2)) continue;
         knockCone(cn, this.speed, cn.x > this.x ? 1 : -1, this.rand);
-        this.speed *= 0.97;
-        this.jolt = Math.max(this.jolt, 0.18);
-        this.damage = Math.min(1, this.damage + 0.004);
-        coneSound(Math.min(1, 0.45 + this.speed * KMH / 300));
+        this.speed *= cn.kind ? 0.93 : 0.97;
+        this.jolt = Math.max(this.jolt, cn.kind ? 0.3 : 0.18);
+        this.damage = Math.min(1, this.damage + (cn.kind ? 0.01 : 0.004));
+        coneSound(Math.min(1, (cn.kind ? 0.6 : 0.45) + this.speed * KMH / 300));
+      }
+    }
+    // dentro da obra: a máquina parada é batida de verdade; o monte de terra/brita segura o carro
+    if (this.obra && pz > this.obra.z1 && pz < this.obra.z2) {
+      for (const pr of this.obra.props) {
+        const hw = PROP_SIZE[pr.obraProp][0] / 2;
+        if (Math.abs(pr.z - pz) > SEG_LEN * (SOLID_PROPS.includes(pr.obraProp) ? 1 : 2) || !overlap(this.x, CAR_W / 2, pr.x, hw * 0.85)) continue;
+        if (SOLID_PROPS.includes(pr.obraProp)) {
+          if (this.ghost <= 0) { this.crash({ v: 0, kg: 9000, side: this.x < pr.x ? -1 : 1 }); return; }
+        } else {
+          this.speed *= 0.93;
+          this.jolt = Math.max(this.jolt, 0.35);
+        }
       }
     }
 

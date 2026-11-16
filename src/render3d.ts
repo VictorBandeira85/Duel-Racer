@@ -1,14 +1,15 @@
 import { drawPerson, type CopPose } from './people';
 import { drawSmoke } from './smoke';
 import { drawCrisp } from './crisp';
-import { CONE_H, CONE_W, drawCone, type Cone } from './blitz';
+import { BARREL_H, CONE_H, HORSE_H, coneLine, coneW, drawCone, type Cone } from './blitz';
+import { FLAG_H, FLAG_W, PROP_SIZE, drawBarrel, drawDigger, drawFlagman, drawHorse, drawPile, drawRoller, drawWorkLight, inObra, type ObraProp } from './obra';
 import { CAM_DEPTH, CAM_H, CAR_W, CRES, DRAW_DIST, PLAYER_Z, POLICE_W, SEG_LEN } from './config';
 import { CARS, drawCar } from './cars';
 import { lowFx, fxMode, setPerfScene } from './perf';
 import { TEX, groundTex, kindOf, texSlice } from './groundtex';
 import { adsReady } from './billboards';
 import { drawGlow, type Stops } from './glowsprite';
-import { beginLights, finishNight, pushCarBeam, pushOccluder, sirenGlow, sirenWash, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, LAMP_H, inCone, type Pass, type RoadPt } from './nightlight';
+import { beaconGlow, beginLights, finishNight, pushCarBeam, pushOccluder, sirenGlow, sirenWash, setSkyLight, mirrorGlare, mirrorWash, pushFacade, pushReflector, pushStreetLight, setLightClip, LAMP_H, inCone, type Pass, type RoadPt } from './nightlight';
 import { copLook, copW, isMoto, trafficLook, trafficW, type Officer, type Race, type TrafficCar } from './race';
 import { drawFallMoto, drawFallRider, fallPx, type MotoFall } from './motofall';
 import { SPRITES, sceneryKey, setSceneryNight, LAMP } from './sprites';
@@ -182,6 +183,37 @@ function trap(c: CanvasRenderingContext2D, la: number, ra: number, ya: number, l
   c.closePath();
 }
 
+// asfalto da obra: a faixa fechada fresada (mais escura, com os riscos da fresa a cada 2 segmentos)
+// e remendos escuros na pista aberta, em blocos de 5 segmentos (faixas, sem grão que pisque)
+function obraGround(c: CanvasRenderingContext2D, s: Segment, r: Race) {
+  const o = r.obra!, R = r.track.roadW;
+  const { x: x1, y: y1, w: w1 } = s.p1.screen;
+  const { x: x2, y: y2, w: w2 } = s.p2.screen;
+  const za = s.index * SEG_LEN;
+  const ua = Math.min(1, coneLine(o, za) / R), ub = Math.min(1, coneLine(o, za + SEG_LEN) / R);
+  const strip = (u0a: number, u1a: number, u0b: number, u1b: number, col: string) => {
+    c.fillStyle = col;
+    quad(c, x1 + u0a * w1, y1, x1 + u1a * w1, y1, x2 + u1b * w2, y2, x2 + u0b * w2, y2);
+  };
+  if (ua < 1 || ub < 1) {
+    strip(ua, 1, ub, 1, 'rgba(16,13,10,0.36)');
+    if (s.index % 2 === 0) for (let k = 1; k < 4; k++) {
+      const fa = ua + ((1 - ua) * k) / 4, fb = ub + ((1 - ub) * k) / 4;
+      strip(fa - 0.008, fa + 0.008, fb - 0.008, fb + 0.008, 'rgba(0,0,0,0.14)');
+    }
+  }
+  const blk = Math.floor(s.index / 5);
+  if (hash(blk * 7.3 + 1) < 0.55) {
+    const lim = Math.min(ua, ub) - 0.06;
+    const u0 = -0.92 + hash(blk * 3.1 + 2) * 0.9, u1 = Math.min(lim, u0 + 0.25 + hash(blk * 5.7 + 3) * 0.45);
+    if (u1 > u0 + 0.05) {
+      strip(u0, u1, u0, u1, 'rgba(10,10,14,0.24)');
+      // emenda do remendo (piche mais escuro) na borda de perto e de longe do bloco
+      if (s.index % 5 === 0 || s.index % 5 === 4) strip(u0, u1, u0, u1, 'rgba(0,0,0,0.14)');
+    }
+  }
+}
+
 function drawSegment(c: CanvasRenderingContext2D, s: Segment, r: Race, vp: Viewport, ground: CanvasPattern, fogK: number) {
   const th = r.theme;
   const { x: x1, y: y1, w: w1 } = s.p1.screen;
@@ -199,6 +231,7 @@ function drawSegment(c: CanvasRenderingContext2D, s: Segment, r: Race, vp: Viewp
     c.fillStyle = turf(c, th.road, th.road, 'asphalt', !!band);
     quad(c, x1 - w1, y1, x1 + w1, y1, x2 + w2, y2, x2 - w2, y2);
   }
+  if (inObra(r.obra, s)) obraGround(c, s, r);
   // acesso e pátio do posto: asfalto à direita da pista, com guia de concreto na borda de fora
   if (ap) {
     const rw = r.track.roadW, e1 = w1 * (1 + ap[0] / rw), e2 = w2 * (1 + ap[1] / rw);
@@ -579,7 +612,7 @@ function mix(a: string, b: string, t: number) {
 
 // objetos grandes, que aparecem de longe
 // placas e outdoors que refletem o farol à noite
-const REFLECT = new Set(['signL', 'signR', 'warnL', 'warnR', 'sharpL', 'sharpR', 'billboard', 'gasSign', 'gasKm', 'stop', 'blitz']);
+const REFLECT = new Set(['signL', 'signR', 'warnL', 'warnR', 'sharpL', 'sharpR', 'billboard', 'gasSign', 'gasKm', 'stop', 'blitz', 'obras', 'desvio']);
 const FAR_KINDS = ['building', 'station', 'bridge', 'billboard', 'barn', 'factory', 'silo', 'spire', 'lighthouse'];
 
 export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport) {
@@ -628,6 +661,8 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   if (r.rival) entities.push(r.rival);
   if (r.officer) entities.push(r.officer);
   if (r.blitz) entities.push(...r.blitz.cones, r.blitz.officer); // blitz: cones e o policial anotando
+  if (r.obra) entities.push(...r.obra.cones, ...r.obra.props, r.obra.flag); // obra: cones, cavaletes, máquina, homem da bandeira
+  const beacons: number[][] = [], greens: number[][] = []; // luzinhas da obra acesas (halo à noite)
   if (r.ghostPos) entities.push(r.ghostPos);
   for (const t of r.traffic) if (t.fall && t.fall.stage !== 'skid') entities.push(t.fall); // piloto da moto caída, solto na pista
   for (const e of entities) {
@@ -835,23 +870,67 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
           if (lit && od) pushOccluder({ ...od, idx: i, clip: s.clip, d: dist, bx: cx });
         }
       } else if ('cone' in e) {
-        // cone da blitz: em pé (a faixa branca reflete o farol à noite) ou derrubado, voando e rolando
+        // cone da blitz ou da obra (ou cavalete/barril da obra): em pé (as faixas brancas refletem o
+        // farol à noite) ou derrubado, voando e rolando
         const cn = e as Cone;
-        const cw = CONE_W * sc * vp.K, ch = CONE_H * sc * vp.K;
+        const kind = cn.kind ?? 'cone';
+        const cw = coneW(cn) * sc * vp.K, ch = (kind === 'horse' ? HORSE_H : kind === 'barrel' ? BARREL_H : CONE_H) * sc * vp.K;
         if (ch < 1.5) continue;
         const tint: [string, number] | undefined = fk >= 0.02 ? [fogRgb, fk] : undefined;
-        const art = (o: CanvasRenderingContext2D, w: number, h: number) => drawCone(o, w / 2, h, w / 1.15, h);
+        const sw = kind === 'cone' ? cw * 1.15 : cw; // (o cone tem folga dos lados para o contorno)
+        const art = (o: CanvasRenderingContext2D, w: number, h: number) =>
+          kind === 'horse' ? drawHorse(o, w / 2, h, w, h) : kind === 'barrel' ? drawBarrel(o, w / 2, h, w, h) : drawCone(o, w / 2, h, w / 1.15, h);
         if (!cn.hit) {
-          const dr = drawCrisp(c, 'cone', cx, cy, cw * 1.15, ch, art, 96, tint);
-          if (lit && dr) pushOccluder({ ...dr, idx: i, clip: s.clip, d: dist, bx: cx, spec: { x: cx - cw * 0.22, y: cy - ch * 0.68, w: cw * 0.44, h: Math.max(0.5, ch * 0.18), top: 1, rgb: '255,250,240' } });
+          const dr = drawCrisp(c, kind, cx, cy, sw, ch, art, 96, tint);
+          const spec = kind === 'horse' ? { x: cx - cw * 0.45, y: cy - ch * 0.8, w: cw * 0.9, h: ch * 0.3 }
+            : kind === 'barrel' ? { x: cx - cw * 0.5, y: cy - ch * 0.75, w: cw, h: Math.max(0.5, ch * 0.125) }
+            : { x: cx - cw * 0.22, y: cy - ch * 0.68, w: cw * 0.44, h: Math.max(0.5, ch * 0.18) };
+          if (lit && dr) pushOccluder({ ...dr, idx: i, clip: s.clip, d: dist, bx: cx, spec: { ...spec, top: 1, rgb: '255,250,240' } });
+          // pisca âmbar do cavalete (um sim, um não, alternando): a lente acende por cima do sprite
+          if (kind === 'horse' && Math.floor(performance.now() / 420 + cn.z / SEG_LEN / 6) % 2 === 0) {
+            const lx = cx - cw / 2 + cw * (3 / 22), ly = cy - ch + ch * (1 / 20);
+            c.fillStyle = '#ffc838';
+            c.fillRect(lx, ly, Math.max(1, cw * (2 / 22)), Math.max(1, ch * (1 / 20)));
+            if (dist < 200) beacons.push([lx + cw / 22, ly + ch / 40, Math.max(1.6, cw * 0.09), 1 - fk]);
+          }
         } else {
           const sn = Math.abs(Math.sin(cn.rot));
           c.save();
           c.translate(cx, cy - cn.y * sc * vp.K - lerp(ch / 2, cw * 0.4, sn));
           c.rotate(cn.rot);
-          drawCrisp(c, 'cone', 0, ch / 2, cw * 1.15, ch, art, 96, tint);
+          drawCrisp(c, kind, 0, ch / 2, sw, ch, art, 96, tint);
           c.restore();
         }
+      } else if ('obraProp' in e) {
+        // enfeites da obra: montes de terra e brita, a máquina amarela parada e o semáforo
+        const pr = e as ObraProp, [pw0, ph0] = PROP_SIZE[pr.obraProp];
+        const pw = pw0 * sc * vp.K, ph = ph0 * sc * vp.K;
+        if (ph < 1.5) continue;
+        const k = pr.obraProp;
+        const art = (o: CanvasRenderingContext2D, w: number, h: number) => {
+          if (k === 'dirt' || k === 'gravel') drawPile(o, w / 2, h, w, h, pr.seed, k === 'gravel');
+          else if (k === 'roller') drawRoller(o, w / 2, h, w, h);
+          else if (k === 'digger') drawDigger(o, w / 2, h, w, h);
+          else drawWorkLight(o, w / 2, h, w, h);
+        };
+        const dr = drawCrisp(c, `obra-${k}${k === 'dirt' || k === 'gravel' ? pr.seed % 3 : ''}`, cx, cy, pw, ph, art, 96, fk >= 0.02 ? [fogRgb, fk] : undefined);
+        if (lit && dr) pushOccluder({ ...dr, idx: i, clip: s.clip, d: dist, bx: cx });
+        // giroflex âmbar da máquina girando (pisca) e o verde do semáforo
+        if ((k === 'roller' || k === 'digger') && Math.floor(performance.now() / 300) % 2 === 0) {
+          const bx = k === 'roller' ? cx - pw / 2 + pw * (12 / 26) : cx - pw / 2 + pw * (19 / 28), by = cy - ph + ph * (k === 'roller' ? 0 : 3 / 38);
+          c.fillStyle = '#ffc030';
+          c.fillRect(bx, by, Math.max(1, pw * (k === 'roller' ? 3 / 26 : 2 / 28)), Math.max(1, ph * (1 / 36)));
+          if (dist < 220) beacons.push([bx + pw * 0.04, by, Math.max(1.5, pw * 0.05), 1 - fk]);
+        }
+        if (k === 'light' && dist < 220) greens.push([cx, cy - ph * (16 / 26) - ph * 0.04, Math.max(1.2, pw * 0.3), 1 - fk]);
+      } else if ('flagman' in e) {
+        // homem da obra na entrada: balança a bandeira vermelha (4 posições do braço, ida e volta)
+        const fh = FLAG_H * sc * vp.K, fw = FLAG_W * sc * vp.K;
+        if (fh < 2) continue;
+        const f = [0, 1, 2, 3, 2, 1][Math.floor(performance.now() / 150) % 6];
+        const ang = -0.75 + f * 0.42;
+        const dr = drawCrisp(c, `flagman${f}`, cx, cy, fw, fh, (o, w, h) => drawFlagman(o, w / 2, h, w, h, ang), 96, fk >= 0.02 ? [fogRgb, fk] : undefined);
+        if (lit && dr) pushOccluder({ ...dr, idx: i, clip: s.clip, d: dist, bx: cx, spec: { x: cx - fh * (3 / 34), y: cy - fh * (19 / 34), w: fh * (6 / 34), h: Math.max(0.5, fh * (5 / 34)), top: 1, rgb: '255,250,240' } });
       } else if ('blitzCop' in e) {
         // policial da blitz: em pé ao lado da viatura, anotando no bloco (o da classe da corrida)
         const od = drawPerson(c, 'cop', 'paper', cx, cy, OFFICER_H * sc * vp.K, false, r.copId);
@@ -896,6 +975,11 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   // inclinação do carro (o eixo do farol): a do chão embaixo dele, da traseira à frente; no ar, a do voo
   const carPitch = r.airborne ? r.pitch : (yAt(r.position + PLAYER_Z) - yAt(r.position - 400)) / (PLAYER_Z + 400);
   finishNight(c, vp, Math.max(r.nightK, r.inTunnel > 0.5 ? 0.45 * r.inTunnel : 0), passers, SEG_LEN, road, roadAll, r.steer, carPitch);
+  // obra: pisca âmbar dos cavaletes e da máquina, verde do semáforo (halo só no escuro)
+  if (lit) {
+    beaconGlow(c, beacons, '255,176,40', r.nightK);
+    beaconGlow(c, greens, '70,255,120', r.nightK);
+  }
   c.restore();
 }
 

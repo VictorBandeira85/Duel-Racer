@@ -1972,6 +1972,14 @@ const podVals: Record<string, number> = {};
 /** relógios auxiliares da preparação, lado a lado a partir de `pod`: pressão do turbo/compressor,
  * de óleo (pistões e bielas preparados) e de combustível (alimentação preparada) */
 function auxPods(c: CanvasRenderingContext2D, r: Race, dt: number, ox: number, pod: NonNullable<CockpitArt['pod']>, dk: number) {
+  // relógios maiores que o tamanho medido (pedido do Victor): raio e espaçamento crescem juntos
+  {
+    const n0 = (r.car.pods ?? []).filter((p) => !(pod.noBoost && p === 'boost')).length;
+    const sxo = pod.dx ?? pod.r * 2.25, syo = pod.dy ?? 0;
+    // fileira no painel cresce a partir do meio (não sai pela borda da tela); na coluna, a partir do primeiro
+    const cx = pod.pillar ? 0 : (POD_K - 1) * sxo * (n0 - 1) / 2, cy = pod.pillar ? 0 : (POD_K - 1) * syo * (n0 - 1) / 2;
+    pod = { ...pod, x: pod.x - cx, y: pod.y - cy, r: pod.r * POD_K, dx: sxo * POD_K, dy: syo * POD_K };
+  }
   const car = r.car, rpm = Math.min(1, r.rpm);
   const boostNow = car.forced === 'super' ? (r.throttle ? 0.25 + 0.75 * rpm : 0.04) : car.forced ? (r.throttle ? Math.max(0, Math.min(1, r.pt.boost)) ** 1.5 : 0) : 0;
   const bar = (car.boostMax ?? 0.8) * boostNow;
@@ -2063,7 +2071,8 @@ const DEV_ART: Record<DevKind, { src: string; w: number; h: number; scr: [number
   controller: { src: boostCtlPng, w: 223, h: 160, scr: [32, 31, 190, 71] }, // LCD largo
   wastegate: { src: wastegatePng, w: 190, h: 160, scr: [20, 71, 88, 102] }, // LCD pequeno
 };
-const DEV_K = 32 / 263; // pixels da arte da cabine por pixel da imagem (s = 1: o 3-step com 32 de largura, ~9 cm ao lado do quadro)
+const POD_K = 1.3; // relógios auxiliares da preparação: maiores que o medido (pedido do Victor)
+const DEV_K = (32 / 263) * 1.45; // (×1,45: aparelhos maiores, pedido do Victor) // pixels da arte da cabine por pixel da imagem (s = 1: o 3-step com 32 de largura, ~9 cm ao lado do quadro)
 // botão da wastegate: miolo (capa escovada) que gira; o risco pintado na arte aponta a -49°. A escala de
 // riscos vai de -162° (0,7 bar) a -18° (3,5 bar), passando pelo alto
 const WG_KNOB = { x: 139, y: 92.5, r: 23.5, painted: -49 };

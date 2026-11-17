@@ -675,7 +675,7 @@ function prepInstall(s: AppState, car: CarSpec, slot: SlotId) {
     if ((cur[slot] ?? '') === p.id) return flash(s, 'Já está instalada');
     if (!slotsFor(car, cur).some((sl) => sl.id === slot)) return flash(s, needFirst(slot));
     setArcadePart(car.id, slot, p.id);
-    return flash(s, p.id || slot === 'painel' || slot === 'relogios' ? partInstalledMsg(car, slot, p) : 'Peça original de volta');
+    return flash(s, p.id || slot === 'painel' || slot === 'relogios' ? partInstalledMsg(car, slot, p, arcadeBuildOf(car.id)) : 'Peça original de volta');
   }
   const cs = s.career!;
   if (ui.demo) return flash(s, 'Catálogo: compre e instale na oficina da carreira');
@@ -692,7 +692,7 @@ function prepInstall(s: AppState, car: CarSpec, slot: SlotId) {
   }
   cs.builds = { ...(cs.builds ?? {}), [car.id]: { ...buildOf(cs, car.id), [slot]: p.id } };
   saveCareer(cs);
-  flash(s, p.id || slot === 'painel' || slot === 'relogios' ? partInstalledMsg(car, slot, p) : 'Peça original de volta');
+  flash(s, p.id || slot === 'painel' || slot === 'relogios' ? partInstalledMsg(car, slot, p, buildOf(cs, car.id)) : 'Peça original de volta');
 }
 function prepRev(s: AppState, car: CarSpec) {
   const { lv, st, wear } = prepCtx(s, car);

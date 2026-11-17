@@ -41,6 +41,9 @@ export type Build = Partial<Record<SlotId, string>>;
 // carros de carburador (os demais são de injeção eletrônica)
 const CARB = new Set(['br-monza', 'br-monzacoupe', 'br-voyage', 'br-voyagesport', 'br-santana', 'br-passat', 'br-opala', 'br-pumagtb', 'br-pumagte', 'br-chevette', 'br-147', 'br-sp2', 'br-charger', 'br-maverick', 'toro-lp5']);
 export const isCarb = (car: CarSpec) => CARB.has(car.id);
+/** carburado que continua carburado com estas peças (convertido para injeção programável, vira injeção:
+ * boost controller no lugar da wastegate, relógio de combustível de injeção) */
+export const carbWith = (car: CarSpec, build?: Build) => isCarb(car) && build?.alimentacao !== 'programavel';
 const factoryTurbo = (car: CarSpec) => car.curve === 'turbo' || car.curve === 'seqturbo';
 
 // rodas aftermarket (tools/ref/wheels_sheet.py recorta a folha do Victor em src/assets/wheels/rNN.png)
@@ -150,7 +153,8 @@ function launchSteps(car: CarSpec) {
   return [2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000].filter((r) => r <= redlineOf(car) - 500);
 }
 export function slotsFor(car: CarSpec, build?: Build): Slot[] {
-  const carb = isCarb(car);
+  const carb = carbWith(car, build); // (a vaga Carburador continua a do carro de fábrica)
+  const carbSlot = isCarb(car);
   const ft = factoryTurbo(car);
   const ind = build ? (ft ? 'turbo' : build.inducao === 'turbo' ? 'turbo' : build.inducao === 'super' ? 'super' : '') : 'all';
   const turbo = ind === 'turbo' || ind === 'all', sup = ind === 'super' || ind === 'all';
@@ -184,10 +188,13 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
     { id: 'comando', name: 'Comando', parts: [ORIGINAL(),
       { id: 'esportivo', name: 'Esportivo', note: '+7,5% cv, +5% giro', cost: 0.05, power: 1.075, sound: { cam: 0.25, drive: 1.08, rev: 1.05 } },
       { id: 'corrida', name: 'De corrida', note: '+13,5% cv, +10% giro', cost: 0.09, power: 1.135, sound: { cam: 0.6, drive: 1.15, pops: 0.15, rev: 1.1 } }] },
-    carb
-      ? { id: 'alimentacao', name: 'Carburador', parts: [ORIGINAL(),
+    carbSlot
+      ? { id: 'alimentacao', name: 'Alimentação', parts: [ORIGINAL('Carburador original'),
         { id: 'duplo', name: 'Corpo duplo', note: '+7,5% cv', cost: 0.04, power: 1.075, sound: { intake: 0.3 } },
-        { id: 'weber', name: 'Dupla de corrida', note: '+13,5% cv', cost: 0.08, power: 1.135, sound: { intake: 0.55, rasp: 0.03 } }] }
+        { id: 'weber', name: 'Dupla de corrida', note: '+13,5% cv', cost: 0.08, power: 1.135, sound: { intake: 0.55, rasp: 0.03 } },
+        // conversão para injeção programável (kit completo: corpo de borboleta, bicos, módulo): mais cara
+        // que no carro de injeção de fábrica; o carro passa a contar como injeção (boost controller)
+        { id: 'programavel', name: 'Injeção programável', note: '+15% cv, +5% giro', cost: 0.12, power: 1.15, sound: { drive: 1.1, pops: 0.2, rev: 1.05 } }] }
       : { id: 'alimentacao', name: 'Injeção', parts: [ORIGINAL(),
         { id: 'chip', name: 'Chip e bicos', note: '+7,5% cv', cost: 0.04, power: 1.075, sound: { drive: 1.05 } },
         { id: 'programavel', name: 'Programável', note: '+13,5% cv, +5% giro', cost: 0.09, power: 1.135, sound: { drive: 1.1, pops: 0.2, rev: 1.05 } }] },
@@ -304,14 +311,14 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     boostMul: boostMul !== 1 ? boostMul : undefined,
     // relógios auxiliares: pressão do turbo/compressor, de óleo (pistões e bielas) e de combustível (alimentação)
     pods: [...(forced ? ['boost' as const] : []), ...(build.pistoes ? ['oil' as const] : []), ...(build.alimentacao ? ['fuel' as const] : [])],
-    carb: isCarb(car),
+    carb: carbWith(car, build),
     prep: power,
     launchCap,
     launchRpm,
     // aparelhos na cabine: pressão escolhida no wastegate (carburado) ou boost controller (injeção) e o
     // lugar deles no painel (id de devpos.ts; vazio = o primeiro)
     boostSet: bi?.set ? bi.bar : undefined,
-    boostDev: bi?.set ? (isCarb(car) ? 'wastegate' : 'controller') : undefined,
+    boostDev: bi?.set ? (carbWith(car, build) ? 'wastegate' : 'controller') : undefined,
     devPos: build.painel || undefined,
     podPos: (forced || build.pistoes || build.alimentacao) && podPlaces(car.dash).some((p) => p.id && p.id === build.relogios) ? (build.relogios as CarSpec['podPos']) : undefined, // lugar dos relógios (podpos.ts; vazio = o de fábrica)
     // turbo do kit: a .32 (original do kit) enche rápido e cedo; as maiores, devagar e mais em cima
@@ -334,13 +341,14 @@ const agree = (adj: string, g: Gen) => {
   if (/^de /.test(w) || g === 'o') return w;
   return w.replace(/^(\S+?)o(\b| )/, (_, st, sp) => `${st}${g === 'a' ? 'a' : g === 'os' ? 'os' : 'as'}${sp}`).replace(/^(\S+?)a(\b| )/, (m, st, sp) => (g === 'as' ? `${st}as${sp}` : m));
 };
-export function partInstalledMsg(car: CarSpec, slot: SlotId, p: Part): string {
+export function partInstalledMsg(car: CarSpec, slot: SlotId, p: Part, build?: Build): string {
   const done = (g: Gen) => `instalad${g}!`;
   const id = p.id;
   if (slot === 'largada') return `Controle de largada em ${p.name}!`;
   if (slot === 'painel') return `Aparelhos: ${p.name.toLowerCase()}!`;
   if (slot === 'relogios') return `Relógios: ${p.name.toLowerCase()}!`;
-  if (slot === 'pressao') return `${isCarb(car) ? 'Wastegate regulada' : 'Boost controller regulado'} em ${p.name}!`;
+  if (slot === 'alimentacao' && p.id === 'programavel' && isCarb(car)) return 'Convertido para injeção programável!';
+  if (slot === 'pressao') return `${carbWith(car, build) ? 'Wastegate regulada' : 'Boost controller regulado'} em ${p.name}!`;
   // peças cujo nome já diz tudo, ou que pedem outra frase
   const special: Record<string, string> = {
     'alimentacao:duplo': `Carburador de corpo duplo ${done('o')}`, 'alimentacao:weber': `Dupla carburação de corrida ${done('a')}`,

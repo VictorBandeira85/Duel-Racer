@@ -6,8 +6,9 @@
 import type { CarSpec } from './cars';
 import { engineSpec } from './enginesynth';
 import { devPositions } from './devpos';
+import { podMoved, podPlaces } from './podpos';
 
-export type SlotId = 'pistoes' | 'comando' | 'alimentacao' | 'inducao' | 'escape' | 'pneus' | 'suspensao' | 'freios' | 'bancos' | 'rodas' | 'turbina' | 'intercooler' | 'downpipe' | 'polia' | 'pressao' | 'largada' | 'painel';
+export type SlotId = 'pistoes' | 'comando' | 'alimentacao' | 'inducao' | 'escape' | 'pneus' | 'suspensao' | 'freios' | 'bancos' | 'rodas' | 'turbina' | 'intercooler' | 'downpipe' | 'polia' | 'pressao' | 'largada' | 'painel' | 'relogios';
 // mudanças no ronco: multiplicadores (drive, vol, low) e somas (rasp, pops, cam, intake, whine)
 export interface SoundMods { drive?: number; vol?: number; low?: number; rasp?: number; pops?: number; cam?: number; intake?: number; whine?: number; turbo?: boolean; spool?: number /* turbo aftermarket: força do assobio, do sopro e do alívio */; blower?: number /* supercharger: força do zunido */; rev?: number /* multiplicador do giro máximo (corte) */; press?: number /* pressão escolhida no wastegate/boost controller (bar): assobio e alívio mais fortes */;
   // timbre do escapamento e do downpipe (enginesynth.ts applySoundMods), relativo ao motor de cada carro:
@@ -154,6 +155,8 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
   const ind = build ? (ft ? 'turbo' : build.inducao === 'turbo' ? 'turbo' : build.inducao === 'super' ? 'super' : '') : 'all';
   const turbo = ind === 'turbo' || ind === 'all', sup = ind === 'super' || ind === 'all';
   const extra: Slot[] = [];
+  // relógios auxiliares na cabine (como em applyBuild): turbo/compressor do kit, pistões ou alimentação
+  const pods = !!build && !!(build.pistoes || build.alimentacao || (!ft && (ind === 'turbo' || ind === 'super')));
   if (turbo && !ft) extra.push({ id: 'turbina', name: 'Turbina', parts: [ORIGINAL('.32 (do kit)'),
     { id: 't40', name: '.40', note: '+8% cv, enche a ~35%', cost: 0.05, spool: [1.3, 0.35], power: 1.08, boost: 1.2, flow: 1.6, sound: { spool: 0.2, low: 0.94, pops: 0.1 } },
     { id: 't50', name: '.50', note: '+15% cv, enche a ~45%', cost: 0.09, spool: [1.0, 0.45], power: 1.15, boost: 1.6, flow: 2.1, sound: { spool: 0.4, low: 0.88, pops: 0.2 } },
@@ -221,7 +224,11 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
     { id: 'largada', name: 'Controle de largada', parts: [ORIGINAL('Sem 3-step'), ...launchSteps(car).map((rpm): Part => ({ id: `r${rpm}`, name: `${rpm.toLocaleString('pt-BR')} rpm`, note: '3-step', cost: 0.02, launch: rpm / redlineOf(car), rpm }))] },
     // onde ficam os aparelhos (3-step, boost controller, wastegate) na cabine: lugares medidos em cada
     // painel (devpos.ts); só aparece com algum deles instalado. Mudar de lugar não custa nada
-    ...(!build || build.largada || (turbo && !ft && build.pressao) ? [{ id: 'painel' as const, name: 'Aparelhos', parts: devPositions(car.dash).map((d, i): Part => ({ id: i ? d.id : '', name: d.name, note: 'lugar dos aparelhos', cost: 0 })) }] : []),
+    ...(!build || build.largada || (turbo && !ft && build.pressao) ? [{ id: 'painel' as const, name: 'Aparelhos', parts: devPositions(car.dash, undefined, podMoved(car.dash, pods ? build?.relogios : '')).map((d, i): Part => ({ id: i ? d.id : '', name: d.name, note: 'lugar dos aparelhos', cost: 0 })) }] : []),
+    // onde ficam os relógios auxiliares (pressão do turbo/compressor, óleo, combustível): no painel ou
+    // na coluna (podpos.ts); só aparece com algum relógio (turbo/compressor, pistões ou alimentação) e
+    // nas cabines com os dois lugares medidos. De graça; o primeiro é o lugar de fábrica da cabine
+    ...(podPlaces(car.dash).length && (!build || pods) ? [{ id: 'relogios' as const, name: 'Relógios', parts: podPlaces(car.dash).map((d): Part => ({ id: d.id, name: d.name, note: 'lugar dos relógios', cost: 0 })) }] : []),
     { id: 'rodas', name: 'Rodas', parts: [ORIGINAL('Originais'), ...WHEEL_LIST.map(([id, name]): Part => ({ id, name, note: id[0] === 'c' ? 'clássica' : 'liga leve', cost: 0.03, wheel: id }))] },
   ];
 }
@@ -234,6 +241,10 @@ export const partOf = (car: CarSpec, slot: SlotId, id: string | undefined): Part
   const sl = slotsFor(car).find((s) => s.id === slot)!;
   return sl.parts.find((p) => p.id === (id ?? '')) ?? sl.parts[0];
 };
+// a peça em vista com o nome que ela tem nesta montagem (o lugar dos aparelhos muda de nome quando os
+// relógios trocam de lugar com eles, ver podAlt em devpos.ts)
+export const partFor = (car: CarSpec, slot: SlotId, build: Build): Part =>
+  slotsFor(car, build).find((s) => s.id === slot)?.parts.find((p) => p.id === (build[slot] ?? '')) ?? partOf(car, slot, build[slot]);
 export const partCost = (car: CarSpec, p: Part) => (p.cost ? Math.max(300, Math.round((Number(car.price.replace(/\D/g, '')) * p.cost) / 100) * 100) : 0);
 export const buildKey = (b: Build | undefined) => (b ? Object.entries(b).filter(([, v]) => v).sort().map(([k, v]) => `${k}=${v}`).join(',') : '');
 
@@ -302,6 +313,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     boostSet: bi?.set ? bi.bar : undefined,
     boostDev: bi?.set ? (isCarb(car) ? 'wastegate' : 'controller') : undefined,
     devPos: build.painel || undefined,
+    podPos: (forced || build.pistoes || build.alimentacao) && podPlaces(car.dash).some((p) => p.id && p.id === build.relogios) ? (build.relogios as CarSpec['podPos']) : undefined, // lugar dos relógios (podpos.ts; vazio = o de fábrica)
     // turbo do kit: a .32 (original do kit) enche rápido e cedo; as maiores, devagar e mais em cima
     spool: forced === 'turbo' && !factoryTurbo(car) ? spool ?? [1.6, 0.25] : undefined,
     wheelArt: wheel,
@@ -327,6 +339,7 @@ export function partInstalledMsg(car: CarSpec, slot: SlotId, p: Part): string {
   const id = p.id;
   if (slot === 'largada') return `Controle de largada em ${p.name}!`;
   if (slot === 'painel') return `Aparelhos: ${p.name.toLowerCase()}!`;
+  if (slot === 'relogios') return `Relógios: ${p.name.toLowerCase()}!`;
   if (slot === 'pressao') return `${isCarb(car) ? 'Wastegate regulada' : 'Boost controller regulado'} em ${p.name}!`;
   // peças cujo nome já diz tudo, ou que pedem outra frase
   const special: Record<string, string> = {

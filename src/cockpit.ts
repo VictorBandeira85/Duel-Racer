@@ -23,6 +23,7 @@ import { drawCrashFx, drawGlass, drawSparks } from './damage';
 import { blinkOn } from './cars';
 import { engineSpec } from './enginesynth';
 import { devPositions } from './devpos';
+import { POD_POS, podMoved } from './podpos';
 // aparelhos da preparação (arte do Victor, visores apagados: o jogo acende por cima)
 import threeStepPng from './assets/devices/threestep.png';
 import boostCtlPng from './assets/devices/boostctl.png';
@@ -1889,7 +1890,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     const t = art.tells ?? defaultTells(art);
     if (t) turnTells(c, ox + t[0], ART_TOP + t[1], r.signal);
   }
-  if (art.pod && r.car.pods?.length) auxPods(c, r, dt, ox, art.pod, dk);
+  if (art.pod && r.car.pods?.length) auxPods(c, r, dt, ox, podOf(art.pod, r.car), dk);
   drawDevices(c, r, dt, ox, art, dk);
   const wdx = art.wheelDx ?? 0;
   const wdy = art.wheelDy ?? 0;
@@ -1969,6 +1970,14 @@ function podFace(pod: NonNullable<CockpitArt['pod']>, kind: PodKind, lit = false
   return cv;
 }
 const podVals: Record<string, number> = {};
+/** relógios no lugar escolhido na preparação (podpos.ts): o `pod` da cabine ou o outro lugar medido
+ * (no painel: copos, sem o suporte e o passo da coluna; na coluna: suporte e passo dela) */
+function podOf(pod: NonNullable<CockpitArt['pod']>, car: Race['car']): NonNullable<CockpitArt['pod']> {
+  const p = POD_POS[car.dash];
+  if (!p || !car.podPos || car.podPos === p.def) return pod;
+  return { ...pod, pillar: undefined, dx: undefined, dy: undefined, ...p.alt };
+}
+
 /** relógios auxiliares da preparação, lado a lado a partir de `pod`: pressão do turbo/compressor,
  * de óleo (pistões e bielas preparados) e de combustível (alimentação preparada) */
 function auxPods(c: CanvasRenderingContext2D, r: Race, dt: number, ox: number, pod: NonNullable<CockpitArt['pod']>, dk: number) {
@@ -2126,8 +2135,7 @@ function devBase(kind: DevKind, pw: number, ph: number, ang = 0, shadow = false)
 }
 // 7 segmentos (a b c d e f g), dígito em caixa w x h com leve itálico, traço t
 const LED7: Record<string, string> = { '0': 'abcdef', '1': 'bc', '2': 'abdeg', '3': 'abcdg', '4': 'bcfg', '5': 'acdfg', '6': 'acdefg', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg', '-': 'g', ' ': '' };
-function led7(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, t: number, on: string, grow = 0) {
-  const sk = 0.12; // itálico (x anda para a direita subindo)
+function led7(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, t: number, on: string, grow = 0, sk = 0.12) { // itálico (x anda para a direita subindo)
   const P = (px: number, py: number): [number, number] => [x + px + (h - py) * sk, y + py];
   const hm = h / 2, g = t * 0.18 - grow;
   const segs: Record<string, [number, number][]> = {
@@ -2159,7 +2167,7 @@ function devicesOf(car: Race['car']): DevKind[] {
 function drawDevices(c: CanvasRenderingContext2D, r: Race, dt: number, ox: number, art: CockpitArt, dk: number) {
   const car = r.car, kinds = devicesOf(car);
   if (!kinds.length) return;
-  const all = devPositions(car.dash, art.radar);
+  const all = devPositions(car.dash, art.radar, !!car.pods?.length && podMoved(car.dash, car.podPos));
   const pos = all.find((p) => p.id === car.devPos) ?? all[0];
   const k = DEV_K * (pos.s ?? 1), sc = c.getTransform().a; // pixels do canvas por pixel da arte
   const gap = 1.5;
@@ -2247,31 +2255,40 @@ function drawDevices(c: CanvasRenderingContext2D, r: Race, dt: number, ox: numbe
       c.fillStyle = shade('#06140a', 0);
       c.fillRect(sx0, sy0, sw, shh);
       const ON = '#a6ff7a', OFF = 'rgba(80,140,60,0.10)', HALO = 'rgba(120,255,80,0.25)';
-      // número "1,5": algarismos cheios e retos (em poucos pixels o 7 segmentos inclinado virava mancha),
-      // ocupando a altura toda da caixa; o "bar" pequeno ao lado quando cabe
-      const num = (txt: string, bx0: number, by0: number, bx1: number, by1: number, unit = false) => {
-        const hh = by1 - by0;
-        c.save();
-        c.textBaseline = 'alphabetic';
-        c.font = `900 ${hh * 1.32}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
-        const tw = c.measureText(txt).width;
-        c.font = `900 ${hh * 0.55}px "Arial Black", Arial, sans-serif`;
-        const uw = unit ? c.measureText('bar').width + hh * 0.15 : 0;
-        const sc = Math.min(1, (bx1 - bx0) / (tw + uw));
-        const x = (bx0 + bx1) / 2 - ((tw + uw) * sc) / 2, y = by1;
-        c.translate(x, y);
-        c.scale(sc, 1);
-        c.font = `900 ${hh * 1.32}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
-        c.shadowColor = HALO; c.shadowBlur = hh * 0.25;
-        c.fillStyle = ON;
-        c.fillText(txt, 0, 0);
-        if (unit) { c.font = `900 ${hh * 0.55}px "Arial Black", Arial, sans-serif`; c.fillText('bar', tw + hh * 0.15, 0); }
-        c.restore();
+      // número "1,5" em 7 segmentos de blocos retos (grade 4 x 7, como LCD dos anos 80): em poucos pixels o
+      // segmento inclinado serrilhava; aceso por cima do "8" apagado
+      const SEG: Record<string, [number, number][]> = {
+        a: [[1, 0], [2, 0]], d: [[1, 6], [2, 6]], g: [[1, 3], [2, 3]],
+        f: [[0, 1], [0, 2]], b: [[3, 1], [3, 2]], e: [[0, 4], [0, 5]], c: [[3, 4], [3, 5]],
+      };
+      const cells = (on: string) => {
+        const set = new Set<string>();
+        for (const k of on) for (const [x, y] of SEG[k]) set.add(`${x},${y}`);
+        // cantos: acesos quando um segmento encosta neles (o número não fica com buracos)
+        const corner = (x: number, y: number, ks: string) => { if ([...ks].some((k) => on.includes(k))) set.add(`${x},${y}`); };
+        corner(0, 0, 'af'); corner(3, 0, 'ab'); corner(0, 3, 'feg'); corner(3, 3, 'bcg'); corner(0, 6, 'ed'); corner(3, 6, 'cd');
+        return set;
+      };
+      const num = (txt: string, bx0: number, by0: number, bx1: number, by1: number) => {
+        const digs = txt.replace(',', '');
+        const cs0 = (by1 - by0) / 7, gapC = 1.2, commaC = 1.6;
+        const tw = cs0 * (digs.length * 4 + (digs.length - 1) * gapC + commaC);
+        const cs = cs0 * Math.min(1, (bx1 - bx0) / tw), ch = by1 - by0;
+        let x = (bx0 + bx1) / 2 - (tw * cs) / cs0 / 2;
+        const ci = txt.indexOf(',');
+        const blk = (set: Set<string>, col: string) => { c.fillStyle = col; for (const k of set) { const [cx, cy] = k.split(',').map(Number); c.fillRect(x + cx * cs + cs * 0.06, by0 + cy * (ch / 7) + (ch / 7) * 0.06, cs * 0.88, (ch / 7) * 0.88); } };
+        for (let j = 0; j < digs.length; j++) {
+          blk(cells(LED7['8']), OFF);
+          const lit = cells(LED7[digs[j]] ?? '');
+          c.save(); c.shadowColor = HALO; c.shadowBlur = cs * 0.8; blk(lit, ON); c.restore();
+          x += cs * (4 + gapC);
+          if (j === ci - 1) { c.fillStyle = ON; c.fillRect(x - cs * gapC * 0.8, by0 + (ch / 7) * 6 + (ch / 7) * 0.06, cs * 0.88, (ch / 7) * 0.88); x += cs * commaC; }
+        }
       };
       if (d === 'controller') {
         // pressão de agora (grande) e a barra até a pressão escolhida
         // número ocupando quase toda a altura (no tamanho real da tela os dígitos ficam pequenos)
-        num(fmtBarLcd(devVal.boost), sx0 + 6, sy0 + 3, sx1 - 6, sy1 - 8, true);
+        num(fmtBarLcd(devVal.boost), sx0 + 6, sy0 + 3, sx1 - 6, sy1 - 8);
         const n = 12, bx = sx0 + 6, bw = sw - 12, by = sy1 - 5, segW = bw / n;
         const fill = Math.round(clamp(devVal.boost / Math.max(0.1, set), 0, 1) * n);
         for (let j = 0; j < n; j++) { c.fillStyle = j < fill ? ON : OFF; c.fillRect(bx + j * segW + 1, by, segW - 2, 4); }

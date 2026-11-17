@@ -1,5 +1,5 @@
 import { carSwap } from './carswap';
-import { boostInfo, buildKey, fmtBar, heatWord, partCost, partInstalledMsg, partOf, slotArt, slotsFor, type Build, type SlotId } from './tuning';
+import { boostInfo, buildKey, fmtBar, heatWord, partCost, partFor, partInstalledMsg, slotArt, slotsFor, type Build, type SlotId } from './tuning';
 import { setEngine, setEngineProfile, starterSound } from './audio';
 import { lastDevice } from './input';
 import { drawShowroom, keyShowroom, openShowroom, show, showroomFocusables, tapShowroom } from './showroom';
@@ -361,10 +361,10 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
   c.strokeRect(pb.x + 0.5, pb.y + 0.5, pb.w - 1, pb.h - 1);
   ink(c, 'PREPARAÇÃO', pb.x + 5, pb.y + 3, 5, RED);
   ink(c, 'toque para abrir o catálogo de peças', pb.x + pb.w - 5, pb.y + 3, 4, GREY, 'right');
-  const sum = slotsFor(car, buildOf(cs, car.id));
+  const sum = slotsFor(car, buildOf(cs, car.id)).filter((sl) => sl.id !== 'relogios'); // (o lugar dos relógios fica só na oficina: o resumo já está cheio)
   const pitch = sum.length > 10 ? 43 / Math.ceil(sum.length / 2) : 8.6;
   sum.forEach((sl, i) => {
-    const pt = partOf(car, sl.id, buildOf(cs, car.id)[sl.id]);
+    const pt = partFor(car, sl.id, buildOf(cs, car.id));
     const cx = pb.x + 5 + (i % 2) * 156, cy = Math.round(pb.y + 11 + Math.floor(i / 2) * pitch);
     const fs = sum.length > 10 ? 4 : 5;
     ink(c, `${sl.id === 'bancos' ? 'Peso' : sl.id === 'pistoes' ? 'Pistões' : sl.id === 'pressao' ? 'Pressão' : sl.id === 'largada' ? 'Largada' : sl.name}:`, cx, cy, fs, GREY); // nomes longos não cabem na coluna
@@ -538,8 +538,8 @@ function prepSwap(s: AppState) {
   openPrep(cs, cars[ui.garage]);
 }
 // wastegate / boost controller: comprado uma vez, qualquer pressão depois é só regular
-// (o lugar dos aparelhos no painel não se compra: é só mudar)
-const ownsPart = (cs: CareerSave, car: CarSpec, slot: SlotId, id: string) => !id || slot === 'painel' || (cs.parts?.[car.id] ?? []).some((k) => k === `${slot}:${id}` || ((slot === 'pressao' || slot === 'largada') && k.startsWith(`${slot}:`)));
+// (o lugar dos aparelhos e dos relógios não se compra: é só mudar)
+const ownsPart = (cs: CareerSave, car: CarSpec, slot: SlotId, id: string) => !id || slot === 'painel' || slot === 'relogios' || (cs.parts?.[car.id] ?? []).some((k) => k === `${slot}:${id}` || ((slot === 'pressao' || slot === 'largada') && k.startsWith(`${slot}:`)));
 
 // o que vale na tela de preparação: na carreira, os ajustes e defeitos do carro e as peças instaladas;
 // no Arcade, o carro de fábrica e as peças da oficina do Arcade; no catálogo, nada instalado
@@ -597,7 +597,7 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   ], 9, 14);
   prepRows(slots.length).forEach((r, i) => {
     const sl = slots[i];
-    const vp = partOf(car, sl.id, ui.prepView[sl.id]), installed = (cur[sl.id] ?? '') === vp.id;
+    const vp = partFor(car, sl.id, ui.prepView), installed = (cur[sl.id] ?? '') === vp.id;
     const hot = ui.prepRow === i;
     c.fillStyle = hot ? INK : installed ? '#f6efdd' : '#fff1c8';
     c.fillRect(r.x, r.y, r.w, r.h);
@@ -613,7 +613,7 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   // barra da vaga escolhida: ◀ peça ▶ e o botão de comprar/instalar
   {
     const pb = prepBar(), sl = slots[ui.prepRow];
-    const vp = partOf(car, sl.id, ui.prepView[sl.id]), installed = (cur[sl.id] ?? '') === vp.id;
+    const vp = partFor(car, sl.id, ui.prepView), installed = (cur[sl.id] ?? '') === vp.id;
     arrow(c, pb.prev, 'left');
     arrow(c, pb.next, 'right');
     c.fillStyle = '#f8f2e2';
@@ -636,7 +636,7 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
     ink(c, vp.id && sl.id !== 'rodas' ? `${n + 1}/${sl.parts.length} · ${pn}` : `${sl.name.toUpperCase()} ${n + 1}/${sl.parts.length}`, tx, pb.name.y + 3, 4, GREY, 'center');
     ink(c, vp.name, tx, pb.name.y + 10, vp.name.length > 18 ? 5 : 6, vp.id ? RED : INK, 'center');
     const cost = partCost(car, vp);
-    if (sl.id === 'painel') tag(c, pb.buy, installed ? 'AQUI' : ui.demo || (!ui.arc && !cs) ? 'LUGAR' : 'MUDAR PARA CÁ', !installed && !ui.demo && (!!ui.arc || !!cs)); // lugar dos aparelhos: de graça
+    if (sl.id === 'painel' || sl.id === 'relogios') tag(c, pb.buy, installed ? 'AQUI' : ui.demo || (!ui.arc && !cs) ? 'LUGAR' : 'MUDAR PARA CÁ', !installed && !ui.demo && (!!ui.arc || !!cs)); // lugar dos aparelhos/relógios: de graça
     else if (ui.arc) tag(c, pb.buy, installed ? 'INSTALADA' : vp.id ? 'INSTALAR GRÁTIS' : 'VOLTAR AO ORIGINAL', !installed); // Arcade: sem dinheiro
     else if (ui.demo || !cs) tag(c, pb.buy, vp.id ? `NA CARREIRA ${money(cost)}` : 'DE FÁBRICA'); // catálogo: só mostra o preço
     else {
@@ -667,19 +667,19 @@ function prepStep(car: CarSpec, slot: SlotId, d: number) {
   ui.prepView = { ...ui.prepView, [slot]: parts[(i + d + parts.length) % parts.length].id };
 }
 // vaga que depende de outra peça já instalada
-const needFirst = (slot: SlotId) => (slot === 'painel' ? 'Instale o 3-step ou o controle de pressão primeiro' : ui.prepView.inducao === 'super' ? 'Instale o supercharger primeiro' : 'Instale o turbo primeiro');
+const needFirst = (slot: SlotId) => (slot === 'painel' ? 'Instale o 3-step ou o controle de pressão primeiro' : slot === 'relogios' ? 'Instale turbo, pistões ou alimentação primeiro' : ui.prepView.inducao === 'super' ? 'Instale o supercharger primeiro' : 'Instale o turbo primeiro');
 function prepInstall(s: AppState, car: CarSpec, slot: SlotId) {
   if (ui.arc) {
     // Arcade: instala de graça, nas preparações do Arcade (a carreira não muda)
-    const p = partOf(car, slot, ui.prepView[slot]), cur = arcadeBuildOf(car.id);
+    const p = partFor(car, slot, ui.prepView), cur = arcadeBuildOf(car.id);
     if ((cur[slot] ?? '') === p.id) return flash(s, 'Já está instalada');
     if (!slotsFor(car, cur).some((sl) => sl.id === slot)) return flash(s, needFirst(slot));
     setArcadePart(car.id, slot, p.id);
-    return flash(s, p.id || slot === 'painel' ? partInstalledMsg(car, slot, p) : 'Peça original de volta');
+    return flash(s, p.id || slot === 'painel' || slot === 'relogios' ? partInstalledMsg(car, slot, p) : 'Peça original de volta');
   }
   const cs = s.career!;
   if (ui.demo) return flash(s, 'Catálogo: compre e instale na oficina da carreira');
-  const p = partOf(car, slot, ui.prepView[slot]);
+  const p = partFor(car, slot, ui.prepView);
   if ((buildOf(cs, car.id)[slot] ?? '') === p.id) return flash(s, 'Já está instalada');
   // turbina, polia, intercooler e downpipe só entram com o turbo/supercharger já instalado
   if (!slotsFor(car, buildOf(cs, car.id)).some((sl) => sl.id === slot)) return flash(s, needFirst(slot));
@@ -692,7 +692,7 @@ function prepInstall(s: AppState, car: CarSpec, slot: SlotId) {
   }
   cs.builds = { ...(cs.builds ?? {}), [car.id]: { ...buildOf(cs, car.id), [slot]: p.id } };
   saveCareer(cs);
-  flash(s, p.id || slot === 'painel' ? partInstalledMsg(car, slot, p) : 'Peça original de volta');
+  flash(s, p.id || slot === 'painel' || slot === 'relogios' ? partInstalledMsg(car, slot, p) : 'Peça original de volta');
 }
 function prepRev(s: AppState, car: CarSpec) {
   const { lv, st, wear } = prepCtx(s, car);

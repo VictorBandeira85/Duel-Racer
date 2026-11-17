@@ -121,6 +121,7 @@ export interface CarSpec {
   launchRpm?: number; // o mesmo giro do 3-step em rpm (visor do aparelho na cabine)
   boostSet?: number; // pressão escolhida no wastegate / boost controller (bar), mostrada no aparelho
   boostDev?: 'wastegate' | 'controller'; // qual aparelho regula a pressão (carburado / injeção)
+  podPos?: 'painel' | 'coluna'; // lugar dos relógios auxiliares (podpos.ts; vazio = o de fábrica da cabine)
   devPos?: string; // lugar dos aparelhos na cabine (devpos.ts; vazio = o primeiro da cabine)
   launch?: number; // força extra do motor em 1ª (calibrada pelo 0-100 quando só a aderência não basta)
   drag?: number; // arrasto aerodinâmico (por m), calibrado pela velocidade máxima

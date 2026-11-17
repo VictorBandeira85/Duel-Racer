@@ -38,6 +38,24 @@ import { F40_REAR, F40_SIDE, F40_WHEEL } from './svg/f40';
 
 // (o pré-carregamento geral vai em segundo plano: ver lowPrio mais abaixo)
 import { preloadPhotos } from './photos';
+// esmaecer entre telas, como no Super Nintendo: ao trocar de tela, a anterior escurece até o preto e a
+// nova clareia do preto, em degraus (o brilho do SNES tinha 16 níveis). A tela anterior é a imagem que
+// ainda está no canvas no quadro em que a troca acontece (copiada só nesse quadro)
+const FADE_OUT = 0.16, FADE_IN = 0.24;
+let fadeScreen = '', fadeT = -1;
+const fadeCv = document.createElement('canvas');
+let fadeSnapped = false;
+// guarda a última imagem da tela (chamado também antes de o canvas mudar de tamanho, que o apaga)
+function snapFade() {
+  if (fadeSnapped || !canvas.width) return;
+  if (fadeCv.width !== canvas.width || fadeCv.height !== canvas.height) { fadeCv.width = canvas.width; fadeCv.height = canvas.height; }
+  fadeCv.getContext('2d')!.drawImage(canvas, 0, 0);
+  fadeSnapped = true;
+}
+function fadeLevel(k: number) {
+  return Math.round(Math.max(0, Math.min(1, k)) * 15) / 15; // 0 = imagem cheia, 1 = preto
+}
+
 // pré-carregamento geral em segundo plano: na fila do artifact, o que a tela atual precisa passa na frente
 const preloadAll = () => {
   preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.sideMask, c.rear.img, c.rear.imgMask, c.rear.frontImg, c.rear.frontMask]).filter((s): s is string => !!s), ...TRAFFIC_IMAGES);
@@ -453,6 +471,7 @@ function resize() {
   setRes(!lowFx() && !lowRes() && dense ? 4 : 2);
   // a tela continua em 4 (mostradores e menus nítidos); no gráfico baixo só a estrada cai para 2
   setCanvasRes(dense && !minRes() ? 4 : 2); // (no degrau mínimo do automático a tela toda cai para 2x)
+  if (state.screen !== fadeScreen && fadeScreen && (canvas.width !== view.w * CRES || canvas.height !== view.h * CRES)) snapFade();
   canvas.width = view.w * CRES;
   canvas.height = view.h * CRES;
   ctx.setTransform(CRES, 0, 0, CRES, 0, 0);
@@ -963,6 +982,33 @@ let frameErr = false;
 let lastKey = '';
 const gearEl = document.getElementById('gearNum')!;
 function frameInner(now: number) {
+  if (fadeScreen !== state.screen) {
+    if (fadeScreen) {
+      if (!fadeSnapped) snapFade();
+      fadeT = 0;
+    }
+    fadeSnapped = false;
+    fadeScreen = state.screen;
+  }
+  frameMain(now);
+  if (fadeT >= 0) {
+    fadeT += Math.max(0, Math.min(0.05, (now - fadeLast) / 1000));
+    const g = ctx;
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    if (fadeT < FADE_OUT) {
+      g.drawImage(fadeCv, 0, 0, canvas.width, canvas.height);
+      g.fillStyle = `rgba(0,0,0,${fadeLevel(fadeT / FADE_OUT)})`;
+    } else g.fillStyle = `rgba(0,0,0,${fadeLevel(1 - (fadeT - FADE_OUT) / FADE_IN)})`;
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    g.restore();
+    if (fadeT >= FADE_OUT + FADE_IN) fadeT = -1;
+  }
+  fadeLast = now;
+}
+let fadeLast = 0;
+const fading = () => fadeT >= 0 && fadeT < FADE_OUT + FADE_IN * 0.5;
+function frameMain(now: number) {
   carSwapWatch(state.t);
   // o visor do rádio não fica por cima do papel da multa
   $('radioTag').classList.toggle('blocked', state.screen === 'race' && race?.officer?.phase === 'show');
@@ -995,7 +1041,7 @@ function frameInner(now: number) {
   if (race) setHornCar(race.car.id);
   setHorn(state.screen === 'race' && !!race && !paused && !quitOpen() && hornOn());
   if (state.screen === 'race' && race) {
-    if (!paused) {
+    if (!paused && !fading()) {
       acc += dt;
       while (acc >= STEP && state.screen === 'race') {
         race.update(STEP);

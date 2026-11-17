@@ -2071,6 +2071,8 @@ const DEV_ART: Record<DevKind, { src: string; w: number; h: number; scr: [number
   controller: { src: boostCtlPng, w: 223, h: 160, scr: [32, 31, 190, 71] }, // LCD largo
   wastegate: { src: wastegatePng, w: 190, h: 160, scr: [20, 71, 88, 102] }, // LCD pequeno
 };
+// boost controller e wastegate maiores que o 3-step: o visor deles é mais baixo e os números sumiam
+const DEV_Z: Record<DevKind, number> = { threestep: 1, controller: 1.25, wastegate: 1.35 };
 const POD_K = 1.3; // relógios auxiliares da preparação: maiores que o medido (pedido do Victor)
 const DEV_K = (32 / 263) * 1.45; // (×1,45: aparelhos maiores, pedido do Victor) // pixels da arte da cabine por pixel da imagem (s = 1: o 3-step com 32 de largura, ~9 cm ao lado do quadro)
 // botão da wastegate: miolo (capa escovada) que gira; o risco pintado na arte aponta a -49°. A escala de
@@ -2161,7 +2163,7 @@ function drawDevices(c: CanvasRenderingContext2D, r: Race, dt: number, ox: numbe
   const pos = all.find((p) => p.id === car.devPos) ?? all[0];
   const k = DEV_K * (pos.s ?? 1), sc = c.getTransform().a; // pixels do canvas por pixel da arte
   const gap = 1.5;
-  const tot = kinds.reduce((sum, d) => sum + DEV_ART[d].w * k, 0) + gap * (kinds.length - 1);
+  const tot = kinds.reduce((sum, d) => sum + DEV_ART[d].w * k * DEV_Z[d], 0) + gap * (kinds.length - 1);
   // pressão atual (a mesma do manômetro auxiliar): enche com o turbo e cai ao aliviar
   const set = car.boostSet ?? car.boostMax ?? 1;
   const want = car.forced === 'turbo' && r.throttle ? set * Math.max(0, Math.min(1, r.pt.boost)) ** 1.5 : 0;
@@ -2173,13 +2175,13 @@ function drawDevices(c: CanvasRenderingContext2D, r: Race, dt: number, ox: numbe
   if (vertical) order.reverse();
   let foot = pos.y;
   const place = kinds.map((d) => {
-    const a = DEV_ART[d], w = a.w * k, h = a.h * k * PIX_Y;
+    const a = DEV_ART[d], w = a.w * k * DEV_Z[d], h = a.h * k * DEV_Z[d] * PIX_Y;
     const yb = foot;
     if (vertical) foot -= h * 0.8;
     return { w, h, yb };
   });
   let xh = pos.x - tot / 2;
-  const xs = kinds.map((d) => { const x = xh; xh += DEV_ART[d].w * k + gap; return x; });
+  const xs = kinds.map((d) => { const x = xh; xh += DEV_ART[d].w * k * DEV_Z[d] + gap; return x; });
   for (const { d, i } of order) {
     const a = DEV_ART[d], { w, h, yb } = place[i];
     const x0 = ox + (vertical ? pos.x + (pos.lean ?? 0) * (pos.y - yb) - w / 2 : xs[i]), y0 = ART_TOP + yb - h;
@@ -2240,26 +2242,41 @@ function drawDevices(c: CanvasRenderingContext2D, r: Race, dt: number, ox: numbe
       if (nightK > 0 && !blinkOff) halo((sx0 + sx1) / 2, (sy0 + sy1) / 2, 95, 0.1 * nightK); // o visor ilumina em volta
       c.globalCompositeOperation = 'source-over';
     } else {
-      // LCD verde com luz de fundo; números escuros
-      const bg = c.createLinearGradient(0, sy0, 0, sy1);
-      // (à noite a luz de fundo fica um pouco mais baixa: verde aceso sem ofuscar os números)
-      bg.addColorStop(0, shade('#9bd36a', -0.22 * nightK)); bg.addColorStop(1, shade('#79b54c', -0.22 * nightK));
-      c.fillStyle = bg;
+      // visor de fundo escuro com dígitos de 7 segmentos verdes acesos (antes: letra de pixel fina, escuro
+      // sobre verde, ilegível no tamanho da tela)
+      c.fillStyle = shade('#06140a', 0);
       c.fillRect(sx0, sy0, sw, shh);
-      const ink = '#10260c', ghost = 'rgba(16,38,12,0.12)';
+      const ON = '#a6ff7a', OFF = 'rgba(80,140,60,0.10)', HALO = 'rgba(120,255,80,0.25)';
+      // número "1,5": algarismos cheios e retos (em poucos pixels o 7 segmentos inclinado virava mancha),
+      // ocupando a altura toda da caixa; o "bar" pequeno ao lado quando cabe
+      const num = (txt: string, bx0: number, by0: number, bx1: number, by1: number, unit = false) => {
+        const hh = by1 - by0;
+        c.save();
+        c.textBaseline = 'alphabetic';
+        c.font = `900 ${hh * 1.32}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
+        const tw = c.measureText(txt).width;
+        c.font = `900 ${hh * 0.55}px "Arial Black", Arial, sans-serif`;
+        const uw = unit ? c.measureText('bar').width + hh * 0.15 : 0;
+        const sc = Math.min(1, (bx1 - bx0) / (tw + uw));
+        const x = (bx0 + bx1) / 2 - ((tw + uw) * sc) / 2, y = by1;
+        c.translate(x, y);
+        c.scale(sc, 1);
+        c.font = `900 ${hh * 1.32}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
+        c.shadowColor = HALO; c.shadowBlur = hh * 0.25;
+        c.fillStyle = ON;
+        c.fillText(txt, 0, 0);
+        if (unit) { c.font = `900 ${hh * 0.55}px "Arial Black", Arial, sans-serif`; c.fillText('bar', tw + hh * 0.15, 0); }
+        c.restore();
+      };
       if (d === 'controller') {
-        const big = fmtBarLcd(set);
-        pix(c, '8,8', sx0 + 26, sy0 + 13, ghost, 4.2);
-        pix(c, big, sx0 + 26, sy0 + 13, ink, 4.2);
-        pix(c, 'BAR', sx0 + 63, sy0 + 15, ink, 2.4);
-        pix(c, fmtBarLcd(devVal.boost), sx1 - 18, sy0 + 13, ink, 3);
-        // pressão atual em barra (20 segmentos; cheia = a pressão escolhida)
-        const n = 20, bx = sx0 + 6, bw = sw - 12, by = sy1 - 12, segW = bw / n;
+        // pressão de agora (grande) e a barra até a pressão escolhida
+        // número ocupando quase toda a altura (no tamanho real da tela os dígitos ficam pequenos)
+        num(fmtBarLcd(devVal.boost), sx0 + 6, sy0 + 3, sx1 - 6, sy1 - 8, true);
+        const n = 12, bx = sx0 + 6, bw = sw - 12, by = sy1 - 5, segW = bw / n;
         const fill = Math.round(clamp(devVal.boost / Math.max(0.1, set), 0, 1) * n);
-        for (let j = 0; j < n; j++) { c.fillStyle = j < fill ? ink : ghost; c.fillRect(bx + j * segW + 0.8, by, segW - 1.6, 8); }
+        for (let j = 0; j < n; j++) { c.fillStyle = j < fill ? ON : OFF; c.fillRect(bx + j * segW + 1, by, segW - 2, 4); }
       } else {
-        pix(c, '8,8', (sx0 + sx1) / 2, (sy0 + sy1) / 2 + 1, ghost, 4.2);
-        pix(c, fmtBarLcd(car.boostSet ?? set), (sx0 + sx1) / 2, (sy0 + sy1) / 2 + 1, ink, 4.2);
+        num(fmtBarLcd(car.boostSet ?? set), sx0 + 3, sy0 + 3, sx1 - 3, sy1 - 3);
       }
       c.fillStyle = 'rgba(255,255,255,0.13)';
       c.beginPath(); c.moveTo(sx0 + 6, sy1 - 3); c.lineTo(sx0 + 18, sy0 + 3); c.lineTo(sx0 + 24, sy0 + 3); c.lineTo(sx0 + 12, sy1 - 3); c.fill();

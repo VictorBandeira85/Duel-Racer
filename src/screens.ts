@@ -14,6 +14,7 @@ import { RIVAL_STYLE } from './race';
 import type { CareerSave, EventResult } from './career';
 import { newCareer, saveCareer } from './career';
 import { arcadeTuned } from './arcadeprep';
+import { pick as carPick } from './carpick';
 import { careerFocusables, drawCareerScreen, keyCareerScreen, openPrepDemo, tapCareerScreen, ui as careerUi } from './careerScreens';
 import { openShowroom, show } from './showroom';
 import { PAINTS, nearestPaint, paintHex, paintIdx, setPaint } from './paint';
@@ -1842,10 +1843,11 @@ function drawLegend(c: CanvasRenderingContext2D, s: AppState) {
     if (sc === 'course') items.push('◀▶: horário');
     if (sc === 'options' && isVolItem(s.sel)) items.push('◀▶: volume');
     if (sc === 'options') items.push(`${cls}: aba`);
-    if ((sc === 'garage' && !careerUi.prep) || sc === 'prepDemo' || sc === 'arcadePrep') items.push(`${cls}: carro`);
+    const picking = (sc === 'prepDemo' || sc === 'arcadePrep') && carPick.open; // seletor de carro aberto (carpick.ts)
+    if ((sc === 'garage' && !careerUi.prep) || ((sc === 'prepDemo' || sc === 'arcadePrep') && !picking)) items.push(`${cls}: carro`);
     items.push(`${ok}: ${sc === 'showroom' && !detail ? 'ver' : sc === 'dealer' ? 'comprar' : 'escolher'}`);
     if (sc !== 'title' || DESKTOP_UA) items.push(`${back}: ${sc === 'title' ? 'sair' : 'voltar'}`);
-    if (sc === 'car' || sc === 'opponent' || (sc === 'showroom' && !detail) || sc === 'dealer') items.push(`${cls}: classe`);
+    if (sc === 'car' || sc === 'opponent' || (sc === 'showroom' && !detail) || sc === 'dealer' || picking) items.push(`${cls}: classe`);
     if (sc === 'collection') items.push(`${cls}: página`);
   }
   c.font = '4px "Press Start 2P", monospace';

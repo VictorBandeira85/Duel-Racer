@@ -93,6 +93,7 @@ export interface CarSpec {
   icEff?: number; // intercooler do kit: fração do calor do turbo que ele tira em alta rotação
   pods?: ('boost' | 'oil' | 'fuel')[]; // relógios auxiliares na cabine, conforme as peças instaladas
   prep?: number; // multiplicador de potência das peças (1 = original): tração dianteira preparada patina mais
+  lsd?: number; // diferencial autoblocante da preparação (0 aberto, 0,5 esportivo, 1 de corrida): patina menos e sai melhor da curva
   carb?: boolean; // alimentação por carburador (escala do relógio de combustível)
   soundMods?: import('./tuning').SoundMods; // mudanças no ronco pelas peças instaladas
   id: string;
@@ -523,7 +524,7 @@ const POWER_PEAK = Object.fromEntries((Object.keys(TORQUE) as PowerCurve[]).map(
   return [k, m];
 })) as Record<PowerCurve, number>;
 // fração da potência máxima conforme a rotação (pico = 1)
-function powerShape(rpm: number, curve: PowerCurve = 'v12') {
+export function powerShape(rpm: number, curve: PowerCurve = 'v12') {
   return (torqueAt(rpm, curve) * clamp(rpm, 0, 1)) / POWER_PEAK[curve];
 }
 // giro mínimo de trabalho: abaixo dele a embreagem patina (marcha alta em velocidade baixa) e a
@@ -561,7 +562,7 @@ export function autoGear(car: CarSpec, gear: number, speed: number, throttle: bo
 export const SHIFT_T = 0.45; // troca manual: embreagem, alavanca e embreagem de volta, sem potência (s)
 export const LAUNCH_BOOST = 0.6; // pressão do turbo na largada, segurando o giro na contagem
 // k: parte da potência que depende da pressão do turbo; rate: rapidez com que ela enche (1/s)
-const TURBO: Partial<Record<PowerCurve, { k: number; rate: number }>> = {
+export const TURBO: Partial<Record<PowerCurve, { k: number; rate: number }>> = {
   turbo: { k: 0.45, rate: 1.3 },
   seqturbo: { k: 0.3, rate: 2.6 },
 };
@@ -624,9 +625,12 @@ export class Powertrain {
     // turbo do kit com pressão alta: quando a pressão chega (giro alto) a força vem de uma vez e as rodas
     // perdem tração mesmo em 2ª/3ª; quanto mais bar, mais cedo patina
     const kick = tb && car.spool ? clamp(((car.boostMax ?? 0.8) - 1) / 2.5, 0, 1) * this.boost * this.boost : 0;
-    const loose = cap * (car.drive === 'integral' ? 2.5 : fwd ? 1.6 - 0.2 * fwdPrep : car.position === 'dianteira' ? 1.6 : 1.8) * (1 - 0.35 * kick);
-    this.spin = clamp((aPow / loose - 1) * (fwd ? 0.3 : 0.6), 0, 1);
-    return Math.min(aPow, cap * (1 - 0.06 * fwdPrep * this.spin));
+    // diferencial autoblocante (lsd): a roda aliviada não gira em falso sozinha, a força vai para a outra;
+    // a folga antes de patinar cresce (mais no dianteiro e no turbo de pressão alta) e patina mais manso
+    const lsd = clamp(car.lsd ?? 0, 0, 1);
+    const loose = cap * (car.drive === 'integral' ? 2.5 : fwd ? 1.6 - 0.2 * fwdPrep : car.position === 'dianteira' ? 1.6 : 1.8) * (1 - 0.35 * kick * (1 - 0.5 * lsd)) * (1 + (fwd ? 0.3 : 0.2) * lsd);
+    this.spin = clamp((aPow / loose - 1) * (fwd ? 0.3 : 0.6) * (1 - 0.4 * lsd), 0, 1);
+    return Math.min(aPow, cap * (1 - 0.06 * fwdPrep * this.spin * (1 - 0.6 * lsd)));
   }
 }
 
@@ -1646,6 +1650,8 @@ export function sideLamps(x: number, y: number, len: number, car: CarSpec, paint
 }
 // lit: faróis acesos (posto à noite); quem tem escamoteáveis aparece com eles levantados (<arte>-side-up)
 // driver: quem aparece na janela lateral (o jogador; null: vazio)
+// desenho a mais por cima da lateral (adesivo do patrocinador da carreira: rivalry.ts)
+export const sideHook: { after?: (c: CanvasRenderingContext2D, car: CarSpec, L: number, T: number, W: number, H: number, driver: DriverId | null) => void } = {};
 export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, len: number, car: CarSpec, paint?: string, spin?: number, lit?: boolean, driver: DriverId | null = 'man') {
   // mesma escala para todos, centrado no espaço reservado
   const k = sideScale(car);
@@ -1695,6 +1701,7 @@ export function drawCarSide(c: CanvasRenderingContext2D, x: number, y: number, l
         c.drawImage(body, L, T + drop, W, H);
         c.restore();
       } else c.drawImage(spr, L, T, W, H);
+      sideHook.after?.(c, car, L, T + drop, W, H, driver); // adesivo do patrocinador (rivalry.ts)
       if (spin !== undefined && car.wheels) {
         const sw = spr.width / W, sh = spr.height / H;
         for (const [u, v, rr] of car.wheels) {

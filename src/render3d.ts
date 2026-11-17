@@ -6,7 +6,8 @@ import { BARREL_H, CONE_H, HORSE_H, coneLine, type Cone } from './blitz';
 import { FLAG_BODY_H, PROP_SIZE, inObra, type Flagman, type ObraProp } from './obra';
 import { FLAGGER_ART, FLAGGER_BODY_PX, OBRA_PX, drawObraArt, obraArt } from './obraart';
 import { CAM_DEPTH, CAM_H, CAR_W, CRES, DRAW_DIST, PLAYER_Z, SEG_LEN } from './config';
-import { CARS, drawCar } from './cars';
+import { CARS, drawCar, type CarLook } from './cars';
+import { plateLook } from './myplate';
 import { lowFx, fxMode, setPerfScene } from './perf';
 import { TEX, groundTex, kindOf, texSlice } from './groundtex';
 import { adsReady } from './billboards';
@@ -20,6 +21,8 @@ import type { Point, Segment } from './track';
 import { dither } from './ui';
 import { PANO_H, PANO_W, cloudStrip, panorama, skyline } from './bgart';
 import { Lru, lerp } from './util';
+import { wetSheen } from './wetroad';
+import { heliDraw, heliGround, heliLights, heliMirror, heliSeg } from './heli';
 // metros por segmento (KMH = 0,025 unidades/s por km/h)
 const SEG_M_R = (SEG_LEN * 0.025) / 3.6;
 
@@ -33,6 +36,9 @@ export interface Viewport {
   h0?: number; // horizonte sem a inclinação da câmera (a lua fica presa ao céu a partir dele)
   K: number; // escala da projeção em pixels
 }
+
+// carro do jogador visto de fora (modo foto e replay, src/outcam.ts): entra na pista como os outros
+export const selfCar: { ent: { z: number; x: number }; look: CarLook | null; lift: number } = { ent: { z: 0, x: 0 }, look: null, lift: 0 };
 
 const bendX: number[] = [], bendDx: number[] = [];
 const OFFICER_H = 1050; // altura do policial (unidades do mundo)
@@ -258,6 +264,8 @@ function drawSegment(c: CanvasRenderingContext2D, s: Segment, r: Race, vp: Viewp
       laneLine(c, s, 0.5, 0.014, '#e8e8e8');
     }
   }
+  r.track.paint?.(c, s); // faixas pintadas do modo (arrancada)
+  wetSheen(c, s, r); // pista molhada: o céu refletido no asfalto (wetroad.ts)
   if (s.tunnel) { // asfalto na penumbra (só as luzes do teto)
     c.fillStyle = 'rgba(8,6,4,0.38)';
     c.fillRect(vp.x, y2, vp.w, y1 - y2);
@@ -685,6 +693,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   if (r.obra) entities.push(...r.obra.cones, ...r.obra.props, r.obra.flag); // obra: cones, cavaletes, máquina, homem da bandeira
   const beacons: number[][] = [], greens: number[][] = [], reds: number[][] = []; // luzinhas da obra acesas (halo à noite)
   if (r.ghostPos) entities.push(r.ghostPos);
+  if (selfCar.look) entities.push(selfCar.ent);
   for (const t of r.traffic) if (t.fall && t.fall.stage !== 'skid') entities.push(t.fall); // piloto da moto caída, solto na pista
   for (const e of entities) {
     const idx = Math.floor(e.z / SEG_LEN);
@@ -739,8 +748,12 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   // guard-rail contínuo: a lâmina é uma faixa só, de um poste ao seguinte (antes cada sprite trazia
   // um pedaço de lâmina e, de perto, viravam pedaços soltos com vão entre eles)
   const railPrev = new Map<number, { x: number; y: number; h: number; i: number }>();
+  // helicóptero da polícia (heli.ts): sombra/holofote no chão e o próprio, no trecho dele
+  heliGround(c, r, vp.K, segs, base.index, end);
+  const heliIdx = heliSeg(r);
   for (let i = end - 1; i > base.index; i--) {
     const s = segs[i];
+    if (i === heliIdx) heliDraw(c, r, vp.K, s, fog ? [fogRgb, fogAt(i - base.index)] : undefined);
     if (s.p1.camera.z <= CAM_DEPTH * 4) continue;
     if (!s.tunnel && !s.sprites.length && !s.cars.length) continue; // nada a desenhar: poupa o recorte
     // recorte pela crista só quando algo deste trecho pode passar dela (o chão do trecho fica
@@ -874,13 +887,17 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       const baseX = lerp(s.p1.screen.x, s.p2.screen.x, pct);
       const ex = e.x;
       const cx = baseX + sc * ex * vp.K;
-      if (e === r.ghostPos) {
+      if (e === selfCar.ent && selfCar.look) {
+        const rw = CAR_W * sc * vp.K, sy = cy - selfCar.lift * sc * vp.K, look = selfCar.look;
+        fogged(c, fk, cx - rw, sy - rw * 1.3, rw * 2, rw * 1.3 + 4, (g) => drawCar(g, cx, sy, rw, look));
+        beamAhead(e.z, ex, rw);
+      } else if (e === r.ghostPos) {
         // fantasma: o carro da melhor passagem, transparente (não bate em nada)
         const gc = ghostCar(r);
         if (gc) {
           c.save();
           c.globalAlpha *= 0.42;
-          drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: gc.color, rear: gc.rear, night, paint: r.ghostRun!.paint, drop: gc.id === r.car.id ? r.car.rideDrop : undefined });
+          drawCar(c, cx, cy, CAR_W * sc * vp.K, { color: gc.color, rear: gc.rear, night, paint: r.ghostRun!.paint, drop: gc.id === r.car.id ? r.car.rideDrop : undefined, plate: plateLook(r.ghostRun!.plate) });
           c.restore();
         }
       } else if (e === r.rival) {
@@ -1032,6 +1049,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   // inclinação do carro (o eixo do farol): a do chão embaixo dele, da traseira à frente; no ar, a do voo
   const carPitch = r.airborne ? r.pitch : (yAt(r.position + PLAYER_Z) - yAt(r.position - 400)) / (PLAYER_Z + 400);
   finishNight(c, vp, Math.max(r.nightK, r.inTunnel > 0.5 ? 0.45 * r.inTunnel : 0), passers, SEG_LEN, road, roadAll, r.steer, carPitch);
+  heliLights(c, r);
   // obra: pisca âmbar dos cavaletes e da máquina, lente acesa do semáforo (halo só no escuro)
   if (lit) {
     beaconGlow(c, beacons, '255,176,40', r.nightK);
@@ -1120,6 +1138,7 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
       }
     }
   }
+  heliMirror(c, r, cx, hz, f, pz, CAM_H);
   // motor central/traseiro com dano: a fumaça sobe da tampa do motor, logo atrás do vidro traseiro
   mirrorSmoke(c, r, (lat, d, yw) => [cx + (lat * f) / d, hz + ((CAM_H - yw) * f) / d, f / d], 0, 0.7, 0.6, night ? 0.4 : 1);
   mirrorWash(c, x, y, w, h, nearest, glareK);

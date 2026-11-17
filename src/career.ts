@@ -1,11 +1,14 @@
 // Modo Carreira: regiões com eventos contra pilotos com nome, dinheiro, concessionária,
 // garagem (pintura e melhorias) e progresso salvo no aparelho.
-import { applyBuild, partOf, slotsFor, type Build } from './tuning';
+import { applyBuild, buildKey, partOf, slotsFor, type Build } from './tuning';
 import { CARS, PERF_CLASSES, prepareCar, type CarSpec, type PerfClass } from './cars';
 import type { Course, StageDef } from './courses';
 import type { RivalStyle } from './race';
 import type { ThemeId } from './themes';
 import { isObj } from './util';
+import { cleanGearing, gearsWith, type Gearing } from './gearbox';
+import { healthCar, type Health } from './wear';
+import type { RivalRec, SponsorDeal, StreetState } from './rivalry';
 
 export interface Driver { name: string; car: string; style: RivalStyle; skill: number; paint: string; quote: string }
 // rematch: revanche contra um rival já vencido (evento opcional; o id leva -rv e não entra em done)
@@ -113,11 +116,13 @@ export const RIVAL_BUILDS: Record<string, Build> = {
   'Lobo Solitário': { escape: 'corrida', bancos: 'concha', comando: 'esportivo' },
   'Rei da Serra': { inducao: 'turbomaior', pneus: 'esportivo' }, // campeão de subida de montanha
 };
-export const driverBuild = (d: Driver): Build | undefined => RIVAL_BUILDS[d.name];
+// rivalidade (rivalry.ts): peças que o rival pôs depois de perder para o jogador e o tanto que ficou mais afiado
+export const rivalExtra: { build: (d: Driver) => Build | undefined; skill: (d: Driver) => number } = { build: () => undefined, skill: () => 0 };
+export const driverBuild = (d: Driver): Build | undefined => rivalExtra.build(d) ?? RIVAL_BUILDS[d.name];
 const driverCars = new Map<string, CarSpec>();
 /** carro do piloto da carreira: o de fábrica ou, para os preparadores, com as peças dele */
 export function driverCar(d: Driver): CarSpec {
-  const key = `${d.name}|${d.car}`;
+  const key = `${d.name}|${d.car}|${buildKey(driverBuild(d))}`;
   let c = driverCars.get(key);
   if (!c) {
     const base = CARS.find((x) => x.id === d.car)!;
@@ -143,9 +148,10 @@ export function buildSummary(d: Driver): string[] {
 export const PREP_PACE = 1.03;
 export function rivalSkillOf(d: Driver) {
   const b = driverBuild(d);
-  if (!b) return d.skill;
+  const sk = Math.min(0.995, d.skill + rivalExtra.skill(d)); // rival que já perdeu para o jogador: mais afiado
+  if (!b) return sk;
   const base = CARS.find((x) => x.id === d.car)!;
-  return Math.min(d.skill, (d.skill * PREP_PACE * base.maxSpeed) / driverCar(d).maxSpeed);
+  return Math.min(sk, (sk * PREP_PACE * base.maxSpeed) / driverCar(d).maxSpeed);
 }
 export const prizeOf = (ev: CareerEvent) => (driverBuild(ev.driver) ? Math.round((ev.prize * 1.1) / 500) * 500 : ev.prize);
 
@@ -236,24 +242,29 @@ export const classFits = (carCls: PerfClass, regionCls: PerfClass) => PERF_CLASS
 
 // carro com as melhorias aplicadas (mesmo id: pintura, cabine e sprites continuam os mesmos)
 // Ajustes da oficina (de graça, mudam a qualquer hora): relação de marchas, suspensão e rodas
-export interface Setup { ratio: number; susp: number; rims: string } // ratio -1 curta, 0, 1 longa; susp 0..2
+// ratio -1 curta, 0, 1 longa (antigo: vira o diferencial ±2 passos); susp 0..2; gears/final: câmbio por marcha (gearbox.ts)
+export interface Setup extends Gearing { ratio: number; susp: number; rims: string }
 export const DEFAULT_SETUP: Setup = { ratio: 0, susp: 0, rims: '' };
 export const RATIO_LABEL = ['CURTA', 'ORIGINAL', 'LONGA'];
 export const SUSP_LABEL = ['ORIGINAL', 'ESPORTIVA', 'REBAIXADA'];
-export const setupOf = (cs: CareerSave, id: string): Setup => ({ ...DEFAULT_SETUP, ...(cs.setup?.[id] ?? {}) });
+export const setupOf = (cs: CareerSave, id: string): Setup => {
+  const st: Setup = { ...DEFAULT_SETUP, ...(cs.setup?.[id] ?? {}) };
+  // câmbio do save conferido (passos inteiros, do tamanho do câmbio, marchas em ordem); senão, original
+  const car = CARS.find((c) => c.id === id);
+  const g = car ? cleanGearing(car, { gears: st.gears, final: st.final ?? (st.ratio === 1 || st.ratio === -1 ? st.ratio * 2 : 0) }) : undefined;
+  return { ...st, ratio: g ? 0 : st.ratio, gears: g?.gears, final: g?.final };
+};
 export const buildOf = (cs: CareerSave, id: string): Build => cs.builds?.[id] ?? {};
 
-export function tunedCar(car0: CarSpec, _lv?: unknown, st: Setup = DEFAULT_SETUP, build?: Build, wear?: Defect[]): CarSpec {
+export function tunedCar(car0: CarSpec, _lv?: unknown, st: Setup = DEFAULT_SETUP, build?: Build, wear?: Defect[], health?: Health): CarSpec {
   // as peças da preparação (tuning.ts) são o único caminho de melhoria; aqui entram os ajustes de graça:
-  // relação curta arranca mais e perde máxima, longa o contrário (e os defeitos do carro usado)
-  const car = wornCar(applyBuild(car0, build), wear);
-  const tuned: CarSpec = {
-    ...car,
-    rims: st.rims || undefined,
-    maxSpeed: car.maxSpeed * (1 + 0.04 * st.ratio),
-    accel: car.accel * (1 - 0.055 * st.ratio),
-  };
-  return prepareCar(tuned);
+  // o câmbio por marcha e o diferencial (gearbox.ts), os defeitos do carro usado e o desgaste (wear.ts)
+  const car = healthCar(wornCar(applyBuild(car0, build), wear), health, wear);
+  const tuned = prepareCar({ ...car, rims: st.rims || undefined }); // (arrasto medido com as relações de fábrica)
+  // relações novas: a física de verdade decide a máxima (curto bate no corte antes, longo só ganha com fôlego)
+  const legacy = st.final === undefined && !st.gears && (st.ratio === 1 || st.ratio === -1) ? st.ratio * 2 : undefined;
+  tuned.gears = gearsWith(car.gears, { gears: st.gears, final: st.final ?? legacy });
+  return tuned;
 }
 
 // ---------- save ----------
@@ -276,7 +287,11 @@ export interface CareerSave {
   beatenAt?: Record<string, number>; // vitórias que o jogador tinha quando venceu o evento pela 1ª vez (revanche)
   rematches?: string[]; // revanches já vencidas (id do evento)
   stats?: CareerStats; // estatísticas da carreira (tela ESTATÍSTICAS)
+  health?: Record<string, Health>; // desgaste de pneus e motor por carro (wear.ts, upkeep.ts; sem isso = novo)
   wanted?: number; // ficha na polícia: multas e fugas acumuladas (perseguição mais dura); saves antigos sem isso = 0
+  rivals?: Record<string, RivalRec>; // histórico com cada rival (rivalry.ts)
+  sponsor?: SponsorDeal; // contrato de patrocínio em andamento (rivalry.ts)
+  street?: StreetState; // rachas de rua noturnos: convite pendente e contagem (rivalry.ts)
 }
 
 const KEY = 'duel-racer:career';
@@ -293,7 +308,7 @@ export function loadCareer(): CareerSave | null {
     for (const k of ['owned', 'done'] as const) s[k] = list(s[k]);
     for (const k of ['usedSold', 'rematches'] as const) if (s[k] !== undefined) s[k] = list(s[k]);
     for (const k of ['wins', 'races', 'earned'] as const) if (typeof s[k] !== 'number' || !Number.isFinite(s[k])) s[k] = 0;
-    for (const k of ['setup', 'builds', 'parts', 'paint', 'wear', 'odo', 'beatenAt', 'stats'] as const) if (s[k] !== undefined && !isObj(s[k])) delete s[k];
+    for (const k of ['setup', 'builds', 'parts', 'paint', 'wear', 'odo', 'beatenAt', 'stats', 'rivals', 'sponsor', 'street'] as const) if (s[k] !== undefined && !isObj(s[k])) delete s[k];
     // peças instaladas: cada vaga guarda o id da peça (texto); valor estranho sai e a vaga volta à original
     // (id desconhecido, como uma pressão fora da lista do wastegate, já cai na original em partOf)
     if (s.builds) for (const [id, b] of Object.entries(s.builds as Record<string, unknown>)) {
@@ -385,6 +400,7 @@ export interface EventResult {
   pos?: number;
   of?: number;
   field?: number;
+  bet?: string; // racha de rua: rótulo da aposta no extrato (no lugar de Prêmio/Participação)
 }
 
 // ---------- estatísticas da carreira ----------

@@ -8,7 +8,7 @@ import { engineSpec } from './enginesynth';
 import { devPositions } from './devpos';
 import { podMoved, podPlaces } from './podpos';
 
-export type SlotId = 'pistoes' | 'comando' | 'alimentacao' | 'inducao' | 'escape' | 'pneus' | 'suspensao' | 'freios' | 'bancos' | 'rodas' | 'turbina' | 'intercooler' | 'downpipe' | 'polia' | 'pressao' | 'largada' | 'painel' | 'relogios';
+export type SlotId = 'pistoes' | 'comando' | 'alimentacao' | 'inducao' | 'escape' | 'pneus' | 'suspensao' | 'freios' | 'bancos' | 'rodas' | 'turbina' | 'intercooler' | 'downpipe' | 'polia' | 'pressao' | 'largada' | 'painel' | 'relogios' | 'diferencial';
 // mudanças no ronco: multiplicadores (drive, vol, low) e somas (rasp, pops, cam, intake, whine)
 export interface SoundMods { drive?: number; vol?: number; low?: number; rasp?: number; pops?: number; cam?: number; intake?: number; whine?: number; turbo?: boolean; spool?: number /* turbo aftermarket: força do assobio, do sopro e do alívio */; blower?: number /* supercharger: força do zunido */; rev?: number /* multiplicador do giro máximo (corte) */; press?: number /* pressão escolhida no wastegate/boost controller (bar): assobio e alívio mais fortes */;
   // timbre do escapamento e do downpipe (enginesynth.ts applySoundMods), relativo ao motor de cada carro:
@@ -33,6 +33,7 @@ export interface Part {
   spool?: [number, number]; // turbina: [rapidez com que enche, giro (fração do corte) em que a pressão aparece]
   launch?: number; // controle de largada (3-step): giro de largada, fração do corte
   rpm?: number; // 3-step: o mesmo giro em rpm (o que o visor do aparelho mostra)
+  lsd?: number; // diferencial autoblocante: 0,5 esportivo, 1 de corrida (cars.ts Powertrain e a saída de curva em race.ts)
   sound?: SoundMods;
 }
 export interface Slot { id: SlotId; name: string; parts: Part[] }
@@ -216,6 +217,11 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
     { id: 'suspensao', name: 'Suspensão', parts: [ORIGINAL(),
       { id: 'esportiva', name: 'Esportiva', note: '-20% altura', cost: 0.04, drop: 0.2, grip: 1.06, handling: 1.075 },
       { id: 'corrida', name: 'De corrida', note: '-35% altura', cost: 0.08, drop: 0.35, grip: 1.105, handling: 1.135 }] },
+    // diferencial autoblocante: a roda aliviada deixa de girar em falso (dianteiro e turbo forte patinam
+    // menos) e o carro sai da curva acelerando com mais aderência
+    { id: 'diferencial', name: 'Diferencial', parts: [ORIGINAL('Aberto'),
+      { id: 'esportivo', name: 'Autoblocante esportivo', note: 'patina menos, sai melhor', cost: 0.04, lsd: 0.5 },
+      { id: 'corrida', name: 'Autoblocante de corrida', note: 'quase não patina', cost: 0.07, lsd: 1 }] },
     { id: 'freios', name: 'Freios', parts: [ORIGINAL(),
       { id: 'esportivo', name: 'Discos ventilados', note: '+10,5% freio', cost: 0.04, brake: 1.105 },
       { id: 'corrida', name: 'Discos de corrida', note: '+21% freio', cost: 0.08, brake: 1.21 }] },
@@ -263,6 +269,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
   let power = 1, grip = 1, brake = 1, handling = 1, traction = 1, drop = 0, mass = 1, boost = 0, launchCap: number | undefined, launchRpm: number | undefined, spool: [number, number] | undefined;
   let forced: 'turbo' | 'super' | undefined;
   let wheel: string | undefined;
+  let lsd = 0;
   const snd: SoundMods = {};
   for (const sl of slotsFor(car, build)) { // só as vagas que valem com a indução instalada
     const p = partOf(car, sl.id, build[sl.id]);
@@ -279,6 +286,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     boost = Math.max(boost, p.boost ?? 0);
     boostMul *= p.boostMul ?? 1;
     wheel = p.wheel ?? wheel;
+    lsd = Math.max(lsd, p.lsd ?? 0);
     const m = p.sound;
     if (m) {
       snd.drive = (snd.drive ?? 1) * (m.drive ?? 1);
@@ -314,6 +322,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     pods: [...(forced ? ['boost' as const] : []), ...(build.pistoes ? ['oil' as const] : []), ...(build.alimentacao ? ['fuel' as const] : [])],
     carb: carbWith(car, build),
     prep: power,
+    lsd: lsd || undefined,
     launchCap,
     launchRpm,
     // aparelhos na cabine: pressão escolhida no wastegate (carburado) ou boost controller (injeção) e o
@@ -334,7 +343,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
 type Gen = 'o' | 'a' | 'os' | 'as';
 const SLOT_WORD: Record<string, [string, Gen]> = {
   pistoes: ['Pistões e bielas', 'os'], comando: ['Comando', 'o'], intercooler: ['Intercooler', 'o'], escape: ['Escapamento', 'o'],
-  largada: ['Controle de largada', 'o'], pneus: ['Pneus', 'os'], suspensao: ['Suspensão', 'a'], turbina: ['Turbina', 'a'], polia: ['Polia de', 'a'], downpipe: ['Downpipe de', 'o'],
+  largada: ['Controle de largada', 'o'], diferencial: ['Diferencial', 'o'], pneus: ['Pneus', 'os'], suspensao: ['Suspensão', 'a'], turbina: ['Turbina', 'a'], polia: ['Polia de', 'a'], downpipe: ['Downpipe de', 'o'],
 };
 // adjetivo concordando com a vaga (esportivo -> esportiva/esportivos...)
 const agree = (adj: string, g: Gen) => {

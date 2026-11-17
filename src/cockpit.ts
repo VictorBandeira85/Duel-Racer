@@ -3455,7 +3455,8 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   }
   drawRoof(c, r, stageLabel, totalTime);
 
-  if (r.state === 'countdown') {
+  if (r.hud) { /* modo com largada própria (arrancada): o HUD dele vai no fim */ }
+  else if (r.state === 'countdown') {
     const n = Math.ceil(r.timer);
     text(c, n > 3 ? 'PRONTO?' : String(n), w / 2, vp.y + 28, 16, '#ffd400', 'center');
     // no computador: lembrete dos comandos do teclado (o controle segue o padrão dos consoles)
@@ -3499,6 +3500,7 @@ function renderCockpitInner(c: CanvasRenderingContext2D, r: Race, lives: number,
   // câmbio manual no teclado/controle: a marcha engatada no teto (no toque ela já fica entre os botões)
   if (prefs.hud) drawDigitalHud(c, r, totalTime, vp);
   else if (!r.auto && (!touch.ui || pad.connected)) drawGearHud(c, r);
+  r.hud?.(c, vp);
 }
 
 // Painel digital (estilo dos jogos de corrida de 16 bits, como o Top Racer): no canto de cima à direita do

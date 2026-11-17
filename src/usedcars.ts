@@ -6,6 +6,7 @@ import { DEFECTS, DEFECT_IDS, REGIONS, priceOf, regionUnlocked, repairCost, save
 import { drawSideDamage, type GlassMark } from './damage';
 import { PAINTS, setPaint } from './paint';
 import { rng } from './util';
+import { afterRepair, forgetHealth, usedHealth } from './upkeep';
 
 export interface UsedAd { key: string; car: CarSpec; km: number; defects: Defect[]; price: number; paint: number; seller: string; phone: string; extra: string; sold: boolean }
 
@@ -71,6 +72,7 @@ export function buyUsed(cs: CareerSave, ad: UsedAd): string {
   if (!cs.car) cs.car = ad.car.id;
   cs.wear = { ...(cs.wear ?? {}), [ad.car.id]: [...ad.defects] };
   cs.odo = { ...(cs.odo ?? {}), [ad.car.id]: ad.km };
+  usedHealth(cs, ad.car.id, ad.km, ad.defects); // pneus e motor já rodados (upkeep.ts)
   cs.usedSold = [...(cs.usedSold ?? []).slice(-40), ad.key];
   setPaint(ad.car.id, ad.paint);
   saveCareer(cs);
@@ -83,6 +85,7 @@ export function repairDefect(cs: CareerSave, car: CarSpec, d: Defect): string {
   cs.money -= cost;
   spend(cs, cost);
   cs.wear = { ...(cs.wear ?? {}), [car.id]: wearOf(cs, car.id).filter((x) => x !== d) };
+  afterRepair(cs, car.id, d); // pneus novos / retífica: desgaste zerado
   if (!cs.wear[car.id].length) delete cs.wear[car.id];
   saveCareer(cs);
   return `${DEFECTS[d].name}: consertado!`;
@@ -91,6 +94,7 @@ export function repairDefect(cs: CareerSave, car: CarSpec, d: Defect): string {
 export function forgetCar(cs: CareerSave, id: string) {
   if (cs.wear) delete cs.wear[id];
   if (cs.odo) delete cs.odo[id];
+  forgetHealth(cs, id);
 }
 const fmt = (v: number) => `$${Math.round(v).toLocaleString('pt-BR')}`;
 

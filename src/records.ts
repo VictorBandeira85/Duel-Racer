@@ -4,6 +4,7 @@
 // volta transparente nas próximas tentativas para você disputar com ela.
 import type { Race } from './race';
 import { isObj } from './util';
+import { myPlate, parsePlate } from './myplate';
 
 const KEY_T = 'duel-racer:recordes';
 const KEY_G = 'duel-racer:fantasmas';
@@ -14,6 +15,7 @@ export const GHOST_DT = 0.1;
 export interface Ghost {
   car: string; // id do carro
   paint?: string;
+  plate?: string; // placa de quem gravou (ABC-1234, src/myplate.ts): aparece no carro do fantasma
   time: number; // tempo do trecho (s)
   at: number; // quando foi gravado (para descartar os mais velhos)
   z: number[]; // posição ao longo da pista a cada GHOST_DT
@@ -92,7 +94,7 @@ export function saveRun(r: Race, course: string, stage: number, paint?: string, 
   const old = ghosts[gk];
   const better = !old || r.time < old.time;
   if (better && r.trace.z.length > 10) {
-    ghosts[gk] = { car: r.car.id, paint, time: r.time, at: Date.now(), z: r.trace.z, x: r.trace.x };
+    ghosts[gk] = { car: r.car.id, paint, plate: myPlate().text, time: r.time, at: Date.now(), z: r.trace.z, x: r.trace.x };
     const keys = Object.keys(ghosts);
     if (keys.length > MAX_GHOSTS) {
       keys.sort((a, b) => ghosts[a].at - ghosts[b].at);
@@ -163,13 +165,13 @@ async function unpack(s: string): Promise<Uint8Array> {
 // código com os fantasmas (próprios) dos trechos do roteiro; null se não houver nenhum
 export async function ghostCode(course: string, stages: number): Promise<{ code: string; n: number } | null> {
   const all = read<Record<string, Ghost>>(KEY_G, {});
-  const meta: { i: number; car: string; paint?: string; time: number; z0: number; x0: number; n: number }[] = [];
+  const meta: { i: number; car: string; paint?: string; p?: string; time: number; z0: number; x0: number; n: number }[] = [];
   const bytes: number[] = [];
   for (let i = 0; i < stages; i++) {
     const g = all[stageKey(course, i)];
     if (!g || g.z.length < 4) continue;
     const z = g.z.filter((_, k) => k % 2 === 0), x = g.x.filter((_, k) => k % 2 === 0);
-    meta.push({ i, car: g.car, paint: g.paint, time: Math.round(g.time * 100) / 100, z0: Math.round(z[0]), x0: Math.round(x[0]), n: z.length });
+    meta.push({ i, car: g.car, paint: g.paint, p: g.plate ?? myPlate().text, time: Math.round(g.time * 100) / 100, z0: Math.round(z[0]), x0: Math.round(x[0]), n: z.length });
     let qz = Math.round(z[0] / ZQ), qx = Math.round(x[0] / XQ);
     for (let k = 1; k < z.length; k++) {
       // avanço (sempre para a frente) até 255 passos e lateral -127..127 por amostra; o
@@ -193,7 +195,7 @@ export async function loadGhostCode(code: string): Promise<{ course: string; n: 
     if (at < 0) return null;
     const [v, head, body] = code.slice(at).trim().split(/\s/)[0].split('.');
     if (v !== CODE_V || !head || !body) return null;
-    const meta = JSON.parse(decodeURIComponent(escape(atob(head)))) as { c: string; s: { i: number; car: string; paint?: string; time: number; z0: number; x0: number; n: number }[] };
+    const meta = JSON.parse(decodeURIComponent(escape(atob(head)))) as { c: string; s: { i: number; car: string; paint?: string; p?: string; time: number; z0: number; x0: number; n: number }[] };
     const bytes = await unpack(body);
     const friends = read<Record<string, FriendGhost>>(KEY_F, {});
     let p = 0;
@@ -216,7 +218,7 @@ export async function loadGhostCode(code: string): Promise<{ course: string; n: 
         zz.push(z[k]); xx.push(x[k]);
         if (k < z.length - 1) { zz.push((z[k] + z[k + 1]) / 2); xx.push((x[k] + x[k + 1]) / 2); }
       }
-      friends[stageKey(meta.c, m.i)] = { car: m.car, paint: m.paint, time: m.time, at: Date.now(), z: zz, x: xx, friend: true };
+      friends[stageKey(meta.c, m.i)] = { car: m.car, paint: m.paint, plate: typeof m.p === 'string' ? parsePlate(m.p) ?? undefined : undefined, time: m.time, at: Date.now(), z: zz, x: xx, friend: true };
     }
     write(KEY_F, friends);
     return { course: meta.c, n: meta.s.length };

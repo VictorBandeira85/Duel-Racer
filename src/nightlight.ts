@@ -19,6 +19,34 @@ export function pushStreetLight(x: number, head: number, r: number, d: number, u
   const k = Math.max(0, Math.min(1, (165 - d) / 45));
   if (collecting && r > 2 && k > 0) streets.push({ x, head, r: Math.min(r, 110), d, u, clip: clipY, ground, idx, k });
 }
+// holofote do helicóptero da polícia (heli.ts): mancha oval de luz branca no chão, no trecho d
+// (segmentos, contínuo) e na posição lateral u (meias larguras da pista), com rd segmentos de meio
+// comprimento e ru meias larguras de meia largura; entra na mesma camada das luzes dos postes
+interface Spot { d: number; u: number; rd: number; ru: number; k: number }
+const spots: Spot[] = [];
+export function pushSpotPool(d: number, u: number, rd: number, ru: number, k = 1) {
+  if (collecting && k > 0.01) spots.push({ d, u, rd, ru, k });
+}
+function spotPool(g: CanvasRenderingContext2D, road: RoadPt[], sp: Spot, a0: number) {
+  // três degraus (borda, meio e miolo), como as faixas dos postes: sem degradê
+  for (const [m, a] of [[1, 0.45], [0.72, 0.75], [0.42, 1]]) {
+    g.fillStyle = `rgba(225,235,255,${(a0 * a * sp.k).toFixed(3)})`;
+    for (let k = 0; k + 1 < road.length; k++) {
+      const p = road[k], q = road[k + 1];
+      if (q.d - p.d > 2) continue;
+      const ep = 1 - ((p.d - sp.d) / (sp.rd * m)) ** 2, eq = 1 - ((q.d - sp.d) / (sp.rd * m)) ** 2;
+      if (ep <= 0 && eq <= 0) continue;
+      const hp = sp.ru * m * Math.sqrt(Math.max(0, ep)), hq = sp.ru * m * Math.sqrt(Math.max(0, eq));
+      g.beginPath();
+      g.moveTo(p.x + p.w * (sp.u - hp), p.y + 0.5);
+      g.lineTo(p.x + p.w * (sp.u + hp), p.y + 0.5);
+      g.lineTo(q.x + q.w * (sp.u + hq), q.y - 0.5);
+      g.lineTo(q.x + q.w * (sp.u - hq), q.y - 0.5);
+      g.closePath();
+      g.fill();
+    }
+  }
+}
 // linha da tela abaixo da qual o trecho sendo desenhado fica escondido (crista de morro à frente)
 // e o índice desse trecho na pista (os objetos do cenário de trechos mais perto tapam as luzes dele)
 let clipY = Infinity, clipIdx = Infinity;
@@ -124,6 +152,7 @@ export function beginLights() {
   resetSils();
   shadeOcc = [];
   streets.length = 0;
+  spots.length = 0;
   collecting = true;
 }
 // chamado por drawCar: guarda onde estão as luzes do carro (só durante a pista, à noite)
@@ -739,10 +768,11 @@ function maskedPools(s: CanvasRenderingContext2D, rd: RoadPt[], a0: number) {
   const op = s.globalCompositeOperation;
   s.globalCompositeOperation = 'lighten';
   for (const st of streets) streetPool(s, rd, st, 'rgba(255,200,120,', a0); // (antes 255,190,90: amarelava a pista)
+  for (const sp of spots) spotPool(s, rd, sp, Math.min(1, a0 * 3.5));
   s.globalCompositeOperation = op;
 }
 function secondary(W: number, H: number, ox: number, oy: number, draw: (s: CanvasRenderingContext2D) => void, beam?: (g: CanvasRenderingContext2D, b: Beam) => void) {
-  if (!streets.length && !carBeams.length) return null;
+  if (!streets.length && !carBeams.length && !spots.length) return null;
   if (secCv.width !== W || secCv.height !== H) {
     secCv.width = W;
     secCv.height = H;
@@ -1040,6 +1070,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
     carBeams.length = 0;
     occluders.length = 0;
     streets.length = 0;
+    spots.length = 0;
     fronts.length = 0;
     refl.length = 0;
     return;
@@ -1199,6 +1230,7 @@ export function finishNight(c: CanvasRenderingContext2D, vp: { x: number; y: num
   lightLayer(c, vp, strength, top);
   fronts.length = 0;
   streets.length = 0;
+  spots.length = 0;
   occluders.length = 0;
   // quem vem atrás com farol aceso: o lado por onde passa clareia, mais forte ao emparelhar,
   // esmaecendo quando ele já passou

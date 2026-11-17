@@ -5,6 +5,11 @@ export interface StageDef {
   lanes: 2 | 4;
   night?: boolean;
   weather?: 'rain' | 'snow' | 'fog';
+  // tempo que vira no meio do trecho, sempre (sem isso, ~25% dos trechos viram por sorteio, race.ts):
+  // 'rain' fecha e chove (neve nos cenários de neve; nada no deserto/cânion), 'snow' só nos de neve,
+  // 'clear' para a chuva/neve do trecho. shiftAt: fração do trecho em que começa a virar (0,05 a 0,6)
+  weatherShift?: 'rain' | 'clear' | 'snow';
+  shiftAt?: number;
   dusk?: boolean; // o sol se põe durante o trecho: começa de dia e termina de noite
   tod?: 'sunset' | 'dawn'; // hora dourada fixa: entardecer (sol pela metade no horizonte) ou amanhecer
   curviness: number;
@@ -58,9 +63,9 @@ const ALL: Course[] = [
     id: 'serra', name: 'Serra e Mar', level: 'Difícil', rivalSkill: 0.99, seed: 75000,
     stages: [
       s('snow', 2, { weather: 'snow', curviness: 1.2, hilliness: 0.9, tod: 'dawn' }),
-      s('mountain', 2, { curviness: 1.4, hilliness: 1 }),
+      s('mountain', 2, { curviness: 1.4, hilliness: 1, weatherShift: 'rain', shiftAt: 0.3 }),
       s('forest', 2, { weather: 'fog', curviness: 1.2 }),
-      s('coast', 2, { weather: 'rain', curviness: 1.1 }),
+      s('coast', 2, { weather: 'rain', curviness: 1.1, weatherShift: 'clear', shiftAt: 0.35 }),
       s('coast', 4, { police: 2, dusk: true }),
     ],
   },
@@ -68,7 +73,7 @@ const ALL: Course[] = [
     id: 'tempestade', name: 'Tempestade', level: 'Expert', rivalSkill: 1.01, seed: 78000,
     stages: [
       s('city', 4, { weather: 'rain', traffic: 7, police: 2 }),
-      s('snow', 2, { weather: 'snow', curviness: 1.4, hilliness: 1 }),
+      s('snow', 2, { weather: 'snow', curviness: 1.4, hilliness: 1, weatherShift: 'clear', shiftAt: 0.4 }),
       s('mountain', 2, { curviness: 1.6, hilliness: 1, weather: 'rain' }),
       s('forest', 2, { night: true, curviness: 1.4, traffic: 5 }),
       s('coast', 2, { night: true, weather: 'rain', curviness: 1.3, police: 2 }),
@@ -118,10 +123,10 @@ const ALL: Course[] = [
   {
     id: 'selva', name: 'Selva Úmida', level: 'Médio', rivalSkill: 0.96,
     stages: [
-      s('jungle', 2, { curviness: 1, traffic: 3 }),
+      s('jungle', 2, { curviness: 1, traffic: 3, weatherShift: 'rain', shiftAt: 0.35 }),
       s('jungle', 2, { curviness: 1.2, hilliness: 0.8, weather: 'rain', traffic: 3 }),
       s('beach', 2, { curviness: 0.9 }),
-      s('jungle', 2, { curviness: 1.3, weather: 'rain', traffic: 3 }),
+      s('jungle', 2, { curviness: 1.3, weather: 'rain', traffic: 3, weatherShift: 'clear', shiftAt: 0.4 }),
       s('jungle', 4, { curviness: 1.1 , tod: 'sunset' }),
     ],
   },
@@ -149,8 +154,8 @@ const ALL: Course[] = [
     id: 'grandemetropole', name: 'Grande Metrópole', level: 'Difícil', rivalSkill: 0.99,
     stages: [
       s('city', 4, { traffic: 8, police: 2 }),
-      s('industrial', 4, { traffic: 8, police: 2 }),
-      s('city', 4, { traffic: 9, police: 3, weather: 'rain' }),
+      s('industrial', 4, { traffic: 8, police: 2, weatherShift: 'rain', shiftAt: 0.25 }),
+      s('city', 4, { traffic: 9, police: 3, weather: 'rain', weatherShift: 'clear', shiftAt: 0.45 }),
       s('industrial', 4, { traffic: 8, police: 2 }),
       s('city', 4, { traffic: 9, police: 3 , tod: 'sunset' }),
     ],

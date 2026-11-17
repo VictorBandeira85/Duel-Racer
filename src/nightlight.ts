@@ -386,12 +386,15 @@ function drawBeamMask(w: number, H0: number, cx: number, seen: number, road: Roa
 // mais forte embaixo da lâmpada), como nos jogos de corrida em pixel art; só o chão que se vê
 const POOL = 6; // meia largura da faixa, em segmentos (luz concentrada embaixo do poste, sem virar névoa)
 function streetPool(g: CanvasRenderingContext2D, road: RoadPt[], st: Street, rgb: string, a0: number) {
+  // longe (perto da crista ou no fim da reta) a pista fica espremida na tela e as manchas de vários
+  // postes se empilham numa faixa amarela contínua: de longe cada mancha pesa menos
+  const far = st.d <= 30 ? 1 : Math.max(0.35, 1 - (st.d - 30) / 90);
   for (let k = 0; k + 1 < road.length; k++) {
     const p = road[k], q = road[k + 1];
     if (q.d - p.d > 2) continue; // entre os dois há chão escondido (crista)
     const dd = Math.abs((p.d + q.d) / 2 - st.d);
     if (dd > POOL) continue;
-    const a = a0 * st.k * (dd <= 1 ? 1 : dd <= 2 ? 0.8 : dd <= 3.5 ? 0.55 : dd <= 5 ? 0.32 : 0.15);
+    const a = a0 * st.k * far * (dd <= 1 ? 1 : dd <= 2 ? 0.8 : dd <= 3.5 ? 0.55 : dd <= 5 ? 0.32 : 0.15);
     // da outra borda da pista até um pouco além do poste
     const u0 = st.u > 0 ? -1.2 : st.u - 0.3, u1 = st.u > 0 ? st.u + 0.3 : 1.2;
     g.fillStyle = `${rgb}${a.toFixed(3)})`;
@@ -731,7 +734,12 @@ const beamCv = document.createElement('canvas');
 function maskedPools(s: CanvasRenderingContext2D, rd: RoadPt[], a0: number) {
   // (os objetos do cenário e os carros que ficam na frente da faixa de luz são repintados por
   // inteiro depois, em shadeCars: antes cada objeto mais perto apagava a luz, um a um)
-  for (const st of streets) streetPool(s, rd, st, 'rgba(255,190,90,', a0);
+  // 'lighten': onde as manchas de vários postes caem nas mesmas linhas da tela (crista, fim da reta, pista
+  // espremida ao longe) vale a mais forte, em vez de somar até virar uma faixa amarela chapada
+  const op = s.globalCompositeOperation;
+  s.globalCompositeOperation = 'lighten';
+  for (const st of streets) streetPool(s, rd, st, 'rgba(255,200,120,', a0); // (antes 255,190,90: amarelava a pista)
+  s.globalCompositeOperation = op;
 }
 function secondary(W: number, H: number, ox: number, oy: number, draw: (s: CanvasRenderingContext2D) => void, beam?: (g: CanvasRenderingContext2D, b: Beam) => void) {
   if (!streets.length && !carBeams.length) return null;

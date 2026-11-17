@@ -27,6 +27,10 @@ button { font: inherit; color: inherit; border: none; cursor: pointer; }
   background: rgba(255,255,255,0.14); border: 0.4vh solid rgba(255,255,255,0.35); font-size: calc(4.5vh * var(--btn, 1));
 }
 #controls button.on { background: rgba(255,255,255,0.4); }
+#controls button { display: flex; align-items: center; justify-content: center; color: #efe6d2; }
+#controls button svg { pointer-events: none; }
+#controls .gas { color: #c8ffd6; }
+#controls .brake { color: #ffd0d0; }
 #controls .gas { background: rgba(48,224,96,0.25); width: calc(21vh * var(--btn, 1)); height: calc(21vh * var(--btn, 1)); font-size: calc(3vh * var(--btn, 1)); }
 #controls .brake { background: rgba(255,60,60,0.25); font-size: calc(2.6vh * var(--btn, 1)); }
 #gearBtns { display: flex; flex-direction: column; align-items: center; gap: 1vh; }

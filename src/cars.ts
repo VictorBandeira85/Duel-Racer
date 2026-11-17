@@ -569,6 +569,7 @@ const TURBO: Partial<Record<PowerCurve, { k: number; rate: number }>> = {
 export class Powertrain {
   gear = 0;
   boost = 1; // pressão do turbo (0..1); aspirados ficam sempre em 1
+  antiLag = false; // 3-step segurando o giro na saída: a turbina não esvazia (anti-lag)
   shiftT = 0;
   spin = 0; // rodas patinando (0..1): potência sobrando acima da aderência
   slipRpm: number; // giro da saída em 1ª (embreagem patinando); a corrida troca pelo do jogador
@@ -599,7 +600,7 @@ export class Powertrain {
       // enche em giro alto (abaixo do giro dela quase não há pressão)
       const sp = car.spool;
       const rate = on ? tb.rate * (sp ? sp[0] : 1) * (0.4 + clamp(rpm, 0, 1)) : 2;
-      const zone = sp ? 0.12 + 0.88 * clamp((rpm - sp[1] + 0.12) / 0.24, 0, 1) : 1;
+      const zone = this.antiLag ? 1 : sp ? 0.12 + 0.88 * clamp((rpm - sp[1] + 0.12) / 0.24, 0, 1) : 1;
       this.boost += ((on ? clamp(0.15 + 0.85 * pedal, 0, 1) * zone : 0) - this.boost) * Math.min(1, dt * rate);
     }
     this.spin = 0;
@@ -620,7 +621,10 @@ export class Powertrain {
     // inteira com pouca potência; agora só patina quando a força passa bem da aderência, e menos)
     const fwd = car.drive === 'dianteira';
     const fwdPrep = fwd ? clamp(((car.prep ?? 1) - 1) / 0.4, 0, 1) : 0;
-    const loose = cap * (car.drive === 'integral' ? 2.5 : fwd ? 1.6 - 0.2 * fwdPrep : car.position === 'dianteira' ? 1.6 : 1.8);
+    // turbo do kit com pressão alta: quando a pressão chega (giro alto) a força vem de uma vez e as rodas
+    // perdem tração mesmo em 2ª/3ª; quanto mais bar, mais cedo patina
+    const kick = tb && car.spool ? clamp(((car.boostMax ?? 0.8) - 1) / 2.5, 0, 1) * this.boost * this.boost : 0;
+    const loose = cap * (car.drive === 'integral' ? 2.5 : fwd ? 1.6 - 0.2 * fwdPrep : car.position === 'dianteira' ? 1.6 : 1.8) * (1 - 0.35 * kick);
     this.spin = clamp((aPow / loose - 1) * (fwd ? 0.3 : 0.6), 0, 1);
     return Math.min(aPow, cap * (1 - 0.06 * fwdPrep * this.spin));
   }

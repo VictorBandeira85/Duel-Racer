@@ -134,7 +134,8 @@ export function boostInfo(car: CarSpec, build: Build) {
   const set = partOf(car, 'pressao', build.pressao).bar;
   const bar = set ?? b0;
   const eff = Math.min(bar, flow) + 0.25 * Math.max(0, bar - flow);
-  const kit = (b: number) => Math.min(1.6, 1 + 0.18 * (b - 0.8));
+  // cada bar a mais rende bem mais (pedido do Victor: o turbo tem de ser sentido): +30% por bar, até +110%
+  const kit = (b: number) => Math.min(2.1, 1 + 0.3 * (b - 0.8));
   // sem o controle a turbina fica na pressão dela (a potência da peça da turbina vale como está)
   const power = set === undefined ? 1 : kit(eff) / tPower;
   const heat = 0.0035 * bar + 0.008 * Math.max(0, bar - flow) ** 1.5;

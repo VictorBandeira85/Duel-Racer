@@ -453,6 +453,8 @@ export class Race {
   ) {
     this.rivalPaint = opts.rivalPaint;
     this.pt = new Powertrain(car);
+    // turbo: a contagem começa com a turbina vazia (antes ficava em 1 e só se via a pressão depois do VAI)
+    if (car.curve === 'turbo' || car.curve === 'seqturbo') this.pt.boost = 0.05;
     this.rivalStyleOverride = opts.rivalStyle;
     this.wanted = Number.isFinite(opts.wanted) ? clamp(opts.wanted!, 0, 1) : 0;
     setEngineProfile(car.engine, car.id, car.soundMods);
@@ -781,6 +783,7 @@ export class Race {
   update(dt: number) {
     if (this.messageT > 0) this.messageT -= dt;
     this.antiT = Math.max(0, this.antiT - dt);
+    this.pt.antiLag = this.antiT > 0 || this.launchT > 0 && !!this.car.launchCap;
     this.antiOn = this.antiT > 0 && this.gasPedal > 0.3;
     const max = this.car.maxSpeed;
     const t = this.track;
@@ -806,8 +809,15 @@ export class Race {
         else if (!this.clutchWas) this.startLaunch();
       }
       // segurando o giro na contagem o turbo já sobe pressão
-      if (this.pt.boost < 1) this.pt.boost = lerp(this.pt.boost, 0.1 + (LAUNCH_BOOST - 0.1) * this.gasPedal, Math.min(1, dt * 2));
-      setEngine(this.rpm, this.gasPedal, true, this.pt.boost < 1 ? this.pt.boost : 0, this.antiOn);
+      // com o 3-step (anti-lag) a turbina enche de verdade parado: a ignição atrasada queima no escape e
+      // gira a turbina; quanto mais giro preso, mais pressão (turbina grande precisa de giro alto)
+      if (this.pt.boost < 1) {
+        const cap = this.car.launchCap, sp = this.car.spool;
+        const anti = cap && this.gasPedal > 0.5 ? Math.min(1, 0.55 + 0.9 * Math.max(0, cap - (sp ? sp[1] - 0.15 : 0.2))) : 0;
+        const tgt = Math.max(0.1 + (LAUNCH_BOOST - 0.1) * this.gasPedal, anti);
+        this.pt.boost = lerp(this.pt.boost, tgt, Math.min(1, dt * (anti ? 1.4 * (sp ? sp[0] : 1) : 2)));
+      }
+      setEngine(this.rpm, this.gasPedal, true, this.turboCar ? this.pt.boost : 0, this.antiOn);
       // o trânsito não espera a largada: segue circulando (quem vem atrás na faixa do jogador freia)
       this.updateTraffic(dt);
       this.rivalTraffic();

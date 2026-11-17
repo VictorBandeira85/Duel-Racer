@@ -39,6 +39,7 @@ export interface Track {
   policeSpots: number[];
   blitz?: number; // z do ponto de polícia que virou blitz (src/blitz.ts), se houver
   obra?: number; // z onde começam os cones da obra (src/obra.ts), se houver
+  paint?: (c: CanvasRenderingContext2D, s: Segment) => void; // pintura extra no asfalto (arrancada: drag.ts)
 }
 
 const point = (y: number, z: number): Point => ({

@@ -11,6 +11,7 @@ import android.view.WindowManager;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
+import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import java.io.InputStream;
@@ -38,6 +39,9 @@ public class MainActivity extends Activity {
     web.setBackgroundColor(0xff000000);
     web.setOverScrollMode(View.OVER_SCROLL_NEVER);
     web.setWebViewClient(new AssetClient(this));
+    // caixas de texto do jogo (window.prompt/confirm) e a ponte para salvar/compartilhar as fotos (ShareBridge)
+    web.setWebChromeClient(new WebChromeClient());
+    web.addJavascriptInterface(new ShareBridge(this), "DuelAndroid");
     setContentView(web);
     immersive();
     if (b != null) web.restoreState(b);

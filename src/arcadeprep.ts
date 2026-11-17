@@ -5,6 +5,7 @@ import { CARS, type CarSpec } from './cars';
 import { DEFAULT_SETUP, tunedCar } from './career';
 import { buildKey, type Build, type SlotId } from './tuning';
 import { isObj } from './util';
+import { arcadeGearing, gearingKey, reloadArcadeGearing } from './gearbox';
 
 const KEY = 'duel-racer:arcade-preparacao';
 let builds: Record<string, Build> | null = null;
@@ -31,7 +32,7 @@ export function loadArcadeBuilds(): Record<string, Build> {
 const all = () => (builds ??= loadArcadeBuilds());
 
 export const arcadeBuildOf = (id: string): Build => all()[id] ?? {};
-export const arcadePrepped = (id: string) => !!buildKey(arcadeBuildOf(id));
+export const arcadePrepped = (id: string) => !!buildKey(arcadeBuildOf(id)) || !!gearingKey(arcadeGearing(id)); // (câmbio ajustado também conta)
 
 export function setArcadePart(id: string, slot: SlotId, part: string) {
   const b: Build = { ...arcadeBuildOf(id), [slot]: part };
@@ -49,16 +50,17 @@ export function setArcadePart(id: string, slot: SlotId, part: string) {
 // carro do Arcade com as peças (guardado por montagem: a ficha e o índice de desempenho são medidos uma vez)
 const cache = new Map<string, CarSpec>();
 export function arcadeTuned(car: CarSpec, build: Build = arcadeBuildOf(car.id)): CarSpec {
-  const k = buildKey(build);
-  if (!k) return car;
-  const key = `${car.id}|${k}`;
+  const k = buildKey(build), g = arcadeGearing(car.id), gk = gearingKey(g); // câmbio do Arcade (gearbox.ts)
+  if (!k && !gk) return car;
+  const key = `${car.id}|${k}|${gk}`;
   let t = cache.get(key);
-  if (!t) cache.set(key, (t = tunedCar(car, undefined, DEFAULT_SETUP, build)));
+  if (!t) cache.set(key, (t = tunedCar(car, undefined, { ...DEFAULT_SETUP, ...g }, build)));
   return t;
 }
 
 // para testes (save trocado por fora): relê do aparelho
 export function reloadArcadeBuilds() {
   builds = null;
+  reloadArcadeGearing();
   cache.clear();
 }

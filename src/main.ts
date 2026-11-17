@@ -15,10 +15,18 @@ import { CRES, RES, setCanvasRes, setRes, view } from './config';
 import { CARS, TRAFFIC_IMAGES, carArtReady, trafficReady } from './cars';
 import { COURSES, completeCourse, unlockedCourses, withTimeOfDay, type ArcadeTime, type Course } from './courses';
 import { ui as careerUi } from './careerScreens';
+import { afterEvent, attachRivalry, bindRivalry, planRun, regionOfEvent, roadOpts, settleStreet, streetEvent, streetOffer } from './rivalry';
+import type { CareerEvent } from './career';
 import { setupOf, buildOf, REGIONS, carById, driverCar, eventCourse, eventExtras, levels, loadCareer, logStage, rematchEvent, saveCareer, settleEvent, tunedCar, wearOf } from './career';
 import { raceWear } from './usedcars';
+import { addUse, healthOf } from './upkeep';
 import type { CarSpec } from './cars';
 import { Race } from './race';
+import { overlayDraw, overlayKey, overlayOn, overlayTap, overlayType } from './overlay';
+import { recDone, recTick } from './recorder';
+import { logWeek } from './weekly';
+import { openPhotoMode } from './photomode';
+import { DRAG_COURSE, DragRace, dragHost } from './drag';
 import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
 import { CHALLENGE_PRIZE, checkChallenge, partialStats, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
 import { paintHex } from './paint';
@@ -82,6 +90,7 @@ const state: AppState = {
   lives: 5, results: [], gameOver: false,
   mode: 'arcade', career: loadCareer(), careerResult: null, gasPage: 0, arcadeTime: 'day', courseTop: 0, newMap: null, lockedT: 0, carFilter: null, oppFilter: null,
 };
+bindRivalry(() => state); // a ficha e as falas dos rivais seguem o histórico da carreira carregada
 
 // corrida em andamento: percurso, carro (com melhorias, na carreira) e rival
 interface Run {
@@ -89,7 +98,8 @@ interface Run {
   car: CarSpec;
   rival: CarSpec | null;
   opts: { rivalStyle?: import('./race').RivalStyle; rivalPaint?: string; copClass?: import('./cars').PerfClass; extras?: import('./race').ExtraDef[] };
-  event?: { region: number; event: number; rematch?: boolean };
+  event?: { region: number; event: number; rematch?: boolean; street?: CareerEvent }; // street: racha de rua (rivalry.ts)
+  drag?: boolean; // arrancada 402 m (drag.ts)
 }
 let run: Run = { course: COURSES[0], car: CARS[0], rival: null, opts: {} };
 let race: Race | null = null;
@@ -190,7 +200,7 @@ const actions: Actions = {
     state.carIdx = CARS.findIndex((c) => c.id === cs.car);
     run = {
       // carro usado: os defeitos entram na ficha (potência, aderência)
-      course: eventCourse(ev, cs.races), car: tunedCar(carById(cs.car), levels(cs, cs.car), setupOf(cs, cs.car), buildOf(cs, cs.car), wearOf(cs, cs.car)),
+      course: eventCourse(ev, cs.races), car: tunedCar(carById(cs.car), levels(cs, cs.car), setupOf(cs, cs.car), buildOf(cs, cs.car), wearOf(cs, cs.car), healthOf(cs, cs.car)),
       rival: driverCar(ev.driver), // preparadores: o carro com as peças deles
       opts: {
         rivalStyle: ev.driver.style, rivalPaint: ev.driver.paint, copClass: REGIONS[region].cls,
@@ -199,6 +209,24 @@ const actions: Actions = {
       },
       event: { region, event, rematch },
     };
+    planRun(cs, ev); // rivalidade: desafio na estrada, rádio e notas do resultado (rivalry.ts)
+    begin(4);
+  },
+  // racha de rua noturno (convite pendente): o rival do convite, um trecho, aposta em dinheiro ou o carro
+  startStreet(pink: boolean, bet: number) {
+    const cs = state.career!;
+    const ev = streetEvent(cs);
+    if (!ev) return;
+    const region = Math.max(0, regionOfEvent(streetOffer(cs)!.ev));
+    state.mode = 'career';
+    state.carIdx = CARS.findIndex((c) => c.id === cs.car);
+    run = {
+      course: eventCourse(ev, cs.races), car: tunedCar(carById(cs.car), levels(cs, cs.car), setupOf(cs, cs.car), buildOf(cs, cs.car), wearOf(cs, cs.car), healthOf(cs, cs.car)),
+      rival: driverCar(ev.driver),
+      opts: { rivalStyle: ev.driver.style, rivalPaint: ev.driver.paint, copClass: REGIONS[region].cls },
+      event: { region, event: 0, street: ev },
+    };
+    planRun(cs, ev, { pink, bet });
     begin(4);
   },
   nextStage() {
@@ -223,6 +251,13 @@ const actions: Actions = {
 };
 
 setScreenActions(actions);
+// arrancada 402 m (drag.ts, telas em dragScreens.ts): um tiro só, com a cabine normal do carro
+dragHost.start = (car, rival) => {
+  state.mode = 'arcade';
+  run = { course: DRAG_COURSE, car, rival, opts: {}, drag: true };
+  begin(1);
+};
+dragHost.again = () => startStage(0);
 
 function begin(lives: number) {
   initAudio();
@@ -308,6 +343,7 @@ function startStageNow(i: number) {
   showRadio(2.2); // o visor do rádio mostra a estação na largada
 }
 function makeRace(i: number) {
+  if (run.drag) return new DragRace(run.car, run.rival, state.auto, () => actions.go('dragEnd'));
   // rival à frente no 1º trecho; depois, quem chegou primeiro ao posto no trecho anterior
   // larga atrás e o outro à frente (vale no Arcade e na Carreira)
   const prev = i > 0 ? state.results[i - 1] : undefined;
@@ -316,7 +352,7 @@ function makeRace(i: number) {
   const wanted = state.mode === 'career' ? (state.career?.wanted ?? 0) / 6 : state.results.reduce((a, q) => a + (q.tickets || 0), 0) * 0.2; // (saves antigos sem multas: 0)
   // figurantes: à frente na largada quem chegou antes do jogador no trecho anterior
   const extrasAhead = run.opts.extras?.map((_, k) => !prev || (prev.extras?.[k] ?? Infinity) < prev.time);
-  const r = new Race(run.course, i, run.car, run.rival, state.auto, { ...run.opts, rivalAhead, wanted, extrasAhead });
+  const r = new Race(run.course, i, run.car, run.rival, state.auto, roadOpts(i, { ...run.opts, rivalAhead, wanted, extrasAhead })); // + rival desafiando na estrada
   preloadGasArt(r.def.theme); // posto do mapa deste trecho
   r.ghostRun = loadGhost(run.course.id, i, true);
   r.showGhost = ghostOn();
@@ -330,6 +366,8 @@ function makeRace(i: number) {
   }
   liveDone = new Set();
   r.onArrive = () => {
+    recDone(r); // replay dos melhores momentos (recorder.ts)
+    if (state.mode === 'arcade') logWeek(run.course.id, i, r.time); // ranking da semana (weekly.ts)
     const res = stageResult(r);
     const sv = saveRun(r, run.course.id, i, paintHex(run.car.id), runPrepped());
     res.best = sv.prev;
@@ -360,6 +398,7 @@ function makeRace(i: number) {
     state.results.push(res);
     // estatísticas da carreira: km, multas, fugas, batidas, motos derrubadas e máxima do trecho
     if (state.mode === 'career' && state.career) logStage(state.career, run.car.id, { ...res, escapes: r.escapes, falls: r.stats.falls });
+    if (state.mode === 'career' && state.career) addUse(state.career, run.car.id, r.use); // desgaste de pneus e motor (upkeep.ts)
     if (r.clean) state.lives++;
     if (state.mode === 'arcade') {
       saveArcade({ course: run.course.id, courseIdx: state.courseIdx, carIdx: state.carIdx, oppIdx: state.oppIdx, night: state.arcadeTime === 'night', time: state.arcadeTime, lives: state.lives, results: state.results });
@@ -384,13 +423,13 @@ function makeRace(i: number) {
       }
     }
   };
-  return r;
+  return attachRivalry(r, i); // rádio do rival e desafio na estrada (só na carreira)
 }
 
 // resultado de um evento da carreira (dinheiro, prêmio, progresso)
 function settle(won: boolean, last?: Race) {
   const base = REGIONS[run.event!.region].events[run.event!.event];
-  const ev = run.event!.rematch ? rematchEvent(base) : base;
+  const ev = run.event!.street ?? (run.event!.rematch ? rematchEvent(base) : base);
   const res = state.results;
   const fines = res.reduce((a, r) => a + (r.fines ?? 0), 0) + (last && state.gameOver ? last.fines : 0);
   const crashes = res.reduce((a, r) => a + r.crashes, 0) + (last && state.gameOver ? last.crashes : 0);
@@ -398,11 +437,14 @@ function settle(won: boolean, last?: Race) {
   if (last && state.gameOver && state.career) {
     const done = stageResult(last);
     logStage(state.career, run.car.id, { km: done.km * last.progress, top: done.top, tickets: last.tickets, crashes: last.crashes, escapes: last.escapes, falls: last.stats.falls });
+    addUse(state.career, run.car.id, last.use);
   }
   const time = won ? res.reduce((a, r) => a + r.time, 0) : 0;
   // figurantes: posição final entre todos e quantos ficaram para trás (bônus em settleEvent)
   const fp = state.gameOver ? null : fieldPlace(res);
-  state.careerResult = settleEvent(state.career!, ev, won, state.gameOver, res.filter((r) => r.clean).length, fines, crashes, time, fp ?? undefined);
+  state.careerResult = run.event!.street ? settleStreet(state.career!, ev, won, state.gameOver, fines, crashes)
+    : settleEvent(state.career!, ev, won, state.gameOver, res.filter((r) => r.clean).length, fines, crashes, time, fp ?? undefined);
+  afterEvent(state.career!, ev, won, state.gameOver, res, fines, crashes); // histórico do rival, patrocínio, convite de racha
   actions.go('careerEnd');
 }
 
@@ -483,6 +525,8 @@ function resize() {
 canvas.addEventListener('pointerdown', (e) => {
   initAudio();
   const rect = canvas.getBoundingClientRect();
+  // modo foto, replay, placa, ranking da semana (overlay.ts): o toque é deles
+  if (overlayOn()) return overlayTap(((e.clientX - rect.left) / rect.width) * view.w, ((e.clientY - rect.top) / rect.height) * view.h);
   if (state.screen === 'race') {
     // toque no rádio desenhado na cabine (onde a arte tem um): troca a estação
     if (race && !paused && !quitOpen() && cockpitRadioHit(((e.clientX - rect.left) / rect.width) * view.w, ((e.clientY - rect.top) / rect.height) * view.h)) switchRadio();
@@ -532,6 +576,13 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (e.code !== 'Escape' && !MENU_KEYS[e.code]?.match(/^(ok)$/)) setBind(binding.action, e.code);
     binding.action = null;
+    return;
+  }
+  if (overlayOn()) {
+    if (overlayType(e)) return e.preventDefault();
+    const ok = menuKey(e.code);
+    if (ok && !dupNav(ok, 'key')) overlayKey(ok);
+    if (ok) e.preventDefault();
     return;
   }
   const k = state.screen === 'race' && !paused ? MENU_KEYS[e.code] : menuKey(e.code);
@@ -786,6 +837,18 @@ function quickMute(kind: 'sfx' | 'music') {
 $('qMusic').addEventListener('click', () => quickMute('music'));
 $('qSound').addEventListener('click', () => quickMute('sfx'));
 $('resume').addEventListener('click', () => setPaused(false));
+// modo foto (photomode.ts): a pausa some enquanto a câmera está fora do carro e volta ao sair
+$('photoBtn').addEventListener('click', () => {
+  if (!race || state.screen !== 'race') return;
+  $('pause').classList.add('hidden');
+  $('settings').classList.add('hidden');
+  openPhotoMode(race, () => {
+    if (state.screen !== 'race' || !paused) return;
+    $('pause').classList.remove('hidden');
+    focusIdx = 0;
+    showFocus();
+  });
+});
 // botões dos painéis da pausa, ajustes e saída: respondem ao soltar o dedo (no iPhone o primeiro
 // toque às vezes só "passa por cima" do botão e o click não vem); o click de verdade que chega
 // logo depois é ignorado, para não acionar duas vezes
@@ -819,7 +882,7 @@ document.addEventListener('click', (e) => {
 $('quit').addEventListener('click', () => {
   // o que foi feito no trecho interrompido (ultrapassagens, túneis) entra nas estatísticas
   if (race) partialStats(race);
-  actions.go('title');
+  actions.go(run.drag ? 'drag' : 'title');
 });
 // recomeça o trecho atual do zero (as vidas e os trechos já feitos continuam)
 $('restart').addEventListener('click', () => {
@@ -1024,6 +1087,10 @@ function frameMain(now: number) {
       if (k === 'back') binding.action = null;
       continue;
     }
+    if (overlayOn()) {
+      if (k === 'start' || !dupNav(k, 'pad')) overlayKey(k);
+      continue;
+    }
     if (k !== 'start' && (state.screen !== 'race' || paused || quitOpen()) && dupNav(k, 'pad')) continue;
     if (quitOpen()) panelKey(k === 'start' ? 'ok' : k);
     else if (state.screen === 'race') {
@@ -1045,6 +1112,7 @@ function frameMain(now: number) {
       acc += dt;
       while (acc >= STEP && state.screen === 'race') {
         race.update(STEP);
+        recTick(race, STEP);
         acc -= STEP;
       }
     }
@@ -1068,7 +1136,7 @@ function frameMain(now: number) {
         lastKey = perfKey();
         resize();
       }
-      renderCockpit(ctx, race, state.lives, `${race.stageIdx + 1}/${run.course.stages.length}`, totalTime(), paused ? 0 : dt);
+      renderCockpit(ctx, race, state.lives, run.drag ? '402 M' : `${race.stageIdx + 1}/${run.course.stages.length}`, run.drag ? 0 : totalTime(), paused ? 0 : dt);
     } else drawScreen(ctx, state);
   } else {
     acc = 0;
@@ -1077,6 +1145,7 @@ function frameMain(now: number) {
   // na largada o quadro de desafios ocupa o alto do para-brisa: o aviso aparece logo abaixo dele
   const chBox = state.screen === 'race' && race && race.challenges.length && (race.state === 'countdown' || (race.state === 'drive' && race.time < 5));
   // na tela do posto o aviso fica abaixo da placa POSTO DUELO
+  overlayDraw(ctx, dt);
   drawToast(ctx, dt, chBox ? 38 + race!.challenges.length * 6 : state.screen === 'gas' && !state.gasPage ? 44 : 0);
 }
 // abertura: página de carregamento enquanto as artes dos carros chegam, depois a capa

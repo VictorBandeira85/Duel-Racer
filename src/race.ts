@@ -1,3 +1,4 @@
+import { heliStep, type Heli } from './heli';
 import { trafficDriver } from './drivers';
 import { preloadCops } from './people';
 import type { Dent, GlassMark } from './damage';
@@ -15,6 +16,7 @@ import { prefs } from './prefs';
 import { beep, radarBeep, bumpSound, crashSound, motoCrashSound, landSound, stoneSound, setTunnel, setSteam, tickSound, scrapeSound, setEngine, setEngineProfile, setSiren, setSirens, setTires, shiftSound, grindSound, starterSound, type SirenSrc } from './audio';
 import { clamp, lerp, overlap, rng } from './util';
 import { HEAT_K, turboHeatAt } from './tuning';
+import { newUse, wearTick } from './wear';
 import { BLITZ_KMH, blitzEdge, coneSound, coneW, knockCone, makeBlitz, updateCones, type Blitz, type Closure } from './blitz';
 import { PROP_SIZE, SOLID_PROPS, makeObra, type Obra } from './obra';
 import { updateTrafficAudio } from './trafficaudio';
@@ -267,9 +269,19 @@ const HITBOX = 0.8;
 // `at` = fração do trecho em que começa a virar (cedo o bastante para terminar antes da chegada).
 export interface WeatherTurn { kind: 'rain' | 'snow'; dir: 1 | -1; at: number }
 const DRY_THEMES: ThemeId[] = ['desert', 'canyon'];
+// Trecho com a virada marcada (courses.ts: weatherShift e shiftAt) vira sempre, no ponto dado; neve
+// só cai nos cenários de neve (lá, 'rain' vira neve) e no deserto/cânion não chove.
 export function weatherTurn(def: StageDef, seed: number): WeatherTurn | null {
   const rand = rng(seed * 31 + 313);
   const roll = rand(), at = 0.22 + rand() * 0.25;
+  const sh = def.weatherShift;
+  if (sh) {
+    const at1 = clamp(def.shiftAt ?? at, 0.05, 0.6);
+    if (sh === 'clear') return def.weather === 'rain' || def.weather === 'snow' ? { kind: def.weather, dir: -1, at: at1 } : null;
+    if (def.weather) return null;
+    if (def.theme === 'snow' || def.theme === 'alpinesnow') return { kind: 'snow', dir: 1, at: at1 };
+    return sh === 'snow' || DRY_THEMES.includes(def.theme) ? null : { kind: 'rain', dir: 1, at: at1 };
+  }
   if (roll >= 0.25) return null;
   if (!def.weather) {
     if (def.theme === 'snow' || def.theme === 'alpinesnow') return { kind: 'snow', dir: 1, at };
@@ -299,6 +311,7 @@ export class Race {
   wxTurn: WeatherTurn | null = null; // virada do tempo no meio do trecho (null = clima fixo)
   private wxT = -1; // segundos desde que o tempo virou (-1 = ainda não)
   private wxStep = -1;
+  private wetStep = -1; // degrau da cor do asfalto molhado (vai com wetK, não com o céu)
   private wxMsgs: string[] = []; // avisos esperando a vez no HUD
   clearTheme: Theme | null = null; // tema de tempo bom (as nuvens brancas usam a cor dele)
   private wetTheme: Theme | null = null;
@@ -336,6 +349,7 @@ export class Race {
   // temperatura extra do motor por giro no corte (0..1): sobe segurando o giro lá em cima, esfria
   // com giro normal; acima de 0,8 a central corta potência (até -30%) e baixa o corte
   heat = 0;
+  use = newUse(); // desgaste do trecho (wear.ts): km, pneus e motor; a carreira desconta no fim do trecho
   private heatWarn = false;
   // largada: patinada das rodas de tração (0..1) por sair com giro alto e pé no fundo; some aos
   // poucos (mais depressa aliviando o pé) e tira tração enquanto dura
@@ -401,6 +415,8 @@ export class Race {
   escapes = 0; // vezes que o jogador despistou a polícia no trecho
   wanted = 0; // quanto o jogador é "procurado" (0 a 1): multas/fugas de antes (carreira) ou do roteiro (Arcade)
   backups = 0; // reforços chamados no trecho
+  heli: Heli | null = null; // helicóptero da polícia nas fugas longas (heli.ts)
+  heliUsed = false; // já veio neste trecho (uma vez por trecho)
   private caughtKmh = 0;
   traffic: TrafficCar[] = [];
   police: Police[] = [];
@@ -441,6 +457,8 @@ export class Race {
   rand: () => number;
 
   onArrive?: () => void;
+  pitStop = true; // chega ao posto (freia antes da linha e encosta); a arrancada (drag.ts) passa reto
+  hud?: (c: CanvasRenderingContext2D, vp: { x: number; y: number; w: number; h: number }) => void; // HUD próprio do modo (drag.ts): sem a contagem 3-2-1
   onCrash?: () => void;
 
   constructor(
@@ -637,15 +655,20 @@ export class Race {
     // o resto do jogo que só quer saber "está chovendo?" (interruptores, desafios, posto da chegada)
     this.def.weather = this.rainK >= 0.3 ? w.kind : undefined;
     // céu: em degraus pequenos, para não recriar texturas a cada quadro
-    const step = Math.round(this.skyK * 32);
-    if (step !== this.wxStep && this.clearTheme && this.wetTheme && this.clearTheme !== this.wetTheme) {
+    // o asfalto escurece com a pista molhando (wetK), não com o céu: começa a chover com o chão ainda
+    // claro e, parando, a pista continua escura até secar
+    const step = Math.round(this.skyK * 32), wstep = Math.round(this.wetK * 32);
+    if ((step !== this.wxStep || wstep !== this.wetStep) && this.clearTheme && this.wetTheme && this.clearTheme !== this.wetTheme) {
       this.wxStep = step;
-      this.theme = blendTheme(this.clearTheme, this.wetTheme, step / 32);
+      this.wetStep = wstep;
+      const th = blendTheme(this.clearTheme, this.wetTheme, step / 32);
+      th.road = blendTheme(this.clearTheme, this.wetTheme, wstep / 32).road;
+      this.theme = th;
     }
     // avisos discretos no HUD quando o tempo vira
     if (w.dir > 0 && was <= 0.01 && this.rainK > 0.01) this.wxMsgs.push(snow ? 'COMEÇOU A NEVAR' : 'COMEÇOU A CHOVER');
     if (w.dir > 0 && wasWet < 0.6 && this.wetK >= 0.6) this.wxMsgs.push(snow ? 'NEVE NA PISTA' : 'PISTA MOLHADA');
-    if (w.dir < 0 && was > 0 && this.rainK <= 0) this.wxMsgs.push('A CHUVA PAROU');
+    if (w.dir < 0 && was > 0 && this.rainK <= 0) this.wxMsgs.push(snow ? 'PAROU DE NEVAR' : 'A CHUVA PAROU');
     if (w.dir < 0 && wasWet > 0.15 && this.wetK <= 0.15) this.wxMsgs.push('PISTA SECANDO');
     if (this.wxMsgs.length && this.messageT <= 0 && this.state === 'drive') this.say(this.wxMsgs.shift()!, 2.2);
   }
@@ -878,7 +901,7 @@ export class Race {
     else if (!cm) this.stalled = this.clutchWas = false;
     // chegando ao posto: o carro começa a frear sozinho a tempo de chegar na bomba (4 segmentos
     // depois da linha) já perto da velocidade de parada, em vez de frear só na linha e parar longe
-    if (driving && this.speed > 0) {
+    if (driving && this.speed > 0 && this.pitStop) {
       const toPump = this.track.finishZ + 6 * SEG_LEN - this.playerZ;
       const vEnd = 18 / KMH;
       const dec = toGame(G * this.car.brakeG * BRAKE_BOOST) * 0.55; // freada firme (a real é menor que a nominal), sem travar
@@ -1024,6 +1047,7 @@ export class Race {
     this.speed = clamp(this.speed, 0, max * 1.12);
     // patinando, o giro sobe sem o carro andar
     this.spin = lerp(this.spin, Math.max(this.pt.spin, this.launchSpin * clamp(this.gasPedal * 1.4, 0, 1)), Math.min(1, dt * 8));
+    if (this.state === 'drive') wearTick(this.use, dt, this.speed * KMH, this.spin, this.slip, this.drift, this.heat, this.rpm >= 0.965 && this.gasPedal > 0.5);
     // rodas patinando: o giro dispara, e mais ainda em alta rotação nos carros preparados
     const rpmBase = this.speed / (max * this.car.gears[this.gear]);
     let rpmGear = Math.min(1.02 + this.pt.over, rpmBase + this.spin * (0.3 + ((this.car.prep ?? 1) > 1 ? 0.4 * clamp(rpmBase, 0, 1) : 0)));
@@ -1089,7 +1113,9 @@ export class Race {
     const lonBrake = this.braking && speedPct > 0.15 ? clamp(this.car.brakeG / this.car.lateralG, 0, 1) * this.brakePedal : 0;
     // círculo de atrito mais tolerante (antes acelerar fundo na curva cortava até metade da
     // aderência e o carro saía de traseira à toa; o rival usa a aderência inteira)
-    const shared = 1 - 0.28 * lonDrive * lonDrive - 0.25 * lonBrake * lonBrake;
+    // (diferencial autoblocante: acelerando na saída da curva a força vai para a roda que agarra e
+    // tira menos aderência lateral)
+    const shared = 1 - 0.28 * (1 - 0.4 * (this.car.lsd ?? 0)) * lonDrive * lonDrive - 0.25 * lonBrake * lonBrake;
     const offGrip = this.offRoadAt(pSeg) ? 0.6 : 1;
     const grip = tire * aero * shared * (1 - this.air * 0.6) * offGrip;
     const demand = latG / grip;
@@ -1198,7 +1224,7 @@ export class Race {
       this.signal = 1;
       this.x += clamp(t.roadW + 900 - this.x, -dt * 900, dt * 900);
     }
-    if (this.state === 'arrived') {
+    if (this.state === 'arrived' && this.pitStop) {
       this.signal = 1;
       // sai da pista para o acesso de asfalto do posto (track: apron)
       this.x += clamp(t.roadW + 900 - this.x, -dt * 1400, dt * 1400);
@@ -2176,11 +2202,17 @@ export class Race {
           p.called = true;
           if (this.backups < 2 && this.rand() < 0.5 + 0.5 * ag) this.callBackup(p);
         }
+        // helicóptero vendo o carro: a viatura não perde o jogador e ele pede reforço à frente de tempos em tempos
+        const eye = !!this.heli?.sees;
+        if (eye && this.heli!.callT <= 0 && this.backups < 3 && gap > 30 * SEG_LEN) {
+          this.heli!.callT = 18;
+          this.callBackup(p);
+        }
         // longe demais por alguns segundos (ou sumiu de vista de vez): desiste
-        if (gap > 110 * SEG_LEN * (1 + 0.3 * ag)) p.lostT = (p.lostT ?? 0) + dt;
+        if (!eye && gap > 110 * SEG_LEN * (1 + 0.3 * ag)) p.lostT = (p.lostT ?? 0) + dt;
         else p.lostT = Math.max(0, (p.lostT ?? 0) - dt);
         if (this.state === 'drive' && p.chaseT > 4 - 2 * ag && gap < SEG_LEN * (2 + ag)) this.startPullover(p);
-        else if ((p.lostT ?? 0) > 3 + 2 * ag || gap > 240 * SEG_LEN || p.chaseT > 45) this.copGiveUp(p);
+        else if (!eye && ((p.lostT ?? 0) > 3 + 2 * ag || gap > 240 * SEG_LEN || p.chaseT > (this.heliUsed ? 75 : 45))) this.copGiveUp(p);
       } else if (p.state === 'pull') {
         siren = true;
         p.chaseT += dt;
@@ -2218,6 +2250,7 @@ export class Race {
     }
     if (sirens.length > 2) sirens.sort((a, b) => Math.abs(a.dz) - Math.abs(b.dz)); // só as duas mais perto
     setSirens(sirens);
+    this.heli = heliStep(this, this.heli, dt);
     this.radarAlarm(dt);
     this.updateBlitz(dt);
   }

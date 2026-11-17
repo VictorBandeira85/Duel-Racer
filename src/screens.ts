@@ -35,13 +35,23 @@ import { brandOf, drawLogo } from './brands';
 import { setEngine, setTires, shiftSound } from './audio';
 import { dailyEndFocusables, dailyFocusables, dailySealRect, drawDaily, drawDailyEnd, drawDailySeal, dsel, keyDaily, tapDaily, tapDailyEnd } from './dailyScreens';
 import { todayKey } from './daily';
+import { drawIssueCover, drawIssues, issues as myIssues, issuesFocusables, issuesTick, keyIssues, mastLine, openIssues, tapIssues, titleIssue } from './edicoes';
+import { drawShed, keyShed, shedFocusables, tapShed } from './galpao';
+import { replayReady } from './recorder';
+import { openReplay } from './replay';
+import { openWeekly } from './weeklyScreen';
+import { openPlateEditor } from './plateedit';
+import { myPlate } from './myplate';
 
 export type ScreenId = 'loading' | 'title' | 'options' | 'controls' | 'car' | 'opponent' | 'course' | 'race' | 'gas' | 'end' | 'scores' | 'achievements'
   | 'career' | 'event' | 'garage' | 'dealer' | 'careerEnd' | 'collection' | 'careerMenu' | 'showroom' | 'prepDemo'
   | 'usedCars' | 'careerStats' // classificados de usados e estatísticas da carreira (careerPages.ts)
   | 'daily' | 'dailyEnd' // desafio do dia (dailyScreens.ts)
-  | 'arcadeMenu' | 'arcadePrep'; // Arcade: CORRER ou OFICINA, e a oficina do Arcade (careerScreens.ts)
-const CAREER_SCREENS: ScreenId[] = ['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection', 'careerMenu', 'showroom', 'prepDemo', 'usedCars', 'careerStats', 'arcadeMenu', 'arcadePrep'];
+  | 'arcadeMenu' | 'arcadePrep' // Arcade: CORRER ou OFICINA, e a oficina do Arcade (careerScreens.ts)
+  | 'drag' | 'dragEnd' // arrancada 402 m do Arcade: escolha e resultado (dragScreens.ts)
+  | 'issues' | 'shed' // edições anteriores da revista do leitor (edicoes.ts) e a garagem visitável (galpao.ts)
+  | 'racha' | 'sponsor'; // convite do racha de rua e patrocínio (careerStreet.ts)
+const CAREER_SCREENS: ScreenId[] = ['career', 'event', 'garage', 'dealer', 'careerEnd', 'collection', 'careerMenu', 'showroom', 'prepDemo', 'usedCars', 'careerStats', 'arcadeMenu', 'arcadePrep', 'drag', 'dragEnd', 'racha', 'sponsor'];
 // prevTab/nextTab: LB/RB do controle (ou Q/E, PageUp/PageDown) nos menus: filtro de classe
 export type MenuKey = 'left' | 'right' | 'up' | 'down' | 'ok' | 'back' | 'prevTab' | 'nextTab';
 
@@ -89,6 +99,7 @@ export interface Actions {
   nextStage: () => void;
   setVolume: (kind: 'sfx' | 'music' | 'menu', pct: number) => void;
   startEvent: (region: number, event: number, rematch?: boolean) => void; // rematch: revanche do rival já vencido
+  startStreet?: (pink: boolean, bet: number) => void; // racha de rua noturno (rivalry.ts): o convite pendente
   resumeCourse: () => void;
   startDaily: (date: string) => void; // desafio do dia (AAAA-MM-DD)
 }
@@ -382,7 +393,7 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
   c.fillStyle = RED;
   c.fillRect(0, 0, w, 50);
   halftone(c, { x: 0, y: 0, w, h: 50 }, 'rgba(120,0,0,0.35)');
-  ink(c, 'Nº 01  •  ANO I  •  OUTUBRO DE 1994', x + 6, 4, 5, '#ffe0a0');
+  ink(c, mastLine(), x + 6, 4, 5, '#ffe0a0'); // número e mês da edição mais nova do leitor (edicoes.ts)
   // versão de teste, discreta no pé da capa
   ink(c, `${__APP_VERSION__} · teste`, w - 3, view.h - 7, 4, 'rgba(26,22,20,0.35)', 'right');
   ink(c, 'Cr$ 2.500,00', x + SAFE_W - 6, 4, 5, '#ffe0a0', 'right');
@@ -395,19 +406,25 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
   const ph = coverRect();
   const t = Math.max(0, s.t || 0);
   const slot = Math.floor(t / SLIDE_T);
-  drawCoverSlide(c, s, ph, slot, (t % SLIDE_T) / SLIDE_T);
+  // edição do leitor (o seu carro e os seus feitos) entra no rodízio; a nova aparece primeiro
+  const mine = titleIssue(s, slot, (t % SLIDE_T) / SLIDE_T);
+  if (mine) {
+    drawIssueCover(c, ph, mine.is, mine.u, s.t, mine.fresh, false); // (sem código de barras: a etiqueta EDIÇÕES ANTERIORES fica ali)
+    coverKind = 'me';
+    coverCarId = String(mine.is.n);
+  } else drawCoverSlide(c, s, ph, slot, (t % SLIDE_T) / SLIDE_T);
   // código de barras no canto (menos onde há quadros pequenos ali)
   const kind = SLIDES[Math.max(0, slot) % SLIDES.length];
-  if (kind !== 'angles' && kind !== 'news' && kind !== 'brasil' && kind !== 'lp5' && kind !== 'nx' && kind !== 'vp' && kind !== 'tr' && kind !== 'f4' && kind !== 'dia' && kind !== 'gol' && kind !== 'mz' && kind !== 'vg' && kind !== 'vs' && kind !== 'sn' && kind !== 'ps' && kind !== 'pg' && kind !== 'p9' && kind !== 'pc') barcode(c, ph.x + ph.w - 40, ph.y + ph.h - 36);
+  if (!mine && kind !== 'angles' && kind !== 'news' && kind !== 'brasil' && kind !== 'lp5' && kind !== 'nx' && kind !== 'vp' && kind !== 'tr' && kind !== 'f4' && kind !== 'dia' && kind !== 'gol' && kind !== 'mz' && kind !== 'vg' && kind !== 'vs' && kind !== 'sn' && kind !== 'ps' && kind !== 'pg' && kind !== 'p9' && kind !== 'pc') barcode(c, ph.x + ph.w - 40, ph.y + ph.h - 36);
   // chamadas = menu (o subtítulo muda a cada edição da foto)
   // o carro da capa: toque na foto abre o anúncio dele no showroom
   const cc = CARS.find((k) => k.id === coverCarId);
-  if (cc) {
+  if (cc || mine) {
     c.font = '5px "Press Start 2P", monospace';
-    const lab = kind === 'pc' ? 'VISITE A OFICINA DE PREPARAÇÃO ▶' : `VER ${cc.name.toUpperCase()} NO SHOWROOM ▶`;
+    const lab = mine ? 'EDIÇÕES ANTERIORES ▶' : !cc ? '' : kind === 'pc' ? 'VISITE A OFICINA DE PREPARAÇÃO ▶' : `VER ${cc.name.toUpperCase()} NO SHOWROOM ▶`;
     const tw = Math.ceil(c.measureText(lab).width) + 6;
     const blink = Math.floor(s.t * 1.5) % 2 === 0;
-    const ty = ph.y + ph.h - (kind === 'lp5' || kind === 'nx' || kind === 'vp' || kind === 'tr' || kind === 'f4' || kind === 'dia' || kind === 'gol' || kind === 'mz' || kind === 'vg' || kind === 'vs' || kind === 'sn' || kind === 'ps' || kind === 'pg' || kind === 'p9' || kind === 'pc' ? 21 : 11); // nas capas de foto, acima da faixa vermelha
+    const ty = ph.y + ph.h - (mine || kind === 'lp5' || kind === 'nx' || kind === 'vp' || kind === 'tr' || kind === 'f4' || kind === 'dia' || kind === 'gol' || kind === 'mz' || kind === 'vg' || kind === 'vs' || kind === 'sn' || kind === 'ps' || kind === 'pg' || kind === 'p9' || kind === 'pc' ? 21 : 11); // nas capas de foto, acima da faixa vermelha
     c.fillStyle = blink ? RED : INK;
     c.fillRect(ph.x + ph.w - tw - 2, ty, tw, 9);
     ink(c, lab, ph.x + ph.w - 5, ty + 2, 5, blink ? YELLOW : '#fff', 'right');
@@ -438,6 +455,8 @@ function drawTitle(c: CanvasRenderingContext2D, s: AppState) {
 
 function tapTitle(s: AppState, a: Actions, x: number, y: number) {
   if (inside(x, y, dailySealRect())) return activateTitle(s, 5, a);
+  if (inside(x, y, coverRect()) && coverKind === 'me') return openIssues(s, a, 'title', Number(coverCarId));
+  if (inside(x, y, { x: ox(), y: 0, w: 170, h: 12 }) && myIssues().length) return openIssues(s, a, 'title'); // número da edição no alto
   if (inside(x, y, coverRect()) && coverCarId) return coverKind === 'pc' ? openPrepDemo(s, a, '', 'title') : openShowroom(s, a, coverCarId, 'title');
   titleSigns().forEach((r, i) => {
     if (inside(x, y, r)) activateTitle(s, i, a);
@@ -464,8 +483,8 @@ function activateTitle(s: AppState, i: number, a: Actions) {
 export const OPT_TABS = ['CONTROLES', 'GRÁFICOS', 'ÁUDIO', 'INTERFACE'];
 // aba escolhida: a mesma nos ajustes do menu e nos da pausa, enquanto o jogo estiver aberto
 export const optTab = { i: 0 };
-type OptId = 'gear' | 'buttons' | 'keys' | 'fx' | 'fps30' | 'fps' | 'view' | 'sfx' | 'music' | 'menu' | 'hud' | 'hints' | 'ghost' | 'back';
-const OPT_ITEMS: OptId[][] = [['gear', 'buttons', 'keys'], ['fx', 'fps30', 'fps', 'view'], ['sfx', 'music', 'menu'], ['hud', 'hints', 'ghost']];
+type OptId = 'gear' | 'buttons' | 'keys' | 'fx' | 'fps30' | 'fps' | 'view' | 'sfx' | 'music' | 'menu' | 'hud' | 'hints' | 'ghost' | 'plate' | 'back';
+const OPT_ITEMS: OptId[][] = [['gear', 'buttons', 'keys'], ['fx', 'fps30', 'fps', 'view'], ['sfx', 'music', 'menu'], ['hud', 'hints', 'ghost', 'plate']];
 // itens da aba atual (o último é sempre VOLTAR À CAPA); s.sel é o índice nesta lista, -1 = foco nas abas
 const optItems = (): OptId[] => [...OPT_ITEMS[optTab.i], 'back'];
 const optTabRects = () => OPT_TABS.map((_, i): Rect => ({ x: ox() + 22 + i * 70, y: 21, w: 66, h: 13 }));
@@ -542,6 +561,7 @@ function drawOptions(c: CanvasRenderingContext2D, s: AppState) {
     hud: ['PAINEL DIGITAL', prefs.hud ? 'LIGADO' : 'DESLIGADO', 'Giro, velocidade e marcha no canto da tela'],
     hints: ['DICAS NA TELA', prefs.hints ? 'LIGADAS' : 'DESLIGADAS', 'Lembrete das teclas na largada (teclado)'],
     ghost: ['FANTASMA', ghostOn() ? 'LIGADO' : 'DESLIGADO', 'Seu melhor tempo correndo junto'],
+    plate: ['PLACA DO CARRO', myPlate().text, 'Sua placa no carro, no fantasma, nas fotos e no ranking'],
   };
   const ids = optItems();
   optionRects().forEach((r, i) => {
@@ -627,6 +647,7 @@ function activateOption(s: AppState, a: Actions, i: number) {
   }
   else if (id === 'buttons') setBtnSize((btnSizeIdx() + 1) % BTN_SIZES.length);
   else if (id === 'ghost') setGhostOn(!ghostOn());
+  else if (id === 'plate') openPlateEditor(s.playerCar ?? CARS[s.carIdx]);
   else if (id === 'fx') setFxMode(({ auto: 'alto', alto: 'eco', eco: 'auto' } as const)[fxMode()]);
   else if (id === 'hints') savePrefs({ hints: !prefs.hints });
   else if (id === 'fps') savePrefs({ fps: !prefs.fps });
@@ -1372,8 +1393,10 @@ function drawStageResult(c: CanvasRenderingContext2D, s: AppState) {
     const lines = r.best === undefined ? ['PRIMEIRO', 'RECORDE!'] : ['NOVO', 'RECORDE!', `-${(r.best - r.time).toFixed(2).replace('.', ',')}s`];
     burst(c, x + SAFE_W - 40, 196, 30, lines, YELLOW, RED, s.t);
   } else if (r.best !== undefined) ink(c, `Recorde: ${formatTime(r.best)}`, x + 4, 198, 5, GREY);
+  if (replayReady()) tag(c, replayRect(), '▶ REPLAY', false, 5); // melhores momentos (replay.ts)
   if (Math.floor(s.t * 2) % 2) ink(c, 'TOQUE PARA SEGUIR ▶', x + 160, 222, 5, RED, 'center');
 }
+const replayRect = (): Rect => ({ x: ox() + 4, y: 207, w: 76, h: 13 });
 
 // posto: chegada -> resultado -> desafios -> próximo trecho
 function gasNext(s: AppState, a: Actions) {
@@ -1495,6 +1518,8 @@ const achButton = (): Rect => ({ x: ox() + 210, y: 212, w: 106, h: 15 });
 const scoresBack = (): Rect => ({ x: ox() + 4, y: 198, w: 74, h: 12 });
 const achBack = (): Rect => ({ x: ox() + SAFE_W - 160, y: 18, w: 70, h: 12 });
 // fantasma por código: enviar o seu (copia o código) e colar o de um amigo
+// ranking da semana entre amigos (weeklyScreen.ts)
+const weekButton = (): Rect => ({ x: ox() + SAFE_W - 110, y: 198, w: 106, h: 12 });
 const ghostButtons = () => ({ send: { x: ox() + 4, y: 212, w: 100, h: 15 }, recv: { x: ox() + 107, y: 212, w: 100, h: 15 } });
 async function sendGhost(s: AppState) {
   const course = COURSES[s.scoreCourse];
@@ -1591,6 +1616,7 @@ function drawScores(c: CanvasRenderingContext2D, s: AppState) {
   tag(c, gb.send, 'ENVIAR FANTASMA', false);
   tag(c, gb.recv, fr ? 'APAGAR AMIGO' : 'DESAFIO DE AMIGO', false);
   tag(c, achButton(), 'CONQUISTAS ▶', false);
+  tag(c, weekButton(), 'RANKING SEMANAL ▶', false, 5);
 }
 
 // ---------- carregando: uma "página" da revista com foto e dica enquanto o jogo prepara a pista ----------
@@ -1683,6 +1709,7 @@ function drawLoading(c: CanvasRenderingContext2D, s: AppState) {
 
 // ---------- roteamento ----------
 export function drawScreen(c: CanvasRenderingContext2D, s: AppState) {
+  issuesTick(s); // marcos novos viram edição da revista (edicoes.ts)
   drawScreenInner(c, s);
   // contorno amarelo no item com foco que a própria tela não destaca (teclado, controle, mouse)
   if (lastDevice.kind !== 'touch') {
@@ -1708,6 +1735,10 @@ export function focusables(s: AppState): FocusSet | null {
       return dailyFocusables(s, a);
     case 'dailyEnd':
       return dailyEndFocusables(s, a);
+    case 'issues':
+      return issuesFocusables(s, a);
+    case 'shed':
+      return shedFocusables(s, a);
     case 'options': {
       // fichas das abas (alcançadas com cima a partir do primeiro item): esquerda/direita trocam
       // de aba ali mesmo, A/Enter também; depois os itens da aba
@@ -1767,10 +1798,12 @@ export function focusables(s: AppState): FocusSet | null {
       const g = ghostButtons();
       return { key: 'scores', def: 0, items: [
         { r: { x: ox() + 4, y: 20, w: SAFE_W - 8, h: 34 }, lr: (d) => { s.scoreCourse = (s.scoreCourse + COURSES.length + d) % COURSES.length; }, act: () => {} },
-        { r: scoresBack() }, { r: g.send }, { r: g.recv }, { r: achButton() },
+        { r: scoresBack() }, { r: g.send }, { r: g.recv }, { r: achButton() }, { r: weekButton(), act: () => openWeekly(s.scoreCourse) },
       ] };
     }
     default:
+      // resultado do trecho com replay: REPLAY ou seguir
+      if (s.screen === 'gas' && s.gasPage === 1 && replayReady()) return { key: 'gas1', def: 1, items: [{ r: replayRect(), act: () => void openReplay() }, { r: { x: ox() + 100, y: 218, w: 120, h: 12 }, act: () => gasNext(s, a) }] };
       return CAREER_SCREENS.includes(s.screen) ? careerFocusables(s, a) : null;
   }
 }
@@ -1889,6 +1922,8 @@ function drawScreenInner(c: CanvasRenderingContext2D, s: AppState) {
     case 'achievements': return drawAchievements(c, s);
     case 'daily': return drawDaily(c, s, -1);
     case 'dailyEnd': return drawDailyEnd(c, s);
+    case 'issues': return drawIssues(c, s);
+    case 'shed': return drawShed(c, s);
     default: return drawCareerScreen(c, s);
   }
 }
@@ -1899,6 +1934,8 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
     case 'title': return tapTitle(s, a, x, y);
     case 'daily': return tapDaily(s, a, x, y);
     case 'dailyEnd': return tapDailyEnd(s, a, x, y);
+    case 'issues': return tapIssues(s, a, x, y);
+    case 'shed': return tapShed(s, a, x, y);
     case 'options':
       optTabRects().forEach((r, t) => {
         if (inside(x, y, { x: r.x, y: r.y - 3, w: r.w, h: r.h + 3 })) switchOptTab(s, t);
@@ -1987,6 +2024,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
       return;
     }
     case 'gas':
+      if (s.gasPage === 1 && replayReady() && inside(x, y, replayRect())) return void openReplay();
       gasNext(s, a);
       return;
     case 'end':
@@ -1999,6 +2037,7 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
       else if (inside(x, y, achButton())) a.go('achievements');
       else if (inside(x, y, ghostButtons().send)) void sendGhost(s);
       else if (inside(x, y, ghostButtons().recv)) void receiveGhost(s);
+      else if (inside(x, y, weekButton())) openWeekly(s.scoreCourse);
       else a.go('title');
       return;
     case 'achievements':
@@ -2015,6 +2054,8 @@ export function keyScreen(s: AppState, a: Actions, k: MenuKey) {
   if (navKey(s, a, k)) return;
   if (CAREER_SCREENS.includes(s.screen)) return keyCareerScreen(s, a, k);
   if (s.screen === 'daily' || s.screen === 'dailyEnd') return keyDaily(s, a, k);
+  if (s.screen === 'issues') return keyIssues(s, a, k);
+  if (s.screen === 'shed') return keyShed(s, a, k);
   const counts: Partial<Record<ScreenId, number>> = { title: 5, options: optItems().length, opponent: oppList(s).length, course: COURSES.length };
   // percursos: cima/baixo escolhem, esquerda/direita trocam a hora (dia, entardecer, amanhecer, noite)
   if (s.screen === 'course' && (k === 'left' || k === 'right')) {

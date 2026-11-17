@@ -53,6 +53,8 @@ export function pickObra(track: Pick<Track, 'segments' | 'startZ' | 'finishZ' | 
   for (let k = 0; k < i1 - i0; k += 37) {
     const i = i0 + ((first - i0 + k) % (i1 - i0));
     if (track.segments.slice(i - back, i + span + 20).some((sg) => sg.tunnel)) continue;
+    // nem em curva fechada (o afunilado e a faixa fechada pedem pista que se vê de longe)
+    if (track.segments.slice(i - 60, i + span).some((sg) => Math.abs(sg.curve) >= 4.5)) continue;
     // blitz: nem as placas de uma podem cair dentro da outra
     if (bz === bz && i + span + 80 > bz - bBack && i - back - 60 < bz + 40) continue;
     if (track.policeSpots.some((z) => z / SEG_LEN > i - back && z / SEG_LEN < i + span + 30)) continue;

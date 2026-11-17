@@ -20,7 +20,7 @@ export interface Course {
   level: string;
   rivalSkill: number;
   stages: StageDef[];
-  seed?: number; // semente das pistas (eventos da carreira)
+  seed?: number; // semente das pistas; sem ela sai do tamanho do id (ids de mesmo tamanho teriam o mesmo traçado)
 }
 
 const s = (theme: ThemeId, lanes: 2 | 4, extra: Partial<StageDef> = {}): StageDef => ({
@@ -55,17 +55,17 @@ const ALL: Course[] = [
     ],
   },
   {
-    id: 'serra', name: 'Serra e Mar', level: 'Difícil', rivalSkill: 0.99,
+    id: 'serra', name: 'Serra e Mar', level: 'Difícil', rivalSkill: 0.99, seed: 75000,
     stages: [
-      s('snow', 2, { weather: 'snow', curviness: 1.2, hilliness: 0.9 }),
-      s('mountain', 2, { curviness: 1.4, hilliness: 1 , tod: 'dawn' }),
+      s('snow', 2, { weather: 'snow', curviness: 1.2, hilliness: 0.9, tod: 'dawn' }),
+      s('mountain', 2, { curviness: 1.4, hilliness: 1 }),
       s('forest', 2, { weather: 'fog', curviness: 1.2 }),
       s('coast', 2, { weather: 'rain', curviness: 1.1 }),
       s('coast', 4, { police: 2, dusk: true }),
     ],
   },
   {
-    id: 'tempestade', name: 'Tempestade', level: 'Expert', rivalSkill: 1.01,
+    id: 'tempestade', name: 'Tempestade', level: 'Expert', rivalSkill: 1.01, seed: 78000,
     stages: [
       s('city', 4, { weather: 'rain', traffic: 7, police: 2 }),
       s('snow', 2, { weather: 'snow', curviness: 1.4, hilliness: 1 }),
@@ -76,12 +76,12 @@ const ALL: Course[] = [
   },
   // ---- mapas novos ----
   {
-    id: 'litoral', name: 'Litoral Dourado', level: 'Fácil', rivalSkill: 0.93,
+    id: 'litoral', name: 'Litoral Dourado', level: 'Fácil', rivalSkill: 0.93, seed: 71000,
     stages: [
       s('beach', 4, { curviness: 0.6, police: 0, traffic: 4 , tod: 'dawn' }),
       s('beach', 2, { curviness: 0.8, hilliness: 0.4 }),
       s('coast', 2, { curviness: 0.9 }),
-      s('beach', 4, { curviness: 0.7, traffic: 6 , tod: 'sunset' }),
+      s('beach', 4, { curviness: 0.7, traffic: 6 }),
       s('coast', 4, { curviness: 0.8, police: 2, dusk: true }),
     ],
   },
@@ -90,26 +90,26 @@ const ALL: Course[] = [
     stages: [
       s('savanna', 2, { curviness: 0.5, police: 0, traffic: 2 , tod: 'dawn' }),
       s('savanna', 2, { curviness: 0.7, hilliness: 0.6, traffic: 3 }),
-      s('savanna', 4, { curviness: 0.5, traffic: 4 , tod: 'sunset' }),
+      s('savanna', 4, { curviness: 0.5, traffic: 4 }),
       s('desert', 2, { curviness: 0.9, traffic: 3 }),
       s('savanna', 2, { curviness: 1, hilliness: 0.8, traffic: 3, dusk: true }),
     ],
   },
   {
-    id: 'outono', name: 'Outono na Serra', level: 'Fácil', rivalSkill: 0.94,
+    id: 'outono', name: 'Outono na Serra', level: 'Fácil', rivalSkill: 0.94, seed: 73000,
     stages: [
       s('autumn', 2, { curviness: 0.8, police: 0 , tod: 'dawn' }),
       s('autumn', 2, { curviness: 1, hilliness: 0.8 }),
       s('farm', 2, { curviness: 0.9 }),
-      s('autumn', 4, { curviness: 0.8 , tod: 'sunset' }),
-      s('mountain', 2, { curviness: 1.2, hilliness: 0.9, weather: 'fog' }),
+      s('autumn', 4, { curviness: 0.8 }),
+      s('mountain', 2, { curviness: 1.2, hilliness: 0.9, weather: 'fog', tod: 'sunset' }),
     ],
   },
   {
-    id: 'canion', name: 'Cânion Vermelho', level: 'Médio', rivalSkill: 0.96,
+    id: 'canion', name: 'Cânion Vermelho', level: 'Médio', rivalSkill: 0.96, seed: 74000,
     stages: [
       s('canyon', 2, { curviness: 1, hilliness: 0.7, traffic: 3 , tod: 'dawn' }),
-      s('canyon', 2, { curviness: 1.3, hilliness: 0.9, traffic: 3 , tod: 'sunset' }),
+      s('canyon', 2, { curviness: 1.3, hilliness: 0.9, traffic: 3 }),
       s('desert', 4, { curviness: 0.6, police: 2 }),
       s('canyon', 2, { curviness: 1.4, hilliness: 1, traffic: 3 }),
       s('canyon', 4, { curviness: 1, police: 2, dusk: true }),
@@ -136,7 +136,7 @@ const ALL: Course[] = [
     ],
   },
   {
-    id: 'alpes', name: 'Alpes Nevados', level: 'Difícil', rivalSkill: 0.99,
+    id: 'alpes', name: 'Alpes Nevados', level: 'Difícil', rivalSkill: 0.99, seed: 76000,
     stages: [
       s('alpine', 2, { curviness: 1.2, hilliness: 0.9 , tod: 'dawn' }),
       s('alpine', 2, { curviness: 1.4, hilliness: 1, weather: 'fog' }),
@@ -166,7 +166,7 @@ const ALL: Course[] = [
     ],
   },
   {
-    id: 'mundo', name: 'Volta ao Mundo', level: 'Expert', rivalSkill: 1.02,
+    id: 'mundo', name: 'Volta ao Mundo', level: 'Expert', rivalSkill: 1.02, seed: 77000,
     stages: [
       s('beach', 4, { curviness: 1 , tod: 'sunset' }),
       s('jungle', 2, { curviness: 1.4, weather: 'rain' }),
@@ -180,7 +180,7 @@ const ALL: Course[] = [
     id: 'crepusculo', name: 'Crepúsculo na Costa', level: 'Médio', rivalSkill: 0.96, seed: 41000,
     stages: [
       s('beach', 4, { curviness: 0.8 }),
-      s('coast', 2, { curviness: 1, hilliness: 0.6 , tod: 'sunset' }),
+      s('coast', 2, { curviness: 1, hilliness: 0.6 }),
       s('coast', 2, { curviness: 1.1, dusk: true }),
       s('beach', 2, { curviness: 0.9, night: true, traffic: 5 }),
       s('coast', 4, { curviness: 1, night: true, police: 2 }),
@@ -189,11 +189,11 @@ const ALL: Course[] = [
   {
     id: 'neblina', name: 'Vale da Neblina', level: 'Médio', rivalSkill: 0.97, seed: 42000,
     stages: [
-      s('forest', 2, { curviness: 1, weather: 'fog' }),
+      s('forest', 2, { curviness: 1, weather: 'fog', tod: 'dawn' }),
       s('farm', 2, { curviness: 0.9, hilliness: 0.7, weather: 'fog' }),
-      s('mountain', 2, { curviness: 1.2, hilliness: 0.9 , tod: 'dawn' }),
+      s('mountain', 2, { curviness: 1.2, hilliness: 0.9 }),
       s('forest', 2, { curviness: 1.2, weather: 'fog', night: true }),
-      s('mountain', 2, { curviness: 1.3, hilliness: 1, weather: 'fog' }),
+      s('mountain', 2, { curviness: 1.3, hilliness: 1, weather: 'fog', tod: 'dawn' }),
     ],
   },
   {
@@ -222,7 +222,7 @@ const ALL: Course[] = [
       s('alpinesnow', 2, { weather: 'snow', curviness: 1.5, hilliness: 1 }),
       s('alpine', 2, { weather: 'fog', curviness: 1.6, hilliness: 1 }),
       s('alpinesnow', 2, { weather: 'snow', curviness: 1.7, hilliness: 1, night: true }),
-      s('snow', 2, { weather: 'snow', curviness: 1.6, hilliness: 1 }),
+      s('snow', 2, { weather: 'snow', curviness: 1.6, hilliness: 1, tod: 'dawn' }),
       s('alpinesnow', 2, { weather: 'snow', curviness: 1.8, hilliness: 1, dusk: true }),
     ],
   },
@@ -230,7 +230,7 @@ const ALL: Course[] = [
     id: 'lendas', name: 'Rota das Lendas', level: 'Lenda', rivalSkill: 1.03, seed: 46000,
     stages: [
       s('desert', 4, { curviness: 1, police: 3 , tod: 'dawn' }),
-      s('canyon', 2, { curviness: 1.7, hilliness: 1, dusk: true }),
+      s('canyon', 2, { curviness: 1.7, hilliness: 1 }),
       s('mountain', 2, { curviness: 1.8, hilliness: 1, weather: 'fog' }),
       s('alpinesnow', 2, { curviness: 1.8, hilliness: 1, weather: 'snow' }),
       s('coast', 2, { curviness: 1.8, hilliness: 1, weather: 'rain', night: true }),
@@ -249,7 +249,7 @@ const ALL: Course[] = [
     ],
   },
   {
-    id: 'cerrado', name: 'Cerrado Sem Fim', level: 'Fácil', rivalSkill: 0.94,
+    id: 'cerrado', name: 'Cerrado Sem Fim', level: 'Fácil', rivalSkill: 0.94, seed: 72000,
     stages: [
       L('savanna', 4, { curviness: 0.5, police: 0, traffic: 4, tod: 'dawn' }),
       L('farm', 2, { hilliness: 0.7 }),
@@ -269,7 +269,7 @@ const ALL: Course[] = [
     ],
   },
   {
-    id: 'rotadoouro', name: 'Rota do Ouro', level: 'Médio', rivalSkill: 0.96,
+    id: 'rotadoouro', name: 'Rota do Ouro', level: 'Médio', rivalSkill: 0.96, seed: 79000,
     stages: [
       L('desert', 4, { curviness: 0.7, police: 2, tod: 'dawn' }),
       L('canyon', 2, { curviness: 1.2, hilliness: 0.9 }),
@@ -279,7 +279,7 @@ const ALL: Course[] = [
     ],
   },
   {
-    id: 'polo', name: 'Polo Industrial', level: 'Médio', rivalSkill: 0.965,
+    id: 'polo', name: 'Vale do Aço', level: 'Médio', rivalSkill: 0.965,
     stages: [
       L('farm', 4, { curviness: 0.7, tod: 'dawn' }),
       L('industrial', 4, { traffic: 7, police: 2 }),
@@ -299,7 +299,7 @@ const ALL: Course[] = [
     ],
   },
   {
-    id: 'costaverde', name: 'Costa Verde', level: 'Difícil', rivalSkill: 0.98,
+    id: 'costaverde', name: 'Costa Verde', level: 'Difícil', rivalSkill: 0.98, seed: 80000,
     stages: [
       L('coast', 2, { curviness: 1.3, hilliness: 0.8, tod: 'dawn' }),
       L('jungle', 2, { curviness: 1.4, weather: 'rain' }),
@@ -309,7 +309,7 @@ const ALL: Course[] = [
     ],
   },
   {
-    id: 'marginal', name: 'Marginal à Noite', level: 'Difícil', rivalSkill: 0.985,
+    id: 'marginal', name: 'Marginal à Noite', level: 'Difícil', rivalSkill: 0.985, seed: 81000,
     stages: [
       L('city', 4, { dusk: true, traffic: 8, police: 2 }),
       L('city', 4, { night: true, traffic: 9, police: 2 }),
@@ -319,7 +319,7 @@ const ALL: Course[] = [
     ],
   },
   {
-    id: 'cordilheira', name: 'Cordilheira', level: 'Expert', rivalSkill: 1.0,
+    id: 'cordilheira', name: 'Cordilheira', level: 'Expert', rivalSkill: 1.0, seed: 83000,
     stages: [
       L('alpine', 2, { curviness: 1.5, hilliness: 1, tod: 'dawn' }),
       L('alpinesnow', 2, { curviness: 1.6, hilliness: 1, weather: 'snow' }),
@@ -329,7 +329,7 @@ const ALL: Course[] = [
     ],
   },
   {
-    id: 'maratona', name: 'Grande Maratona', level: 'Expert', rivalSkill: 1.01,
+    id: 'maratona', name: 'Grande Maratona', level: 'Expert', rivalSkill: 1.01, seed: 82000,
     stages: [
       L('beach', 4, { curviness: 0.9, tod: 'dawn' }),
       L('canyon', 2, { curviness: 1.6, hilliness: 1 }),
@@ -345,7 +345,7 @@ const ALL: Course[] = [
       X(36)('savanna', 2, { curviness: 0.6, police: 0, traffic: 3, tod: 'dawn' }),
       X(36)('farm', 2, { curviness: 0.7, hilliness: 0.7 }),
       X(36)('canyon', 2, { curviness: 0.8, hilliness: 0.7, traffic: 3 }),
-      X(36)('savanna', 4, { curviness: 0.6, tod: 'sunset' }),
+      X(36)('savanna', 4, { curviness: 0.6 }),
       X(36)('canyon', 2, { curviness: 0.9, hilliness: 0.8, traffic: 3, dusk: true }),
     ],
   },
@@ -406,7 +406,7 @@ const ALL: Course[] = [
       X(42)('autumn', 2, { curviness: 1.4, hilliness: 0.9, weather: 'rain' }),
       X(42)('alpine', 2, { curviness: 1.4, hilliness: 1, weather: 'fog' }),
       X(42)('forest', 2, { curviness: 1.4, night: true, weather: 'rain', traffic: 5 }),
-      X(42)('alpine', 4, { curviness: 1, traffic: 7, police: 2, dusk: true }),
+      X(42)('alpine', 4, { curviness: 1, traffic: 7, police: 2, tod: 'dawn' }),
     ],
   },
   {
@@ -426,7 +426,7 @@ const ALL: Course[] = [
       X(44)('desert', 2, { curviness: 1.3, hilliness: 0.9 }),
       X(44)('canyon', 2, { curviness: 1.7, hilliness: 1, dusk: true }),
       X(44)('alpinesnow', 2, { curviness: 1.7, hilliness: 1, weather: 'snow', night: true }),
-      X(44)('jungle', 2, { curviness: 1.6, hilliness: 0.9, weather: 'rain' }),
+      X(44)('jungle', 2, { curviness: 1.6, hilliness: 0.9, weather: 'rain', tod: 'dawn' }),
     ],
   },
   {
@@ -434,9 +434,110 @@ const ALL: Course[] = [
     stages: [
       X(48)('city', 4, { traffic: 9, police: 3, tod: 'dawn' }),
       X(48)('jungle', 2, { curviness: 1.6, hilliness: 0.9, weather: 'rain' }),
-      X(48)('desert', 4, { curviness: 1.1, police: 3, tod: 'sunset' }),
+      X(48)('desert', 4, { curviness: 1.1, police: 3 }),
       X(48)('alpinesnow', 2, { curviness: 1.8, hilliness: 1, weather: 'snow', dusk: true }),
       X(48)('mountain', 2, { curviness: 1.8, hilliness: 1, night: true, weather: 'fog' }),
+    ],
+  },
+  // ---- mais roteiros muito longos (36 a 48 seções por trecho), cada um com semente própria ----
+  {
+    id: 'estradareal', name: 'Estrada Real', level: 'Fácil', rivalSkill: 0.93, seed: 61000,
+    stages: [
+      X(36)('farm', 2, { curviness: 0.6, hilliness: 0.6, police: 0, traffic: 3, tod: 'dawn' }),
+      X(36)('forest', 2, { curviness: 0.7, hilliness: 0.6, weather: 'fog' }),
+      X(36)('mountain', 2, { curviness: 0.8, hilliness: 0.8, traffic: 3 }),
+      X(36)('farm', 4, { curviness: 0.6, traffic: 5 }),
+      X(36)('coast', 2, { curviness: 0.8, hilliness: 0.6, tod: 'sunset' }),
+    ],
+  },
+  {
+    id: 'lencois', name: 'Lençóis Maranhenses', level: 'Fácil', rivalSkill: 0.94, seed: 62000,
+    stages: [
+      X(38)('beach', 2, { curviness: 0.5, police: 0, traffic: 2 }),
+      X(38)('desert', 2, { curviness: 0.6, hilliness: 0.6, traffic: 2 }),
+      X(38)('savanna', 2, { curviness: 0.7, traffic: 3 }),
+      X(38)('desert', 4, { curviness: 0.5, police: 2 }),
+      X(38)('beach', 2, { curviness: 0.7, traffic: 3, dusk: true }),
+    ],
+  },
+  {
+    id: 'transpantaneira', name: 'Transpantaneira', level: 'Médio', rivalSkill: 0.955, seed: 63000,
+    stages: [
+      X(40)('savanna', 2, { curviness: 0.8, hilliness: 0.4, police: 0, traffic: 2, tod: 'dawn' }),
+      X(40)('jungle', 2, { curviness: 1, weather: 'rain', traffic: 3 }),
+      X(40)('savanna', 2, { curviness: 0.9, hilliness: 0.4, traffic: 2 }),
+      X(40)('farm', 2, { curviness: 1, hilliness: 0.6, tod: 'sunset' }),
+      X(40)('jungle', 2, { curviness: 1.1, night: true, traffic: 3 }),
+    ],
+  },
+  {
+    id: 'outback', name: 'Outback Australiano', level: 'Médio', rivalSkill: 0.96, seed: 64000,
+    stages: [
+      X(40)('desert', 2, { curviness: 0.6, hilliness: 0.4, police: 0, traffic: 2, night: true }),
+      X(40)('desert', 2, { curviness: 0.7, hilliness: 0.6, traffic: 2, tod: 'dawn' }),
+      X(40)('savanna', 4, { curviness: 0.6, traffic: 4, police: 2 }),
+      X(40)('canyon', 2, { curviness: 1.1, hilliness: 0.9, traffic: 3 }),
+      X(40)('desert', 2, { curviness: 0.9, hilliness: 0.7, dusk: true }),
+    ],
+  },
+  {
+    id: 'anchieta', name: 'Via Anchieta', level: 'Médio', rivalSkill: 0.97, seed: 65000,
+    stages: [
+      X(40)('city', 4, { traffic: 6, police: 2, night: true }),
+      X(40)('industrial', 4, { curviness: 0.9, traffic: 8, police: 2, weather: 'rain', tod: 'dawn' }),
+      X(40)('mountain', 2, { curviness: 1.2, hilliness: 1, weather: 'fog' }),
+      X(40)('industrial', 4, { curviness: 0.9, traffic: 7, weather: 'rain' }),
+      X(40)('coast', 4, { curviness: 0.9, traffic: 6, police: 2, dusk: true }),
+    ],
+  },
+  {
+    id: 'amalfitana', name: 'Costa Amalfitana', level: 'Difícil', rivalSkill: 0.98, seed: 66100,
+    stages: [
+      X(42)('coast', 2, { curviness: 1.3, hilliness: 0.9 }),
+      X(42)('beach', 2, { curviness: 1.2, hilliness: 0.6, traffic: 5 }),
+      X(42)('coast', 2, { curviness: 1.5, hilliness: 1, police: 2 }),
+      X(42)('mountain', 2, { curviness: 1.5, hilliness: 1, weather: 'rain' }),
+      X(42)('coast', 2, { curviness: 1.4, hilliness: 1, tod: 'sunset' }),
+    ],
+  },
+  {
+    id: 'stelvio', name: 'Passo do Stelvio', level: 'Difícil', rivalSkill: 0.985, seed: 67000,
+    stages: [
+      X(42)('alpine', 2, { curviness: 1.3, hilliness: 0.9, tod: 'dawn' }),
+      X(42)('alpine', 2, { curviness: 1.5, hilliness: 1, weather: 'fog' }),
+      X(42)('alpinesnow', 2, { curviness: 1.6, hilliness: 1, weather: 'snow' }),
+      X(42)('alpinesnow', 2, { curviness: 1.6, hilliness: 1 }),
+      X(42)('alpine', 2, { curviness: 1.5, hilliness: 1, traffic: 5, dusk: true }),
+    ],
+  },
+  {
+    id: 'carretera', name: 'Carretera Austral', level: 'Expert', rivalSkill: 1.0, seed: 68000,
+    stages: [
+      X(44)('forest', 2, { curviness: 1.4, hilliness: 0.9, weather: 'rain' }),
+      X(44)('coast', 2, { curviness: 1.5, hilliness: 1, weather: 'fog' }),
+      X(44)('snow', 2, { curviness: 1.6, hilliness: 1, weather: 'snow' }),
+      X(44)('alpine', 2, { curviness: 1.7, hilliness: 1, weather: 'rain' }),
+      X(44)('alpinesnow', 2, { curviness: 1.7, hilliness: 1, tod: 'sunset' }),
+    ],
+  },
+  {
+    id: 'caracoles', name: 'Caracoles dos Andes', level: 'Expert', rivalSkill: 1.01, seed: 69000,
+    stages: [
+      X(46)('mountain', 2, { curviness: 1.6, hilliness: 1, night: true, traffic: 3 }),
+      X(46)('alpine', 2, { curviness: 1.7, hilliness: 1, tod: 'dawn' }),
+      X(46)('alpinesnow', 2, { curviness: 1.8, hilliness: 1, weather: 'snow' }),
+      X(46)('snow', 2, { curviness: 1.7, hilliness: 1, weather: 'fog' }),
+      X(46)('canyon', 2, { curviness: 1.6, hilliness: 1, dusk: true }),
+    ],
+  },
+  {
+    id: 'interoceanica', name: 'Interoceânica', level: 'Lenda', rivalSkill: 1.03, seed: 70000,
+    stages: [
+      X(48)('jungle', 2, { curviness: 1.6, hilliness: 0.8, weather: 'rain', tod: 'dawn' }),
+      X(48)('savanna', 4, { curviness: 1.1, traffic: 6, police: 3 }),
+      X(48)('mountain', 2, { curviness: 1.8, hilliness: 1, weather: 'fog' }),
+      X(48)('alpinesnow', 2, { curviness: 1.8, hilliness: 1, weather: 'snow', dusk: true }),
+      X(48)('coast', 4, { curviness: 1.3, hilliness: 0.8, night: true, traffic: 7, police: 3 }),
     ],
   },
 ];
@@ -445,7 +546,8 @@ const ALL: Course[] = [
 const ORDER = ['deserto', 'litoral', 'savana', 'outono', 'metropole', 'canion', 'selva', 'crepusculo', 'industrial', 'neblina',
   'serra', 'alpes', 'tuneis', 'grandemetropole', 'noturno', 'tempestade', 'penhasco', 'inverno', 'mundo', 'lendas',
   'litoralnorte', 'cerrado', 'transamazonica', 'rotadoouro', 'polo', 'serragaucha', 'costaverde', 'marginal', 'cordilheira', 'maratona',
-  'chapada', 'pampa', 'riosantos', 'sertao', 'rota66', 'rastro', 'florestanegra', 'patagonia', 'panamericana', 'travessia'];
+  'chapada', 'pampa', 'riosantos', 'sertao', 'rota66', 'rastro', 'florestanegra', 'patagonia', 'panamericana', 'travessia',
+  'estradareal', 'lencois', 'transpantaneira', 'outback', 'anchieta', 'amalfitana', 'stelvio', 'carretera', 'caracoles', 'interoceanica'];
 export const COURSES: Course[] = ORDER.map((id) => ALL.find((c) => c.id === id)!);
 
 // mapas liberados no Arcade (no começo só o primeiro), guardado no aparelho

@@ -66,6 +66,8 @@ export function pickBlitz(track: Pick<Track, 'segments' | 'startZ' | 'finishZ'>,
     const si = Math.floor(z / SEG_LEN);
     const back = Math.round(BLITZ_SIGNS_M[0] / SEG_M) + 20;
     if (track.segments.slice(si - back, si + 40).some((sg) => sg.tunnel)) continue;
+    // nem em curva fechada: os cones e a viatura ficam numa pista que se vê de longe
+    if (track.segments.slice(si - 60, si + 45).some((sg) => Math.abs(sg.curve) >= 4.5)) continue;
     return i;
   }
   return -1;

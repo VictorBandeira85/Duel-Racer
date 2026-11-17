@@ -230,6 +230,18 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
     for (let i = b; i < b + 4; i++) segments[i].sprites = segments[i].sprites.filter((sp) => sp.kind === 'post');
     k++;
   }
+  // placa do posto que o túnel apagou (dentro dele ou na boca, que fica limpa): vai para o lugar
+  // aberto mais perto, fora do túnel e da boca
+  const nearTunnel = (k: number) => segments.slice(k - 4, k + 9).some((sg) => sg.tunnel);
+  for (const m of [5000, 4000, 3000, 2000, 1000, 500]) {
+    const i = finishIndex - Math.round(m / SEG_M);
+    if (i <= 80 || !segments[i] || segments[i].sprites.some((sp) => sp.kind === 'gasKm')) continue;
+    let k = -1;
+    for (let d = 1; d < 400 && k < 0; d++) for (const q of [i - d, i + d]) if (k < 0 && q > 80 && segments[q] && !nearTunnel(q)) k = q;
+    if (k < 0) continue;
+    segments[k].sprites = segments[k].sprites.filter((sp) => !(sp.x > 0 && sp.x < roadW + 3000));
+    segments[k].sprites.push({ kind: 'gasKm', x: roadW + 1100, seed: m });
+  }
 
   // placas de aviso antes de toda curva média e forte, no acostamento da direita (refletivas: o
   // farol acende de noite): curva suave ou acentuada, para o lado dela, ~55 segmentos antes. Se
@@ -270,7 +282,17 @@ export function buildTrack(def: StageDef, theme: Theme, seed: number): Track {
   const policeSpots: number[] = [];
   for (let i = 0; i < def.police; i++) {
     const t = 0.25 + (0.55 * (i + rand() * 0.6)) / Math.max(1, def.police);
-    policeSpots.push(Math.floor(startIndex + (finishIndex - startIndex) * t) * SEG_LEN);
+    let at = Math.floor(startIndex + (finishIndex - startIndex) * t);
+    // nunca dentro de túnel nem em cima de curva fechada: anda até o ponto mais perto em pista
+    // aberta e mais reta (sem sorteio: o resto da pista não muda)
+    const bad = (j: number) => segments.slice(j - 40, j + 41).some((sg) => sg.tunnel) || segments.slice(j - 25, j + 26).some((sg) => Math.abs(sg.curve) >= 5);
+    if (bad(at)) {
+      for (let d = 5; d <= 1200; d += 5) {
+        const j = [at + d, at - d].find((q) => q > startIndex + 150 && q < finishIndex - 250 && !bad(q));
+        if (j !== undefined) { at = j; break; }
+      }
+    }
+    policeSpots.push(at * SEG_LEN);
   }
 
   // blitz: no máximo um dos pontos de polícia (sorteio próprio, para não mudar o resto da pista), com as

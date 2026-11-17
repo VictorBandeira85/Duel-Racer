@@ -196,6 +196,7 @@ export interface Rival {
   recover: number;
   think: number;
   finishTime: number;
+  stuckT?: number; // tempo parado atrás de um carro batido (src/race.ts: updateRival)
   style: RivalStyle;
   mistake: number; // tempo restante de um erro (imprevisível)
   wasAhead?: boolean;
@@ -1719,7 +1720,8 @@ export class Race {
     const home = laneCenter(this.track, 1), left = laneCenter(this.track, 0);
     const v = Math.max(r.speed, Math.min(want, this.rivalCar!.maxSpeed));
     type Obj = { z: number; x: number; speed: number; len: number };
-    const objs: Obj[] = this.traffic.filter((c) => !c.hit).map((c) => ({ z: c.z, x: c.x, speed: c.speed, len: (c.truck ? 3 : 1.6) * SEG_LEN }));
+    // (o carro batido fica parado na pista: entra como obstáculo parado, senão o rival não sai de trás dele)
+    const objs: Obj[] = this.traffic.map((c) => ({ z: c.z, x: c.x, speed: c.hit ? 0 : c.speed, len: (c.truck ? 3 : 1.6) * SEG_LEN }));
     if (this.state === 'drive') objs.push({ z: this.playerZ, x: this.x, speed: this.speed, len: 1.6 * SEG_LEN });
     for (const o of this.peers) objs.push({ z: o.z, x: o.x, speed: o.speed, len: 1.6 * SEG_LEN }); // os outros da corrida
     // lentos na faixa dele, à frente: o primeiro e os que vêm colados (passa todos de uma vez)
@@ -1752,7 +1754,7 @@ export class Race {
       const closing = v - speed;
       if (closing > 0) best = Math.min(best, dz / closing);
     };
-    for (const c of this.traffic) if (!c.hit) check(c.z, c.x, c.speed);
+    for (const c of this.traffic) check(c.z, c.x, c.hit ? 0 : c.speed); // batido: parado na pista
     check(this.playerZ, this.x, this.speed);
     for (const o of this.peers) check(o.z, o.x, o.speed);
     // faixa fechada pela blitz ou pela obra (quatro faixas): um obstáculo parado onde os cones chegam nela
@@ -1979,6 +1981,20 @@ export class Race {
       r.recover -= dt;
       target = Math.min(target, max * 0.2);
     }
+    // parado atrás de um carro (ou moto caída) batido onde não dá para desviar (na faixa estreita da obra
+    // ou da blitz, ou sem vez na contramão): depois de uns segundos o batido é tirado para o acostamento (sem isso o
+    // rival ficava parado até o jogador passar e o carro sumir lá atrás)
+    if (r.finishTime < 0 && r.recover <= 0 && r.speed < 200) {
+      r.stuckT = (r.stuckT ?? 0) + dt;
+      const w = r.stuckT > 4 && this.traffic.find((c) => c.hit && c.z > r.z && c.z - r.z < 6 * SEG_LEN && Math.abs(c.x - r.x) < CAR_W * 1.3);
+      if (w) {
+        // as faixas fechadas ficam sempre à direita: dentro delas encosta à esquerda
+        const shut = this.closures().some((b) => w.z > b.z0 - 4 * SEG_LEN && w.z < b.z3 + 4 * SEG_LEN);
+        const edge = (shut || w.x < 0 ? -1 : 1) * (this.track.roadW + 900);
+        w.slide = (edge - w.x) * (w.fall ? 2.4 : 2.2); // escorrega até lá (o deslize do batido cai a 2,2/s; da moto caída, 2,4/s)
+        r.stuckT = 0;
+      }
+    } else r.stuckT = 0;
     // segue quem está na frente na linha dele (e na faixa para onde vai): freia a tempo de
     // ficar a uma distância segura em vez de bater na traseira enquanto espera a ultrapassagem
     {

@@ -276,6 +276,22 @@ export const fogAt = (dist: number) => 1 - Math.exp(-dist / FOG_D);
 const FOG_DAY = [1, 3, 5].map((i) => parseInt(FOG_COLOR.slice(i, i + 2), 16));
 const FOG_NIGHT = [34, 38, 48];
 let fogRgb = FOG_DAY.join(',');
+// lâmina do guard-rail entre dois postes (perto: x1,y1,h1; longe: x2,y2,h2): as mesmas faixas da arte
+// (assets/scenery/rail.png, linhas 5 a 20 de 34: o perfil ondulado), contínuas de poste a poste
+const RAIL_ROWS = ['#020100', '#b9b8b9', '#ebebe1', '#94929d', '#393354', '#383354', '#453f62', '#756f88', '#777289', '#848290', '#c7c6c4', '#f1eee6', '#9c9ba3', '#474163', '#534c6e', '#000000'];
+function railBlade(c: CanvasRenderingContext2D, x1: number, y1: number, h1: number, x2: number, y2: number, h2: number, fk: number) {
+  const band = (a: number, b: number, col: string) => {
+    c.fillStyle = col;
+    c.beginPath();
+    c.moveTo(x1, y1 - h1 * a); c.lineTo(x2, y2 - h2 * a); c.lineTo(x2, y2 - h2 * b); c.lineTo(x1, y1 - h1 * b);
+    c.closePath();
+    c.fill();
+  };
+  // de longe as linhas da arte ficam menores que um pixel: junta em 4 faixas
+  const rows = h1 * (16 / 34) < 12 ? [[0, 1, 0], [1, 4, 2], [4, 10, 7], [10, 15, 11], [15, 16, 15]] : RAIL_ROWS.map((_, k) => [k, k + 1, k]);
+  for (const [r0, r1, ci] of rows) band(1 - (5 + r0) / 34 + 0.004, 1 - (5 + r1) / 34 - 0.004, RAIL_ROWS[ci]);
+  if (fk > 0.02) { c.globalAlpha = Math.min(1, fk); band(1 - 5 / 34, 1 - 21 / 34, `rgb(${fogRgb})`); c.globalAlpha = 1; }
+}
 function setFogNight(k: number) {
   fogRgb = FOG_DAY.map((v, i) => Math.round(v + (FOG_NIGHT[i] - v) * k)).join(',');
 }
@@ -720,6 +736,9 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   // por cima delas (dentro dos túneis não há cenário)
   let tunAhead = Infinity;
   for (let k = base.index; k < end; k++) if (segs[k].tunnel) { tunAhead = k; break; }
+  // guard-rail contínuo: a lâmina é uma faixa só, de um poste ao seguinte (antes cada sprite trazia
+  // um pedaço de lâmina e, de perto, viravam pedaços soltos com vão entre eles)
+  const railPrev = new Map<number, { x: number; y: number; h: number; i: number }>();
   for (let i = end - 1; i > base.index; i--) {
     const s = segs[i];
     if (s.p1.camera.z <= CAM_DEPTH * 4) continue;
@@ -747,6 +766,13 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
       continue;
     }
     for (const sp of s.sprites) {
+      if (sp.kind === 'rail' && dist <= 90 * Math.max(1, far * 0.85)) {
+        const sc0 = s.p1.screen.scale, rh = SPRITES.rail.h * sc0 * vp.K;
+        const rx = s.p1.screen.x + sc0 * sp.x * vp.K, ry = s.p1.screen.y, side = Math.sign(sp.x);
+        const pv = railPrev.get(side);
+        if (pv && pv.i - i <= 3 && rh >= 0.6) railBlade(c, rx, ry, rh, pv.x, pv.y, pv.h, fk);
+        railPrev.set(side, { x: rx, y: ry, h: rh, i });
+      }
       // objetos pequenos e distantes só poluem o horizonte
       if (dist > (sp.kind === 'post' || sp.kind === 'rail' ? 90 : FAR_KINDS.includes(sp.kind) ? 400 : 170) * Math.max(1, far * 0.85)) continue;
       const def = SPRITES[sp.kind];

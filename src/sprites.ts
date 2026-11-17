@@ -561,12 +561,19 @@ const station: Draw = (c, x, y, w, h) => {
 };
 
 // guarda-corpo das curvas: viga ondulada com postes
+// (a lâmina contínua é desenhada em render3d, railBlade: aqui só o poste — da arte, colunas 14 a 27 de
+// rail.png, sem a lâmina)
 const rail: Draw = (c, x, y, w, h) => {
-  for (const px of [-0.42, 0.38]) rect(c, '#4a4a50', x + w * px, y - h * 0.8, w * 0.06, h * 0.8);
-  rect(c, '#9a9ca4', x - w / 2, y - h * 0.86, w, h * 0.34);
-  rect(c, '#d8dae0', x - w / 2, y - h * 0.86, w, h * 0.08);
-  rect(c, '#6a6c74', x - w / 2, y - h * 0.62, w, h * 0.08);
-  rect(c, '#ffffff', x - w * 0.42, y - h * 0.78, w * 0.06, h * 0.1);
+  const im = railArt();
+  if (im) {
+    const sm = c.imageSmoothingEnabled;
+    c.imageSmoothingEnabled = false;
+    const pw = (h * 14) / 34;
+    c.drawImage(im, 14, 0, 14, 34, x - pw / 2, y - h, pw, h);
+    c.imageSmoothingEnabled = sm;
+    return;
+  }
+  rect(c, '#4a4a50', x - w * 0.03, y - h * 0.8, w * 0.06, h * 0.8);
 };
 
 // outdoor com anúncios fictícios dos anos 90 (billboards.ts): a arte em pixels nativos vai
@@ -921,6 +928,7 @@ function artImg(name: string): HTMLImageElement | null {
   need(im); // a tela precisa dela: passa na frente na fila
   return null;
 }
+const railArt = () => sceneryImg('rail');
 const hasArt = (name: string) => !!SCENERY_ART[`./assets/scenery/${name}.png`];
 // à noite (e no lusco-fusco/túnel) as construções usam a arte com as luzes acesas
 let sceneryNight = false;
@@ -943,6 +951,7 @@ export const preloadScenery = () => Object.keys(SCENERY_ART).forEach((p) => artI
 if (hasArt('signL')) { SPRITES.signL.h = 620; SPRITES.signR.h = 620; }
 for (const [kind, size] of Object.entries(SCENERY_SIZE) as [SpriteKind, [number, number]][]) {
   if (!SCENERY_ART[`./assets/scenery/${kind}.png`]) continue;
+  if (kind === 'rail') continue; // guard-rail: só o poste da arte (abaixo); a lâmina contínua é do render3d
   const def = SPRITES[kind], vector = def.draw;
   def.w = Math.round((def.h * size[0]) / size[1]);
   def.draw = (c, x, y, w, h, seed) => {

@@ -25,7 +25,6 @@ import { Race } from './race';
 import { overlayDraw, overlayKey, overlayOn, overlayTap, overlayType } from './overlay';
 import { recDone, recTick } from './recorder';
 import { logWeek } from './weekly';
-import { openPhotoMode } from './photomode';
 import { DRAG_COURSE, DragRace, dragHost } from './drag';
 import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
 import { CHALLENGE_PRIZE, checkChallenge, partialStats, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
@@ -837,18 +836,6 @@ function quickMute(kind: 'sfx' | 'music') {
 $('qMusic').addEventListener('click', () => quickMute('music'));
 $('qSound').addEventListener('click', () => quickMute('sfx'));
 $('resume').addEventListener('click', () => setPaused(false));
-// modo foto (photomode.ts): a pausa some enquanto a câmera está fora do carro e volta ao sair
-$('photoBtn').addEventListener('click', () => {
-  if (!race || state.screen !== 'race') return;
-  $('pause').classList.add('hidden');
-  $('settings').classList.add('hidden');
-  openPhotoMode(race, () => {
-    if (state.screen !== 'race' || !paused) return;
-    $('pause').classList.remove('hidden');
-    focusIdx = 0;
-    showFocus();
-  });
-});
 // botões dos painéis da pausa, ajustes e saída: respondem ao soltar o dedo (no iPhone o primeiro
 // toque às vezes só "passa por cima" do botão e o click não vem); o click de verdade que chega
 // logo depois é ignorado, para não acionar duas vezes

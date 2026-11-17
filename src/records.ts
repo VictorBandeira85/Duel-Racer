@@ -40,6 +40,24 @@ const write = (key: string, v: unknown) => {
 
 export const stageKey = (course: string, stage: number) => `${course}:${stage}`;
 
+// v0.70.0: 13 roteiros ganharam traçado novo (semente própria). Os recordes, fantasmas (os seus e os de
+// amigos) e o ranking feitos na pista antiga deixam de valer: apagados uma vez, ao abrir o jogo
+const NEW_TRACKS = ['litoral', 'cerrado', 'outono', 'canion', 'serra', 'alpes', 'mundo', 'tempestade', 'rotadoouro', 'costaverde', 'marginal', 'maratona', 'cordilheira'];
+(() => {
+  const FLAG = 'duel-racer:pistas-v70';
+  try {
+    if (localStorage.getItem(FLAG)) return;
+    const old = (k: string) => NEW_TRACKS.some((id) => k.startsWith(`${id}:`));
+    for (const key of [KEY_T, KEY_G, 'duel-racer:fantasmas-amigo']) {
+      const m = read<Record<string, unknown>>(key, {});
+      const keep = Object.fromEntries(Object.entries(m).filter(([k]) => !old(k)));
+      if (Object.keys(keep).length !== Object.keys(m).length) write(key, keep);
+    }
+    for (const id of NEW_TRACKS) localStorage.removeItem(`duel-racer:scores:${id}`);
+    localStorage.setItem(FLAG, '1');
+  } catch { /* sem armazenamento: nada a apagar */ }
+})();
+
 export function ghostOn() {
   return read(KEY_ON, true);
 }

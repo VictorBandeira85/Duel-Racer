@@ -496,7 +496,9 @@ function tapGarage(s: AppState, a: Actions, x: number, y: number) {
 // (até 10 vagas: 2 colunas; com as vagas do turbo/supercharger: 3 colunas, na mesma altura de toque)
 const prepRows = (n: number) => {
   const cols = n > 10 ? 3 : 2, cw = (312 - (cols - 1) * 4) / cols;
-  return Array.from({ length: n }, (_, i): Rect => ({ x: ox() + 4 + (i % cols) * (cw + 4), y: 121 + Math.floor(i / cols) * 17.6, w: cw, h: 16.2 }));
+  // (com a vaga dos aparelhos são 6 linhas: ficam mais baixas para não encostar nos botões de baixo)
+  const pitch = Math.min(17.6, 88 / Math.ceil(n / cols));
+  return Array.from({ length: n }, (_, i): Rect => ({ x: ox() + 4 + (i % cols) * (cw + 4), y: 121 + Math.floor(i / cols) * pitch, w: cw, h: pitch - 1.4 }));
 };
 // vagas da tela: as do carro com as peças em vista (escolher turbo já mostra turbina, intercooler...)
 const prepSlots = (car: CarSpec) => slotsFor(car, ui.prepView);
@@ -535,7 +537,8 @@ function prepSwap(s: AppState) {
   openPrep(cs, cars[ui.garage]);
 }
 // wastegate / boost controller: comprado uma vez, qualquer pressão depois é só regular
-const ownsPart = (cs: CareerSave, car: CarSpec, slot: SlotId, id: string) => !id || (cs.parts?.[car.id] ?? []).some((k) => k === `${slot}:${id}` || ((slot === 'pressao' || slot === 'largada') && k.startsWith(`${slot}:`)));
+// (o lugar dos aparelhos no painel não se compra: é só mudar)
+const ownsPart = (cs: CareerSave, car: CarSpec, slot: SlotId, id: string) => !id || slot === 'painel' || (cs.parts?.[car.id] ?? []).some((k) => k === `${slot}:${id}` || ((slot === 'pressao' || slot === 'largada') && k.startsWith(`${slot}:`)));
 
 // o que vale na tela de preparação: na carreira, os ajustes e defeitos do carro e as peças instaladas;
 // no Arcade, o carro de fábrica e as peças da oficina do Arcade; no catálogo, nada instalado
@@ -589,10 +592,10 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
     c.lineWidth = hot ? 2 : 1;
     c.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
     ink(c, sl.name.toUpperCase(), r.x + 4, r.y + 2, 4, hot ? YELLOW : GREY);
-    ink(c, vp.name, r.x + 4, r.y + 8.5, vp.name.length * 5.6 > r.w - 8 ? 4 : 5, hot ? '#fff' : vp.id ? RED : INK);
+    ink(c, vp.name, r.x + 4, r.y + Math.min(8.5, r.h - 7.2), vp.name.length * 5.6 > r.w - 8 ? 4 : 5, hot ? '#fff' : vp.id ? RED : INK);
     // nome de vaga comprido (BOOST CONTROLLER): o aviso desce para a linha da peça, à direita
     const low = sl.name.length * 4 + 44 > r.w;
-    if (!installed) ink(c, 'EM VISTA', r.x + r.w - 4, r.y + (low ? 10 : 2), 4, hot ? YELLOW : RED, 'right');
+    if (!installed) ink(c, 'EM VISTA', r.x + r.w - 4, r.y + (low ? Math.min(10, r.h - 6) : 2), 4, hot ? YELLOW : RED, 'right');
   });
   // barra da vaga escolhida: ◀ peça ▶ e o botão de comprar/instalar
   {
@@ -620,7 +623,8 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
     ink(c, vp.id && sl.id !== 'rodas' ? `${n + 1}/${sl.parts.length} · ${pn}` : `${sl.name.toUpperCase()} ${n + 1}/${sl.parts.length}`, tx, pb.name.y + 3, 4, GREY, 'center');
     ink(c, vp.name, tx, pb.name.y + 10, vp.name.length > 18 ? 5 : 6, vp.id ? RED : INK, 'center');
     const cost = partCost(car, vp);
-    if (ui.arc) tag(c, pb.buy, installed ? 'INSTALADA' : vp.id ? 'INSTALAR GRÁTIS' : 'VOLTAR AO ORIGINAL', !installed); // Arcade: sem dinheiro
+    if (sl.id === 'painel') tag(c, pb.buy, installed ? 'AQUI' : ui.demo || (!ui.arc && !cs) ? 'LUGAR' : 'MUDAR PARA CÁ', !installed && !ui.demo && (!!ui.arc || !!cs)); // lugar dos aparelhos: de graça
+    else if (ui.arc) tag(c, pb.buy, installed ? 'INSTALADA' : vp.id ? 'INSTALAR GRÁTIS' : 'VOLTAR AO ORIGINAL', !installed); // Arcade: sem dinheiro
     else if (ui.demo || !cs) tag(c, pb.buy, vp.id ? `NA CARREIRA ${money(cost)}` : 'DE FÁBRICA'); // catálogo: só mostra o preço
     else {
       const own = ownsPart(cs, car, sl.id, vp.id);
@@ -649,21 +653,23 @@ function prepStep(car: CarSpec, slot: SlotId, d: number) {
   const i = parts.findIndex((p) => p.id === (ui.prepView[slot] ?? ''));
   ui.prepView = { ...ui.prepView, [slot]: parts[(i + d + parts.length) % parts.length].id };
 }
+// vaga que depende de outra peça já instalada
+const needFirst = (slot: SlotId) => (slot === 'painel' ? 'Instale o 3-step ou o controle de pressão primeiro' : ui.prepView.inducao === 'super' ? 'Instale o supercharger primeiro' : 'Instale o turbo primeiro');
 function prepInstall(s: AppState, car: CarSpec, slot: SlotId) {
   if (ui.arc) {
     // Arcade: instala de graça, nas preparações do Arcade (a carreira não muda)
     const p = partOf(car, slot, ui.prepView[slot]), cur = arcadeBuildOf(car.id);
     if ((cur[slot] ?? '') === p.id) return flash(s, 'Já está instalada');
-    if (!slotsFor(car, cur).some((sl) => sl.id === slot)) return flash(s, ui.prepView.inducao === 'super' ? 'Instale o supercharger primeiro' : 'Instale o turbo primeiro');
+    if (!slotsFor(car, cur).some((sl) => sl.id === slot)) return flash(s, needFirst(slot));
     setArcadePart(car.id, slot, p.id);
-    return flash(s, p.id ? partInstalledMsg(car, slot, p) : 'Peça original de volta');
+    return flash(s, p.id || slot === 'painel' ? partInstalledMsg(car, slot, p) : 'Peça original de volta');
   }
   const cs = s.career!;
   if (ui.demo) return flash(s, 'Catálogo: compre e instale na oficina da carreira');
   const p = partOf(car, slot, ui.prepView[slot]);
   if ((buildOf(cs, car.id)[slot] ?? '') === p.id) return flash(s, 'Já está instalada');
   // turbina, polia, intercooler e downpipe só entram com o turbo/supercharger já instalado
-  if (!slotsFor(car, buildOf(cs, car.id)).some((sl) => sl.id === slot)) return flash(s, ui.prepView.inducao === 'super' ? 'Instale o supercharger primeiro' : 'Instale o turbo primeiro');
+  if (!slotsFor(car, buildOf(cs, car.id)).some((sl) => sl.id === slot)) return flash(s, needFirst(slot));
   if (!ownsPart(cs, car, slot, p.id)) {
     const cost = partCost(car, p);
     if (cs.money < cost) return flash(s, `Falta ${money(cost - cs.money)}`);
@@ -673,7 +679,7 @@ function prepInstall(s: AppState, car: CarSpec, slot: SlotId) {
   }
   cs.builds = { ...(cs.builds ?? {}), [car.id]: { ...buildOf(cs, car.id), [slot]: p.id } };
   saveCareer(cs);
-  flash(s, p.id ? partInstalledMsg(car, slot, p) : 'Peça original de volta');
+  flash(s, p.id || slot === 'painel' ? partInstalledMsg(car, slot, p) : 'Peça original de volta');
 }
 function prepRev(s: AppState, car: CarSpec) {
   const { lv, st, wear } = prepCtx(s, car);

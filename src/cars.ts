@@ -87,7 +87,7 @@ export interface CarSpec {
   wheelArt?: string; // roda aftermarket (tuning.ts): desenhada no lugar do aro na vista lateral
   rideDrop?: number; // suspensão rebaixada (tuning.ts): fração da altura livre que a carroceria desce na vista lateral
   forced?: 'turbo' | 'super'; // turbo/supercharger instalado na preparação: a cabine ganha o manômetro auxiliar
-  boostMax?: number; // pressão máxima (kgf/cm²) do manômetro
+  boostMax?: number; // pressão máxima (bar) do manômetro
   boostMul?: number; // turbo de fábrica com turbina maior: pressão multiplicada (manômetro do quadro)
   turboHeat?: number; // turbo do kit (tuning.ts boostInfo): calor por segundo no giro máximo, pé no fundo
   icEff?: number; // intercooler do kit: fração do calor do turbo que ele tira em alta rotação
@@ -118,6 +118,10 @@ export interface CarSpec {
   traction?: number; // aderência na largada (em g), calibrada pelo 0-100
   spool?: [number, number]; // turbo do kit: [rapidez, giro em que a pressão aparece] pela turbina
   launchCap?: number; // controle de largada (3-step da preparação): giro máximo parado, fração do corte
+  launchRpm?: number; // o mesmo giro do 3-step em rpm (visor do aparelho na cabine)
+  boostSet?: number; // pressão escolhida no wastegate / boost controller (bar), mostrada no aparelho
+  boostDev?: 'wastegate' | 'controller'; // qual aparelho regula a pressão (carburado / injeção)
+  devPos?: string; // lugar dos aparelhos na cabine (devpos.ts; vazio = o primeiro da cabine)
   launch?: number; // força extra do motor em 1ª (calibrada pelo 0-100 quando só a aderência não basta)
   drag?: number; // arrasto aerodinâmico (por m), calibrado pela velocidade máxima
   handling: number;

@@ -422,7 +422,7 @@ export class Race {
     return Math.min(blitzEdge(this.blitz, z), blitzEdge(this.obra, z));
   }
   // pare-e-siga da obra em mão dupla: segura a contramão até o jogador e o rival (se vier perto) passarem
-  private obraHold() {
+  obraHold() {
     const o = this.obra;
     if (!o || !o.two) return false;
     return this.playerZ < o.z3 + SEG_LEN || this.racers.some((r) => r.z < o.z3 + SEG_LEN && r.z > o.z0 - 400 * SEG_LEN);

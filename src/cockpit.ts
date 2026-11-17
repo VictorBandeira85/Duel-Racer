@@ -22,6 +22,11 @@ import { drawSmoke } from './smoke';
 import { drawCrashFx, drawGlass, drawSparks } from './damage';
 import { blinkOn } from './cars';
 import { engineSpec } from './enginesynth';
+import { devPositions } from './devpos';
+// aparelhos da preparação (arte do Victor, visores apagados: o jogo acende por cima)
+import threeStepPng from './assets/devices/threestep.png';
+import boostCtlPng from './assets/devices/boostctl.png';
+import wastegatePng from './assets/devices/wastegate.png';
 // cabines em pixel art (tools/ref/import_cockpit.py)
 import dashF40Png from './assets/cockpit/f40-dash.png';
 import wheelF40Png from './assets/cockpit/f40-wheel.png';
@@ -1885,6 +1890,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
     if (t) turnTells(c, ox + t[0], ART_TOP + t[1], r.signal);
   }
   if (art.pod && r.car.pods?.length) auxPods(c, r, dt, ox, art.pod, dk);
+  drawDevices(c, r, dt, ox, art, dk);
   const wdx = art.wheelDx ?? 0;
   const wdy = art.wheelDy ?? 0;
   const px = ox + wdx + art.pivot[0], py = ART_TOP + art.pivot[1] + wdy;
@@ -1893,7 +1899,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
 }
 
 // ---------- manômetro auxiliar de pressão (turbo / supercharger instalados na preparação) ----------
-// Relógio de 52 mm num copo preto sobre o painel: escala 0 a 3 kgf/cm² (turbo) ou 0 a 1,5 (compressor),
+// Relógio de 52 mm num copo preto sobre o painel: escala 0 a 3 bar (turbo) ou 0 a 1,5 bar (compressor),
 // 270 graus a partir das 7h30. O fundo é desenhado uma vez em alta resolução; o ponteiro, ao vivo.
 const POD_PX = 14; // pixels do fundo por unidade da arte
 const podFaces = new Map<string, HTMLCanvasElement>();
@@ -1954,7 +1960,11 @@ function podFace(pod: NonNullable<CockpitArt['pod']>, kind: PodKind, lit = false
   g.fillText(label, m - R * 0.04, m + R * 0.4);
   g.font = `700 ${R * 0.1}px Arial, sans-serif`;
   g.fillText('PRESS', m, m + R * 0.55);
-  g.fillText('kgf/cm²', m, m + R * 0.66);
+  // turbo e compressor em bar (pedido do Victor); óleo e combustível seguem em kgf/cm²
+  if (kind === 'turbo' || kind === 'turbo4' || kind === 'super') {
+    g.font = `700 ${R * 0.13}px Arial, sans-serif`;
+    g.fillText('bar', m, m + R * 0.67);
+  } else g.fillText('kgf/cm²', m, m + R * 0.66);
   podFaces.set(key, cv);
   return cv;
 }
@@ -2042,6 +2052,226 @@ function podDraw(c: CanvasRenderingContext2D, x: number, y: number, pod: NonNull
   c.fillStyle = '#0b0b0c'; // capa preta grande do eixo, como nos relógios de época
   c.beginPath(); c.ellipse(x, y, R * 0.17, RY * 0.17, 0, 0, Math.PI * 2); c.fill();
 }
+
+// ---------- aparelhos da preparação (3-step, boost controller, wastegate) ----------
+// Arte do Victor (src/assets/devices, fundo transparente, visores apagados) posta no lugar escolhido na
+// preparação (devpos.ts). A caixa é reduzida uma vez em alta qualidade (cache por tamanho); os visores
+// acesos são desenhados ao vivo por cima, nas coordenadas da própria arte (pixels da imagem de origem).
+type DevKind = 'threestep' | 'controller' | 'wastegate';
+const DEV_ART: Record<DevKind, { src: string; w: number; h: number; scr: [number, number, number, number] }> = {
+  threestep: { src: threeStepPng, w: 263, h: 160, scr: [27, 40, 152, 87] }, // visor de LED (4 dígitos)
+  controller: { src: boostCtlPng, w: 223, h: 160, scr: [32, 31, 190, 71] }, // LCD largo
+  wastegate: { src: wastegatePng, w: 190, h: 160, scr: [20, 71, 88, 102] }, // LCD pequeno
+};
+const DEV_K = 32 / 263; // pixels da arte da cabine por pixel da imagem (s = 1: o 3-step com 32 de largura, ~9 cm ao lado do quadro)
+// botão da wastegate: miolo (capa escovada) que gira; o risco pintado na arte aponta a -49°. A escala de
+// riscos vai de -162° (0,7 bar) a -18° (3,5 bar), passando pelo alto
+const WG_KNOB = { x: 139, y: 92.5, r: 23.5, painted: -49 };
+const WG_A0 = -162, WG_A1 = -18, WG_B0 = 0.7, WG_B1 = 3.5;
+const devCache = new Map<string, HTMLCanvasElement>();
+// caixa do aparelho reduzida para `pw` pixels de largura (na wastegate, com o botão girado em `ang` graus)
+function devBase(kind: DevKind, pw: number, ph: number, ang = 0, shadow = false): HTMLCanvasElement | null {
+  const a = DEV_ART[kind], im = faceImg(a.src);
+  if (!im) return null;
+  const key = `${kind}|${pw}|${ph}|${Math.round(ang)}|${shadow ? 1 : 0}`;
+  let cv = devCache.get(key);
+  if (cv) return cv;
+  if (devCache.size > 24) devCache.clear();
+  const full = document.createElement('canvas');
+  full.width = a.w; full.height = a.h;
+  const g = full.getContext('2d')!;
+  g.drawImage(im, 0, 0);
+  if (kind === 'wastegate' && ang) {
+    // gira só a capa do botão (o recartilhado e a escala ficam): recorte circular da própria arte
+    const k = WG_KNOB, cap = document.createElement('canvas');
+    cap.width = cap.height = Math.ceil(k.r * 2 + 2);
+    const cg = cap.getContext('2d')!;
+    cg.drawImage(im, -(k.x - k.r - 1), -(k.y - k.r - 1));
+    g.save();
+    g.beginPath(); g.arc(k.x, k.y, k.r, 0, Math.PI * 2); g.clip();
+    g.translate(k.x, k.y); g.rotate((ang * Math.PI) / 180);
+    g.imageSmoothingEnabled = true;
+    g.drawImage(cap, -k.r - 1, -k.r - 1);
+    g.restore();
+  }
+  if (shadow) { g.globalCompositeOperation = 'source-in'; g.fillStyle = '#000'; g.fillRect(0, 0, a.w, a.h); }
+  // redução em degraus (metade por vez) e o último passo em alta qualidade: sem serrilhado nem borrão
+  let src: HTMLCanvasElement = full;
+  while (src.width / 2 >= pw * 1.5) {
+    const h = document.createElement('canvas');
+    h.width = Math.round(src.width / 2); h.height = Math.round(src.height / 2);
+    const hg = h.getContext('2d')!;
+    hg.imageSmoothingQuality = 'high';
+    hg.drawImage(src, 0, 0, h.width, h.height);
+    src = h;
+  }
+  cv = document.createElement('canvas');
+  cv.width = pw; cv.height = ph;
+  const cg = cv.getContext('2d')!;
+  cg.imageSmoothingQuality = 'high';
+  cg.drawImage(src, 0, 0, pw, ph);
+  devCache.set(key, cv);
+  return cv;
+}
+// 7 segmentos (a b c d e f g), dígito em caixa w x h com leve itálico, traço t
+const LED7: Record<string, string> = { '0': 'abcdef', '1': 'bc', '2': 'abdeg', '3': 'abcdg', '4': 'bcfg', '5': 'acdfg', '6': 'acdefg', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg', '-': 'g', ' ': '' };
+function led7(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, t: number, on: string, grow = 0) {
+  const sk = 0.12; // itálico (x anda para a direita subindo)
+  const P = (px: number, py: number): [number, number] => [x + px + (h - py) * sk, y + py];
+  const hm = h / 2, g = t * 0.18 - grow;
+  const segs: Record<string, [number, number][]> = {
+    a: [[g + t * 0.5, 0], [w - g - t * 0.5, 0], [w - g - t, t], [g + t, t]],
+    d: [[g + t, h - t], [w - g - t, h - t], [w - g - t * 0.5, h], [g + t * 0.5, h]],
+    g: [[g + t * 0.6, hm], [g + t, hm - t / 2], [w - g - t, hm - t / 2], [w - g - t * 0.6, hm], [w - g - t, hm + t / 2], [g + t, hm + t / 2]],
+    f: [[0, g + t * 0.5], [t, g + t], [t, hm - g - t / 2], [t * 0.5, hm - g], [0, hm - g - t * 0.4]],
+    e: [[0, hm + g + t * 0.4], [t * 0.5, hm + g], [t, hm + g + t / 2], [t, h - g - t], [0, h - g - t * 0.5]],
+    b: [[w, g + t * 0.5], [w, hm - g - t * 0.4], [w - t * 0.5, hm - g], [w - t, hm - g - t / 2], [w - t, g + t]],
+    c: [[w, hm + g + t * 0.4], [w, h - g - t * 0.5], [w - t, h - g - t], [w - t, hm + g + t / 2], [w - t * 0.5, hm + g]],
+  };
+  c.beginPath();
+  for (const s of on) {
+    const pts = segs[s].map(([a, b]) => P(a, b));
+    c.moveTo(pts[0][0], pts[0][1]);
+    for (const [a, b] of pts.slice(1)) c.lineTo(a, b);
+    c.closePath();
+  }
+  c.fill();
+}
+const devVal = { boost: 0 };
+function devicesOf(car: Race['car']): DevKind[] {
+  const out: DevKind[] = [];
+  if (car.launchCap) out.push('threestep');
+  if (car.boostDev && car.forced === 'turbo') out.push(car.boostDev);
+  return out;
+}
+/** aparelhos instalados, no lugar escolhido na preparação */
+function drawDevices(c: CanvasRenderingContext2D, r: Race, dt: number, ox: number, art: CockpitArt, dk: number) {
+  const car = r.car, kinds = devicesOf(car);
+  if (!kinds.length) return;
+  const all = devPositions(car.dash, art.radar);
+  const pos = all.find((p) => p.id === car.devPos) ?? all[0];
+  const k = DEV_K * (pos.s ?? 1), sc = c.getTransform().a; // pixels do canvas por pixel da arte
+  const gap = 1.5;
+  const tot = kinds.reduce((sum, d) => sum + DEV_ART[d].w * k, 0) + gap * (kinds.length - 1);
+  // pressão atual (a mesma do manômetro auxiliar): enche com o turbo e cai ao aliviar
+  const set = car.boostSet ?? car.boostMax ?? 1;
+  const want = car.forced === 'turbo' && r.throttle ? set * Math.max(0, Math.min(1, r.pt.boost)) ** 1.5 : 0;
+  devVal.boost += (want - devVal.boost) * Math.min(1, dt * 9);
+  const now = performance.now() / 1000;
+  const vertical = pos.dir === 'v';
+  // na pilha vertical o de cima vem antes (o de baixo tapa o suporte dele)
+  const order = kinds.map((d, i) => ({ d, i }));
+  if (vertical) order.reverse();
+  let foot = pos.y;
+  const place = kinds.map((d) => {
+    const a = DEV_ART[d], w = a.w * k, h = a.h * k * PIX_Y;
+    const yb = foot;
+    if (vertical) foot -= h * 0.8;
+    return { w, h, yb };
+  });
+  let xh = pos.x - tot / 2;
+  const xs = kinds.map((d) => { const x = xh; xh += DEV_ART[d].w * k + gap; return x; });
+  for (const { d, i } of order) {
+    const a = DEV_ART[d], { w, h, yb } = place[i];
+    const x0 = ox + (vertical ? pos.x + (pos.lean ?? 0) * (pos.y - yb) - w / 2 : xs[i]), y0 = ART_TOP + yb - h;
+    const pw = Math.max(8, Math.round(w * sc)), ph = Math.max(6, Math.round(h * sc));
+    const ang = d === 'wastegate' ? WG_A0 + ((clamp(car.boostSet ?? 1, WG_B0, WG_B1) - WG_B0) / (WG_B1 - WG_B0)) * (WG_A1 - WG_A0) - WG_KNOB.painted : 0;
+    const base = devBase(d, pw, ph, ang);
+    if (!base) continue;
+    const sm = c.imageSmoothingEnabled;
+    c.imageSmoothingEnabled = true;
+    // sombra: no pé (apoiado em cima do painel) ou atrás da caixa (preso numa face)
+    if (pos.mount === 'face') {
+      const sh = devBase(d, pw, ph, ang, true);
+      if (sh) { c.globalAlpha = 0.45; c.drawImage(sh, x0 + 0.6, y0 + 0.7, w, h); c.globalAlpha = 1; }
+    } else {
+      c.fillStyle = 'rgba(0,0,0,0.38)';
+      c.beginPath(); c.ellipse(x0 + w * 0.42, y0 + h - 0.3, w * 0.36, 0.9, 0, 0, Math.PI * 2); c.fill();
+    }
+    c.drawImage(nightImg(base, dk), x0, y0, w, h);
+    c.imageSmoothingEnabled = sm;
+    // visor, nas coordenadas da imagem de origem
+    c.save();
+    c.translate(x0, y0);
+    c.scale(w / a.w, h / a.h);
+    const [sx0, sy0, sx1, sy1] = a.scr, sw = sx1 - sx0 + 1, shh = sy1 - sy0 + 1;
+    const nightK = Math.min(1, dk / 0.6);
+    if (d === 'threestep') {
+      const launching = r.launchT > 0 || r.antiOn;
+      const rpm = car.launchRpm ?? Math.round(((car.launchCap ?? 0) * redOf(r)) / 100) * 100;
+      const txt = String(rpm).padStart(4, ' ').slice(-4);
+      const blinkOff = r.antiOn && now * 7 % 1 < 0.42;
+      c.fillStyle = '#120101';
+      c.fillRect(sx0, sy0, sw, shh);
+      const dw = 23, dh = 35, dgap = 7.5, t = 5;
+      const xs0 = sx0 + (sw - (4 * dw + 3 * dgap)) / 2 - 2, ys0 = sy0 + (shh - dh) / 2;
+      c.fillStyle = '#3c0807'; // segmentos apagados (o "8" fantasma do visor)
+      for (let j = 0; j < 4; j++) led7(c, xs0 + j * (dw + dgap), ys0, dw, dh, t, LED7['8']);
+      if (!blinkOff) {
+        c.fillStyle = 'rgba(255,40,20,0.28)'; // halo dos segmentos
+        for (let j = 0; j < 4; j++) led7(c, xs0 + j * (dw + dgap), ys0, dw, dh, t, LED7[txt[j]] ?? '', 1.6);
+        c.fillStyle = '#ff2a17';
+        for (let j = 0; j < 4; j++) led7(c, xs0 + j * (dw + dgap), ys0, dw, dh, t, LED7[txt[j]] ?? '');
+        c.fillStyle = '#ffb09a';
+        for (let j = 0; j < 4; j++) led7(c, xs0 + j * (dw + dgap) + t * 0.35, ys0 + t * 0.3, dw - t * 0.7, dh - t * 0.6, t * 0.3, LED7[txt[j]] ?? '');
+      }
+      // reflexo do vidro (o da arte ficou embaixo do visor aceso)
+      c.fillStyle = 'rgba(255,255,255,0.10)';
+      c.beginPath(); c.moveTo(sx0 + 10, sy1 - 4); c.lineTo(sx0 + 30, sy0 + 3); c.lineTo(sx0 + 38, sy0 + 3); c.lineTo(sx0 + 18, sy1 - 4); c.fill();
+      // LED de armado (acende na arrancada) e o botão vermelho com luz própria
+      const led = launching ? 1 : 0;
+      c.globalCompositeOperation = 'lighter';
+      const halo = (x: number, y: number, rad: number, a: number) => {
+        const gr = c.createRadialGradient(x, y, 0, x, y, rad);
+        gr.addColorStop(0, `rgba(255,50,30,${a.toFixed(3)})`); gr.addColorStop(1, 'rgba(255,50,30,0)');
+        c.fillStyle = gr; c.beginPath(); c.arc(x, y, rad, 0, Math.PI * 2); c.fill();
+      };
+      halo(221.5, 66, 21, (launching ? 0.32 : 0.14) + 0.12 * nightK);
+      if (led) { halo(221, 32, 14, 0.7); c.fillStyle = '#ff6a50'; c.beginPath(); c.arc(221, 32, 4.2, 0, Math.PI * 2); c.fill(); }
+      if (nightK > 0 && !blinkOff) halo((sx0 + sx1) / 2, (sy0 + sy1) / 2, 95, 0.1 * nightK); // o visor ilumina em volta
+      c.globalCompositeOperation = 'source-over';
+    } else {
+      // LCD verde com luz de fundo; números escuros
+      const bg = c.createLinearGradient(0, sy0, 0, sy1);
+      // (à noite a luz de fundo fica um pouco mais baixa: verde aceso sem ofuscar os números)
+      bg.addColorStop(0, shade('#9bd36a', -0.22 * nightK)); bg.addColorStop(1, shade('#79b54c', -0.22 * nightK));
+      c.fillStyle = bg;
+      c.fillRect(sx0, sy0, sw, shh);
+      const ink = '#10260c', ghost = 'rgba(16,38,12,0.12)';
+      if (d === 'controller') {
+        const big = fmtBarLcd(set);
+        pix(c, '8,8', sx0 + 26, sy0 + 13, ghost, 4.2);
+        pix(c, big, sx0 + 26, sy0 + 13, ink, 4.2);
+        pix(c, 'BAR', sx0 + 63, sy0 + 15, ink, 2.4);
+        pix(c, fmtBarLcd(devVal.boost), sx1 - 18, sy0 + 13, ink, 3);
+        // pressão atual em barra (20 segmentos; cheia = a pressão escolhida)
+        const n = 20, bx = sx0 + 6, bw = sw - 12, by = sy1 - 12, segW = bw / n;
+        const fill = Math.round(clamp(devVal.boost / Math.max(0.1, set), 0, 1) * n);
+        for (let j = 0; j < n; j++) { c.fillStyle = j < fill ? ink : ghost; c.fillRect(bx + j * segW + 0.8, by, segW - 1.6, 8); }
+      } else {
+        pix(c, '8,8', (sx0 + sx1) / 2, (sy0 + sy1) / 2 + 1, ghost, 4.2);
+        pix(c, fmtBarLcd(car.boostSet ?? set), (sx0 + sx1) / 2, (sy0 + sy1) / 2 + 1, ink, 4.2);
+      }
+      c.fillStyle = 'rgba(255,255,255,0.13)';
+      c.beginPath(); c.moveTo(sx0 + 6, sy1 - 3); c.lineTo(sx0 + 18, sy0 + 3); c.lineTo(sx0 + 24, sy0 + 3); c.lineTo(sx0 + 12, sy1 - 3); c.fill();
+      if (nightK > 0) {
+        c.globalCompositeOperation = 'lighter';
+        const cx = (sx0 + sx1) / 2, cy = (sy0 + sy1) / 2, rad = sw * 0.75;
+        const gr = c.createRadialGradient(cx, cy, sw * 0.2, cx, cy, rad);
+        gr.addColorStop(0, `rgba(120,220,90,${(0.12 * nightK).toFixed(3)})`); gr.addColorStop(1, 'rgba(120,220,90,0)');
+        c.fillStyle = gr; c.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
+        c.globalCompositeOperation = 'source-over';
+      }
+    }
+    c.restore();
+  }
+}
+const redOf = (r: Race) => {
+  let red = redlines.get(r.car.id);
+  if (!red) redlines.set(r.car.id, red = r.car.engine ? engineSpec(r.car.engine, r.car.id).redline : 6500);
+  return red;
+};
+const fmtBarLcd = (b: number) => (Math.round(b * 10) / 10).toFixed(1).replace('.', ',');
 
 interface Box { x: number; y: number; w: number; h: number }
 

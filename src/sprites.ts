@@ -1,8 +1,7 @@
 import { need } from './imgprio';
 import { adCanvas, adsReady } from './billboards';
 import { dither } from './ui';
-import { drawBlitzSign } from './blitz';
-import { drawDesvioSign, drawObrasSign } from './obra';
+import { drawSignArt, hasObraArt } from './obraart';
 
 // Objetos de cenário desenhados por código. Cada função desenha numa caixa:
 // x = centro, y = base, w/h em pixels. O desenho passa pelo crisp.ts (pixel art nítida,
@@ -868,9 +867,11 @@ export const SPRITES: Record<SpriteKind, { w: number; h: number; draw: Draw; sol
   sharpR: { w: 760, h: 1500, draw: warn(1, true), solid: true },
   gasSign: { w: 1600, h: 2600, draw: gasSign, solid: true },
   gasKm: { w: 1500, h: 1500, draw: gasKm, solid: true },
-  blitz: { w: 1300, h: 1500, draw: drawBlitzSign, solid: true }, // placa BLITZ / REDUZA (src/blitz.ts)
-  obras: { w: 1300, h: 1500, draw: drawObrasSign, solid: true }, // placas da obra (src/obra.ts)
-  desvio: { w: 1300, h: 1500, draw: drawDesvioSign, solid: true },
+  // placas BLITZ / REDUZA (src/blitz.ts), OBRAS 500 m e DESVIO (src/obra.ts): arte do Victor, chapa de
+  // 1,2 m de largura no alto de postes de 2 m (src/obraart.ts: drawSignArt)
+  blitz: { w: 720, h: 1200, draw: (c, x, y, w, h) => drawSignArt(c, 'sign-blitz', x, y, w, h), solid: true },
+  obras: { w: 720, h: 1200, draw: (c, x, y, w, h) => drawSignArt(c, 'sign-obras', x, y, w, h), solid: true },
+  desvio: { w: 720, h: 1200, draw: (c, x, y, w, h) => drawSignArt(c, 'sign-desvio', x, y, w, h), solid: true },
   station: { w: 6500, h: 3200, draw: station, solid: true },
   stop: { w: 900, h: 1900, draw: stop, solid: false },
   rail: { w: 700, h: 420, draw: rail, solid: false },
@@ -931,7 +932,7 @@ const artName = (kind: SpriteKind, seed: number) => {
 const sceneryImg = (kind: SpriteKind, seed = 0) => artImg(artName(kind, seed));
 // parte da chave do cache do sprite: muda quando a arte termina de carregar (troca o desenho vetorial)
 // e quando acende (noite)
-export const sceneryKey = (kind: SpriteKind) => (sceneryImg(kind) ? (sceneryNight && hasArt(`${kind}-night`) ? 'an' : 'a') : '');
+export const sceneryKey = (kind: SpriteKind) => (kind === 'blitz' || kind === 'obras' || kind === 'desvio' ? (hasObraArt(`sign-${kind}`) ? 'a' : '') : sceneryImg(kind) ? (sceneryNight && hasArt(`${kind}-night`) ? 'an' : 'a') : '');
 // todas as artes (modelos e versões acesas) dos tipos dados já carregaram? (a tela de carregamento espera)
 export function sceneryReady(kinds: Iterable<SpriteKind>) {
   let ok = true;

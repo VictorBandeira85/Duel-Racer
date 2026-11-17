@@ -1,4 +1,5 @@
 import { preloadScenery, sceneryReady, type SpriteKind } from './sprites';
+import { obraReady, preloadObra } from './obraart';
 import { baseline, lowPrio } from './imgprio';
 import { preloadBgArt } from './bgart';
 import { carSwapWatch } from './carswap';
@@ -42,6 +43,7 @@ const preloadAll = () => {
   preloadSvg(F40_SIDE, F40_REAR, F40_WHEEL, ...CARS.flatMap((c) => [c.imgSide, c.sideMask, c.rear.img, c.rear.imgMask, c.rear.frontImg, c.rear.frontMask]).filter((s): s is string => !!s), ...TRAFFIC_IMAGES);
   preloadPhotos();
   preloadScenery();
+  preloadObra(); // cones, placas, máquinas e sinaleiro da obra/blitz (pequenas: vão dentro da página)
   preloadGasArt();
   preloadAtts();
   preloadBgArt(); // fundos desenhados (relevo do horizonte)
@@ -224,7 +226,7 @@ function stageArtReady(r: Race) {
     stageKinds.set(r, kinds);
   }
   // sem atalho: tudo o que falta é pedido com prioridade de uma vez
-  const checks = [sceneryReady(kinds), trafficReady(), carArtReady(r.car), !r.rivalCar || carArtReady(r.rivalCar), ...r.extras.map((e) => carArtReady(e.car)), copsReady(r.copId), attsReady(attFor(r.def.theme))];
+  const checks = [sceneryReady(kinds), trafficReady(), carArtReady(r.car), !r.rivalCar || carArtReady(r.rivalCar), ...r.extras.map((e) => carArtReady(e.car)), copsReady(r.copId), attsReady(attFor(r.def.theme)), (r.obra == null && r.blitz == null) || obraReady()];
   return checks.every(Boolean);
 }
 function startStage(i: number) {

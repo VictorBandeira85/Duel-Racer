@@ -9,7 +9,8 @@ import { lerp, rng } from './util';
 // novo). Placas BLITZ / REDUZA avisam antes. Passou devagar: nada acontece; rápido: a viatura sai atrás.
 
 export const BLITZ_KMH = 60; // limite na blitz (acima disso a viatura sai atrás)
-// tamanho do cone no mundo (na escala da largura dos carros: CAR_W = 1,8 m -> cone de ~70 cm)
+// tamanho do cone no mundo (na escala da largura dos carros: CAR_W = 1,8 m -> ~600 por metro): 70 cm de
+// altura; CONE_W é a base (batida), a arte (src/assets/obra/cone.png) sai na própria proporção
 export const CONE_W = 250, CONE_H = 420;
 const SEG_M = (SEG_LEN * 0.025) / 3.6; // metros por segmento (KMH = 0,025)
 export const BLITZ_SIGNS_M = [350, 150]; // placas BLITZ / REDUZA antes da viatura
@@ -28,8 +29,9 @@ export interface Cone {
   kind?: 'horse' | 'barrel'; // cavalete ou barril da obra (src/obra.ts); sem nada: cone
 }
 
-// largura no mundo de cada peça que fecha a faixa (cone, cavalete listrado, barril)
-export const HORSE_W = 760, HORSE_H = 620, BARREL_W = 400, BARREL_H = 560;
+// largura e altura no mundo de cada peça que fecha a faixa (cone, cavalete listrado, barril), na proporção
+// da arte: cavalete 1,2 m (com o pisca no alto) x 1,25 m de largura, tambor de 1 m
+export const HORSE_W = 740, HORSE_H = 720, BARREL_W = 403, BARREL_H = 600;
 export const coneW = (c: Cone) => (c.kind === 'horse' ? HORSE_W : c.kind === 'barrel' ? BARREL_W : CONE_W);
 
 // faixa fechada por uma fileira de cones (blitz e obra): afunila de outer até inner entre z0 e z1,
@@ -138,111 +140,6 @@ export function updateCones(b: Closure, dt: number) {
     c.vx *= Math.exp(-fr * dt);
     c.z += c.vz * dt;
     c.x += c.vx * dt;
-  }
-}
-
-// cone de trânsito em pixel art: base quadrada preta, corpo laranja afunilado com luz à esquerda e
-// sombra à direita, duas faixas brancas refletivas (a de cima mais larga). x = centro, y = base
-export function drawCone(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
-  const bh = Math.max(1, h * 0.1);
-  c.fillStyle = '#16161a';
-  c.fillRect(x - w / 2, y - bh, w, bh);
-  c.fillStyle = '#2c2c32';
-  c.fillRect(x - w / 2, y - bh, w, Math.max(0.5, bh * 0.35));
-  const yb = y - bh, yt = y - h, wb = w * 0.36, wt = w * 0.09;
-  const at = (t: number) => [yb + (yt - yb) * t, wb + (wt - wb) * t] as const; // altura e meia largura
-  const band = (t0: number, t1: number, col: string) => {
-    const [y0, w0] = at(t0), [y1, w1] = at(t1);
-    c.fillStyle = col;
-    c.beginPath();
-    c.moveTo(x - w0, y0);
-    c.lineTo(x + w0, y0);
-    c.lineTo(x + w1, y1);
-    c.lineTo(x - w1, y1);
-    c.closePath();
-    c.fill();
-  };
-  band(0, 1, '#f26a12');
-  // sombra à direita e luz à esquerda (faixas verticais acompanhando o afunilado)
-  c.save();
-  c.beginPath();
-  c.moveTo(x - wb, yb); c.lineTo(x + wb, yb); c.lineTo(x + wt, yt); c.lineTo(x - wt, yt);
-  c.closePath();
-  c.clip();
-  c.fillStyle = '#b8440a';
-  c.beginPath();
-  c.moveTo(x + wb * 0.35, yb); c.lineTo(x + wb, yb); c.lineTo(x + wt, yt); c.lineTo(x + wt * 0.35, yt);
-  c.closePath();
-  c.fill();
-  c.fillStyle = '#ff9a40';
-  c.beginPath();
-  c.moveTo(x - wb * 0.75, yb); c.lineTo(x - wb * 0.4, yb); c.lineTo(x - wt * 0.4, yt); c.lineTo(x - wt * 0.75, yt);
-  c.closePath();
-  c.fill();
-  c.restore();
-  band(0.5, 0.68, '#f4f4f0');
-  band(0.24, 0.34, '#f4f4f0');
-  // sombra das faixas brancas (lado direito)
-  c.fillStyle = '#b4b4b8';
-  for (const [t0, t1] of [[0.5, 0.68], [0.24, 0.34]]) {
-    const [y0, w0] = at(t0), [y1] = at(t1);
-    c.fillRect(x + w0 * 0.4, y1, w0 * 0.6, y0 - y1);
-  }
-  c.fillStyle = '#c85010';
-  c.fillRect(x - wt, yt, wt * 2, Math.max(0.5, h * 0.03)); // boca do cone
-}
-
-// placa de blitz (temporária, de obra: laranja com borda e letras pretas) em dois postes
-export function drawBlitzSign(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
-  drawWorkSign(c, x, y, w, h, 'BLITZ', 'REDUZA');
-}
-// placa temporária laranja (blitz e obra): duas linhas de letra, ou a de baixo trocada por uma seta
-// (arrow: -1 para a esquerda, 1 para a direita)
-export function drawWorkSign(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, l1: string, l2: string, arrow = 0) {
-  for (const px of [-0.32, 0.32]) {
-    c.fillStyle = '#6a6a72';
-    c.fillRect(x + w * px - w * 0.035, y - h * 0.45, w * 0.07, h * 0.45);
-    c.fillStyle = '#a4a4ac';
-    c.fillRect(x + w * px - w * 0.035, y - h * 0.45, w * 0.025, h * 0.45);
-  }
-  const top = y - h, ph = h * 0.6;
-  c.fillStyle = '#111';
-  c.fillRect(x - w / 2, top, w, ph);
-  const m = w * 0.05;
-  c.fillStyle = '#ff8418';
-  c.fillRect(x - w / 2 + m, top + m, w - m * 2, ph - m * 2);
-  c.fillStyle = '#ffb060'; // filete de luz em cima e à esquerda
-  c.fillRect(x - w / 2 + m, top + m, w - m * 2, Math.max(0.5, m * 0.5));
-  c.fillRect(x - w / 2 + m, top + m, Math.max(0.5, m * 0.5), ph - m * 2);
-  c.fillStyle = '#c85a08'; // sombra embaixo e à direita
-  c.fillRect(x - w / 2 + m, top + ph - m * 1.5, w - m * 2, Math.max(0.5, m * 0.5));
-  c.fillRect(x + w / 2 - m * 1.5, top + m, Math.max(0.5, m * 0.5), ph - m * 2);
-  if (w > 12) {
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.fillStyle = '#111';
-    c.font = `bold ${Math.max(4, Math.floor(Math.min(ph * 0.34, (w * 0.86) / (l1.length * 0.6))))}px monospace`; // (palavra comprida: letra menor)
-    c.fillText(l1, x, top + ph * 0.33);
-    c.fillRect(x - w * 0.36, top + ph * 0.54, w * 0.72, Math.max(0.5, ph * 0.03));
-    if (arrow) {
-      // seta grossa: haste e ponta em degraus
-      const ay = top + ph * 0.75, aw = w * 0.26, ah = ph * 0.09;
-      c.fillRect(x - aw * 0.8, ay - ah / 2, aw * 1.4, ah);
-      c.beginPath();
-      c.moveTo(x + arrow * aw * 1.1, ay);
-      c.lineTo(x + arrow * aw * 0.45, ay - ah * 1.9);
-      c.lineTo(x + arrow * aw * 0.45, ay + ah * 1.9);
-      c.closePath();
-      c.fill();
-    } else {
-      c.font = `bold ${Math.max(3, Math.floor(ph * 0.22))}px monospace`;
-      c.fillText(l2, x, top + ph * 0.73);
-    }
-  } else {
-    // longe: só as duas linhas de letra
-    c.fillStyle = '#111';
-    c.fillRect(x - w * 0.3, top + ph * 0.28, w * 0.6, ph * 0.12);
-    c.fillRect(x - w * 0.25, top + ph * 0.66, w * 0.5, ph * 0.08);
   }
 }
 

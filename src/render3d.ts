@@ -2,8 +2,9 @@ import { drawPerson, type CopPose } from './people';
 import { drawSmoke } from './smoke';
 import { MIRROR_REAR, MIRROR_TAIL, mirrorSmoke } from './sidemirror';
 import { drawCrisp } from './crisp';
-import { BARREL_H, CONE_H, HORSE_H, coneLine, coneW, drawCone, type Cone } from './blitz';
-import { FLAG_H, FLAG_W, PROP_SIZE, drawBarrel, drawDigger, drawFlagman, drawHorse, drawPile, drawRoller, drawWorkLight, inObra, type ObraProp } from './obra';
+import { BARREL_H, CONE_H, HORSE_H, coneLine, type Cone } from './blitz';
+import { FLAG_BODY_H, PROP_SIZE, inObra, type Flagman, type ObraProp } from './obra';
+import { FLAGGER_ART, FLAGGER_BODY_PX, OBRA_PX, drawObraArt, obraArt } from './obraart';
 import { CAM_DEPTH, CAM_H, CAR_W, CRES, DRAW_DIST, PLAYER_Z, SEG_LEN } from './config';
 import { CARS, drawCar } from './cars';
 import { lowFx, fxMode, setPerfScene } from './perf';
@@ -19,6 +20,8 @@ import type { Point, Segment } from './track';
 import { dither } from './ui';
 import { PANO_H, PANO_W, cloudStrip, panorama, skyline } from './bgart';
 import { Lru, lerp } from './util';
+// metros por segmento (KMH = 0,025 unidades/s por km/h)
+const SEG_M_R = (SEG_LEN * 0.025) / 3.6;
 
 export interface Viewport {
   dash?: number; // linha onde começa o painel (a pista visível acaba ali)
@@ -664,7 +667,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   if (r.officer) entities.push(r.officer);
   if (r.blitz) entities.push(...r.blitz.cones, r.blitz.officer); // blitz: cones e o policial anotando
   if (r.obra) entities.push(...r.obra.cones, ...r.obra.props, r.obra.flag); // obra: cones, cavaletes, máquina, homem da bandeira
-  const beacons: number[][] = [], greens: number[][] = []; // luzinhas da obra acesas (halo à noite)
+  const beacons: number[][] = [], greens: number[][] = [], reds: number[][] = []; // luzinhas da obra acesas (halo à noite)
   if (r.ghostPos) entities.push(r.ghostPos);
   for (const t of r.traffic) if (t.fall && t.fall.stage !== 'skid') entities.push(t.fall); // piloto da moto caída, solto na pista
   for (const e of entities) {
@@ -880,67 +883,84 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
           if (lit && od) pushOccluder({ ...od, idx: i, clip: s.clip, d: dist, bx: cx });
         }
       } else if ('cone' in e) {
-        // cone da blitz ou da obra (ou cavalete/barril da obra): em pé (as faixas brancas refletem o
-        // farol à noite) ou derrubado, voando e rolando
+        // cone da blitz ou da obra (ou cavalete/barril da obra), arte do Victor (src/obraart.ts): em pé
+        // (as faixas brancas refletem o farol à noite) ou derrubado, voando e rolando
         const cn = e as Cone;
         const kind = cn.kind ?? 'cone';
-        const cw = coneW(cn) * sc * vp.K, ch = (kind === 'horse' ? HORSE_H : kind === 'barrel' ? BARREL_H : CONE_H) * sc * vp.K;
+        const ch = (kind === 'horse' ? HORSE_H : kind === 'barrel' ? BARREL_H : CONE_H) * sc * vp.K;
         if (ch < 1.5) continue;
+        const [aw, ah] = OBRA_PX[kind];
+        const cw = (ch * aw) / ah; // largura do desenho (a da batida é coneW)
         const tint: [string, number] | undefined = fk >= 0.02 ? [fogRgb, fk] : undefined;
-        const sw = kind === 'cone' ? cw * 1.15 : cw; // (o cone tem folga dos lados para o contorno)
-        const art = (o: CanvasRenderingContext2D, w: number, h: number) =>
-          kind === 'horse' ? drawHorse(o, w / 2, h, w, h) : kind === 'barrel' ? drawBarrel(o, w / 2, h, w, h) : drawCone(o, w / 2, h, w / 1.15, h);
+        // pisca âmbar do cavalete (um sim, um não, alternando): fora da vez, a arte com a lente apagada
+        const on = kind !== 'horse' || cn.hit || Math.floor(performance.now() / 420 + cn.z / SEG_LEN / 6) % 2 === 0;
+        const key = kind === 'horse' && !on ? 'horse:off' : kind;
+        const src = obraArt(key);
+        if (!src) continue;
+        const art = (o: CanvasRenderingContext2D, w: number, h: number) => drawObraArt(o, src, w / 2, h, w, h);
         if (!cn.hit) {
-          const dr = drawCrisp(c, kind, cx, cy, sw, ch, art, 96, tint);
-          const spec = kind === 'horse' ? { x: cx - cw * 0.45, y: cy - ch * 0.8, w: cw * 0.9, h: ch * 0.3 }
-            : kind === 'barrel' ? { x: cx - cw * 0.5, y: cy - ch * 0.75, w: cw, h: Math.max(0.5, ch * 0.125) }
-            : { x: cx - cw * 0.22, y: cy - ch * 0.68, w: cw * 0.44, h: Math.max(0.5, ch * 0.18) };
+          const dr = drawCrisp(c, `ob-${key}`, cx, cy, cw, ch, art, 96, tint);
+          // faixas refletivas da arte (tábuas do cavalete; faixas brancas do tambor e do cone)
+          const spec = kind === 'horse' ? { x: cx - cw * 0.47, y: cy - ch * (100 / 140), w: cw * 0.94, h: ch * (70 / 140) }
+            : kind === 'barrel' ? { x: cx - cw * 0.42, y: cy - ch * (95 / 140), w: cw * 0.84, h: ch * (55 / 140) }
+            : { x: cx - cw * 0.2, y: cy - ch * (79 / 120), w: cw * 0.4, h: ch * (53 / 120) };
           if (lit && dr) pushOccluder({ ...dr, idx: i, clip: s.clip, d: dist, bx: cx, spec: { ...spec, top: 1, rgb: '255,250,240' } });
-          // pisca âmbar do cavalete (um sim, um não, alternando): a lente acende por cima do sprite
-          if (kind === 'horse' && Math.floor(performance.now() / 420 + cn.z / SEG_LEN / 6) % 2 === 0) {
-            const lx = cx - cw / 2 + cw * (3 / 22), ly = cy - ch + ch * (1 / 20);
-            c.fillStyle = '#ffc838';
-            c.fillRect(lx, ly, Math.max(1, cw * (2 / 22)), Math.max(1, ch * (1 / 20)));
-            if (dist < 200) beacons.push([lx + cw / 22, ly + ch / 40, Math.max(1.6, cw * 0.09), 1 - fk]);
-          }
+          // halo do pisca aceso, na lâmpada da arte (x 108..127, y 2..19 de 144 x 140)
+          if (kind === 'horse' && on && dist < 200) beacons.push([cx - cw / 2 + cw * (117.5 / 144), cy - ch + ch * (10 / 140), Math.max(1.6, cw * 0.07), 1 - fk]);
         } else {
           const sn = Math.abs(Math.sin(cn.rot));
           c.save();
           c.translate(cx, cy - cn.y * sc * vp.K - lerp(ch / 2, cw * 0.4, sn));
           c.rotate(cn.rot);
-          drawCrisp(c, kind, 0, ch / 2, sw, ch, art, 96, tint);
+          drawCrisp(c, `ob-${key}`, 0, ch / 2, cw, ch, art, 96, tint);
           c.restore();
         }
       } else if ('obraProp' in e) {
-        // enfeites da obra: montes de terra e brita, a máquina amarela parada e o semáforo
-        const pr = e as ObraProp, [pw0, ph0] = PROP_SIZE[pr.obraProp];
-        const pw = pw0 * sc * vp.K, ph = ph0 * sc * vp.K;
+        // enfeites da obra (arte do Victor): montes de terra e brita, a máquina amarela parada (vista de
+        // trás) e o semáforo do pare-e-siga
+        const pr = e as ObraProp, [pw, ph] = PROP_SIZE[pr.obraProp].map((v) => v * sc * vp.K);
         if (ph < 1.5) continue;
         const k = pr.obraProp;
-        const art = (o: CanvasRenderingContext2D, w: number, h: number) => {
-          if (k === 'dirt' || k === 'gravel') drawPile(o, w / 2, h, w, h, pr.seed, k === 'gravel');
-          else if (k === 'roller') drawRoller(o, w / 2, h, w, h);
-          else if (k === 'digger') drawDigger(o, w / 2, h, w, h);
-          else drawWorkLight(o, w / 2, h, w, h);
-        };
-        const dr = drawCrisp(c, `obra-${k}${k === 'dirt' || k === 'gravel' ? pr.seed % 3 : ''}`, cx, cy, pw, ph, art, 96, fk >= 0.02 ? [fogRgb, fk] : undefined);
+        const name = k === 'digger' ? 'backhoe' : k === 'light' ? 'signal' : k;
+        // giroflex das máquinas girando (pisca: fora da vez, a cúpula apagada); semáforo: vermelho ou
+        // verde conforme o pare-e-siga (a nossa mão segue enquanto a contramão é segurada)
+        const machine = k === 'roller' || k === 'digger';
+        const flash = machine && Math.floor(performance.now() / 300) % 2 === 0;
+        const go = k === 'light' && r.obraHold();
+        const key = machine ? (flash ? name : `${name}:off`) : k === 'light' ? `signal:${go ? 'green' : 'red'}` : name;
+        const src = obraArt(key);
+        if (!src) continue;
+        const flip = (k === 'dirt' || k === 'gravel') && pr.seed % 2 === 1; // montes: metade espelhados
+        const dr = drawCrisp(c, `ob-${key}${flip ? 'f' : ''}`, cx, cy, pw, ph, (o, w, h) => drawObraArt(o, src, w / 2, h, w, h, flip), 96, fk >= 0.02 ? [fogRgb, fk] : undefined);
         if (lit && dr) pushOccluder({ ...dr, idx: i, clip: s.clip, d: dist, bx: cx });
-        // giroflex âmbar da máquina girando (pisca) e o verde do semáforo
-        if ((k === 'roller' || k === 'digger') && Math.floor(performance.now() / 300) % 2 === 0) {
-          const bx = k === 'roller' ? cx - pw / 2 + pw * (12 / 26) : cx - pw / 2 + pw * (19 / 28), by = cy - ph + ph * (k === 'roller' ? 0 : 3 / 38);
-          c.fillStyle = '#ffc030';
-          c.fillRect(bx, by, Math.max(1, pw * (k === 'roller' ? 3 / 26 : 2 / 28)), Math.max(1, ph * (1 / 36)));
-          if (dist < 220) beacons.push([bx + pw * 0.04, by, Math.max(1.5, pw * 0.05), 1 - fk]);
+        // halos (só no escuro): giroflex na cúpula da arte e a lente acesa do semáforo
+        if (flash && dist < 220) {
+          const [lx, ly] = k === 'roller' ? [83 / 169, 7 / 220] : [63 / 178, 26 / 220];
+          beacons.push([cx - pw / 2 + pw * lx, cy - ph + ph * ly, Math.max(1.5, pw * 0.05), 1 - fk]);
         }
-        if (k === 'light' && dist < 220) greens.push([cx, cy - ph * (16 / 26) - ph * 0.04, Math.max(1.2, pw * 0.3), 1 - fk]);
+        if (k === 'light' && dist < 220) (go ? greens : reds).push([cx - pw / 2 + pw * (36 / 74), cy - ph + ph * ((go ? 78 : 32) / 200), Math.max(1.2, pw * 0.22), 1 - fk]);
       } else if ('flagman' in e) {
-        // homem da obra na entrada: balança a bandeira vermelha (4 posições do braço, ida e volta)
-        const fh = FLAG_H * sc * vp.K, fw = FLAG_W * sc * vp.K;
-        if (fh < 2) continue;
-        const f = [0, 1, 2, 3, 2, 1][Math.floor(performance.now() / 150) % 6];
-        const ang = -0.75 + f * 0.42;
-        const dr = drawCrisp(c, `flagman${f}`, cx, cy, fw, fh, (o, w, h) => drawFlagman(o, w / 2, h, w, h, ang), 96, fk >= 0.02 ? [fogRgb, fk] : undefined);
-        if (lit && dr) pushOccluder({ ...dr, idx: i, clip: s.clip, d: dist, bx: cx, spec: { x: cx - fh * (3 / 34), y: cy - fh * (19 / 34), w: fh * (6 / 34), h: Math.max(0.5, fh * (5 / 34)), top: 1, rgb: '255,250,240' } });
+        // sinaleiro na entrada (homem ou mulher, sorteado por obra): acena alternando bandeira erguida e
+        // braço esticado (reduza); no pare-e-siga, quando a nossa mão fecha (vermelho), abaixa a bandeira.
+        // De frente para quem chega; perto e de lado (visto a mais de ~12°), a arte em 3/4, que olha para a
+        // esquerda da imagem (para a pista, com ele no acostamento da direita): espelhada se ele estiver
+        // à nossa esquerda
+        const fl = e as Flagman;
+        const u = (FLAG_BODY_H / FLAGGER_BODY_PX) * sc * vp.K; // pixel da arte na tela
+        if (u * FLAGGER_BODY_PX < 2) continue;
+        const ob = r.obra!;
+        const pose = ob.two && !r.obraHold() ? 0 : Math.floor(performance.now() / 450) % 2 ? 1 : 2;
+        const dxm = (fl.x - r.x) / (CAR_W / 1.8), dzm = Math.max(0.1, (fl.z - r.position) * (SEG_M_R / SEG_LEN));
+        const side = Math.abs(dxm) / dzm > 0.21;
+        const name = `flag${fl.woman ? 'w' : 'm'}${side ? '34' : ''}-${pose}`;
+        const fa = FLAGGER_ART[name], src = obraArt(name);
+        if (!src) continue;
+        const flip = fl.x < r.x;
+        const fw = fa.w * u, fh = fa.h * u;
+        const bx = cx + (flip ? -1 : 1) * (fa.w / 2 - fa.cx) * u; // meio dos pés em cx
+        const dr = drawCrisp(c, `ob-${name}${flip ? 'f' : ''}`, bx, cy, fw, fh, (o, w, h) => drawObraArt(o, src, w / 2, h, w, h, flip), 96, fk >= 0.02 ? [fogRgb, fk] : undefined);
+        // faixas refletivas do colete (linhas 94..110 da arte)
+        if (lit && dr) pushOccluder({ ...dr, idx: i, clip: s.clip, d: dist, bx: cx, spec: { x: cx - 16 * u, y: cy - (fa.h - 94) * u, w: 32 * u, h: Math.max(0.5, 16 * u), top: 1, rgb: '255,250,240' } });
       } else if ('blitzCop' in e) {
         // policial da blitz: em pé ao lado da viatura, anotando no bloco (o da classe da corrida)
         const od = drawPerson(c, 'cop', 'paper', cx, cy, OFFICER_H * sc * vp.K, false, r.copId);
@@ -986,10 +1006,11 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   // inclinação do carro (o eixo do farol): a do chão embaixo dele, da traseira à frente; no ar, a do voo
   const carPitch = r.airborne ? r.pitch : (yAt(r.position + PLAYER_Z) - yAt(r.position - 400)) / (PLAYER_Z + 400);
   finishNight(c, vp, Math.max(r.nightK, r.inTunnel > 0.5 ? 0.45 * r.inTunnel : 0), passers, SEG_LEN, road, roadAll, r.steer, carPitch);
-  // obra: pisca âmbar dos cavaletes e da máquina, verde do semáforo (halo só no escuro)
+  // obra: pisca âmbar dos cavaletes e da máquina, lente acesa do semáforo (halo só no escuro)
   if (lit) {
     beaconGlow(c, beacons, '255,176,40', r.nightK);
     beaconGlow(c, greens, '70,255,120', r.nightK);
+    beaconGlow(c, reds, '255,60,40', r.nightK);
   }
   c.restore();
 }

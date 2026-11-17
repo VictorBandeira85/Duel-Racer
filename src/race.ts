@@ -849,8 +849,7 @@ export class Race {
     // largada: a embreagem vai do giro em que o jogador largou ao giro ideal; a patinada some aos
     // poucos (aliviando o pé ela some mais depressa, e a roda volta a tracionar)
     if (driving) {
-      // com o 3-step a patinada segura o giro escolhido até a roda alcançar
-      const ideal = this.car.launchCap ?? launchRpm(this.car.curve);
+      const ideal = launchRpm(this.car.curve);
       // (giro baixo sobe só com o pé no acelerador)
       if (gasAmt() > 0.1 || this.pt.slipRpm > ideal) this.pt.slipRpm += clamp(ideal - this.pt.slipRpm, -dt * 1.5, dt * 1.1 * gasAmt());
       // pé no fundo: a roda segue girando em falso (some devagar, mais devagar nos potentes);
@@ -1019,7 +1018,26 @@ export class Race {
     let rpmGear = Math.min(1.02 + this.pt.over, rpmBase + this.spin * (0.3 + ((this.car.prep ?? 1) > 1 ? 0.4 * clamp(rpmBase, 0, 1) : 0)));
     // saída em 1ª acelerando: a embreagem patina e o motor fica no giro da patinada (antes o
     // conta-giros caía a zero no VAI e só subia junto com a roda); com o 3-step, no giro escolhido
-    if (driving && this.gear === 0 && this.gasPedal > 0.1 && !this.clutchIn && !this.stalled) rpmGear = Math.max(rpmGear, this.pt.slipRpm);
+    // só na arrancada (launchT, logo depois de sair parado): depois disso o giro é o da roda
+    if (this.launchT > 0) {
+      this.launchT -= dt;
+      if (!driving || this.gear !== 0 || this.gasPedal < 0.1 || this.clutchIn || this.stalled) this.launchT = 0;
+      else {
+        const cap = this.car.launchCap;
+        if (cap && rpmBase < cap) {
+          // 3-step na saída: segura o giro escolhido estalando enquanto o carro arranca; quando a roda
+          // alcança esse giro (ou passa o tempo da saída) ele desliga e o giro sobe normal
+          rpmGear = Math.max(rpmGear, cap - (Math.sin(this.time * 48) > 0.2 ? 0.018 : 0));
+          this.antiT = 0.12;
+        } else if (cap) this.launchT = 0;
+        else rpmGear = Math.max(rpmGear, this.pt.slipRpm);
+        // acabou a saída do 3-step antes da roda alcançar: o giro desce suave até o da roda
+        if (cap && this.launchT <= 0 && rpmBase < cap) {
+          this.shiftFrom = cap;
+          this.shiftDur = this.shiftLeft = 0.35;
+        }
+      }
+    }
     // troca de marcha de câmbio manual: embreagem pisada, o giro cai devagar no começo e depressa
     // depois, e casa com a marcha nova quando ela entra (na redução, sobe no "punta-tacco")
     if (cm && driving && (this.clutchIn || this.stalled)) {
@@ -1323,7 +1341,9 @@ export class Race {
     this.messageT = 2;
   }
 
+  launchT = 0; // arrancada em curso (s): o giro mostra a patinada / o 3-step segura
   private startLaunch() {
+    this.launchT = this.car.launchCap ? 2.2 : 1.2;
     const ideal = launchRpm(this.car.curve);
     this.launchHeld = this.rpm;
     const over = clamp((this.rpm - (ideal + 0.15)) / Math.max(0.2, 1 - ideal - 0.15), 0, 1);

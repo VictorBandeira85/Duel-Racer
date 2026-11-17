@@ -3406,6 +3406,7 @@ function drawRoof(c: CanvasRenderingContext2D, r: Race, stageLabel: string, tota
   c.fillStyle = '#e8e8e8';
   c.fillRect(px + pw + 2, 18, 2, 5);
   if (r.ghostPos) mark(r.ghostPos.z, '#b8b8c4'); // fantasma
+  for (const e of r.extras) mark(e.r.z, e.paint); // figurantes
   if (r.rival) mark(r.rival.z, r.rivalCar!.color);
   mark(r.playerZ, r.car.color);
   // retrovisor

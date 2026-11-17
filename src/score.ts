@@ -15,7 +15,23 @@ export function stageResult(r: Race): StageResult {
     time: r.time, rival: r.rivalTime, clean: r.clean, crashes: r.crashes, tickets: r.tickets, fines: r.fines,
     km, top: r.top * KMH, avg, score,
     rivalTop: r.rivalTop * KMH, rivalAvg, rivalScore: hasRival ? Math.round(rivalAvg * km * 10) + 2000 + (won ? 0 : 1500) : 0,
+    ...(r.extras.length ? { extras: r.extras.map((e) => e.time) } : {}),
   };
+}
+
+// Posição do jogador entre todos os carros da corrida (rival e figurantes da carreira), pelo tempo:
+// no trecho (o último resultado) e no total dos trechos. null sem figurantes (duelo de sempre).
+export function fieldPlace(results: StageResult[]) {
+  const last = results[results.length - 1];
+  if (!last?.extras?.length) return null;
+  const n = last.extras.length;
+  const place = (me: number, others: number[]) => 1 + others.filter((t) => t >= 0 && t < me).length;
+  const stage = place(last.time, [last.rival, ...last.extras]);
+  const tot = (f: (q: StageResult) => number) => results.reduce((a, q) => a + f(q), 0);
+  const me = tot((q) => q.time), rival = tot((q) => Math.max(0, q.rival));
+  const ex = Array.from({ length: n }, (_, k) => tot((q) => Math.max(0, q.extras?.[k] ?? q.time)));
+  const beaten = ex.filter((t) => me <= t).length;
+  return { stage, pos: place(me, [rival, ...ex]), of: n + 2, beaten };
 }
 
 // Frase do frentista na chegada ao posto, conforme o trecho (sempre a mesma para o mesmo trecho)

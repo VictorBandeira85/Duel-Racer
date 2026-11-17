@@ -8,7 +8,12 @@ import { engineSpec } from './enginesynth';
 
 export type SlotId = 'pistoes' | 'comando' | 'alimentacao' | 'inducao' | 'escape' | 'pneus' | 'suspensao' | 'freios' | 'bancos' | 'rodas' | 'turbina' | 'intercooler' | 'downpipe' | 'polia' | 'pressao' | 'largada';
 // mudanças no ronco: multiplicadores (drive, vol, low) e somas (rasp, pops, cam, intake, whine)
-export interface SoundMods { drive?: number; vol?: number; low?: number; rasp?: number; pops?: number; cam?: number; intake?: number; whine?: number; turbo?: boolean; spool?: number /* turbo aftermarket: força do assobio, do sopro e do alívio */; blower?: number /* supercharger: força do zunido */; rev?: number /* multiplicador do giro máximo (corte) */; press?: number /* pressão escolhida no wastegate/boost controller (bar): assobio e alívio mais fortes */ }
+export interface SoundMods { drive?: number; vol?: number; low?: number; rasp?: number; pops?: number; cam?: number; intake?: number; whine?: number; turbo?: boolean; spool?: number /* turbo aftermarket: força do assobio, do sopro e do alívio */; blower?: number /* supercharger: força do zunido */; rev?: number /* multiplicador do giro máximo (corte) */; press?: number /* pressão escolhida no wastegate/boost controller (bar): assobio e alívio mais fortes */;
+  // timbre do escapamento e do downpipe (enginesynth.ts applySoundMods), relativo ao motor de cada carro:
+  pipe?: number /* comprimento do tubo (x): menor = escape mais curto e seco */; fbAdd?: number /* ressonância do tubo (+ realimentação do eco) */;
+  resShift?: number /* tom das ressonâncias (x): menor = mais grave e oco */; bass?: number /* ganho da ressonância grave (x) */; mid?: number /* ganho da ressonância média, a rouquidão (x) */;
+  cabinOpen?: number /* abafamento da cabine (x no corte): maior = chega mais aberto */; burble?: number /* borbulho no alívio (+) */; crackle?: number /* crepitar no alívio: estalos mais cedo e mais vezes (+) */;
+  rush?: number /* sopro do turbo (x) */; whistle?: number /* assobio do turbo (x) */ }
 export interface Part {
   id: string; name: string; note: string;
   cost: number; // fração do preço do carro (0 = original)
@@ -137,10 +142,9 @@ export const heatWord = (eq: number) => (eq < 0.3 ? 'frio' : eq < 0.55 ? 'morno'
  * ela está lá: turbo -> turbina, intercooler e downpipe; supercharger -> polia e intercooler. Sem
  * `build`, vêm todas (para procurar uma peça pelo nome da vaga). */
 const redlineOf = (car: CarSpec) => (car.engine ? engineSpec(car.engine, car.id).redline : 6500);
+// giros do 3-step (os do Victor), só os que ficam abaixo do corte do carro
 function launchSteps(car: CarSpec) {
-  const top = Math.floor((redlineOf(car) - 1000) / 500) * 500, out: number[] = [];
-  for (let r = 3000; r <= top; r += 500) out.push(r);
-  return out;
+  return [2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000].filter((r) => r <= redlineOf(car) - 500);
 }
 export function slotsFor(car: CarSpec, build?: Build): Slot[] {
   const carb = isCarb(car);
@@ -160,10 +164,10 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
     { id: 'esportivo', name: 'Esportivo', note: '+4% cv, -45% calor', cost: 0.04, power: 1.04, ic: 0.45 },
     { id: 'corrida', name: 'De corrida', note: '+7% cv, -65% calor', cost: 0.07, power: 1.07, ic: 0.65 }] });
   if (turbo) extra.push({ id: 'downpipe', name: 'Downpipe', parts: [ORIGINAL(),
-    { id: 'd2', name: '2,0 pol', note: '+2% cv', cost: 0.02, power: 1.02, sound: { drive: 1.05, vol: 1.03, low: 1.03 } },
-    { id: 'd3', name: '2,5 pol', note: '+3% cv', cost: 0.03, power: 1.03, sound: { drive: 1.1, vol: 1.05, low: 1.05 } },
-    { id: 'd4', name: '3,0 pol', note: '+4% cv', cost: 0.04, power: 1.04, sound: { drive: 1.15, vol: 1.08, low: 1.09, pops: 0.08 } },
-    { id: 'd5', name: '3,5 pol', note: '+5% cv', cost: 0.05, power: 1.05, sound: { drive: 1.2, vol: 1.1, low: 1.12, pops: 0.15 } }] });
+    { id: 'd2', name: '2,0 pol', note: '+2% cv, quase original', cost: 0.02, power: 1.02, sound: { drive: 1.04, vol: 1.02, low: 1.03, resShift: 0.99, fbAdd: 0.01, rush: 1.12 } },
+    { id: 'd3', name: '2,5 pol', note: '+3% cv, som mais cheio', cost: 0.03, power: 1.03, sound: { drive: 1.08, vol: 1.04, low: 1.06, resShift: 0.96, fbAdd: 0.03, bass: 1.12, pipe: 1.03, rush: 1.3, whistle: 1.05 } },
+    { id: 'd4', name: '3,0 pol', note: '+4% cv, grave e oco', cost: 0.04, power: 1.04, sound: { drive: 1.12, vol: 1.06, low: 1.1, resShift: 0.92, fbAdd: 0.06, bass: 1.25, pipe: 1.06, pops: 0.08, rush: 1.55, whistle: 1.1 } },
+    { id: 'd5', name: '3,5 pol', note: '+5% cv, oco, sopra', cost: 0.05, power: 1.05, sound: { drive: 1.16, vol: 1.08, low: 1.14, resShift: 0.88, fbAdd: 0.09, bass: 1.38, pipe: 1.1, pops: 0.15, burble: 0.1, rush: 1.8, whistle: 1.15 } }] });
   // controle de pressão do turbo do kit: wastegate ajustável no carburado, boost controller na injeção
   // (0,7 a 3,5 bar); comprado uma vez, mudar a pressão depois não cobra de novo (ownsPart)
   if (turbo && !ft) extra.push({ id: 'pressao', name: carb ? 'Wastegate' : 'Boost controller', parts: [ORIGINAL('Da turbina'),
@@ -190,9 +194,9 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
     ...extra,
     { id: 'escape', name: 'Escapamento', parts: [ORIGINAL(),
       // (ids esportivo e corrida mantidos por causa dos saves)
-      { id: 'esportivo', name: 'Abafadores esportivos', note: '+4,5% cv', cost: 0.03, power: 1.045, sound: { drive: 1.25, vol: 1.15, rasp: 0.04, low: 1.15 } },
-      { id: 'semabafador', name: 'Sem abafadores', note: '+7% cv', cost: 0.04, power: 1.07, sound: { drive: 1.45, vol: 1.24, rasp: 0.08, pops: 0.25, low: 1.27 } },
-      { id: 'corrida', name: 'Sem restrições (corrida)', note: '+9% cv', cost: 0.06, power: 1.09, sound: { drive: 1.6, vol: 1.3, rasp: 0.1, pops: 0.4, low: 1.35 } }] },
+      { id: 'esportivo', name: 'Abafadores esportivos', note: '+4,5% cv, encorpado', cost: 0.03, power: 1.045, sound: { drive: 1.2, vol: 1.16, rasp: 0.02, low: 1.12, bass: 1.3, mid: 1.08, resShift: 0.96, fbAdd: 0.04, pops: 0.1 } },
+      { id: 'semabafador', name: 'Sem abafadores', note: '+7% cv, rouco e alto', cost: 0.04, power: 1.07, sound: { drive: 1.4, vol: 1.18, rasp: 0.05, low: 1.18, bass: 1.45, mid: 1.28, resShift: 0.94, fbAdd: 0.1, pipe: 0.88, pops: 0.35, burble: 0.2, crackle: 0.25 } },
+      { id: 'corrida', name: 'Sem restrições (corrida)', note: '+9% cv, bruto, estouros', cost: 0.06, power: 1.09, sound: { drive: 1.55, vol: 1.25, rasp: 0.07, low: 1.25, bass: 1.6, mid: 1.38, resShift: 0.92, fbAdd: 0.15, pipe: 0.8, pops: 0.7, burble: 0.45, crackle: 0.6, cabinOpen: 1.05 } }] },
     { id: 'pneus', name: 'Pneus', parts: [ORIGINAL(),
       { id: 'esportivo', name: 'Esportivo de rua', note: '+9% curva, +15% largada', cost: 0.03, grip: 1.09, brake: 1.06, traction: 1.15, handling: 1.045 },
       { id: 'semislick', name: 'Semi slick', note: '+18% curva, +35% largada', cost: 0.07, grip: 1.18, brake: 1.12, traction: 1.35, handling: 1.075 }] },
@@ -210,8 +214,8 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
       { id: 'concha', name: 'Bancos de corrida', note: '-6,5% peso', cost: 0.05, mass: 0.935 },
       { id: 'estrutura', name: 'Estrutura', note: '-9% peso', cost: 0.07, mass: 0.91 },
       { id: 'corrida', name: 'Alívio de corrida', note: '-12% peso', cost: 0.1, mass: 0.88 }] },
-    // controle de largada (3-step): o jogador escolhe o giro em que o carro segura parado (de 3.000 rpm
-    // até 1.000 abaixo do corte, de 500 em 500); comprado uma vez, mudar o giro não cobra de novo
+    // controle de largada (3-step): o jogador escolhe o giro em que o carro segura parado (2.500 a 6.000 rpm,
+    // os que ficam abaixo do corte); comprado uma vez, mudar o giro não cobra de novo
     { id: 'largada', name: 'Controle de largada', parts: [ORIGINAL('Sem 3-step'), ...launchSteps(car).map((rpm): Part => ({ id: `r${rpm}`, name: `${rpm.toLocaleString('pt-BR')} rpm`, note: '3-step', cost: 0.02, launch: rpm / redlineOf(car) }))] },
     { id: 'rodas', name: 'Rodas', parts: [ORIGINAL('Originais'), ...WHEEL_LIST.map(([id, name]): Part => ({ id, name, note: id[0] === 'c' ? 'clássica' : 'liga leve', cost: 0.03, wheel: id }))] },
   ];
@@ -256,8 +260,8 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
       snd.drive = (snd.drive ?? 1) * (m.drive ?? 1);
       snd.vol = (snd.vol ?? 1) * (m.vol ?? 1);
       snd.low = (snd.low ?? 1) * (m.low ?? 1);
-      if (m.rev) snd.rev = (snd.rev ?? 1) * m.rev;
-      for (const k of ['rasp', 'pops', 'cam', 'intake', 'whine', 'spool', 'blower'] as const) if (m[k]) snd[k] = (snd[k] ?? 0) + m[k]!;
+      for (const k of ['rev', 'pipe', 'resShift', 'bass', 'mid', 'cabinOpen', 'rush', 'whistle'] as const) if (m[k]) snd[k] = (snd[k] ?? 1) * m[k]!;
+      for (const k of ['rasp', 'pops', 'cam', 'intake', 'whine', 'spool', 'blower', 'fbAdd', 'burble', 'crackle'] as const) if (m[k]) snd[k] = (snd[k] ?? 0) + m[k]!;
       if (m.turbo) snd.turbo = true;
     }
   }

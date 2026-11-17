@@ -1,6 +1,6 @@
 // Modo Carreira: regiões com eventos contra pilotos com nome, dinheiro, concessionária,
 // garagem (pintura e melhorias) e progresso salvo no aparelho.
-import { applyBuild, type Build } from './tuning';
+import { applyBuild, partOf, slotsFor, type Build } from './tuning';
 import { CARS, PERF_CLASSES, prepareCar, type CarSpec, type PerfClass } from './cars';
 import type { Course, StageDef } from './courses';
 import type { RivalStyle } from './race';
@@ -9,7 +9,8 @@ import { isObj } from './util';
 
 export interface Driver { name: string; car: string; style: RivalStyle; skill: number; paint: string; quote: string }
 // rematch: revanche contra um rival já vencido (evento opcional; o id leva -rv e não entra em done)
-export interface CareerEvent { id: string; name: string; driver: Driver; stages: StageDef[]; prize: number; boss?: boolean; rematch?: boolean }
+// extras: quantos figurantes correm junto (1 ou 2; sem isso, só o rival). O resultado continua contra o rival
+export interface CareerEvent { id: string; name: string; driver: Driver; stages: StageDef[]; prize: number; boss?: boolean; rematch?: boolean; extras?: 1 | 2 }
 // after: região cujo chefão libera esta (sem isso, a anterior da lista)
 export interface Region { id: string; cls: PerfClass; name: string; desc: string; color: string; events: CareerEvent[]; after?: string }
 
@@ -28,7 +29,7 @@ export const REGIONS: Region[] = [
     events: [
       { id: 'D-c1', name: 'Racha da Orla', prize: 3000, driver: drv('Dudu Pneu', 'br-voyage', 'cauteloso', 0.86, '#1a9a3a', 'Vai com calma, novato.'), stages: [st('coast', 2, { dusk: true, curviness: 0.6, police: 0, traffic: 3, sections: 8 })] },
       { id: 'D-c2', name: 'Farol Vermelho', prize: 4000, driver: drv('Lia Faísca', 'br-pumagte', 'imprevisivel', 0.885, '#ececec', 'Hoje eu tô inspirada!'), stages: [st('coast', 2, { dusk: true, curviness: 0.8, traffic: 3 })] },
-      { id: 'D-c3', name: 'Coqueiral', prize: 5000, driver: drv('Beto Turbo', 'br-passat', 'agressivo', 0.91, '#d01818', 'Sai da minha frente!'), stages: [st('coast', 4, { curviness: 0.7 }), st('forest', 2, { night: true, curviness: 0.7, police: 0 })] },
+      { id: 'D-c3', name: 'Coqueiral', prize: 5000, extras: 1, driver: drv('Beto Turbo', 'br-passat', 'agressivo', 0.91, '#d01818', 'Sai da minha frente!'), stages: [st('coast', 4, { curviness: 0.7 }), st('forest', 2, { night: true, curviness: 0.7, police: 0 })] },
       { id: 'D-c4', name: 'Pôr do Sol', prize: 6000, driver: drv('Nina Maresia', 'br-voyagesport', 'cauteloso', 0.93, '#18b8d0', 'Constância vence corrida.'), stages: [st('coast', 2, { curviness: 1, tod: 'sunset' }), st('coast', 2, { night: true, curviness: 0.9 })] },
       { id: 'D-c5', name: 'Rei da Praia', prize: 12000, boss: true, driver: drv('Capitão Maré', 'br-monza', 'agressivo', 0.95, '#1f4fd0', 'Esta costa é minha há dez anos.'), stages: [st('coast', 4, { curviness: 0.9 }), st('coast', 2, { curviness: 1.1, weather: 'rain' }), st('forest', 2, { night: true, curviness: 1 })] },
     ],
@@ -38,7 +39,7 @@ export const REGIONS: Region[] = [
     events: [
       { id: 'D-v1', name: 'Estrada do Celeiro', prize: 4000, driver: drv('Zé Trator', 'br-santana', 'agressivo', 0.92, '#d8c49a', 'Aqui é terra de gente bruta.'), stages: [st('farm', 2, { dusk: true, hilliness: 0.8 })] },
       { id: 'D-v2', name: 'Colheita Rápida', prize: 5000, driver: drv('Rosa Vento', 'br-monzacoupe', 'cauteloso', 0.93, '#7a3ac8', 'Respeite as curvas.'), stages: [st('farm', 2, { hilliness: 0.9, curviness: 1.1 }), st('forest', 2, { night: true })] },
-      { id: 'D-v3', name: 'Ponte Velha', prize: 6000, driver: drv('Tico Nitro', 'br-pumagtb', 'imprevisivel', 0.94, '#f0c000', 'Nem eu sei o que vou fazer.'), stages: [st('forest', 4, { tod: 'dawn' }), st('farm', 2, { night: true })] },
+      { id: 'D-v3', name: 'Ponte Velha', prize: 6000, extras: 1, driver: drv('Tico Nitro', 'br-pumagtb', 'imprevisivel', 0.94, '#f0c000', 'Nem eu sei o que vou fazer.'), stages: [st('forest', 4, { tod: 'dawn' }), st('farm', 2, { night: true })] },
       { id: 'D-v4', name: 'Serra Baixa', prize: 7000, driver: drv('Marta Freio', 'br-voyagesport', 'cauteloso', 0.94, '#8a8c92', 'Frear também é pilotar.'), stages: [st('forest', 2, { curviness: 1.2, hilliness: 0.9 }), st('farm', 4, { night: true })] },
       { id: 'D-v5', name: 'Barão do Vale', prize: 15000, boss: true, driver: drv('Barão do Vale', 'br-monza', 'agressivo', 0.96, '#1c1c20', 'Minha fazenda, minhas regras.'), stages: [st('farm', 2, { hilliness: 1 }), st('forest', 2, { night: true, curviness: 1.1 }), st('farm', 4, { weather: 'rain' })] },
     ],
@@ -48,9 +49,9 @@ export const REGIONS: Region[] = [
     id: 'tropico', cls: 'C', name: 'Trópico Selvagem', desc: 'Praias, savana, selva e cânion.', color: '#f0a030',
     events: [
       { id: 'C-t1', name: 'Areia Dourada', prize: 6000, driver: drv('Surfista Léo', 'br-corsa', 'cauteloso', 0.93, '#18b8d0', 'A onda boa é a da estrada.'), stages: [st('beach', 4, { curviness: 0.7, police: 0, tod: 'sunset' }), st('beach', 2, { night: true, curviness: 0.8 })] },
-      { id: 'C-t2', name: 'Safári', prize: 8000, driver: drv('Juba', 'br-kadett', 'agressivo', 0.94, '#c8a840', 'O rei da savana sou eu.'), stages: [st('savanna', 2, { curviness: 0.8, hilliness: 0.7 }), st('savanna', 4, { night: true, curviness: 0.6 })] },
+      { id: 'C-t2', name: 'Safári', prize: 8000, extras: 1, driver: drv('Juba', 'br-kadett', 'agressivo', 0.94, '#c8a840', 'O rei da savana sou eu.'), stages: [st('savanna', 2, { curviness: 0.8, hilliness: 0.7 }), st('savanna', 4, { night: true, curviness: 0.6 })] },
       { id: 'C-t3', name: 'Chuva na Selva', prize: 10000, driver: drv('Tucano', 'br-uno', 'imprevisivel', 0.945, '#1a9a3a', 'Na mata ninguém me acha.'), stages: [st('jungle', 2, { curviness: 1.1, weather: 'rain' }), st('jungle', 2, { night: true, curviness: 1.2, weather: 'rain' })] },
-      { id: 'C-t4', name: 'Pôr do Sol no Cânion', prize: 12000, driver: drv('Coiote', 'br-golgti', 'agressivo', 0.95, '#c8603a', 'Bip bip? Não comigo.'), stages: [st('canyon', 2, { curviness: 1.2, hilliness: 0.9, tod: 'sunset' }), st('canyon', 2, { curviness: 1.3, night: true })] },
+      { id: 'C-t4', name: 'Pôr do Sol no Cânion', prize: 12000, extras: 2, driver: drv('Coiote', 'br-golgti', 'agressivo', 0.95, '#c8603a', 'Bip bip? Não comigo.'), stages: [st('canyon', 2, { curviness: 1.2, hilliness: 0.9, tod: 'sunset' }), st('canyon', 2, { curviness: 1.3, night: true })] },
       { id: 'C-t5', name: 'Rainha do Trópico', prize: 25000, boss: true, driver: drv('Rainha Jaci', 'br-vectra', 'cauteloso', 0.955, '#f0a030', 'Do mar ao cânion, tudo é meu.'), stages: [st('beach', 4, { curviness: 0.9 }), st('jungle', 2, { curviness: 1.3, weather: 'rain' }), st('canyon', 2, { curviness: 1.4, night: true, hilliness: 1 })] },
     ],
   },
@@ -58,8 +59,8 @@ export const REGIONS: Region[] = [
     id: 'deserto', cls: 'C', name: 'Rota do Deserto', desc: 'Retas longas, calor e polícia.', color: '#d0a860',
     events: [
       { id: 'C-d1', name: 'Miragem', prize: 8000, driver: drv('Sol Escaldante', 'br-uno', 'agressivo', 0.94, '#f0c000', 'O asfalto derrete, eu não.'), stages: [st('desert', 4, { dusk: true, police: 2 })] },
-      { id: 'C-d2', name: 'Cânion', prize: 10000, driver: drv('Kiko Poeira', 'br-corsa', 'imprevisivel', 0.945, '#d8c49a', 'Cuidado com a poeira!'), stages: [st('desert', 2, { curviness: 1.2, hilliness: 0.8, tod: 'dawn' }), st('desert', 2, { night: true, police: 2 })] },
-      { id: 'C-d3', name: 'Oásis Noturno', prize: 12000, driver: drv('Vera Lua', 'br-kadett', 'cauteloso', 0.95, '#7a3ac8', 'A noite é minha aliada.'), stages: [st('desert', 4, { night: true }), st('desert', 2, { night: true, curviness: 1.1 })] },
+      { id: 'C-d2', name: 'Cânion', prize: 10000, extras: 1, driver: drv('Kiko Poeira', 'br-corsa', 'imprevisivel', 0.945, '#d8c49a', 'Cuidado com a poeira!'), stages: [st('desert', 2, { curviness: 1.2, hilliness: 0.8, tod: 'dawn' }), st('desert', 2, { night: true, police: 2 })] },
+      { id: 'C-d3', name: 'Oásis Noturno', prize: 12000, extras: 2, driver: drv('Vera Lua', 'br-kadett', 'cauteloso', 0.95, '#7a3ac8', 'A noite é minha aliada.'), stages: [st('desert', 4, { night: true }), st('desert', 2, { night: true, curviness: 1.1 })] },
       { id: 'C-d4', name: 'Tempestade de Areia', prize: 15000, driver: drv('Tenente Brasa', 'patrol', 'agressivo', 0.955, '#f2f2f2', 'Racha na minha rodovia? Então vamos correr.'), stages: [st('desert', 2, { curviness: 1.3 }), st('desert', 4, { night: true, police: 2 })] },
       { id: 'C-d5', name: 'O Escorpião', prize: 30000, boss: true, driver: drv('Escorpião', 'br-golgti', 'agressivo', 0.96, '#1c1c20', 'Ninguém atravessa o deserto na minha frente.'), stages: [st('desert', 4, { police: 2 }), st('desert', 2, { curviness: 1.3, hilliness: 0.9 }), st('desert', 2, { night: true, curviness: 1.2 })] },
     ],
@@ -67,9 +68,9 @@ export const REGIONS: Region[] = [
   {
     id: 'metropole', cls: 'B', name: 'Metrópole', desc: 'Avenidas cheias, viadutos e noite.', color: '#8a8aa8',
     events: [
-      { id: 'B-m1', name: 'Hora do Rush', prize: 20000, driver: drv('Táxi Veloz', 'serpe-v10', 'imprevisivel', 0.95, '#f0c000', 'Corrida até o aeroporto?'), stages: [st('city', 4, { dusk: true, traffic: 8, police: 2 })] },
+      { id: 'B-m1', name: 'Hora do Rush', prize: 20000, extras: 2, driver: drv('Táxi Veloz', 'serpe-v10', 'imprevisivel', 0.95, '#f0c000', 'Corrida até o aeroporto?'), stages: [st('city', 4, { dusk: true, traffic: 8, police: 2 })] },
       { id: 'B-m2', name: 'Avenida Neon', prize: 25000, driver: drv('Dani Neon', 'kaze-nx', 'cauteloso', 0.96, '#18b8d0', 'Luzes, câmera, aceleração.'), stages: [st('city', 4, { night: true, traffic: 7 }), st('city', 4, { night: true, police: 2 })] },
-      { id: 'B-m3', name: 'Túnel do Centro', prize: 30000, driver: drv('Capitã Sirene', 'furia-tr', 'agressivo', 0.96, '#f2f2f2', 'Se ganhar de mim, a multa fica pra outro dia.'), stages: [st('city', 4, { traffic: 8, tod: 'dawn' }), st('forest', 4, { night: true })] },
+      { id: 'B-m3', name: 'Túnel do Centro', prize: 30000, extras: 1, driver: drv('Capitã Sirene', 'furia-tr', 'agressivo', 0.96, '#f2f2f2', 'Se ganhar de mim, a multa fica pra outro dia.'), stages: [st('city', 4, { traffic: 8, tod: 'dawn' }), st('forest', 4, { night: true })] },
       { id: 'B-m4', name: 'Chuva no Asfalto', prize: 35000, driver: drv('Iara Tormenta', 'kaze-nx', 'imprevisivel', 0.97, '#1f4fd0', 'Chuva é meu clima favorito.'), stages: [st('city', 4, { weather: 'rain', traffic: 7 }), st('city', 4, { weather: 'rain', night: true, police: 2 })] },
       { id: 'B-m5', name: 'Dama da Noite', prize: 80000, boss: true, driver: drv('Dama da Noite', 'furia-tr', 'cauteloso', 0.965, '#d01818', 'A cidade dorme. Eu não.'), stages: [st('city', 4, { night: true, traffic: 8, police: 2 }), st('city', 4, { weather: 'rain', night: true }), st('city', 4, { night: true, police: 3 })] },
     ],
@@ -78,9 +79,9 @@ export const REGIONS: Region[] = [
     id: 'fronteira', cls: 'A', name: 'Fronteira Norte', desc: 'Outono, indústrias, penhascos e Alpes.', color: '#6aa0d0',
     events: [
       { id: 'A-f1', name: 'Folhas ao Vento', prize: 40000, driver: drv('Outonal', 'vortex-zr', 'cauteloso', 0.965, '#d07a2a', 'Cada curva, uma folha.'), stages: [st('autumn', 2, { curviness: 1.1, hilliness: 0.8, tod: 'sunset' }), st('autumn', 4, { night: true, curviness: 0.9 })] },
-      { id: 'A-f2', name: 'Turno da Noite', prize: 50000, driver: drv('Operário', 'toro-lp5', 'agressivo', 0.97, '#7a7a6a', 'Bati o ponto. Agora é corrida.'), stages: [st('industrial', 4, { night: true, traffic: 8, police: 2 }), st('industrial', 4, { night: true, police: 2 })] },
-      { id: 'A-f3', name: 'Neblina na Metrópole', prize: 60000, driver: drv('Fantasma', 'vortex-zr', 'imprevisivel', 0.975, '#ececec', 'Você vai ouvir, mas não vai ver.'), stages: [st('city', 4, { weather: 'rain', traffic: 9, police: 2 }), st('industrial', 4, { weather: 'rain', night: true, police: 3 })] },
-      { id: 'A-f4', name: 'Beira do Abismo', prize: 70000, driver: drv('Águia', 'toro-lp5', 'agressivo', 0.98, '#d81a12', 'Lá de cima eu vejo tudo.'), stages: [st('mountain', 2, { curviness: 1.7, hilliness: 1 }), st('coast', 2, { curviness: 1.6, weather: 'rain', night: true })] },
+      { id: 'A-f2', name: 'Turno da Noite', prize: 50000, extras: 2, driver: drv('Operário', 'toro-lp5', 'agressivo', 0.97, '#7a7a6a', 'Bati o ponto. Agora é corrida.'), stages: [st('industrial', 4, { night: true, traffic: 8, police: 2 }), st('industrial', 4, { night: true, police: 2 })] },
+      { id: 'A-f3', name: 'Neblina na Metrópole', prize: 60000, extras: 1, driver: drv('Fantasma', 'vortex-zr', 'imprevisivel', 0.975, '#ececec', 'Você vai ouvir, mas não vai ver.'), stages: [st('city', 4, { weather: 'rain', traffic: 9, police: 2 }), st('industrial', 4, { weather: 'rain', night: true, police: 3 })] },
+      { id: 'A-f4', name: 'Beira do Abismo', prize: 70000, extras: 1, driver: drv('Águia', 'toro-lp5', 'agressivo', 0.98, '#d81a12', 'Lá de cima eu vejo tudo.'), stages: [st('mountain', 2, { curviness: 1.7, hilliness: 1 }), st('coast', 2, { curviness: 1.6, weather: 'rain', night: true })] },
       { id: 'A-f5', name: 'Barão dos Alpes', prize: 150000, boss: true, driver: drv('Barão Gélido', 'vortex-zr', 'agressivo', 0.99, '#6aa0d0', 'Lá no alto o ar é rarefeito. Para você.'), stages: [st('alpine', 2, { curviness: 1.5, hilliness: 1 }), st('alpine', 2, { curviness: 1.6, weather: 'rain', night: true }), st('alpinesnow', 2, { weather: 'snow', curviness: 1.5, hilliness: 1 })] },
     ],
   },
@@ -88,13 +89,103 @@ export const REGIONS: Region[] = [
     id: 'cume', cls: 'S', name: 'Cume Gelado', desc: 'Serra, neve e o lendário Rei da Serra.', color: '#e0e8f0',
     events: [
       { id: 'S-g1', name: 'Primeira Neve', prize: 70000, driver: drv('Ulf Gelo', 'toro-v12', 'cauteloso', 0.97, '#ececec', 'Na neve, quem corre muito, para.'), stages: [st('snow', 2, { dusk: true, weather: 'snow', curviness: 1.2, hilliness: 0.9 })] },
-      { id: 'S-g2', name: 'Curva do Abismo', prize: 80000, driver: drv('Paulo Penhasco', 'silber-95', 'agressivo', 0.98, '#d81a12', 'Olha pra frente, não pra baixo.'), stages: [st('mountain', 2, { curviness: 1.5, hilliness: 1, tod: 'dawn' }), st('snow', 2, { night: true, weather: 'snow' })] },
-      { id: 'S-g3', name: 'Tempestade Branca', prize: 90000, driver: drv('Capitã Sirene', 'patrol-sv', 'imprevisivel', 0.98, '#f2f2f2', 'Na serra também tem lei.'), stages: [st('snow', 2, { weather: 'snow', curviness: 1.3 }), st('mountain', 2, { night: true, weather: 'rain', curviness: 1.4 })] },
-      { id: 'S-g4', name: 'Noite na Serra', prize: 100000, driver: drv('Lobo Solitário', 'silber-95', 'agressivo', 0.985, '#1c1c20', 'Uuuuuu.'), stages: [st('mountain', 2, { night: true, curviness: 1.5 }), st('snow', 2, { night: true, weather: 'snow' })] },
+      { id: 'S-g2', name: 'Curva do Abismo', prize: 80000, extras: 1, driver: drv('Paulo Penhasco', 'silber-95', 'agressivo', 0.98, '#d81a12', 'Olha pra frente, não pra baixo.'), stages: [st('mountain', 2, { curviness: 1.5, hilliness: 1, tod: 'dawn' }), st('snow', 2, { night: true, weather: 'snow' })] },
+      { id: 'S-g3', name: 'Tempestade Branca', prize: 90000, extras: 1, driver: drv('Capitã Sirene', 'patrol-sv', 'imprevisivel', 0.98, '#f2f2f2', 'Na serra também tem lei.'), stages: [st('snow', 2, { weather: 'snow', curviness: 1.3 }), st('mountain', 2, { night: true, weather: 'rain', curviness: 1.4 })] },
+      { id: 'S-g4', name: 'Noite na Serra', prize: 100000, extras: 2, driver: drv('Lobo Solitário', 'silber-95', 'agressivo', 0.985, '#1c1c20', 'Uuuuuu.'), stages: [st('mountain', 2, { night: true, curviness: 1.5 }), st('snow', 2, { night: true, weather: 'snow' })] },
       { id: 'S-g5', name: 'Rei da Serra', prize: 250000, boss: true, driver: drv('Rei da Serra', 'furia-f4', 'agressivo', 0.995, '#f0c000', 'Chegou longe. Mas aqui termina.'), stages: [st('snow', 2, { weather: 'snow', curviness: 1.4, hilliness: 1 }), st('mountain', 2, { curviness: 1.6, hilliness: 1, weather: 'rain' }), st('mountain', 2, { night: true, curviness: 1.5 })] },
     ],
   },
 ];
+
+// ---------- rivais de carro preparado ----------
+// Os mecânicos e preparadores das fichas (rivals.ts) correm com peças, mais nas fases avançadas. A física e a
+// IA usam a ficha preparada (potência, máxima, aderência, freio) e o ronco de fora leva as peças (soundMods).
+export const RIVAL_BUILDS: Record<string, Build> = {
+  'Dudu Pneu': { pneus: 'esportivo' }, // borracheiro: "troquei os quatro pneus"
+  'Beto Turbo': { alimentacao: 'duplo', escape: 'esportivo', pneus: 'esportivo' }, // mecânico de oficina de bairro
+  'Tico Nitro': { inducao: 'super', alimentacao: 'duplo' }, // inventor de garagem
+  'Kiko Poeira': { pneus: 'semislick', suspensao: 'esportiva', bancos: 'forros' }, // piloto de rali
+  'Escorpião': { comando: 'esportivo', escape: 'semabafador' }, // ferrão no pé direito
+  'Táxi Veloz': { alimentacao: 'chip', escape: 'esportivo' }, // taxista que envenenou o carro
+  'Dani Neon': { suspensao: 'corrida', rodas: 'r06', escape: 'semabafador' }, // carro rebaixado
+  'Operário': { pistoes: 'forjados', comando: 'esportivo', alimentacao: 'duplo', escape: 'esportivo' }, // montou o Toro peça por peça
+  'Barão Gélido': { alimentacao: 'programavel', pneus: 'esportivo', freios: 'corrida' }, // dinheiro de família europeia
+  'Lobo Solitário': { escape: 'corrida', bancos: 'concha', comando: 'esportivo' },
+  'Rei da Serra': { inducao: 'turbomaior', pneus: 'esportivo' }, // campeão de subida de montanha
+};
+export const driverBuild = (d: Driver): Build | undefined => RIVAL_BUILDS[d.name];
+const driverCars = new Map<string, CarSpec>();
+/** carro do piloto da carreira: o de fábrica ou, para os preparadores, com as peças dele */
+export function driverCar(d: Driver): CarSpec {
+  const key = `${d.name}|${d.car}`;
+  let c = driverCars.get(key);
+  if (!c) {
+    const base = CARS.find((x) => x.id === d.car)!;
+    const b = driverBuild(d);
+    driverCars.set(key, (c = b ? prepareCar(applyBuild(base, b)) : base));
+  }
+  return c;
+}
+/** peças do rival em poucas palavras (ficha da entrevista): "Turbo, escapamento" */
+export function buildSummary(d: Driver): string[] {
+  const b = driverBuild(d);
+  if (!b) return [];
+  const car = CARS.find((x) => x.id === d.car)!;
+  return slotsFor(car, b).filter((sl) => b[sl.id]).map((sl) => {
+    const p = partOf(car, sl.id, b[sl.id]);
+    return sl.id === 'rodas' ? 'rodas' : sl.id === 'inducao' || sl.id === 'alimentacao' ? p.name : `${sl.name.toLowerCase()} ${p.name.toLowerCase()}`;
+  });
+}
+// Equilíbrio do preparado (medido com o rival sozinho, 6 pistas por evento: +1 a +5,5% de ritmo sobre o de
+// fábrica, chefões no topo; as peças foram escolhidas para isso). A máxima maior faria o rival andar acima do
+// ritmo do evento o tempo todo; a habilidade compensa até ficar no máximo +3% no ritmo de cruzeiro (arranque,
+// curva e freio continuam melhores: é aí que ele fica mais duro). Prêmio +10% contra rival preparado.
+export const PREP_PACE = 1.03;
+export function rivalSkillOf(d: Driver) {
+  const b = driverBuild(d);
+  if (!b) return d.skill;
+  const base = CARS.find((x) => x.id === d.car)!;
+  return Math.min(d.skill, (d.skill * PREP_PACE * base.maxSpeed) / driverCar(d).maxSpeed);
+}
+export const prizeOf = (ev: CareerEvent) => (driverBuild(ev.driver) ? Math.round((ev.prize * 1.1) / 500) * 500 : ev.prize);
+
+// ---------- figurantes ----------
+// Nos eventos com `extras`, 1 ou 2 pilotos de outros eventos da mesma classe correm junto (carro de fábrica,
+// habilidade um pouco abaixo da do rival, jeito de pilotar deles). Sempre os mesmos para o mesmo evento.
+// Fora os chefões e as viaturas; cor trocada se repetir a do rival ou a do outro figurante.
+export function eventExtras(ev: CareerEvent): Driver[] {
+  const n = ev.extras ?? 0;
+  if (!n) return [];
+  const baseId = ev.id.replace(/-rv$/, '');
+  const reg = REGIONS.find((r) => r.events.some((e) => e.id === baseId));
+  if (!reg) return [];
+  const seen = new Set([ev.driver.name]);
+  const pool: Driver[] = [];
+  for (const r of REGIONS) if (r.cls === reg.cls) for (const e of r.events) {
+    const d = e.driver;
+    if (e.boss || seen.has(d.name) || d.car.startsWith('patrol')) continue;
+    seen.add(d.name);
+    pool.push(d);
+  }
+  let h = 0;
+  for (const ch of baseId) h = (h * 131 + ch.charCodeAt(0)) >>> 0;
+  const rnd = () => ((h = (h * 1103515245 + 12345) >>> 0) / 4294967296);
+  // embaralha pela semente do evento e prefere carros diferentes do rival e entre si
+  const order = pool.map((d) => ({ d, k: rnd() })).sort((a, b) => a.k - b.k).map((o) => o.d);
+  const out: Driver[] = [];
+  for (const pass of [0, 1]) for (const d of order) {
+    if (out.length >= n || out.includes(d)) continue;
+    if (pass === 0 && (d.car === ev.driver.car || out.some((o) => o.car === d.car))) continue;
+    out.push(d);
+  }
+  const used = [ev.driver.paint];
+  const ALT = ['#1f4fd0', '#d01818', '#1a9a3a', '#f0c000', '#ececec', '#1c1c20', '#7a3ac8', '#18b8d0', '#d07a2a'];
+  return out.map((d) => {
+    const paint = used.includes(d.paint) ? ALT.find((c) => !used.includes(c))! : d.paint;
+    used.push(paint);
+    return { ...d, paint, skill: Math.max(0.84, Math.min(d.skill, ev.driver.skill) - 0.015) };
+  });
+}
 
 // ---------- melhorias ----------
 export type Upgrade = 'motor' | 'cambio' | 'pneus';
@@ -277,7 +368,7 @@ export function eventCourse(ev: CareerEvent, attempt = 0): Course {
   let seed = 0;
   for (const ch of ev.id) seed = seed * 31 + ch.charCodeAt(0);
   seed += attempt * 7919; // trânsito e polícia mudam a cada tentativa (as pistas também)
-  return { id: `car-${ev.id}`, name: ev.name, level: ev.boss ? 'Chefão' : 'Evento', rivalSkill: ev.driver.skill, stages: ev.stages, seed };
+  return { id: `car-${ev.id}`, name: ev.name, level: ev.boss ? 'Chefão' : 'Evento', rivalSkill: rivalSkillOf(ev.driver), stages: ev.stages, seed };
 }
 
 // ---------- resultado ----------
@@ -290,6 +381,10 @@ export interface EventResult {
   repairs: number;
   total: number;
   firstWin: boolean;
+  // figurantes: posição final do jogador entre todos (pelo tempo total) e o bônus por chegar à frente deles
+  pos?: number;
+  of?: number;
+  field?: number;
 }
 
 // ---------- estatísticas da carreira ----------
@@ -350,15 +445,19 @@ export function rematchEvent(ev: CareerEvent): CareerEvent {
 }
 export const rematchCount = (s: CareerSave) => REGIONS.reduce((n, r) => n + r.events.filter((e) => rematchOpen(s, e)).length, 0);
 
-export function settleEvent(s: CareerSave, ev: CareerEvent, won: boolean, gameOver: boolean, cleanStages: number, fines: number, crashes: number, time = 0): EventResult {
+// bônus por figurante deixado para trás (tempo total menor que o dele): 5% do prêmio do evento cada
+export const FIELD_BONUS = 0.05;
+export function settleEvent(s: CareerSave, ev: CareerEvent, won: boolean, gameOver: boolean, cleanStages: number, fines: number, crashes: number, time = 0, field?: { pos: number; of: number; beaten: number }): EventResult {
   const doneList = ev.rematch ? (s.rematches ??= []) : s.done;
   const firstWin = won && !doneList.includes(ev.id);
   // vitória: prêmio (metade na repetição); derrota terminando a prova: 15% de participação
-  const prize = won ? (firstWin ? ev.prize : Math.round(ev.prize / 2 / 500) * 500) : gameOver ? 0 : Math.round((ev.prize * 0.15) / 100) * 100;
-  const clean = won ? Math.round((ev.prize * 0.1 * cleanStages) / 100) * 100 : 0;
+  const base = prizeOf(ev);
+  const prize = won ? (firstWin ? base : Math.round(base / 2 / 500) * 500) : gameOver ? 0 : Math.round((base * 0.15) / 100) * 100;
+  const clean = won ? Math.round((base * 0.1 * cleanStages) / 100) * 100 : 0;
+  const fieldBonus = field && !gameOver ? field.beaten * Math.round((base * FIELD_BONUS) / 100) * 100 : 0;
   const repairs = Math.round((priceOf(carById(s.car)) * 0.01 * crashes) / 100) * 100;
   fines = Math.max(0, fines);
-  const total = prize + clean - fines - repairs;
+  const total = prize + clean + fieldBonus - fines - repairs;
   s.money = Math.max(0, s.money + total);
   s.races++;
   if (won) {
@@ -366,15 +465,15 @@ export function settleEvent(s: CareerSave, ev: CareerEvent, won: boolean, gameOv
     if (firstWin) doneList.push(ev.id);
     if (firstWin && !ev.rematch) s.beatenAt = { ...(s.beatenAt ?? {}), [ev.id]: s.wins };
   }
-  s.earned += Math.max(0, prize + clean);
+  s.earned += Math.max(0, prize + clean + fieldBonus);
   const st = statsOf(s);
   st.events++;
   if (won) st.eventWins++;
   else st.eventLosses++;
-  st.earned += Math.max(0, prize + clean);
+  st.earned += Math.max(0, prize + clean + fieldBonus);
   st.finesPaid += fines;
   st.spent += fines + repairs;
   if (won && time > 0 && time < (st.best[ev.id]?.t ?? Infinity)) st.best[ev.id] = { t: time, car: s.car };
   saveCareer(s);
-  return { won, gameOver, prize, clean, fines, repairs, total, firstWin };
+  return { won, gameOver, prize, clean, fines, repairs, total, firstWin, ...(field && !gameOver ? { pos: field.pos, of: field.of, field: fieldBonus } : {}) };
 }

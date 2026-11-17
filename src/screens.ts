@@ -5,7 +5,7 @@ import { drawPerson, attFor, attImg, ATT_META, ATT_H } from './people';
 import { drawSideDamage } from './damage';
 import { VIEW_LEVELS, gearLabel, nextGearMode, prefs, savePrefs, volLabel } from './prefs';
 import { clearArcade, loadArcade } from './arcadesave';
-import { gasQuip } from './score';
+import { fieldPlace, gasQuip } from './score';
 import { clearFriendGhosts, friendGhostCount, ghostCode, ghostOn, loadGhostCode, setGhostOn } from './records';
 import { toast as notify } from './challenges';
 import { FX_LABEL, fxMode, lowFx, setFxMode } from './perf';
@@ -48,6 +48,7 @@ export interface StageResult {
   time: number; rival: number; clean: boolean; crashes: number; tickets: number; fines?: number;
   km: number; top: number; avg: number; score: number; // km/h e pontos do jogador
   rivalTop: number; rivalAvg: number; rivalScore: number;
+  extras?: number[]; // tempos dos figurantes (carreira), na ordem da largada
   best?: number; record?: boolean; // recorde anterior deste trecho com este carro; se bateu
   challenges?: { label: string; done: boolean }[]; medal?: number; medalNew?: boolean; prize?: number; // desafios
 }
@@ -1363,6 +1364,9 @@ function drawStageResult(c: CanvasRenderingContext2D, s: AppState) {
     if (b) ink(c, b, colRival, y, 5, INK, 'right');
   });
   ink(c, `Carros restantes: ${s.lives}`, x + 4, 188, 5, INK);
+  // figurantes da carreira: chegada no trecho e posição no total, entre todos os carros
+  const fp = fieldPlace(s.results);
+  if (fp) ink(c, `Chegada: ${fp.stage}º de ${fp.of} · total ${fp.pos}º`, x + 112, 188, 5, fp.pos === 1 ? '#1a6a2a' : BLUE);
   if (r.record) {
     const lines = r.best === undefined ? ['PRIMEIRO', 'RECORDE!'] : ['NOVO', 'RECORDE!', `-${(r.best - r.time).toFixed(2).replace('.', ',')}s`];
     burst(c, x + SAFE_W - 40, 196, 30, lines, YELLOW, RED, s.t);

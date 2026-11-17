@@ -30,6 +30,9 @@ const s = (theme: ThemeId, lanes: 2 | 4, extra: Partial<StageDef> = {}): StageDe
 // trecho longo: o dobro das seções de um trecho normal
 const L = (theme: ThemeId, lanes: 2 | 4, extra: Partial<StageDef> = {}): StageDef => s(theme, lanes, { sections: 28, ...extra });
 
+// roteiro muito longo: trechos de 36 a 48 seções (bem acima da média dos roteiros, ~19)
+const X = (sections: number) => (theme: ThemeId, lanes: 2 | 4, extra: Partial<StageDef> = {}): StageDef => s(theme, lanes, { sections, ...extra });
+
 const ALL: Course[] = [
   {
     id: 'deserto', name: 'Rajada no Deserto', level: 'Fácil', rivalSkill: 0.93,
@@ -335,12 +338,114 @@ const ALL: Course[] = [
       L('mountain', 2, { curviness: 1.8, hilliness: 1, night: true, weather: 'fog' }),
     ],
   },
+  // ---- roteiros muito longos (36 a 48 seções por trecho), cada um com semente própria ----
+  {
+    id: 'chapada', name: 'Chapada Diamantina', level: 'Fácil', rivalSkill: 0.93, seed: 51000,
+    stages: [
+      X(36)('savanna', 2, { curviness: 0.6, police: 0, traffic: 3, tod: 'dawn' }),
+      X(36)('farm', 2, { curviness: 0.7, hilliness: 0.7 }),
+      X(36)('canyon', 2, { curviness: 0.8, hilliness: 0.7, traffic: 3 }),
+      X(36)('savanna', 4, { curviness: 0.6, tod: 'sunset' }),
+      X(36)('canyon', 2, { curviness: 0.9, hilliness: 0.8, traffic: 3, dusk: true }),
+    ],
+  },
+  {
+    id: 'pampa', name: 'Pampa Gaúcho', level: 'Fácil', rivalSkill: 0.94, seed: 52000,
+    stages: [
+      X(36)('farm', 4, { curviness: 0.5, hilliness: 0.4, police: 0, tod: 'dawn' }),
+      X(36)('farm', 2, { curviness: 0.7, hilliness: 0.5, weather: 'fog' }),
+      X(36)('savanna', 2, { curviness: 0.6, hilliness: 0.4, traffic: 3 }),
+      X(36)('farm', 2, { curviness: 0.8, hilliness: 0.6, weather: 'rain' }),
+      X(36)('autumn', 4, { curviness: 0.7, tod: 'sunset' }),
+    ],
+  },
+  {
+    id: 'riosantos', name: 'Rio-Santos', level: 'Médio', rivalSkill: 0.955, seed: 53000,
+    stages: [
+      X(40)('coast', 2, { curviness: 1, hilliness: 0.7, tod: 'dawn' }),
+      X(40)('beach', 2, { curviness: 0.9 }),
+      X(40)('jungle', 2, { curviness: 1.2, weather: 'rain', traffic: 3 }),
+      X(40)('coast', 2, { curviness: 1.2, hilliness: 0.8, weather: 'fog' }),
+      X(40)('beach', 4, { curviness: 0.9, night: true, traffic: 6, police: 2 }),
+    ],
+  },
+  {
+    id: 'sertao', name: 'Sertão Nordestino', level: 'Médio', rivalSkill: 0.96, seed: 54000,
+    stages: [
+      X(40)('desert', 2, { curviness: 0.8, police: 0, traffic: 3, tod: 'dawn' }),
+      X(40)('savanna', 2, { curviness: 0.9, hilliness: 0.7, traffic: 3 }),
+      X(40)('desert', 4, { curviness: 0.7, police: 2 }),
+      X(40)('canyon', 2, { curviness: 1.2, hilliness: 0.9, traffic: 3, tod: 'sunset' }),
+      X(40)('desert', 2, { curviness: 1, hilliness: 0.8, night: true }),
+    ],
+  },
+  {
+    id: 'rota66', name: 'Rota 66', level: 'Médio', rivalSkill: 0.97, seed: 55000,
+    stages: [
+      X(40)('farm', 4, { curviness: 0.6, tod: 'dawn' }),
+      X(40)('savanna', 2, { curviness: 0.9, hilliness: 0.7 }),
+      X(40)('desert', 4, { curviness: 0.7, police: 2, weather: 'rain' }),
+      X(40)('canyon', 2, { curviness: 1.3, hilliness: 1, tod: 'sunset' }),
+      X(40)('city', 4, { night: true, traffic: 8, police: 2 }),
+    ],
+  },
+  {
+    id: 'rastro', name: 'Rio do Rastro', level: 'Difícil', rivalSkill: 0.98, seed: 56000,
+    stages: [
+      X(42)('farm', 2, { curviness: 1.1, hilliness: 0.9, weather: 'fog', tod: 'dawn' }),
+      X(42)('mountain', 2, { curviness: 1.5, hilliness: 1 }),
+      X(42)('mountain', 2, { curviness: 1.6, hilliness: 1, weather: 'fog' }),
+      X(42)('alpine', 2, { curviness: 1.5, hilliness: 1, weather: 'rain' }),
+      X(42)('mountain', 2, { curviness: 1.6, hilliness: 1, night: true, weather: 'fog' }),
+    ],
+  },
+  {
+    id: 'florestanegra', name: 'Floresta Negra', level: 'Difícil', rivalSkill: 0.985, seed: 57000,
+    stages: [
+      X(42)('forest', 2, { curviness: 1.2, hilliness: 0.8, tod: 'dawn' }),
+      X(42)('autumn', 2, { curviness: 1.4, hilliness: 0.9, weather: 'rain' }),
+      X(42)('alpine', 2, { curviness: 1.4, hilliness: 1, weather: 'fog' }),
+      X(42)('forest', 2, { curviness: 1.4, night: true, weather: 'rain', traffic: 5 }),
+      X(42)('alpine', 4, { curviness: 1, traffic: 7, police: 2, dusk: true }),
+    ],
+  },
+  {
+    id: 'patagonia', name: 'Patagônia', level: 'Expert', rivalSkill: 1.0, seed: 58000,
+    stages: [
+      X(44)('savanna', 2, { curviness: 1, hilliness: 0.8, tod: 'dawn' }),
+      X(44)('snow', 2, { curviness: 1.5, hilliness: 1, weather: 'snow' }),
+      X(44)('alpine', 2, { curviness: 1.6, hilliness: 1, weather: 'fog' }),
+      X(44)('alpinesnow', 2, { curviness: 1.7, hilliness: 1, weather: 'snow', tod: 'sunset' }),
+      X(44)('coast', 2, { curviness: 1.6, hilliness: 1, night: true, weather: 'rain' }),
+    ],
+  },
+  {
+    id: 'panamericana', name: 'Pan-Americana', level: 'Expert', rivalSkill: 1.01, seed: 59000,
+    stages: [
+      X(44)('coast', 4, { curviness: 1, police: 2, tod: 'dawn' }),
+      X(44)('desert', 2, { curviness: 1.3, hilliness: 0.9 }),
+      X(44)('canyon', 2, { curviness: 1.7, hilliness: 1, dusk: true }),
+      X(44)('alpinesnow', 2, { curviness: 1.7, hilliness: 1, weather: 'snow', night: true }),
+      X(44)('jungle', 2, { curviness: 1.6, hilliness: 0.9, weather: 'rain' }),
+    ],
+  },
+  {
+    id: 'travessia', name: 'Grande Travessia', level: 'Lenda', rivalSkill: 1.03, seed: 60000,
+    stages: [
+      X(48)('city', 4, { traffic: 9, police: 3, tod: 'dawn' }),
+      X(48)('jungle', 2, { curviness: 1.6, hilliness: 0.9, weather: 'rain' }),
+      X(48)('desert', 4, { curviness: 1.1, police: 3, tod: 'sunset' }),
+      X(48)('alpinesnow', 2, { curviness: 1.8, hilliness: 1, weather: 'snow', dusk: true }),
+      X(48)('mountain', 2, { curviness: 1.8, hilliness: 1, night: true, weather: 'fog' }),
+    ],
+  },
 ];
 
 // ordem do Arcade, do mais fácil ao mais difícil: cada mapa concluído libera o seguinte
 const ORDER = ['deserto', 'litoral', 'savana', 'outono', 'metropole', 'canion', 'selva', 'crepusculo', 'industrial', 'neblina',
   'serra', 'alpes', 'tuneis', 'grandemetropole', 'noturno', 'tempestade', 'penhasco', 'inverno', 'mundo', 'lendas',
-  'litoralnorte', 'cerrado', 'transamazonica', 'rotadoouro', 'polo', 'serragaucha', 'costaverde', 'marginal', 'cordilheira', 'maratona'];
+  'litoralnorte', 'cerrado', 'transamazonica', 'rotadoouro', 'polo', 'serragaucha', 'costaverde', 'marginal', 'cordilheira', 'maratona',
+  'chapada', 'pampa', 'riosantos', 'sertao', 'rota66', 'rastro', 'florestanegra', 'patagonia', 'panamericana', 'travessia'];
 export const COURSES: Course[] = ORDER.map((id) => ALL.find((c) => c.id === id)!);
 
 // mapas liberados no Arcade (no começo só o primeiro), guardado no aparelho

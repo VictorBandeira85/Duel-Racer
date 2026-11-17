@@ -1,4 +1,4 @@
-import { engineSpec, WORKLET, type EngineSpec } from './enginesynth';
+import { engineSpec, applySoundMods, WORKLET, type EngineSpec } from './enginesynth';
 import { MENU_TRACKS, RACE_TRACKS, ROCK_TRACKS, Synthwave } from './music';
 import { FILE_TRACKS } from './tracks';
 
@@ -60,6 +60,7 @@ let raspGain: GainNode, raspFilter: BiquadFilterNode;
 let turbo: OscillatorNode, turboGain: GainNode;
 // preparação: sopro de ar do turbo (ruído filtrado) e zunido do supercharger (dois osciladores)
 let rushFilter: BiquadFilterNode, rushGain: GainNode, blowA: OscillatorNode, blowB: OscillatorNode, blowGain: GainNode;
+let rushMul = 1, whistleMul = 1; // downpipe: sopro do turbo e assobio (mais largo = mais sopro, assobio mais cheio e grave)
 let spoolLvl = 0, blowerLvl = 0, pressLvl = 0; // 0 = carro sem a peça (turbo de fábrica continua só com o assobio)
 let rumbleGain: GainNode;
 // pneus: seco = guincho alto e definido (borracha vibrando em frequências bem marcadas, com
@@ -238,18 +239,11 @@ export function setEngineProfile(desc: string, carId = '', mods?: import('./tuni
   // wastegate/boost controller: cada bar acima de 1,0 deixa o assobio, o sopro e o alívio ~18% mais
   // fortes (até +45%) e o assobio um pouco mais alto de tom (sem passar de agudo: +4% por bar)
   pressLvl = Math.max(0, Math.min(2.5, (mods?.press ?? 1) - 1));
-  if (mods) {
-    // peças da preparação: escapamento (mais aberto, alto e áspero), comando (lenta irregular),
-    // admissão, supercharger (zunido) e turbo (assobio e alívio)
-    spec = {
-      ...spec, name: spec.name + '+prep',
-      redline: spec.redline * (mods.rev ?? 1),
-      drive: spec.drive * (mods.drive ?? 1), vol: spec.vol * (mods.vol ?? 1), low: spec.low * (mods.low ?? 1),
-      rasp: spec.rasp + (mods.rasp ?? 0), pops: spec.pops + (mods.pops ?? 0),
-      cam: Math.min(1, (spec.cam ?? 0) + (mods.cam ?? 0)), intake: (spec.intake ?? 0) + (mods.intake ?? 0), whine: (spec.whine ?? 0) + (mods.whine ?? 0),
-      turbo: spec.turbo || !!mods.turbo,
-    };
-  }
+  // peças da preparação: escapamento e downpipe (timbre), comando (lenta irregular), admissão,
+  // supercharger (zunido) e turbo (assobio e alívio), relativas ao motor do carro
+  spec = applySoundMods(spec, mods);
+  rushMul = mods?.rush ?? 1;
+  whistleMul = mods?.whistle ?? 1;
   synth?.port.postMessage({ spec });
 }
 
@@ -274,10 +268,11 @@ export function setEngine(rpm: number, pedal: boolean | number, on: boolean, boo
     // enchendo por baixo, para aparecer mesmo com motor alto (V12); o de fábrica fica discreto
     const big = Math.max(0, spoolLvl - 1); // 0 (.32) a 0,8 (.70)
     const pk = 1 + Math.min(0.45, 0.18 * pressLvl);
-    turbo.frequency.setTargetAtTime((spoolLvl ? 1150 + boost * 1250 + r * 450 : 1250 + boost * 1350 + r * 450) * (1 - 0.22 * big) * (1 + 0.04 * pressLvl), t, 0.08);
-    turboGain.gain.setTargetAtTime(tb * (spoolLvl ? (0.03 + 0.012 * big) * pk : 0.011 * (spec.whistle ?? 1)), t, 0.1);
+    turbo.frequency.setTargetAtTime((spoolLvl ? 1150 + boost * 1250 + r * 450 : 1250 + boost * 1350 + r * 450) * (1 - 0.22 * big) * (1 + 0.04 * pressLvl) * (1 - 0.1 * Math.min(1, rushMul - 1)), t, 0.08);
+    turboGain.gain.setTargetAtTime(tb * (spoolLvl ? (0.03 + 0.012 * big) * pk * whistleMul : 0.011 * (spec.whistle ?? 1)), t, 0.1);
     rushFilter.frequency.setTargetAtTime(700 + boost * 900, t, 0.1);
-    rushGain.gain.setTargetAtTime(spoolLvl && on ? tb * (0.05 + 0.03 * big) * pk : 0, t, 0.12);
+    // downpipe mais largo: mais sopro (no turbo de fábrica também, que sem ele não sopra)
+    rushGain.gain.setTargetAtTime(on ? tb * (spoolLvl ? (0.05 + 0.03 * big) * pk * rushMul : 0.045 * Math.max(0, rushMul - 1)) : 0, t, 0.12);
     if (spec.turbo && on && lastThrottle && !throttle && lastBoost > (spoolLvl ? 0.3 : 0.45)) blowOff(lastBoost * (spoolLvl ? (1.7 + 0.6 * big) * pk : spec.bov ?? 1));
     // supercharger: zunido preso ao giro (sem atraso), mais forte acelerando e com polia menor
     const bw = blowerLvl && on ? (0.35 + 0.65 * r) * (throttle ? 1 : 0.35) : 0;

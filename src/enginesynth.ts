@@ -4,6 +4,8 @@
 // silencioso. Sob carga o som satura e fica áspero; aliviando, abafa e solta estalos; no corte de
 // giro as explosões falham. O turbo assobia com a pressão e a válvula de alívio chia ao soltar.
 
+import type { SoundMods } from './tuning';
+
 export interface EngineSpec {
   name: string;
   cyl: number;
@@ -27,6 +29,8 @@ export interface EngineSpec {
   intake?: number; // ronco de admissão (carburadores, borboletas individuais) sob carga
   whine?: number; // zunido de engrenagens/comando (agudo fraco que acompanha o giro)
   intakeHz?: number; // tom do ronco de sucção (caixa de ar/cornetas): ressonância que os pulsos excitam sob carga
+  thump?: number; // grave a mais depois da saturação (escape aberto/downpipe largo): corpo que a saturação não achata (0..1)
+  crackle?: number; // crepitar ao aliviar (escape aberto): estalos mais cedo no giro, mais vezes e miúdos (0..1)
   burble?: number; // borbulhar ao tirar o pé (V8 de escape solto): explosões desiguais no alívio (0..1)
   cut?: number; // corte de giro em rajadas (Hz): ignição que corta e volta ("ratatá"); sem isso, falhas aleatórias
   cabin?: number; // som ouvido de dentro: passa-baixas final (Hz). Só o carro do jogador (engineSpec(..., true))
@@ -182,6 +186,33 @@ export function engineSpec(desc: string, carId = '', inside = false): EngineSpec
   return outside;
 }
 
+// peças da preparação no ronco (escapamento, downpipe, comando, admissão, turbo...): tudo relativo ao spec
+// do próprio carro, então o mesmo escape soa diferente num 4 cilindros, num V8 e num V12. O escape mais
+// aberto mexe no timbre (tubo mais curto e ressonante, grave e rouquidão mais fortes, menos filtro e menos
+// cabine, estalos e borbulho no alívio); o downpipe mais largo deixa as ressonâncias mais graves e ocas.
+// O exagero vem de grave, rouquidão, volume e estalos: a ressonância aguda não ganha nada.
+export function applySoundMods(spec: EngineSpec, m?: SoundMods): EngineSpec {
+  if (!m) return spec;
+  const bass = m.bass ?? 1, mid = m.mid ?? 1, rs = m.resShift ?? 1, pipe = m.pipe ?? 1;
+  return {
+    ...spec, name: spec.name + '+prep',
+    redline: spec.redline * (m.rev ?? 1),
+    // volume: teto de +45% (o tubo mais ressonante e o grave já somam nível; nada de clipar)
+    drive: spec.drive * (m.drive ?? 1), vol: spec.vol * Math.min(1.45, m.vol ?? 1), low: spec.low * (m.low ?? 1),
+    rasp: spec.rasp + (m.rasp ?? 0), pops: spec.pops + (m.pops ?? 0),
+    cam: Math.min(1, (spec.cam ?? 0) + (m.cam ?? 0)), intake: (spec.intake ?? 0) + (m.intake ?? 0), whine: (spec.whine ?? 0) + (m.whine ?? 0),
+    turbo: spec.turbo || !!m.turbo,
+    pipeMs: [Math.max(1.2, spec.pipeMs[0] * pipe), Math.max(1.2, spec.pipeMs[1] * pipe)],
+    fb: Math.min(0.68, spec.fb + (m.fbAdd ?? 0)),
+    res: spec.res.map(([f, q, g], j) => [f * rs, q, g * (j === 0 ? bass : j === 1 ? mid : 1)] as [number, number, number]),
+    cabin: spec.cabin ? spec.cabin * (m.cabinOpen ?? 1) : spec.cabin,
+    burble: Math.min(1, (spec.burble ?? 0) + (m.burble ?? 0)),
+    crackle: Math.min(1, (spec.crackle ?? 0) + (m.crackle ?? 0)),
+    thump: Math.min(1, (spec.thump ?? 0) + Math.max(0, bass - 1) * 1.1),
+    whistle: (spec.whistle ?? 1) * (m.whistle ?? 1),
+  };
+}
+
 // processador (roda na thread de áudio): carregado de um Blob, sem arquivo separado
 export const WORKLET = `
 class Biquad {
@@ -223,7 +254,7 @@ class Engine extends AudioWorkletProcessor {
     this.pipe = [0, 1].map(() => ({ buf: new Float32Array(N), i: 0 }));
     this.res = [0, 1].map(() => s.res.map(() => new Biquad()));
     this.lp = [new Biquad(), new Biquad()];
-    this.inq = new Biquad(); this.cab = [new Biquad(), new Biquad()]; this.cutPh = 0;
+    this.inq = new Biquad(); this.cab = [new Biquad(), new Biquad()]; this.cutPh = 0; this.th = new Biquad();
     this.cylGain = s.events.map(() => 1 + (this.rand() * 2 - 1) * s.jitter);
     this.next = 0;
     this.retune = 0;
@@ -263,6 +294,8 @@ class Engine extends AudioWorkletProcessor {
         this.lp[b].low(lpf, 0.8, sr);
       }
       // ronco de sucção: sobe um pouco com o giro; cabine: abre um pouco com o pé no fundo
+      // corpo grave: passa-baixas logo acima da primeira ressonância (o "tum" do escape)
+      if (s.thump) this.th.low(s.res[0][0] * 1.5 * (1 + 0.15 * this.rpmS), 0.7, sr);
       if (s.intake) this.inq.band((s.intakeHz || 320) * (1 + 0.3 * this.rpmS), 2.2, sr);
       if (s.cabin) { const cf = s.cabin * (0.78 + 0.3 * load + 0.12 * this.rpmS); this.cab[0].low(cf, 0.62, sr); this.cab[1].low(cf * 1.25, 0.62, sr); }
     }
@@ -295,7 +328,10 @@ class Engine extends AudioWorkletProcessor {
         // borbulhar no alívio: explosões fracas e fortes misturadas, algumas falhando
         if (burble > 0 && a > 0) a *= this.rand() < burble * 0.3 ? 0.15 : 0.6 + this.rand() * burble * 1.5;
         let pop = 0;
-        if (load < 0.15 && this.rpmS > 0.45 && this.rand() < s.pops * 0.05) pop = 2.2 + this.rand() * 1.5;
+        // escape aberto (crackle): os estalos começam mais embaixo, vêm mais vezes e há crepitar miúdo entre eles
+        const ck = s.crackle || 0;
+        if (load < 0.15 && this.rpmS > 0.45 - 0.2 * ck && this.rand() < s.pops * 0.05 * (1 + 1.5 * ck)) pop = 2.2 + this.rand() * 1.5;
+        else if (ck && load < 0.15 && this.rpmS > 0.22 && this.rand() < ck * 0.1) pop = 0.9 + this.rand() * 0.9;
         // 3-step (controle de largada) batendo no corte: a ignição atrasa e corta, o combustível
         // explode no escape em rajadas de estouros (PAPAPRAPRAPA); falhas e estalos fortes misturados
         if (this.anti) {
@@ -338,6 +374,9 @@ class Engine extends AudioWorkletProcessor {
       if (s.whine) { this.wph = ((this.wph || 0) + rpm / 60 * 3 / sr * this.pitch) % 1; y += Math.sin(this.wph * 2 * Math.PI) * s.whine * 0.04 * (0.3 + this.rpmS) * this.onS; }
       // saturação (sob carga o som "rasga")
       y = Math.tanh(y * drive * 1.2) / Math.tanh(drive * 1.2);
+      if (s.thump) y += this.th.run(y) * s.thump * 1.6;
+      // escape preparado: limitador suave (os estouros e o grave a mais não passam de ~2 antes do volume)
+      if (s.thump || s.crackle) y = 2 * Math.tanh(y / 2);
       if (s.cabin) y = this.cab[1].run(this.cab[0].run(y));
       out[i] = y * s.vol;
     }

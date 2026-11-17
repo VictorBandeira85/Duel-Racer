@@ -5,8 +5,9 @@
 // e buzina longa de quem levou uma batida.
 import { audioCtx, audioOut, noiseBuffer, synthReady } from './audio';
 import { CAR_W, KMH } from './config';
-import { perfClass } from './cars';
-import { engineSpec, type EngineSpec } from './enginesynth';
+import { perfClass, type CarSpec } from './cars';
+import { applySoundMods, engineSpec, type EngineSpec } from './enginesynth';
+import type { SoundMods } from './tuning';
 import { HORNS } from './horn';
 import { COP_UNIT, copEngine, type Race, type TrafficCar } from './race';
 
@@ -14,6 +15,21 @@ const M_LON = KMH / 3.6; // unidades do mundo -> metros (no sentido da pista)
 const M_LAT = 1.8 / CAR_W; // e de lado (o carro tem 1,8 m)
 const SOUND = 343; // m/s
 const RANGE = 70; // m: além disso, nenhum motor de fora
+
+// carro de corrida (rival, figurante) com peças: o ronco de fora leva as mudanças da preparação
+// (escape, turbo, comando...). A chave do motor ganha as peças para a voz trocar de timbre.
+const carKeys = new WeakMap<CarSpec, string>();
+const prepMods = new Map<string, SoundMods>();
+function carKey(car: CarSpec) {
+  let k = carKeys.get(car);
+  if (k === undefined) {
+    const m = car.soundMods && Object.keys(car.soundMods).length ? car.soundMods : undefined;
+    k = `${car.engine}|${car.id}` + (m ? `|${JSON.stringify(m)}` : '');
+    if (m) prepMods.set(k, m);
+    carKeys.set(car, k);
+  }
+  return k;
+}
 
 // motor de cada modelo do trânsito
 const MODEL_ENGINE: Record<string, string> = { sedan: 'V6', hatch: '4 cil.', pickup: 'V8', van: '4 cil.', truck: 'diesel',
@@ -187,8 +203,9 @@ export function updateTrafficAudio(r: Race, dt: number) {
   }
   if (r.rival && r.rivalCar) {
     const kmh = r.rival.speed * KMH;
-    add(r.rival, r.rival.z, r.rival.x, r.rival.speed, `${r.rivalCar.engine}|${r.rivalCar.id}`, rpmFor(kmh, r.rivalCar.maxSpeed * KMH, r.rivalCar.gears.length), 1, 2.0);
+    add(r.rival, r.rival.z, r.rival.x, r.rival.speed, carKey(r.rivalCar), rpmFor(kmh, r.rivalCar.maxSpeed * KMH, r.rivalCar.gears.length), 1, 2.0);
   }
+  for (const e of r.extras) add(e.r, e.r.z, e.r.x, e.r.speed, carKey(e.car), rpmFor(e.r.speed * KMH, e.car.maxSpeed * KMH, e.car.gears.length), 1, 2.0); // figurantes
   for (const p of r.police) if (p.state === 'chase' || p.state === 'pull')
     add(p, p.z, p.x, p.speed, copEngine(p.unit), rpmFor(p.speed * KMH, COP_UNIT[p.unit ?? 'C'].kmh, p.unit === 'A' ? 6 : 5), 1, 1.8);
 
@@ -208,7 +225,8 @@ export function updateTrafficAudio(r: Race, dt: number) {
     if (v.spec !== s.spec) {
       v.spec = s.spec;
       const [desc, id] = s.spec.split('|');
-      v.node.port.postMessage({ spec: engineSpec(desc, id ?? '') as EngineSpec });
+      const base = engineSpec(desc, id ?? '') as EngineSpec, mods = prepMods.get(s.spec);
+      v.node.port.postMessage({ spec: mods ? applySoundMods(base, mods) : base });
     }
     // Doppler: velocidade com que o carro se afasta (+) ou se aproxima (-) do jogador
     const vr = (s.dz * s.vz) / s.d;

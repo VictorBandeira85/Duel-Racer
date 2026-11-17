@@ -23,7 +23,7 @@ import { formatTime } from './util';
 import { drawPortrait, preLine, rivalOf, wrapLines } from './rivals';
 import { drawFixPanel, drawFixTag, drawStats, drawUsed, fixFocusables, fixTag, keyFix, keyStats, keyUsed, openUsed, pg, statsFocusables, tapFix, tapStats, tapUsed, usedFocusables } from './careerPages';
 import { drawUsedSide, forgetCar } from './usedcars';
-import { rematchCount, rematchEvent, rematchOpen, spend, wearOf, type CareerEvent, type Defect } from './career';
+import { buildSummary, driverBuild, driverCar, eventExtras, prizeOf, rematchCount, rematchEvent, rematchOpen, spend, wearOf, type CareerEvent, type Defect } from './career';
 import { arcadeBuildOf, arcadePrepped, arcadeTuned, setArcadePart } from './arcadeprep';
 
 const STYLE: Record<string, [string, string]> = {
@@ -137,12 +137,13 @@ export function drawCareer(c: CanvasRenderingContext2D, s: AppState) {
     // liberado: o retrato do rival; trancado: só o capacete apagado (ainda não se sabe quem é)
     if (can) drawPortrait(c, ev.driver, { x: r.x + 3, y: r.y + 3, w: 20, h: r.h - 6 });
     else helmet(c, r.x + 13, r.y + 14, 8, '#9a9286', ei + 1);
-    const rc = carById(ev.driver.car);
+    const rc = driverCar(ev.driver); // preparadores: com as rodas e a altura das peças deles
     if (can) drawCarSide(c, r.x + r.w - 122, r.y + 25, 54, rc, ev.driver.paint, undefined, undefined, 'rival');
     if (ev.boss) kicker(c, 'CHEFÃO', r.x + 26, r.y + 3, RED, '#fff');
     ink(c, ev.name.toUpperCase(), r.x + (ev.boss ? 64 : 26), r.y + 5, 5, can ? INK : GREY);
-    ink(c, `vs ${ev.driver.name} • ${ev.stages.length} trecho${ev.stages.length > 1 ? 's' : ''}`, r.x + 26, r.y + 17, 5, can ? BLUE : GREY);
-    ink(c, money(done ? ev.prize / 2 : ev.prize), r.x + r.w - 6, r.y + 5, 5, can ? '#1a6a2a' : GREY, 'right');
+    // +1/+2: figurantes correndo junto
+    ink(c, `vs ${ev.driver.name}${ev.extras ? ` +${ev.extras}` : ''} • ${ev.stages.length} trecho${ev.stages.length > 1 ? 's' : ''}`, r.x + 26, r.y + 17, 5, can ? BLUE : GREY);
+    ink(c, money(done ? prizeOf(ev) / 2 : prizeOf(ev)), r.x + r.w - 6, r.y + 5, 5, can ? '#1a6a2a' : GREY, 'right');
     if (done && rematchOpen(cs, ev)) {
       // rival vencido voltou pedindo revanche (opcional, com prêmio): selo piscando
       if (Math.floor(s.t * 2) % 2 === 0) kicker(c, 'REVANCHE!', r.x + r.w - 52, r.y + 15, RED, YELLOW);
@@ -210,6 +211,8 @@ export function drawEvent(c: CanvasRenderingContext2D, s: AppState) {
   const lvl = Math.max(1, Math.min(5, Math.round((d.skill - 0.86) / 0.032)));
   ink(c, 'NÍVEL', x + 190, 54, 5, GREY);
   stars(c, x + 220, 53, lvl, 6);
+  const prepped = !!driverBuild(d);
+  if (prepped) kicker(c, 'PREPARADO', x + SAFE_W - 58, 52, RED, YELLOW);
   wrapLines(c, `${p.bio[0]} ${p.bio[1]}`, SAFE_W - 66, 5).slice(0, 3).forEach((l, i) => ink(c, l, x + 62, 64 + i * 8, 5, INK));
   // a entrevista: a pergunta da revista e a resposta dele (muda a cada tentativa)
   const n = cs.races;
@@ -218,16 +221,24 @@ export function drawEvent(c: CanvasRenderingContext2D, s: AppState) {
   text(c, '"', x + 4, 108, 16, RED, 'left', null);
   wrapLines(c, ui.rematch ? p.rematch : preLine(d, n), SAFE_W - 26, 5).slice(0, 2).forEach((l, i) => ink(c, l, x + 20, 111 + i * 8, 5, INK));
   // o carro dele e o roteiro
-  const rc = carById(d.car);
+  const rc = driverCar(d); // com as peças, se ele for preparador
   const ph: Rect = { x: x + 4, y: 132, w: 150, h: 46 };
   photo(c, ph, () => drawCarSide(c, ph.x + 6, ph.y + 42, ph.w - 12, rc, d.paint, undefined, undefined, 'rival'));
-  ink(c, `O ${rc.name} de ${p.nick}`, ph.x, ph.y + ph.h + 4, 4, GREY);
+  ink(c, `O ${rc.name}${prepped ? ' preparado' : ''} de ${p.nick}`, ph.x, ph.y + ph.h + 4, 4, prepped ? RED : GREY);
   ink(c, 'ROTEIRO', x + 162, 131, 5, GREY);
   ev.stages.forEach((st, k) => stageChip(c, x + 162 + k * 42, 139, st));
-  ink(c, `${rc.power} · ${Math.round(rc.maxSpeed * KMH)} km/h`, x + 162, 160, 4, INK);
-  ink(c, rc.engine.slice(0, 26), x + 162, 168, 4, GREY);
+  ink(c, `${Math.round(parseInt(rc.power) * (rc.prep ?? 1))} cv · ${Math.round(rc.maxSpeed * KMH)} km/h`, x + 162, 160, 4, prepped ? RED : INK);
+  // preparado: as peças dele no lugar do motor (até duas linhas)
+  if (prepped) wrapLines(c, buildSummary(d).join(', '), 108, 4).slice(0, 2).forEach((l, i) => ink(c, l, x + 162, 168 + i * 7, 4, GREY));
+  else ink(c, rc.engine.slice(0, 26), x + 162, 168, 4, GREY);
+  // figurantes: quem mais corre (nome e carro), sem retrato
+  const ex = eventExtras(ev);
+  if (ex.length) {
+    ink(c, 'TAMBÉM CORREM:', x + 4, 190, 4, BLUE);
+    ink(c, ex.map((e) => `${e.name} (${carById(e.car).name})`).join(' · '), x + 64, 190, 4, INK);
+  }
   const done = cs.done.includes(ev.id);
-  burst(c, x + 294, 176, 21, ['PRÊMIO', money(done ? ev.prize / 2 : ev.prize)], YELLOW, '#1a6a2a', s.t);
+  burst(c, x + 294, 176, 21, ['PRÊMIO', money(done ? prizeOf(ev) / 2 : prizeOf(ev))], YELLOW, '#1a6a2a', s.t);
   const np = Object.values(buildOf(cs, cs.car)).filter(Boolean).length;
   if (fits(cs, ui.region)) ink(c, `Seu carro: ${carById(cs.car).name}, classe ${myClass(cs)} (${np ? `${np} peça${np > 1 ? 's' : ''}` : 'original'})`, x + 4, 199, 4, INK);
   else ink(c, `Seu ${carById(cs.car).name} é classe ${myClass(cs)}: aqui só até a classe ${reg.cls}`, x + 4, 199, 4, RED);
@@ -1038,12 +1049,14 @@ export function drawCareerEnd(c: CanvasRenderingContext2D, s: AppState) {
   drawPortrait(c, ev.driver, { x: x + SAFE_W - 28, y: 31, w: 24, h: 28 });
   const total = s.results.reduce((a2, r) => a2 + r.time, 0);
   const rival = s.results.reduce((a2, r) => a2 + Math.max(0, r.rival), 0);
-  if (!res.gameOver) ink(c, `Você ${formatTime(total)}  •  ${ev.driver.name} ${formatTime(rival)}`, x + 4, 48, 5, INK);
+  if (!res.gameOver) ink(c, `Você ${formatTime(total)}  •  ${ev.driver.name} ${formatTime(rival)}${res.of ? `  •  ${res.pos}º de ${res.of}` : ''}`, x + 4, 48, 5, INK);
   const t: Rect = { x: x + 4, y: 60, w: 200, h: 92 };
   box(c, t, 'EXTRATO');
   const lines: [string, number][] = [[res.won ? 'Prêmio' : 'Participação', res.prize], ['Bônus trecho limpo', res.clean], ['Multas', -res.fines], ['Conserto', -res.repairs]];
+  // figurantes: bônus por cada um deixado para trás (com a posição final)
+  if (res.of) lines.splice(2, 0, [`Figurantes (${res.pos}º de ${res.of})`, res.field ?? 0]);
   lines.forEach(([k, v], i) => {
-    const y = t.y + 16 + i * 13;
+    const y = t.y + 16 + i * (lines.length > 4 ? 11 : 13);
     ink(c, k, t.x + 6, y, 5, GREY);
     ink(c, (v < 0 ? '-' : '') + money(Math.abs(v)), t.x + t.w - 6, y, 5, v < 0 ? RED : '#1a6a2a', 'right');
   });

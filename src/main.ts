@@ -8,13 +8,13 @@ import { clearArcade, loadArcade, saveArcade } from './arcadesave';
 import { arcadePrepped, arcadeTuned } from './arcadeprep';
 import { buildKey } from './tuning';
 import { capsHtml } from './ui';
-import { stageResult } from './score';
+import { fieldPlace, stageResult } from './score';
 import '@fontsource/press-start-2p/400.css';
 import { CRES, RES, setCanvasRes, setRes, view } from './config';
 import { CARS, TRAFFIC_IMAGES, carArtReady, trafficReady } from './cars';
 import { COURSES, completeCourse, unlockedCourses, withTimeOfDay, type ArcadeTime, type Course } from './courses';
 import { ui as careerUi } from './careerScreens';
-import { setupOf, buildOf, REGIONS, carById, eventCourse, levels, loadCareer, logStage, rematchEvent, saveCareer, settleEvent, tunedCar, wearOf } from './career';
+import { setupOf, buildOf, REGIONS, carById, driverCar, eventCourse, eventExtras, levels, loadCareer, logStage, rematchEvent, saveCareer, settleEvent, tunedCar, wearOf } from './career';
 import { raceWear } from './usedcars';
 import type { CarSpec } from './cars';
 import { Race } from './race';
@@ -68,7 +68,7 @@ interface Run {
   course: Course;
   car: CarSpec;
   rival: CarSpec | null;
-  opts: { rivalStyle?: import('./race').RivalStyle; rivalPaint?: string; copClass?: import('./cars').PerfClass };
+  opts: { rivalStyle?: import('./race').RivalStyle; rivalPaint?: string; copClass?: import('./cars').PerfClass; extras?: import('./race').ExtraDef[] };
   event?: { region: number; event: number; rematch?: boolean };
 }
 let run: Run = { course: COURSES[0], car: CARS[0], rival: null, opts: {} };
@@ -170,8 +170,14 @@ const actions: Actions = {
     state.carIdx = CARS.findIndex((c) => c.id === cs.car);
     run = {
       // carro usado: os defeitos entram na ficha (potência, aderência)
-      course: eventCourse(ev, cs.races), car: tunedCar(carById(cs.car), levels(cs, cs.car), setupOf(cs, cs.car), buildOf(cs, cs.car), wearOf(cs, cs.car)), rival: carById(ev.driver.car),
-      opts: { rivalStyle: ev.driver.style, rivalPaint: ev.driver.paint, copClass: REGIONS[region].cls }, event: { region, event, rematch },
+      course: eventCourse(ev, cs.races), car: tunedCar(carById(cs.car), levels(cs, cs.car), setupOf(cs, cs.car), buildOf(cs, cs.car), wearOf(cs, cs.car)),
+      rival: driverCar(ev.driver), // preparadores: o carro com as peças deles
+      opts: {
+        rivalStyle: ev.driver.style, rivalPaint: ev.driver.paint, copClass: REGIONS[region].cls,
+        // figurantes do evento (carro de fábrica, um pouco menos afiados que o rival)
+        extras: eventExtras(ev).map((d) => ({ car: carById(d.car), paint: d.paint, style: d.style, skill: d.skill, name: d.name })),
+      },
+      event: { region, event, rematch },
     };
     begin(4);
   },
@@ -218,7 +224,7 @@ function stageArtReady(r: Race) {
     stageKinds.set(r, kinds);
   }
   // sem atalho: tudo o que falta é pedido com prioridade de uma vez
-  const checks = [sceneryReady(kinds), trafficReady(), carArtReady(r.car), !r.rivalCar || carArtReady(r.rivalCar), copsReady(r.copId), attsReady(attFor(r.def.theme))];
+  const checks = [sceneryReady(kinds), trafficReady(), carArtReady(r.car), !r.rivalCar || carArtReady(r.rivalCar), ...r.extras.map((e) => carArtReady(e.car)), copsReady(r.copId), attsReady(attFor(r.def.theme))];
   return checks.every(Boolean);
 }
 function startStage(i: number) {
@@ -288,7 +294,9 @@ function makeRace(i: number) {
   const rivalAhead = !prev || !(prev.rival < 0 || prev.time <= prev.rival);
   // procurado pela polícia: na carreira, multas e fugas acumuladas no save; no Arcade, as multas do roteiro
   const wanted = state.mode === 'career' ? (state.career?.wanted ?? 0) / 6 : state.results.reduce((a, q) => a + (q.tickets || 0), 0) * 0.2; // (saves antigos sem multas: 0)
-  const r = new Race(run.course, i, run.car, run.rival, state.auto, { ...run.opts, rivalAhead, wanted });
+  // figurantes: à frente na largada quem chegou antes do jogador no trecho anterior
+  const extrasAhead = run.opts.extras?.map((_, k) => !prev || (prev.extras?.[k] ?? Infinity) < prev.time);
+  const r = new Race(run.course, i, run.car, run.rival, state.auto, { ...run.opts, rivalAhead, wanted, extrasAhead });
   preloadGasArt(r.def.theme); // posto do mapa deste trecho
   r.ghostRun = loadGhost(run.course.id, i, true);
   r.showGhost = ghostOn();
@@ -372,7 +380,9 @@ function settle(won: boolean, last?: Race) {
     logStage(state.career, run.car.id, { km: done.km * last.progress, top: done.top, tickets: last.tickets, crashes: last.crashes, escapes: last.escapes, falls: last.stats.falls });
   }
   const time = won ? res.reduce((a, r) => a + r.time, 0) : 0;
-  state.careerResult = settleEvent(state.career!, ev, won, state.gameOver, res.filter((r) => r.clean).length, fines, crashes, time);
+  // figurantes: posição final entre todos e quantos ficaram para trás (bônus em settleEvent)
+  const fp = state.gameOver ? null : fieldPlace(res);
+  state.careerResult = settleEvent(state.career!, ev, won, state.gameOver, res.filter((r) => r.clean).length, fines, crashes, time, fp ?? undefined);
   actions.go('careerEnd');
 }
 
@@ -1026,7 +1036,7 @@ beginLoading(state, () => actions.go('title'), 1.4);
 requestAnimationFrame(frame);
 
 // para testes automatizados
-Object.assign(window, { app: { artReady: { car: (id: string) => carArtReady(CARS.find((c) => c.id === id)!), stage: () => !!race && stageArtReady(race) }, state, actions, beginLoading, focusInfo: () => focusInfo(state), courses: COURSES, cars: CARS, get race() { return race; } }, input, audio: { audioCtx, synthReady, sfxLevel, gainLevels }, pad });
+Object.assign(window, { app: { artReady: { car: (id: string) => carArtReady(CARS.find((c) => c.id === id)!), stage: () => !!race && stageArtReady(race) }, state, actions, beginLoading, focusInfo: () => focusInfo(state), courses: COURSES, cars: CARS, get race() { return race; }, careerUi }, input, audio: { audioCtx, synthReady, sfxLevel, gainLevels }, pad });
 
 // app instalável: funciona sem internet (não no arquivo único usado para testes)
 if ('serviceWorker' in navigator && import.meta.env.MODE !== 'single' && (location.protocol === 'https:' || location.hostname === 'localhost')) {

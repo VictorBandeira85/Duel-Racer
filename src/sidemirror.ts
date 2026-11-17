@@ -270,6 +270,7 @@ export function drawSideMirror(c: CanvasRenderingContext2D, r: Race, g: Glass, o
     } else behind.push({ dz: pz - t.z, x: t.x, w: trafficW(t, t.base > 0), look: trafficLook(t, t.base > 0, night) });
   }
   if (r.rival) behind.push({ dz: pz - r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint, signal: r.rival.signal, lamps: r.rivalLamps(), dent: r.rivalDmg } });
+  for (const e of r.extras) behind.push({ dz: pz - e.r.z, x: e.r.x, w: CAR_W, look: { color: e.car.color, rear: e.car.rear, front: true, night, paint: e.paint, signal: e.r.signal, lamps: r.rivalLamps(e.r), dent: e.dmg } });
   for (const p of r.police) if (p.state !== 'done') behind.push({ dz: pz - p.z, x: p.x, w: copW(p.unit), look: copLook(p.unit, { siren: p.state === 'chase' || p.state === 'pull', front: true, night, plate: r.copPlate, ...(r.copId === 'A2' ? { model: 'moto-copf' } : {}) }) });
   behind.sort((a, b) => b.dz - a.dz);
   for (const b of behind) {

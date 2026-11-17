@@ -660,6 +660,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   for (let i = base.index; i < end; i++) segs[i].cars.length = 0;
   const entities: { z: number; x: number }[] = [...r.traffic, ...r.police.filter((p) => p.state !== 'done' || Math.abs(p.z - r.playerZ) < 100 * SEG_LEN)];
   if (r.rival) entities.push(r.rival);
+  for (const e of r.extras) entities.push(e.r); // figurantes da carreira
   if (r.officer) entities.push(r.officer);
   if (r.blitz) entities.push(...r.blitz.cones, r.blitz.officer); // blitz: cones e o policial anotando
   if (r.obra) entities.push(...r.obra.cones, ...r.obra.props, r.obra.flag); // obra: cones, cavaletes, máquina, homem da bandeira
@@ -857,6 +858,14 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
         const rw = CAR_W * sc * vp.K, rv = r.rival;
         fogged(c, fk, cx - rw, cy - rw * 1.3, rw * 2, rw * 1.3 + 4, (g) => drawCar(g, cx, cy, rw, { color: r.rivalCar!.color, rear: r.rivalCar!.rear, brake: rv.recover > 0 || rv.mistake > 0, night: lit, paint: r.rivalPaint, signal: rv.signal, plate: r.rivalPlate, drop: r.rivalCar!.rideDrop, dent: r.rivalDmg }));
         beamAhead(e.z, ex, CAR_W * sc * vp.K);
+      } else if ('pt' in e) {
+        // figurante (carro de corrida com a IA do rival): o carro, a cor, a placa e as marcas dele
+        const fx = r.extras.find((q) => q.r === e);
+        if (fx) {
+          const rw = CAR_W * sc * vp.K, rv = fx.r;
+          fogged(c, fk, cx - rw, cy - rw * 1.3, rw * 2, rw * 1.3 + 4, (g) => drawCar(g, cx, cy, rw, { color: fx.car.color, rear: fx.car.rear, brake: rv.recover > 0 || rv.mistake > 0, night: lit, paint: fx.paint, signal: rv.signal, plate: fx.plate, drop: fx.car.rideDrop, dent: fx.dmg }));
+          beamAhead(e.z, ex, rw);
+        }
       } else if ('rider' in e) {
         // piloto da moto caída (no ar, rolando ou sentado tonto)
         const f = e as MotoFall, cw = CAR_W * sc * vp.K;
@@ -969,6 +978,7 @@ export function renderRoad(c: CanvasRenderingContext2D, r: Race, view0: Viewport
   if (lit) {
     for (const t of r.traffic) if (t.base > 0) passers.push({ x: t.x - r.x, dz: r.playerZ - t.z });
     if (r.rival) passers.push({ x: r.rival.x - r.x, dz: r.playerZ - r.rival.z });
+    for (const e of r.extras) passers.push({ x: e.r.x - r.x, dz: r.playerZ - e.r.z });
     for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') passers.push({ x: p.x - r.x, dz: r.playerZ - p.z });
   }
   setLightClip(Infinity);
@@ -1030,6 +1040,7 @@ export function renderMirror(c: CanvasRenderingContext2D, r: Race, x: number, y:
     } else behind.push({ z: t.z, x: t.x, w: trafficW(t, t.base > 0), look: trafficLook(t, t.base > 0, night) });
   }
   if (r.rival) behind.push({ z: r.rival.z, x: r.rival.x, w: CAR_W, look: { color: r.rivalCar!.color, rear: r.rivalCar!.rear, front: true, night, paint: r.rivalPaint, signal: r.rival.signal, lamps: r.rivalLamps(), dent: r.rivalDmg } });
+  for (const e of r.extras) behind.push({ z: e.r.z, x: e.r.x, w: CAR_W, look: { color: e.car.color, rear: e.car.rear, front: true, night, paint: e.paint, signal: e.r.signal, lamps: r.rivalLamps(e.r), dent: e.dmg } });
   for (const p of r.police) if (p.state === 'chase' || p.state === 'pull') behind.push({ z: p.z, x: p.x, w: copW(p.unit), look: copLook(p.unit, { siren: true, front: true, night, plate: r.copPlate, ...(r.copId === 'A2' ? { model: 'moto-copf' } : {}) }) });
   behind.sort((a, b) => a.z - b.z);
   let sirenNear = 0;

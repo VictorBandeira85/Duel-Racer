@@ -1106,7 +1106,10 @@ const GAS_LAYOUT = {
   std: { dx: -6, dy: -14, gy: 162, lit: [197, 115], hose: [211, 127], sl: 40, sr: 32 },
   // 30% maiores (gas_theme.py), centradas: só a faixa da borda antes da cobertura vai espelhada
   map: { dx: -56, dy: -58, gy: 172, lit: [296, 172], hose: [310, 183], sl: 44, sr: 44 },
+  // segunda leva (tools/ref/gas_theme2.py): cobertura larga, duas ilhas e a loja à direita, pista na frente
+  wide: { dx: -54, dy: -28, gy: 172, lit: [294, 152], hose: [311, 162], sl: 44, sr: 8 },
 };
+const GAS_WIDE = new Set(['canyon-day', 'savanna-night', 'autumn-day', 'autumn-night', 'mountain-day', 'mountain-night', 'alpine-day', 'alpine-night']);
 function gasArt(key: string) {
   let im = gasImgs[key];
   if (!im) {
@@ -1132,7 +1135,7 @@ function drawGas(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const fill = Math.max(0, Math.min(1, (t - GAS_STOP - 0.9) / 3)); // abastecimento: 0..1
   const liters = Math.round(fill * 38 * 10) / 10;
   const key = gasArtKey(night, s.gasTheme ?? '');
-  const L = key.includes('-') ? GAS_LAYOUT.map : GAS_LAYOUT.std;
+  const L = GAS_WIDE.has(key) ? GAS_LAYOUT.wide : key.includes('-') ? GAS_LAYOUT.map : GAS_LAYOUT.std;
   const bg = gasArt(key);
   const ax0 = x + L.dx, ay0 = L.dy; // carro e frentista colados à ilha das bombas
   if (bg) {

@@ -23,7 +23,6 @@ import { addUse, healthOf } from './upkeep';
 import type { CarSpec } from './cars';
 import { Race } from './race';
 import { overlayDraw, overlayKey, overlayOn, overlayTap, overlayType } from './overlay';
-import { recDone, recTick } from './recorder';
 import { logWeek } from './weekly';
 import { DRAG_COURSE, DragRace, dragHost } from './drag';
 import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
@@ -365,7 +364,6 @@ function makeRace(i: number) {
   }
   liveDone = new Set();
   r.onArrive = () => {
-    recDone(r); // replay dos melhores momentos (recorder.ts)
     if (state.mode === 'arcade') logWeek(run.course.id, i, r.time); // ranking da semana (weekly.ts)
     const res = stageResult(r);
     const sv = saveRun(r, run.course.id, i, paintHex(run.car.id), runPrepped());
@@ -524,7 +522,7 @@ function resize() {
 canvas.addEventListener('pointerdown', (e) => {
   initAudio();
   const rect = canvas.getBoundingClientRect();
-  // modo foto, replay, placa, ranking da semana (overlay.ts): o toque é deles
+  // placa e ranking da semana (overlay.ts): o toque é deles
   if (overlayOn()) return overlayTap(((e.clientX - rect.left) / rect.width) * view.w, ((e.clientY - rect.top) / rect.height) * view.h);
   if (state.screen === 'race') {
     // toque no rádio desenhado na cabine (onde a arte tem um): troca a estação
@@ -1099,7 +1097,6 @@ function frameMain(now: number) {
       acc += dt;
       while (acc >= STEP && state.screen === 'race') {
         race.update(STEP);
-        recTick(race, STEP);
         acc -= STEP;
       }
     }

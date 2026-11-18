@@ -37,8 +37,6 @@ import { dailyEndFocusables, dailyFocusables, dailySealRect, drawDaily, drawDail
 import { todayKey } from './daily';
 import { drawIssueCover, drawIssues, issues as myIssues, issuesFocusables, issuesTick, keyIssues, mastLine, openIssues, tapIssues, titleIssue } from './edicoes';
 import { drawShed, keyShed, shedFocusables, tapShed } from './galpao';
-import { replayReady } from './recorder';
-import { openReplay } from './replay';
 import { openWeekly } from './weeklyScreen';
 import { openPlateEditor } from './plateedit';
 import { myPlate } from './myplate';
@@ -1393,10 +1391,8 @@ function drawStageResult(c: CanvasRenderingContext2D, s: AppState) {
     const lines = r.best === undefined ? ['PRIMEIRO', 'RECORDE!'] : ['NOVO', 'RECORDE!', `-${(r.best - r.time).toFixed(2).replace('.', ',')}s`];
     burst(c, x + SAFE_W - 40, 196, 30, lines, YELLOW, RED, s.t);
   } else if (r.best !== undefined) ink(c, `Recorde: ${formatTime(r.best)}`, x + 4, 198, 5, GREY);
-  if (replayReady()) tag(c, replayRect(), '▶ REPLAY', false, 5); // melhores momentos (replay.ts)
   if (Math.floor(s.t * 2) % 2) ink(c, 'TOQUE PARA SEGUIR ▶', x + 160, 222, 5, RED, 'center');
 }
-const replayRect = (): Rect => ({ x: ox() + 4, y: 207, w: 76, h: 13 });
 
 // posto: chegada -> resultado -> desafios -> próximo trecho
 function gasNext(s: AppState, a: Actions) {
@@ -1802,8 +1798,6 @@ export function focusables(s: AppState): FocusSet | null {
       ] };
     }
     default:
-      // resultado do trecho com replay: REPLAY ou seguir
-      if (s.screen === 'gas' && s.gasPage === 1 && replayReady()) return { key: 'gas1', def: 1, items: [{ r: replayRect(), act: () => void openReplay() }, { r: { x: ox() + 100, y: 218, w: 120, h: 12 }, act: () => gasNext(s, a) }] };
       return CAREER_SCREENS.includes(s.screen) ? careerFocusables(s, a) : null;
   }
 }
@@ -2024,7 +2018,6 @@ export function tapScreen(s: AppState, a: Actions, x: number, y: number) {
       return;
     }
     case 'gas':
-      if (s.gasPage === 1 && replayReady() && inside(x, y, replayRect())) return void openReplay();
       gasNext(s, a);
       return;
     case 'end':

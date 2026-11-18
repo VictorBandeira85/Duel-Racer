@@ -37,7 +37,7 @@ export const DRAG_COURSE: Course = {
 
 // ---- configuração escolhida na tela da arrancada e o último resultado ----
 export type DragFoe = 'same' | 'pick' | 'clock';
-export const dragCfg = { foe: 'same' as DragFoe, foeId: '' };
+export const dragCfg = { foe: 'same' as DragFoe, foeId: '', night: false };
 export interface Splits { rt: number; t60: number; t201: number; v201: number; t402: number; v402: number }
 export interface DragResult {
   car: CarSpec; rivalCar: CarSpec | null; prepped: boolean;

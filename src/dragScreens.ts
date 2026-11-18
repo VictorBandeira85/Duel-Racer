@@ -40,6 +40,7 @@ const L = () => {
     chips: [0, 1, 2].map((i): Rect => ({ x: x + 166 + i * 49, y: 116, w: 47, h: 13 })),
     foeBtn: { x: x + 166, y: 133, w: 146, h: 15 } as Rect,
     rec: { x: x + 4, y: 157, w: 312, h: 48 } as Rect,
+    tod: [0, 1].map((i): Rect => ({ x: x + 216 + i * 50, y: 159, w: 48, h: 11 })),
     back: { x: x + 4, y: 211, w: 100, h: 15 } as Rect,
     go: { x: x + 216, y: 211, w: 100, h: 15 } as Rect,
   };
@@ -135,6 +136,13 @@ export function drawDrag(c: CanvasRenderingContext2D, s: AppState) {
     text(c, 'Nenhum tiro ainda com este carro', l.rec.x + 4, l.rec.y + 18, 5, '#fff', 'left', null);
     text(c, 'Segure o freio, acelere e solte no verde', l.rec.x + 4, l.rec.y + 30, 4, '#b8b0a0', 'left', null);
   }
+  // hora: dia ou noite (à noite, a pista iluminada pelos postes e pelos faróis)
+  l.tod.forEach((r, i) => {
+    const on = dragCfg.night === (i === 1);
+    c.fillStyle = on ? YELLOW : 'rgba(255,255,255,0.12)';
+    c.fillRect(r.x, r.y, r.w, r.h);
+    text(c, i ? 'NOITE' : 'DIA', r.x + r.w / 2, r.y + 3, 5, on ? INK : '#fff', 'center', null);
+  });
   tag(c, l.back, '◀ ARCADE');
   tag(c, l.go, 'LARGAR ▶', keys);
   ink(c, 'Soltar antes do verde', x + 160, 211, 4, GREY, 'center');
@@ -159,6 +167,7 @@ export function tapDrag(s: AppState, a: Actions, x: number, y: number) {
   if (inside(x, y, l.next)) return pickStep(ctxFor(s, 'me'), 1);
   if (inside(x, y, l.meFoto) || inside(x, y, l.meBtn)) return openFor(s, 'me');
   l.chips.forEach((r, i) => inside(x, y, r) && setFoe(FOES[i][0], s));
+  l.tod.forEach((r, i) => { if (inside(x, y, r)) dragCfg.night = i === 1; });
   if (dragCfg.foe === 'pick' && (inside(x, y, l.foeBtn) || inside(x, y, l.foeFoto))) return openFor(s, 'foe');
 }
 
@@ -174,6 +183,7 @@ export function dragFocusables(s: AppState, a: Actions): FocusSet {
   const items: Focusable[] = [
     { r: l.meFoto, lr: (d) => pickStep(ctxFor(s, 'me'), d), act: () => openFor(s, 'me') },
     ...l.chips.map((r, i): Focusable => ({ r, act: () => setFoe(FOES[i][0], s) })),
+    ...l.tod.map((r, i): Focusable => ({ r, act: () => { dragCfg.night = i === 1; } })),
     ...(dragCfg.foe === 'pick' ? [{ r: l.foeBtn, act: () => openFor(s, 'foe') }] : []),
     { r: l.back, act: () => a.go('arcadeMenu') },
     { r: l.go, act: () => start(s) },

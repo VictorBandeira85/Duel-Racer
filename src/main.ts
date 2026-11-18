@@ -24,7 +24,7 @@ import type { CarSpec } from './cars';
 import { Race } from './race';
 import { overlayDraw, overlayKey, overlayOn, overlayTap, overlayType } from './overlay';
 import { logWeek } from './weekly';
-import { DRAG_COURSE, DragRace, dragHost } from './drag';
+import { DRAG_COURSE, DragRace, dragCfg, dragHost } from './drag';
 import { ghostOn, loadGhost, saveRun, setGhostOn } from './records';
 import { CHALLENGE_PRIZE, checkChallenge, partialStats, saveMedal, stageAchievements, stageChallenges, toast } from './challenges';
 import { paintHex } from './paint';
@@ -341,7 +341,10 @@ function startStageNow(i: number) {
   showRadio(2.2); // o visor do rádio mostra a estação na largada
 }
 function makeRace(i: number) {
-  if (run.drag) return new DragRace(run.car, run.rival, state.auto, () => actions.go('dragEnd'));
+  if (run.drag) {
+    DRAG_COURSE.stages[0].night = dragCfg.night; // dia ou noite, escolhido na tela da arrancada
+    return new DragRace(run.car, run.rival, state.auto, () => actions.go('dragEnd'));
+  }
   // rival à frente no 1º trecho; depois, quem chegou primeiro ao posto no trecho anterior
   // larga atrás e o outro à frente (vale no Arcade e na Carreira)
   const prev = i > 0 ? state.results[i - 1] : undefined;

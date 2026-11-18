@@ -25,6 +25,7 @@ W = 160
 # caixas (pixels do sprite) que nunca entram na máscara: peças vermelhas que não são lataria
 EXCL = {
     ('jipe', 'rear'): [(10, 89, 26, 113), (134, 89, 151, 113)],  # lanternas (encostam na lataria)
+    ('corcel', 'rear'): [(55, 71, 105, 85)],  # faixa da lanterna que atravessa a tampa
 }
 EXCL_BIG = {'bau': [(0, 0, 999, 12)]}  # luzes vermelhas do alto do baú, acima da cabine
 
@@ -32,6 +33,9 @@ EXCL_BIG = {'bau': [(0, 0, 999, 12)]}  # luzes vermelhas do alto do baú, acima 
 # vistas em que a lataria vem em pedacinhos (jipe de trás: estepe e dobradiças cortam tudo): o vermelho
 # da caixa inteira, menos as caixas de EXCL
 SIMPLE = {('jipe', 'rear'): (0, 74, 160, 134)}
+# saia vermelha embaixo do para-choque, mais escura que a lataria: entra pelo vermelho da caixa
+ADD = {('delrey', 'front'): (0, 98, 160, 128), ('delrey', 'rear'): (0, 100, 160, 134), ('corcel', 'rear'): (0, 95, 160, 126),
+       ('saveiro', 'front'): (0, 70, 160, 98)}
 
 
 def car_mask(o, rear, excl=(), simple=None):
@@ -79,6 +83,8 @@ def main():
                 m = red_mask(o, ~boxes(H, Wd, EXCL_BIG.get(model, [])))
             else:
                 m = car_mask(o, view == 'rear', EXCL.get((model, view), ()), SIMPLE.get((model, view)))
+                if (model, view) in ADD:
+                    m |= car_mask(o, view == 'rear', (), ADD[(model, view)])
             name = f'{model}-{view}'
             Image.fromarray(o).save(os.path.join(OUT, name + '.png'), optimize=True)
             mp = os.path.join(OUT, name + '-mask.png')

@@ -39,7 +39,7 @@ export function driverFor(url: string | undefined, id: DriverId | undefined): st
 
 // sorteio fixo por carro do trânsito (pela cor e modelo, que já são do carro): o senhor de chapéu
 // prefere fusca, picape, caminhão e kombi
-const RUSTIC = new Set(['fusca', 'pickup', 'truck', 'kombi', 'kenworth', 'f4000', 'cargo', 'mb1113', 'vw790', 'volvon10', 'bau', 'jipe', 'f1000', 'pampa', 'micro']);
+const RUSTIC = new Set(['fusca', 'pickup', 'truck', 'kombi', 'kenworth', 'f4000', 'cargo', 'mb1113', 'vw790', 'volvon10', 'bau', 'jipe', 'f1000', 'pampa', 'micro', 'saveiro']);
 export function trafficDriver(model: string, color: string): DriverId {
   let h = 2166136261;
   for (const ch of model + color) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);

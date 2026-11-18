@@ -76,7 +76,7 @@ const BOXY = new Set<string>(['van', 'kombi', 'pickup', 'suv', 'ranger', 'cherok
 export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck' | 'fusca' | 'kombi' | 'suv' | 'sedan90' | NewCar | TruckModel | MotoModel;
 // carros da segunda leva de arte do Victor (tools/ref/traffic_sheets.py): picape média, sedã alemão, utilitário
 // esportivo, hatch dos anos 90, popular dos anos 70, jipe de lona, picape grande, picape pequena, peruas e hatch
-type NewCar = 'ranger' | 'mb190' | 'cherokee' | 'golf' | 'f147' | 'jipe' | 'f1000' | 'pampa' | 'belina' | 'caravan' | 'gol' | 'elba';
+type NewCar = 'ranger' | 'mb190' | 'cherokee' | 'golf' | 'f147' | 'jipe' | 'f1000' | 'pampa' | 'belina' | 'caravan' | 'gol' | 'elba' | 'voyage' | 'saveiro' | 'delrey' | 'corcel';
 // Caminhões (arte do Victor, tools/ref/truck_art.py): Kenworth W900 graneleiro (deserto, cânion), F-4000
 // boiadeiro (fazenda, savana, interior), Ford Cargo baú e VW 7.90 baú (cidade, interior), Mercedes L-1113
 // basculante (interior, polo industrial, serra) e Volvo N10 tanque (industrial, cidade, deserto)
@@ -130,7 +130,8 @@ const laneOff = (c: TrafficCar) => (!c.car && isMoto(c.model) ? Math.sign(c.base
 // sorteio do trânsito, com o peso dos carros mais vendidos nos anos 90 (pesquisa: Gol, Uno e Escort
 // = hatch; Monza = sedan; Fusca e Kombi; Taurus/Accord = sedan90; utilitários)
 const CAR_MODELS: TrafficModel[] = ['sedan', 'sedan', 'hatch', 'hatch', 'hatch', 'pickup', 'van', 'fusca', 'kombi', 'suv', 'sedan90', 'sedan90',
-  'gol', 'gol', 'elba', 'f147', 'f147', 'pampa', 'belina', 'caravan', 'golf', 'mb190', 'ranger', 'cherokee', 'jipe', 'f1000'];
+  'gol', 'gol', 'elba', 'f147', 'f147', 'pampa', 'belina', 'caravan', 'golf', 'mb190', 'ranger', 'cherokee', 'jipe', 'f1000',
+  'voyage', 'voyage', 'saveiro', 'delrey', 'corcel'];
 // Carros do jogo no meio do trânsito: quanto mais caro, mais raro (como na rua). Peso de cada
 // classe no sorteio; GAME_SHARE = fração dos carros (fora caminhões) que são modelos do jogo.
 const CLASS_WEIGHT: Record<PerfClass, number> = { D: 10, C: 6, B: 2.2, A: 0.8, S: 0.3 };

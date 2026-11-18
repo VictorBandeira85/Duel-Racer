@@ -444,7 +444,7 @@ def main():
     keys = []
     for m in ['sedan', 'hatch', 'pickup', 'van', 'truck', 'fusca', 'kombi', 'suv', 'sedan90', 'police', 'policesv',
               'kenworth', 'f4000', 'cargo', 'mb1113', 'vw790', 'volvon10', 'bau', 'rodoviario', 'micro', 'leito',
-              'ranger', 'mb190', 'cherokee', 'golf', 'f147', 'jipe', 'f1000', 'pampa', 'belina', 'caravan', 'gol', 'elba']:
+              'ranger', 'mb190', 'cherokee', 'golf', 'f147', 'jipe', 'f1000', 'pampa', 'belina', 'caravan', 'gol', 'elba', 'voyage', 'saveiro', 'delrey', 'corcel']:
         for v in ['rear', 'front']:
             keys.append(f'traffic/{m}-{v}')
     for f in sorted(os.listdir(os.path.join(A, 'cars'))):

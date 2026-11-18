@@ -71,24 +71,36 @@ const TRUCK_KG = 9000;
 const DRAFT_SEGS = 25;
 export const DRAFT_DRAG = 0.5;
 const DRAFT_OVER = 0.07;
-const BOXY = new Set<string>(['van', 'kombi', 'pickup', 'suv']); // utilitários: buraco maior no ar
+const BOXY = new Set<string>(['van', 'kombi', 'pickup', 'suv', 'ranger', 'cherokee', 'jipe', 'f1000']); // utilitários: buraco maior no ar
 
-export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck' | 'fusca' | 'kombi' | 'suv' | 'sedan90' | TruckModel | MotoModel;
+export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck' | 'fusca' | 'kombi' | 'suv' | 'sedan90' | NewCar | TruckModel | MotoModel;
+// carros da segunda leva de arte do Victor (tools/ref/traffic_sheets.py): picape média, sedã alemão, utilitário
+// esportivo, hatch dos anos 90, popular dos anos 70, jipe de lona, picape grande, picape pequena, peruas e hatch
+type NewCar = 'ranger' | 'mb190' | 'cherokee' | 'golf' | 'f147' | 'jipe' | 'f1000' | 'pampa' | 'belina' | 'caravan' | 'gol' | 'elba';
 // Caminhões (arte do Victor, tools/ref/truck_art.py): Kenworth W900 graneleiro (deserto, cânion), F-4000
 // boiadeiro (fazenda, savana, interior), Ford Cargo baú e VW 7.90 baú (cidade, interior), Mercedes L-1113
 // basculante (interior, polo industrial, serra) e Volvo N10 tanque (industrial, cidade, deserto)
-export type TruckModel = 'kenworth' | 'f4000' | 'cargo' | 'mb1113' | 'vw790' | 'volvon10';
+export type TruckModel = 'kenworth' | 'f4000' | 'cargo' | 'mb1113' | 'vw790' | 'volvon10' | 'bau' | BusModel;
+// Ônibus (arte do Victor, tools/ref/traffic_sheets.py): rodoviário e leito nas estradas, micro na cidade
+// e no interior; entram no lugar de parte dos caminhões (BUS_SHARE)
+export type BusModel = 'rodoviario' | 'leito' | 'micro';
+const BUS_ANY: BusModel[] = ['rodoviario', 'rodoviario', 'leito'];
+const BUS_THEMES: Partial<Record<ThemeId, BusModel[]>> = {
+  city: ['micro', 'micro', 'rodoviario'], industrial: ['micro', 'rodoviario'], farm: ['micro', 'rodoviario', 'leito'], forest: ['micro', 'rodoviario', 'leito'],
+};
+const BUS_SHARE = 0.3;
 const TRUCK_THEMES: Partial<Record<ThemeId, TruckModel[]>> = {
   desert: ['kenworth', 'kenworth', 'volvon10'], canyon: ['kenworth'],
   farm: ['f4000', 'f4000', 'mb1113', 'cargo', 'vw790'], savanna: ['f4000'],
   forest: ['f4000', 'cargo', 'mb1113', 'vw790'], autumn: ['f4000', 'cargo', 'mb1113', 'vw790'], jungle: ['f4000', 'mb1113', 'cargo', 'vw790'],
-  city: ['cargo', 'vw790', 'volvon10'], industrial: ['mb1113', 'volvon10'], mountain: ['mb1113', 'mb1113', 'cargo'],
+  city: ['cargo', 'vw790', 'volvon10', 'bau', 'bau'], industrial: ['mb1113', 'volvon10', 'bau'], mountain: ['mb1113', 'mb1113', 'cargo', 'bau'],
 };
-const TRUCK_ANY: TruckModel[] = ['cargo', 'vw790', 'mb1113', 'volvon10']; // cenários sem lista (litoral, praia, neve)
+const TRUCK_ANY: TruckModel[] = ['cargo', 'vw790', 'mb1113', 'volvon10', 'bau']; // cenários sem lista (litoral, praia, neve)
 // largura de cada PNG (traseira, frente) em px; a carroceria da vista mais larga tem 160 px = TRUCK_W, os
 // retrovisores passam disso (o sprite é desenhado mais largo na mesma proporção)
 const TRUCK_PX: Record<TruckModel, [number, number]> = {
   kenworth: [151, 160], f4000: [172, 174], cargo: [152, 189], mb1113: [164, 167], vw790: [156, 188], volvon10: [151, 160],
+  bau: [149, 165], rodoviario: [160, 174], micro: [160, 177], leito: [157, 183],
 };
 // Motos (arte do Victor, tools/ref/motos.py): custom estradeira no deserto/cânion/fazenda/savana,
 // esportiva carenada nas estradas rápidas (litoral, serra), popular de motoboy na cidade e no interior
@@ -117,7 +129,8 @@ export function trafficW(t: { truck: boolean; model: TrafficModel; car?: CarSpec
 const laneOff = (c: TrafficCar) => (!c.car && isMoto(c.model) ? Math.sign(c.base || c.speed || 1) * MOTO_OFF : 0);
 // sorteio do trânsito, com o peso dos carros mais vendidos nos anos 90 (pesquisa: Gol, Uno e Escort
 // = hatch; Monza = sedan; Fusca e Kombi; Taurus/Accord = sedan90; utilitários)
-const CAR_MODELS: TrafficModel[] = ['sedan', 'sedan', 'hatch', 'hatch', 'hatch', 'pickup', 'van', 'fusca', 'kombi', 'suv', 'sedan90', 'sedan90'];
+const CAR_MODELS: TrafficModel[] = ['sedan', 'sedan', 'hatch', 'hatch', 'hatch', 'pickup', 'van', 'fusca', 'kombi', 'suv', 'sedan90', 'sedan90',
+  'gol', 'gol', 'elba', 'f147', 'f147', 'pampa', 'belina', 'caravan', 'golf', 'mb190', 'ranger', 'cherokee', 'jipe', 'f1000'];
 // Carros do jogo no meio do trânsito: quanto mais caro, mais raro (como na rua). Peso de cada
 // classe no sorteio; GAME_SHARE = fração dos carros (fora caminhões) que são modelos do jogo.
 const CLASS_WEIGHT: Record<PerfClass, number> = { D: 10, C: 6, B: 2.2, A: 0.8, S: 0.3 };
@@ -760,6 +773,10 @@ export class Race {
     c.truck = r() < 0.18;
     const trucks = TRUCK_THEMES[this.def.theme] ?? TRUCK_ANY;
     c.model = c.truck ? trucks[Math.floor(r() * trucks.length)] : CAR_MODELS[Math.floor(r() * CAR_MODELS.length)];
+    if (c.truck && r() < BUS_SHARE) {
+      const buses = BUS_THEMES[this.def.theme] ?? BUS_ANY;
+      c.model = buses[Math.floor(r() * buses.length)];
+    }
     c.car = !c.truck && r() < GAME_SHARE ? pickGameCar(r()) : undefined;
     if (c.car) {
       // metade na cor de fábrica, o resto numa cor qualquer da paleta

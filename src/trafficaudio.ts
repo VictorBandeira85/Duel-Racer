@@ -35,7 +35,13 @@ function carKey(car: CarSpec) {
 const MODEL_ENGINE: Record<string, string> = { sedan: 'V6', hatch: '4 cil.', pickup: 'V8', van: '4 cil.', truck: 'diesel',
   'moto-custom': '4 cil.|moto-custom', 'moto-sport': '4 cil.|moto-sport', 'moto-pop': '4 cil.|moto-pop', // motos: timbre próprio (enginesynth.ts)
   // caminhões: diesel; os cavalos mecânicos grandes (Kenworth, Volvo N10) turbinados, mais abafados
-  kenworth: 'diesel turbo', volvon10: 'diesel turbo', f4000: 'diesel', cargo: 'diesel', mb1113: 'diesel', vw790: 'diesel' };
+  kenworth: 'diesel turbo', volvon10: 'diesel turbo', f4000: 'diesel', cargo: 'diesel', mb1113: 'diesel', vw790: 'diesel',
+  // segunda leva: baú e ônibus diesel; carros pelo motor do modelo real
+  bau: 'diesel', rodoviario: 'diesel turbo', leito: 'diesel turbo', micro: 'diesel',
+  gol: '4 cil.', golf: '4 cil.', f147: '4 cil.', elba: '4 cil.', pampa: '4 cil.', belina: '4 cil.', jipe: '4 cil.',
+  caravan: '6 cil.', mb190: '4 cil.', ranger: 'V6', cherokee: '6 cil.', f1000: 'diesel' };
+// buzina dos modelos novos: a do tipo parecido
+const HORN_LIKE: Record<string, string> = { gol: 'hatch', golf: 'hatch', f147: 'hatch', elba: 'hatch', pampa: 'pickup', ranger: 'pickup', f1000: 'pickup', jipe: 'pickup', cherokee: 'pickup', belina: 'sedan', caravan: 'sedan', mb190: 'sedan' };
 const MOTO_TOP: Record<string, number> = { 'moto-custom': 150, 'moto-sport': 230, 'moto-pop': 105 }; // km/h de fundo (giro pela marcha)
 // buzina de cada tipo de veículo: notas (Hz), timbre, filtro (tipo, frequência, Q), ataque (s)
 // e volume. Cada carro ainda tem a sua afinação (até ±9%), então dois iguais não soam idênticos.
@@ -252,7 +258,7 @@ export function updateTrafficAudio(r: Race, dt: number) {
     cs.prevDz = s.dz;
     const c = s.car;
     if (!c) continue;
-    const model = c.truck ? 'truck' : c.car ? ({ D: 'hatch', C: 'sedan' } as Record<string, string>)[perfClass(c.car)] ?? 'sport' : c.model.startsWith('moto') ? 'moto' : c.model;
+    const model = c.truck ? 'truck' : c.car ? ({ D: 'hatch', C: 'sedan' } as Record<string, string>)[perfClass(c.car)] ?? 'sport' : c.model.startsWith('moto') ? 'moto' : HORN_LIKE[c.model] ?? c.model;
     // contramão vindo de frente na faixa do jogador: buzina (e freia em cima)
     if (c.panic > 0) {
       cs.panicT += dt;

@@ -103,10 +103,13 @@ export const DEV_POS: Record<string, DevPos[]> = {
   ],
 };
 
-/** lugares dos aparelhos nesta cabine (o primeiro é o padrão); `radar`: canto do detector (padrão das
+/** lugares dos aparelhos nesta cabine (o primeiro é o padrão: "ao lado do volante" quando a cabine tem,
+ * pedido do Victor); `radar`: canto do detector (padrão das
  * cabines sem lugares medidos: em cima do painel, logo à direita dele) */
 export function devPositions(dash: string, radar: [number, number] = [206, 22], podMoved = false): DevPos[] {
-  const all = DEV_POS[dash] ?? [{ id: 'painel', name: TOP, x: radar[0] + 54, y: radar[1] + 6, s: 0.8, mount: 'top' }];
+  const list = DEV_POS[dash] ?? [{ id: 'painel', name: TOP, x: radar[0] + 54, y: radar[1] + 6, s: 0.8, mount: 'top' }];
+  const side = list.findIndex((p) => p.name === SIDE);
+  const all = side > 0 ? [list[side], ...list.slice(0, side), ...list.slice(side + 1)] : list;
   // relógios fora do lugar de fábrica: os lugares que eles ocupam mudam (podAlt)
   return podMoved ? all.map((p) => (p.podAlt ? { ...p, ...p.podAlt } : p)) : all;
 }

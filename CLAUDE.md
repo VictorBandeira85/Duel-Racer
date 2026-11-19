@@ -160,6 +160,10 @@
   truck = cara-chata LP 1113, fusca, kombi, suv = Explorer, sedan90 = Taurus. Modelo novo: escolher um
   carro real, desenhar traseira e frente, e medir a placa nos PNG (`TRAFFIC_PLATE`/`TRAFFIC_GLOW` em cars.ts).
   A viatura (police-*.png) foi retocada à mão: não sobrescrever ao rodar o script.
+- Carro novo dos jogadores que já existe no trânsito (mesmo modelo real): o do jogo SUBSTITUI o do trânsito
+  (pedido do Victor). Pôr o par em `TRAFFIC_TWIN` (race.ts): no sorteio sai o carro do jogo no lugar do
+  genérico, assim que a arte dele entra. Hoje: Voyage -> Jornada LS/Sport, Gol e hatch -> Gaúcho GTI/16V,
+  147 -> br-147 (quando a arte chegar).
 
 ## Conferência antes de publicar (obrigatória em arte nova ou mexida)
 1. `python3 tools/qa/art_lint.py [carro]`: furos transparentes na cabine, bordas esticadas, máscara de

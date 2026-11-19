@@ -134,6 +134,17 @@ const CAR_MODELS: TrafficModel[] = ['sedan', 'sedan', 'hatch', 'hatch', 'hatch',
   'voyage', 'voyage', 'saveiro', 'delrey', 'corcel'];
 // Carros do jogo no meio do trânsito: quanto mais caro, mais raro (como na rua). Peso de cada
 // classe no sorteio; GAME_SHARE = fração dos carros (fora caminhões) que são modelos do jogo.
+// modelo do trânsito que também é carro do jogo: no sorteio, sai o carro do jogo no lugar dele (pedido do
+// Victor: carro novo dos jogadores substitui o igual do trânsito). Vale assim que a arte do carro entra.
+const TRAFFIC_TWIN: Partial<Record<TrafficModel, string[]>> = {
+  voyage: ['br-voyage', 'br-voyage', 'br-voyagesport'], gol: ['br-golgti', 'br-gol16v'], hatch: ['br-golgti', 'br-gol16v'], f147: ['br-147'],
+};
+function twinCar(model: TrafficModel, u: number): CarSpec | undefined {
+  const ids = TRAFFIC_TWIN[model];
+  if (!ids) return undefined;
+  const ok = ids.map((id) => CARS.find((c) => c.id === id && !c.pendingArt && c.rear.img && c.rear.frontImg)).filter((c): c is CarSpec => !!c);
+  return ok.length ? ok[Math.floor(u * ok.length)] : undefined;
+}
 const CLASS_WEIGHT: Record<PerfClass, number> = { D: 10, C: 6, B: 2.2, A: 0.8, S: 0.3 };
 const GAME_SHARE = 0.45;
 let gamePool: { car: CarSpec; acc: number }[] | null = null;
@@ -779,6 +790,7 @@ export class Race {
       c.model = buses[Math.floor(r() * buses.length)];
     }
     c.car = !c.truck && r() < GAME_SHARE ? pickGameCar(r()) : undefined;
+    if (!c.truck && !c.car) c.car = twinCar(c.model, r());
     if (c.car) {
       // metade na cor de fábrica, o resto numa cor qualquer da paleta
       c.color = r() < 0.5 ? c.car.color : PAINTS[Math.floor(r() * PAINTS.length)].hex;

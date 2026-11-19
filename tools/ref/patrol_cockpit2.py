@@ -1,6 +1,6 @@
 """Cabine da Patrulha 9C (Caprice 9C1) a partir da arte nova do Victor (uma só, com volante):
-- painel, colunas, porta e retrovisor externo da arte; o volante (aro em elipse, almofada e dois raios) vira a
-  peça que gira, e o painel por trás dele é refeito pelo entorno (inpaint)
+- painel, colunas, porta e retrovisor externo da arte SEM volante (cock-nw.png, ao lado da outra); o volante
+  (aro em elipse, almofada e dois raios) vem da arte com volante e é a peça que gira
 - vidros: dentro dos polígonos do para-brisa e da janela, o cenário (céu, mato, asfalto claro) vira vidro; o
   retrovisor interno sai inteiro (o jogo desenha o dele) e a arte, que acaba no alto sem forro, ganha o forro
   desenhado
@@ -65,8 +65,12 @@ def main():
     for tx0, ty0, tx1, ty1 in TXT[:1]:
         for y in range(ty0, ty1):
             ww[y, tx0:tx1] = np.median(ww[y, tx0 - 30:tx0 - 2], axis=0).astype(np.uint8)
-    # painel sem o volante
-    nw = cv2.inpaint(a, cv2.dilate(wheel.astype(np.uint8), np.ones((5, 5), np.uint8)), 7, cv2.INPAINT_TELEA)
+    # painel sem o volante: a arte SEM volante do Victor (alinhada com a outra); sem ela, refeito pelo entorno
+    nwp = os.path.join(os.path.dirname(src), 'cock-nw.png')
+    if os.path.exists(nwp):
+        nw = np.array(Image.open(nwp).convert('RGB'))
+    else:
+        nw = cv2.inpaint(a, cv2.dilate(wheel.astype(np.uint8), np.ones((5, 5), np.uint8)), 7, cv2.INPAINT_TELEA)
     for tx0, ty0, tx1, ty1 in TXT[1:]:
         for y in range(ty0, ty1):
             nw[y, tx0:tx1] = np.median(nw[y, tx0 - 20:tx0 - 2], axis=0).astype(np.uint8)

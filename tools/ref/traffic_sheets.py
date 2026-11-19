@@ -19,8 +19,8 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from truck_art import OUT, body_width, boxes, lamps, palette, plate, red_mask, reduce, views  # noqa: E402
 
-BIG = {'bau', 'rodoviario', 'micro', 'leito'}
-NOPAINT = {'rodoviario', 'micro', 'leito'}
+BIG = {'bau', 'rodoviario', 'micro', 'leito', 'schoolbus'}
+NOPAINT = {'rodoviario', 'micro', 'leito', 'schoolbus'}
 W = 160
 # caixas (pixels do sprite) que nunca entram na máscara: peças vermelhas que não são lataria
 EXCL = {

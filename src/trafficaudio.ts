@@ -40,9 +40,9 @@ const MODEL_ENGINE: Record<string, string> = { sedan: 'V6', hatch: '4 cil.', pic
   bau: 'diesel', rodoviario: 'diesel turbo', leito: 'diesel turbo', micro: 'diesel',
   gol: '4 cil.', golf: '4 cil.', f147: '4 cil.', elba: '4 cil.', pampa: '4 cil.', belina: '4 cil.', jipe: '4 cil.',
   caravan: '6 cil.', mb190: '4 cil.', ranger: 'V6', cherokee: '6 cil.', f1000: 'diesel',
-  voyage: '4 cil.', saveiro: '4 cil.', delrey: '4 cil.', corcel: '4 cil.' };
+  voyage: '4 cil.', saveiro: '4 cil.', delrey: '4 cil.', corcel: '4 cil.', volvo240: '4 cil.', schoolbus: 'diesel' };
 // buzina dos modelos novos: a do tipo parecido
-const HORN_LIKE: Record<string, string> = { gol: 'hatch', golf: 'hatch', f147: 'hatch', elba: 'hatch', pampa: 'pickup', ranger: 'pickup', f1000: 'pickup', jipe: 'pickup', cherokee: 'pickup', belina: 'sedan', caravan: 'sedan', mb190: 'sedan', voyage: 'sedan', saveiro: 'pickup', delrey: 'sedan', corcel: 'sedan' };
+const HORN_LIKE: Record<string, string> = { gol: 'hatch', golf: 'hatch', f147: 'hatch', elba: 'hatch', pampa: 'pickup', ranger: 'pickup', f1000: 'pickup', jipe: 'pickup', cherokee: 'pickup', belina: 'sedan', caravan: 'sedan', mb190: 'sedan', voyage: 'sedan', saveiro: 'pickup', delrey: 'sedan', corcel: 'sedan', volvo240: 'sedan' };
 const MOTO_TOP: Record<string, number> = { 'moto-custom': 150, 'moto-sport': 230, 'moto-pop': 105 }; // km/h de fundo (giro pela marcha)
 // buzina de cada tipo de veículo: notas (Hz), timbre, filtro (tipo, frequência, Q), ataque (s)
 // e volume. Cada carro ainda tem a sua afinação (até ±9%), então dois iguais não soam idênticos.

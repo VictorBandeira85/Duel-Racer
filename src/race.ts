@@ -76,16 +76,17 @@ const BOXY = new Set<string>(['van', 'kombi', 'pickup', 'suv', 'ranger', 'cherok
 export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck' | 'fusca' | 'kombi' | 'suv' | 'sedan90' | NewCar | TruckModel | MotoModel;
 // carros da segunda leva de arte do Victor (tools/ref/traffic_sheets.py): picape média, sedã alemão, utilitário
 // esportivo, hatch dos anos 90, popular dos anos 70, jipe de lona, picape grande, picape pequena, peruas e hatch
-type NewCar = 'ranger' | 'mb190' | 'cherokee' | 'golf' | 'f147' | 'jipe' | 'f1000' | 'pampa' | 'belina' | 'caravan' | 'gol' | 'elba' | 'voyage' | 'saveiro' | 'delrey' | 'corcel';
+type NewCar = 'ranger' | 'mb190' | 'cherokee' | 'golf' | 'f147' | 'jipe' | 'f1000' | 'pampa' | 'belina' | 'caravan' | 'gol' | 'elba' | 'voyage' | 'saveiro' | 'delrey' | 'corcel' | 'volvo240';
 // Caminhões (arte do Victor, tools/ref/truck_art.py): Kenworth W900 graneleiro (deserto, cânion), F-4000
 // boiadeiro (fazenda, savana, interior), Ford Cargo baú e VW 7.90 baú (cidade, interior), Mercedes L-1113
 // basculante (interior, polo industrial, serra) e Volvo N10 tanque (industrial, cidade, deserto)
 export type TruckModel = 'kenworth' | 'f4000' | 'cargo' | 'mb1113' | 'vw790' | 'volvon10' | 'bau' | BusModel;
 // Ônibus (arte do Victor, tools/ref/traffic_sheets.py): rodoviário e leito nas estradas, micro na cidade
 // e no interior; entram no lugar de parte dos caminhões (BUS_SHARE)
-export type BusModel = 'rodoviario' | 'leito' | 'micro';
+export type BusModel = 'rodoviario' | 'leito' | 'micro' | 'schoolbus';
 const BUS_ANY: BusModel[] = ['rodoviario', 'rodoviario', 'leito'];
 const BUS_THEMES: Partial<Record<ThemeId, BusModel[]>> = {
+  desert: ['schoolbus', 'schoolbus', 'rodoviario'], canyon: ['schoolbus'],
   city: ['micro', 'micro', 'rodoviario'], industrial: ['micro', 'rodoviario'], farm: ['micro', 'rodoviario', 'leito'], forest: ['micro', 'rodoviario', 'leito'],
 };
 const BUS_SHARE = 0.3;
@@ -100,7 +101,7 @@ const TRUCK_ANY: TruckModel[] = ['cargo', 'vw790', 'mb1113', 'volvon10', 'bau'];
 // retrovisores passam disso (o sprite é desenhado mais largo na mesma proporção)
 const TRUCK_PX: Record<TruckModel, [number, number]> = {
   kenworth: [151, 160], f4000: [172, 174], cargo: [152, 189], mb1113: [164, 167], vw790: [156, 188], volvon10: [151, 160],
-  bau: [149, 165], rodoviario: [160, 174], micro: [160, 177], leito: [157, 183],
+  bau: [149, 165], rodoviario: [160, 174], micro: [160, 177], leito: [157, 183], schoolbus: [152, 172],
 };
 // Motos (arte do Victor, tools/ref/motos.py): custom estradeira no deserto/cânion/fazenda/savana,
 // esportiva carenada nas estradas rápidas (litoral, serra), popular de motoboy na cidade e no interior
@@ -131,7 +132,7 @@ const laneOff = (c: TrafficCar) => (!c.car && isMoto(c.model) ? Math.sign(c.base
 // = hatch; Monza = sedan; Fusca e Kombi; Taurus/Accord = sedan90; utilitários)
 const CAR_MODELS: TrafficModel[] = ['sedan', 'sedan', 'hatch', 'hatch', 'hatch', 'pickup', 'van', 'fusca', 'kombi', 'suv', 'sedan90', 'sedan90',
   'gol', 'gol', 'elba', 'f147', 'f147', 'pampa', 'belina', 'caravan', 'golf', 'mb190', 'ranger', 'cherokee', 'jipe', 'f1000',
-  'voyage', 'voyage', 'saveiro', 'delrey', 'corcel'];
+  'voyage', 'voyage', 'saveiro', 'delrey', 'corcel', 'volvo240', 'volvo240', 'volvo240'];
 // Carros do jogo no meio do trânsito: quanto mais caro, mais raro (como na rua). Peso de cada
 // classe no sorteio; GAME_SHARE = fração dos carros (fora caminhões) que são modelos do jogo.
 // modelo do trânsito que também é carro do jogo: no sorteio, sai o carro do jogo no lugar dele (pedido do
@@ -791,6 +792,8 @@ export class Race {
     }
     c.car = !c.truck && r() < GAME_SHARE ? pickGameCar(r()) : undefined;
     if (!c.truck && !c.car) c.car = twinCar(c.model, r());
+    // Volvo 240 só nos Alpes e na serra (nos outros mapas vira outro carro do sorteio)
+    if (c.model === 'volvo240' && !['alpine', 'alpinesnow', 'mountain', 'snow'].includes(this.def.theme)) c.model = 'sedan90';
     if (c.car) {
       // metade na cor de fábrica, o resto numa cor qualquer da paleta
       c.color = r() < 0.5 ? c.car.color : PAINTS[Math.floor(r() * PAINTS.length)].hex;

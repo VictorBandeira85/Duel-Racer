@@ -22,7 +22,7 @@ A = os.path.join(ROOT, 'src/assets')
 # sem motorista à vista: a traseira não mostra a cabine (caminhão baú, motor por cima do vidro)
 SKIP = {'traffic/truck-rear', 'cars/diablo-rear', 'cars/patrolsv-rear', 'cars/f40-rear', 'cars/countach-rear', 'traffic/policesv-rear'}
 # caminhões da arte do Victor (tools/ref/truck_art.py): de trás só carroceria, baú ou tanque
-SKIP |= {f'traffic/{m}-rear' for m in ('kenworth', 'f4000', 'cargo', 'mb1113', 'vw790', 'volvon10', 'bau', 'rodoviario', 'micro', 'leito')}
+SKIP |= {f'traffic/{m}-rear' for m in ('kenworth', 'f4000', 'cargo', 'mb1113', 'vw790', 'volvon10', 'bau', 'rodoviario', 'micro', 'leito', 'schoolbus')}
 # lugar do motorista: [cx, topo, cabeça] em fração do retângulo do vidro (x0..x1, y0..y1); de trás, o
 # meio da cabeça vai para cima do encosto do banco do motorista desenhado na arte, quando há (HEADREST)
 SEAT = {
@@ -443,8 +443,8 @@ def main():
     sheet = sys.argv[1] if len(sys.argv) > 1 else None
     keys = []
     for m in ['sedan', 'hatch', 'pickup', 'van', 'truck', 'fusca', 'kombi', 'suv', 'sedan90', 'police', 'policesv',
-              'kenworth', 'f4000', 'cargo', 'mb1113', 'vw790', 'volvon10', 'bau', 'rodoviario', 'micro', 'leito',
-              'ranger', 'mb190', 'cherokee', 'golf', 'f147', 'jipe', 'f1000', 'pampa', 'belina', 'caravan', 'gol', 'elba', 'voyage', 'saveiro', 'delrey', 'corcel']:
+              'kenworth', 'f4000', 'cargo', 'mb1113', 'vw790', 'volvon10', 'bau', 'rodoviario', 'micro', 'leito', 'schoolbus',
+              'ranger', 'mb190', 'cherokee', 'golf', 'f147', 'jipe', 'f1000', 'pampa', 'belina', 'caravan', 'gol', 'elba', 'voyage', 'saveiro', 'delrey', 'corcel', 'volvo240', 'schoolbus']:
         for v in ['rear', 'front']:
             keys.append(f'traffic/{m}-{v}')
     for f in sorted(os.listdir(os.path.join(A, 'cars'))):

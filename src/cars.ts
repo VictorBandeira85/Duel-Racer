@@ -951,6 +951,7 @@ const TRAFFIC_PLATE: Record<string, number[]> = { // como PLATE_BOX, nos sprites
   f147: [61, 85, 99, 97, 160, 142], jipe: [12, 117, 45, 129, 160, 182], f1000: [64, 107, 97, 120, 160, 148], pampa: [64, 92, 97, 103, 160, 129],
   belina: [64, 88, 97, 99, 160, 148], caravan: [65, 103, 97, 115, 160, 137], gol: [62, 77, 99, 88, 160, 141], elba: [63, 88, 99, 100, 160, 153],
   voyage: [63, 77, 98, 90, 160, 139], saveiro: [62, 109, 99, 122, 160, 142], delrey: [65, 100, 97, 113, 160, 134], corcel: [63, 99, 97, 111, 160, 126],
+  volvo240: [62, 77, 98, 86, 160, 141], schoolbus: [63, 108, 91, 117, 152, 171],
 };
 const TRAFFIC_GLOW: Record<string, { dots?: number[][]; head?: number[] /* farol esquerdo na frente (u, f) */; lw?: number; sig?: number[]; sigFront?: number[] /* pisca esquerdo (u, f) */; siren?: number[][]; sirenFront?: number[][]; sirenColors?: string[]; sirenColorsFront?: string[] }> = {
   sedan: { dots: [[0.15, 0.59], [0.85, 0.59]], head: [0.21, 0.57] }, hatch: { dots: [[0.17, 0.59], [0.83, 0.59]], head: [0.19, 0.555] },
@@ -985,6 +986,8 @@ const TRAFFIC_GLOW: Record<string, { dots?: number[][]; head?: number[] /* farol
   voyage: { dots: [[0.148, 0.624], [0.852, 0.624]], lw: 0.219, head: [0.202, 0.584], sig: [0.117, 0.553], sigFront: [0.07, 0.592] },
   saveiro: { dots: [[0.072, 0.589], [0.928, 0.589]], lw: 0.088, head: [0.169, 0.572], sig: [0.074, 0.514], sigFront: [0.057, 0.572] },
   delrey: { dots: [[0.15, 0.64], [0.85, 0.64]], lw: 0.2, head: [0.169, 0.58], sig: [0.152, 0.534], sigFront: [0.06, 0.58] },
+  volvo240: { dots: [[0.084, 0.62], [0.916, 0.62]], lw: 0.088, head: [0.187, 0.545], sig: [0.092, 0.465], sigFront: [0.075, 0.611] },
+  schoolbus: { dots: [[0.254, 0.529], [0.746, 0.529]], lw: 0.066, head: [0.2, 0.79], sig: [0.172, 0.529], sigFront: [0.08, 0.6] },
   corcel: { dots: [[0.2, 0.6], [0.8, 0.6]], lw: 0.2, head: [0.15, 0.594], sig: [0.092, 0.619], sigFront: [0.044, 0.6] },
   // motos (tools/ref/motos.py): uma lanterna no meio, farol no meio (a esportiva tem dois), piscas da arte
   'moto-custom': { dots: [[0.505, 0.655]], lw: 0.19, head: [0.496, 0.421], sig: [0.28, 0.655], sigFront: [0.295, 0.533] },

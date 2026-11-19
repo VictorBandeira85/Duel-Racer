@@ -35,6 +35,7 @@ LINER = 30
 LCD = (797, 338, 912, 412)
 LCD_BG = (8, 22, 26)
 GAUGES = [(745, 365), (745, 417), (957, 365), (957, 417)]
+PILLAR = [(184, 0), (388, 0), (440, 140), (500, 290), (520, 302), (330, 302), (300, 250), (240, 120)]   # coluna inteira (os brilhos dela não são vidro)
 TXT = [(860, 580, 990, 604), (1335, 482, 1500, 500)]   # CHEVROLET da almofada, CAPRICE CLASSIC do rádio
 
 
@@ -93,6 +94,21 @@ def main():
     gl &= poly((H, W), WIND) | poly((H, W), WIN)
     x0, y0, x1, y1 = IMIR
     gl[y0:y1, x0:x1] = True
+    # coluna: em cada linha, do primeiro contorno preto pela esquerda ao último pela direita, dentro do polígono
+    pm = poly((H, W), PILLAR)
+    L, R = np.full(300, np.nan), np.full(300, np.nan)
+    for y in range(0, 300):
+        xs = np.nonzero(pm[y] & (lum[y] < 40))[0]
+        if len(xs) > 1:
+            L[y], R[y] = xs.min(), xs.max()
+    med = lambda v, y: np.nanmedian(v[max(0, y - 12):y + 13])  # noqa: E731  (sombras escuras das árvores: fora pela mediana)
+    for y in range(0, 300):
+        l, r = med(L, y), med(R, y)
+        if not np.isnan(l):
+            gl[y, int(l):int(r) + 1] = False
+    leaf = (hsv[..., 0] > 25) & (hsv[..., 0] < 95) & (hsv[..., 1] > 90) & (hsv[..., 2] > 40)
+    leaf = cv2.dilate(leaf.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+    gl[:300, 150:540] |= leaf[:300, 150:540]   # folhas grudadas na beira da coluna
     gl[:LINER + 8, 1330:1390] = True
     # limpadores deitados na beira do painel (escuros acima da linha do painel): vidro
     gl[(yy < 252) & (xx > 1000) & poly((H, W), WIND)] = True

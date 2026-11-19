@@ -1050,7 +1050,7 @@ COCKPIT_ART['br-pumagtb'] = {
   tells: null, // seta no velocímetro (pumaGauges)
   dash: cp('br-pumagtb-dash'), top: cp('br-pumagtb-top'), wheel: cp('br-pumagtb-wheel'),
   dashMask: cp('br-pumagtb-dash-mask'), topMask: cp('br-pumagtb-top-mask'),
-  glass: { at: [64, 113], thr: 256 }, // retrovisor esquerdo (completado em pumagtb_cockpit.py, vidro transparente)
+  glass: { at: [46, 113], thr: 256 }, // retrovisor esquerdo (completado em pumagtb_cockpit.py, vidro transparente)
   pivot: [128, 104], wheelTop: 4, wheelDx: 2, wheelDy: 14.7,
   pod: { x: 262, y: 30, r: 7.5, face: 'black', bezel: 'chrome', lit: 'white' }, radar: [190, 29], // copos e radar sobre o painel
   speedMax: 220, speedRest: 0, tachReal: true,

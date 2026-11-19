@@ -44,12 +44,13 @@ SPOKES = [
 ]
 EMB = (735.0, 512.0, 36.0)
 PILLAR_R = [(393, 0), (400, 50), (412, 100), (424, 150), (436, 200), (446, 250), (452, 290)]
-DOOR = [(0, 0), (204, 0), (224, 50), (264, 150), (294, 240), (312, 290), (322, 330), (326, 372), (0, 430)]
+# janela da porta até a borda escura da coluna (x = 205 + 0,385 y, medida na arte): o vão entre o retrovisor e a coluna é vidro
+DOOR = [(0, 0), (206, 0), (260, 140), (321, 300), (344, 360), (349, 374), (0, 432)]
 HOUSING = [(56, 262), (66, 244), (86, 235), (245, 235), (262, 247), (285, 280), (300, 305), (318, 314), (318, 332), (292, 346),
            (258, 372), (242, 385), (82, 385), (62, 374), (55, 352)]
 MIRROR_SEED = (160, 310)
 MIR_Y = (230, 390)
-MIR_SRC, MIR_DST, MIR_W = 52, 124, 48
+MIR_SRC, MIR_DST, MIR_W = 52, 124, 98   # emenda em x 222, onde a moldura tem a mesma altura da coluna 150 copiada
 MIR_MID, MIR_KY = 310.0, 1.0
 DIALS = [(669, 400, 58.0), (830, 400, 58.0), (1024, 404, 32.0), (1110, 404, 32.0), (1198, 404, 32.0), (1283, 404, 32.0)]
 FACE = (11, 11, 13)
@@ -331,7 +332,7 @@ def main():
     for cx, cy, r in DIALS:
         print('mostrador', r1(nat((cx, cy))), 'raio do miolo', round(r * S, 2))
     print('miolo do volante', r1(hub))
-    gl = nat((175 + MIR_DST - MIR_SRC, 310))
+    gl = nat((195, 310))   # meio do vidro depois da emenda (150 a 242)
     print('vidro do retrovisor (empilhado, com PAD)', (round(PAD + gl[0]), round(EXT + (310 - Y0D) / PXH)))
 
 

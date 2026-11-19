@@ -17,6 +17,8 @@ SETS = {
     'raiox': {'emb': [(1405, 318, 16, 22, 26), (1048, 262, 12, 12, 14)], 'txt': [(272, 676, 338, 702)], 'crop': None, 'out': 'f4-raiox'},
     'spectacular': {'emb': [(568, 395, 14, 20, 24), (1308, 497, 9, 7, 12)], 'txt': [], 'crop': None, 'out': 'f4-pista',
                     'fill': [(0, 92, 92)], 'inpaint': (684, 941)},  # título de cima: repete o céu; o de baixo: letras claras refeitas
+    'motor': {'emb': [], 'txt': [], 'crop': None, 'out': 'f4-motor'},  # o V8 biturbo no cavalete
+    'salao': {'emb': [(181, 132, 104, 124, 170), (742, 402, 22, 30, 34), (131, 494, 9, 7, 10)], 'txt': [], 'wall': [(318, 24, 642, 186, 266, 296)], 'crop': None, 'out': 'f4-salao'},  # escudo da parede e "F40" saem
     'guindaste': {'emb': [(852, 663, 14, 19, 24), (423, 722, 12, 12, 14)], 'txt': [], 'crop': None, 'out': 'f4-guindaste'},  # içada na marina
 }
 
@@ -43,6 +45,9 @@ def main():
                 col = np.median(row, axis=0)
                 row[np.abs(row - col).sum(axis=1) > 50] = col
                 a[y, x0:x1] = row.astype(np.uint8)
+        for x0, y0, x1, y1, s0, s1 in c.get('wall', []):  # letreiro na parede: cada linha com a parede lisa da direita
+            for y in range(y0, y1):
+                a[y, x0:x1] = np.median(a[y, s0:s1], axis=0).astype(np.uint8)
         for y0, y1, ys in c.get('fill', []):
             band = a[ys:ys + 46].copy()
             for y in range(y0, y1):

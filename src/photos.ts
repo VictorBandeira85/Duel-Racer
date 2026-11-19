@@ -56,6 +56,8 @@ export const TR_PHOTOS: Photo[] = [
 export const F4_PHOTOS: Photo[] = [
   { src: ph('f4-pista'), kicker: 'ENSAIO', kc: '#d01f26', title: 'FURIA F4', sub: 'Dois turbos e nenhum luxo', inside: ['V8 biturbo de 478 cv', 'Carroceria de kevlar', '340 km/h na pista'], box: [35, 55, 525, 232] },
   { src: ph('f4-guindaste'), kicker: 'BASTIDORES', kc: '#1e4fb8', title: 'F4 NAS ALTURAS', sub: 'Embarque no porto rumo ao novo dono', inside: ['Como se iça uma F4', 'Frete e seguro marítimo', 'Kevlar: leve até no guindaste'], box: [100, 140, 460, 282] },
+  { src: ph('f4-salao'), kicker: 'SALÃO', kc: '#d01f26', title: 'F4 E SEU CORAÇÃO', sub: 'O carro e o V8 biturbo lado a lado na vitrine', inside: ['2.9 litros, dois turbos', 'Motor atrás dos bancos', 'Quanto custa uma F4'], box: [12, 30, 545, 300] },
+  { src: ph('f4-motor'), kicker: 'MECÂNICA', kc: '#1a1614', title: 'V8 BITURBO', sub: 'O motor da F4 fora do carro, peça por peça', inside: ['478 cv a 7.000 rpm', 'Turbos e intercoolers', 'Coletores de inox'], box: [40, 6, 505, 300] },
   { src: ph('f4-raiox'), kicker: 'RAIO-X', kc: '#1a1614', title: 'POR DENTRO DA F4', sub: 'Tubos, kevlar e dois turbos', inside: ['Gaiola e chassi tubular', 'Motor atrás dos bancos', 'Peso: 1.100 kg'], box: [25, 40, 540, 290] },
 ].filter((p) => !!p.src);
 export const DIA_PHOTOS: Photo[] = [

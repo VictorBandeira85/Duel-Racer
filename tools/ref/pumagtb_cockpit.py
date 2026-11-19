@@ -54,7 +54,7 @@ MIR_SRC, MIR_DST, MIR_W = 52, 124, 98   # emenda em x 222, onde a moldura tem a 
 MIR_MID, MIR_KY = 310.0, 1.0
 DIALS = [(669, 400, 58.0), (830, 400, 58.0), (1024, 404, 32.0), (1110, 404, 32.0), (1198, 404, 32.0), (1283, 404, 32.0)]
 FACE = (11, 11, 13)
-WIPERS = [(690, 800), (1150, 1275)]   # faixas (x) onde os limpadores encostam no capô
+WIPERS = [(680, 815), (1140, 1285)]   # faixas (x) onde os limpadores encostam no capô
 
 def poly(shape, pts):
     return cv2.fillPoly(np.zeros(shape, np.uint8), [np.array(pts, np.int32)], 1) > 0
@@ -81,6 +81,10 @@ def hood_line(W, img=None):
     ys = np.array(ys, float)
     ys = np.array([np.median(ys[max(0, i - 6):i + 7]) for i in range(len(ys))])
     h = np.interp(np.arange(W), xs, ys)
+    # borda lisa (pedido do Victor: capô uniforme, sem dentes nem restos do limpador): curva suave pelos pontos
+    sel = np.arange(446, W)
+    cf = np.polyfit(sel, h[sel], 6)
+    h[sel] = np.round(np.polyval(cf, sel))
     HOOD_CACHE['h'] = h
     return h
 
@@ -178,6 +182,27 @@ def clean(nw):
         lim = int(top[x]) + (r.max() if len(r) else 0)
         hole[lim + 1:, x] = False
     out = cv2.inpaint(out, hole.astype(np.uint8), 4, cv2.INPAINT_TELEA)
+    # nas faixas dos limpadores, cada linha do capô (da borda até 20 linhas abaixo) vai da cor de fora da
+    # esquerda para a de fora da direita: some o pivô e a palheta
+    for x0, x1 in WIPERS:
+        for y in range(int(min(top[x0:x1])) - 1, int(max(top[x0:x1])) + 20):
+            cl = np.median(out[y, x0 - 4:x0].astype(float), axis=0)
+            cr = np.median(out[y, x1:x1 + 4].astype(float), axis=0)
+            t = ((np.arange(x1 - x0) + 0.5) / (x1 - x0))[:, None]
+            out[y, x0:x1] = (cl * (1 - t) + cr * t).astype(np.uint8)
+    # da borda lisa até o primeiro vermelho de cada coluna: o vermelho claro da borda (sem asfalto nos dentes)
+    a2 = out.astype(int)
+    red2 = (a2[..., 0] > a2[..., 1] + 60) & (a2[..., 0] > 150)   # vermelho claro da lataria (o escuro da quina é contorno)
+    for x in range(446, W):
+        y0 = int(top[x])
+        r = np.nonzero(red2[y0:y0 + 12, x])[0]
+        if len(r) and r[0] > 0:
+            out[y0:y0 + r[0], x] = out[y0 + r[0], x]
+        # pontos escuros soltos nas 3 primeiras linhas (contorno quebrado da arte): o vermelho de baixo
+        for y in range(y0 + 8, y0 - 1, -1):   # (a palheta deitada sobre a borda do capô: até 8 linhas)
+            if not red2[y, x] and red2[y + 1:y + 9, x].any():
+                out[y, x] = out[y + 1 + int(np.argmax(red2[y + 1:y + 9, x])), x]
+                red2[y, x] = True
     # forro desenhado no alto (a arte não tem): cinza-escuro com a borda clara de baixo e a moldura preta
     ln = liner_line(W)
     left = pillar_edge(nw)

@@ -366,6 +366,29 @@ def main():
     cv2.fillPoly(rm, [np.array(SPOKES[1], np.int32)], 1)
     ys_, xs_ = np.nonzero(rm)
     pass  # (o volante da GTB não tem marca nos raios)
+    # na arte os raios laterais param antes do aro (vão escuro de ~35 px): cada raio continua até o aro,
+    # seguindo a inclinação das bordas de cima e de baixo, com a coluna da chapa logo depois da ponta
+    def extend_spoke(sign):
+        X = lambda x: x if sign > 0 else 1470 - x  # noqa: E731
+        top = lambda x: 456 + (x - 548) * 6 / 62    # noqa: E731
+        bot = lambda x: 508 + (x - 548) * 4 / 62    # noqa: E731
+        SRC = 562
+        t0, b0 = top(SRC), bot(SRC)
+        for x in range(500, 559):
+            ya, yb = top(x), bot(x)
+            for y in range(int(np.floor(ya)), int(np.ceil(yb)) + 1):
+                dy = (y - RIM_IN[1]) / RIM_IN[3]
+                if abs(dy) >= 1:
+                    continue
+                rim_x = RIM_IN[0] - RIM_IN[2] * np.sqrt(1 - dy * dy)
+                if x < rim_x - 3:
+                    continue
+                f = (y - ya) / (yb - ya)
+                sy = int(round(t0 + f * (b0 - t0)))
+                wart[y, X(x)] = ww[sy, X(SRC)]
+                wheel[y, X(x)] = True
+    extend_spoke(1)
+    extend_spoke(-1)
     xs = WHEEL_C[0] + (np.arange(256) + 0.5 - PIV_N[0]) * PXW
     ys = WHEEL_C[1] + (np.arange(WROWS) + 0.5 - (PIV_N[1] + WTOP)) * PXH
     w_rgb, w_al = sample(wart, xs, ys), sample(wheel, xs, ys) & (ys < ww.shape[0])[:, None]

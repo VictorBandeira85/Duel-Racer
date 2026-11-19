@@ -374,7 +374,7 @@ const LAMPS: Record<string, LampDef> = {
   'br-uno': { head: [0.19, 0.55, 0.06], sigRear: [0.065, 0.46, 0.18, 0.535], sigFront: [0.075, 0.51, 0.105, 0.6] },
   'br-kadett': { head: [0.2, 0.52, 0.06], sigRear: [0.07, 0.46, 0.15, 0.54], sigFront: [0.05, 0.46, 0.11, 0.58] },
   'br-pumagte': { head: [0.131, 0.533, 0.055], sigRear: [0.264, 0.523, 0.317, 0.621], sigFront: [0.253, 0.639, 0.025] }, // Puma GTE 1974 (pumagte_sprites2.py)
-  'br-pumagtb': { head: [0.185, 0.49, 0.06], sigRear: [0.16, 0.53, 0.33, 0.68], sigRed: true, sigFront: [0.1, 0.56, 0.19, 0.61] },
+  'br-pumagtb': { head: [0.13, 0.586, 0.042], sigRear: [0.027, 0.451, 0.21, 0.596], sigRed: true, sigFront: [0.11, 0.785, 0.21, 0.825] }, // Puma GTB S2 (pumagtb_sprites.py)
   'br-golgti': { head: [0.18, 0.57, 0.06], sigRear: [0.03, 0.585, 0.09, 0.665], sigFront: [0.025, 0.515, 0.085, 0.62] }, // Gol GTI 1993 (golgti_sprites.py)
   'br-vectra': { head: [0.21, 0.56, 0.05], sigRear: [0.06, 0.44, 0.135, 0.49], sigFront: [0.075, 0.515, 0.13, 0.6] },
   'br-monza': { head: [0.196, 0.583, 0.06], sigRear: [0.122, 0.558, 0.199, 0.625], sigFront: [0.035, 0.498, 0.09, 0.647] }, // Monza S/R 1987 (monza_sprites.py)
@@ -409,7 +409,7 @@ const SIDE_LAMPS: Record<string, SideLamp> = {
   'br-voyage': { head: [0.02, 0.53], tail: [0.975, 0.53] }, // farol na face: na altura do pisca lateral
   'br-voyagesport': { head: [0.02, 0.535], tail: [0.975, 0.5] },
   'br-santana': { head: [0.03, 0.52], tail: [0.975, 0.47] },
-  'br-pumagtb': { head: [0.035, 0.54], tail: [0.975, 0.47] },
+  'br-pumagtb': { head: [0.036, 0.563], tail: [0.981, 0.467] },
   'br-passat': { head: [0.025, 0.53], tail: [0.975, 0.525] },
   'br-pumagte': { head: [0.075, 0.46], tail: [0.985, 0.57] }, // farol carenado; lanterna acima do para-choque
 };
@@ -424,7 +424,7 @@ const WHEELS: Record<string, number[][]> = {
   'br-uno': [[0.196, 0.788, 0.061], [0.847, 0.788, 0.062]],
   'br-kadett': [[0.192, 0.775, 0.081], [0.807, 0.775, 0.081]],
   'br-pumagte': [[0.2093, 0.7416, 0.0558], [0.7541, 0.7378, 0.0558]], // Puma GTE 1974 (pumagte_sprites2.py)
-  'br-pumagtb': [[0.192, 0.741, 0.078], [0.749, 0.738, 0.079]],
+  'br-pumagtb': [[0.21, 0.7477, 0.0586], [0.7689, 0.7418, 0.0599]], // Puma GTB S2 (pumagtb_sprites.py)
   'br-golgti': [[0.1921, 0.8185, 0.0574], [0.8187, 0.8149, 0.0574]],
   'br-vectra': [[0.178, 0.777, 0.07], [0.778, 0.779, 0.07]],
   'br-monza': [[0.1775, 0.7779, 0.0502], [0.7859, 0.7771, 0.0502]],
@@ -448,7 +448,7 @@ const WHEELS: Record<string, number[][]> = {
 const PLATE_BOX: Record<string, number[]> = {
   'br-monza': [100, 104, 160, 124, 260, 182], 'br-monzacoupe': [101, 97, 161, 117, 260, 196], 'br-voyage': [98, 101, 162, 120, 260, 192], 'br-voyagesport': [98, 97, 162, 116, 260, 196], 'br-santana': [99, 83, 161, 100, 260, 176], 'br-golgti': [76, 111, 124, 124, 200, 188], 'br-kadett': [31, 30, 62, 40, 93, 70], 'br-pumagte': [99, 106, 160, 129, 260, 173],
   'br-corsa': [88, 108, 150, 127, 239, 212], 'br-uno': [70, 81, 118, 100, 189, 157], 'br-passat': [99, 104, 161, 122, 260, 198],
-  'br-vectra': [40, 52, 73, 62, 113, 79], 'br-pumagtb': [38, 31, 57, 37, 95, 59],
+  'br-vectra': [40, 52, 73, 62, 113, 79], 'br-pumagtb': [100, 121, 162, 141, 260, 165],
   '959': [93, 122, 169, 142, 260, 179], countach: [109, 82, 151, 100, 260, 141], diablo: [185, 136, 245, 156, 430, 220],
   f40: [80, 66, 121, 78, 200, 112], nsx: [78, 85, 122, 102, 200, 133], patrol: [84, 82, 116, 96, 200, 155],
   patrolsv: [185, 146, 245, 166, 430, 230], testarossa: [116, 103, 161, 125, 275, 162], viper: [103, 76, 133, 91, 237, 155],

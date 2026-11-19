@@ -24,7 +24,8 @@
   volante da com volante, forro desenhado) e quadro no estilo da GTE com as escalas da foto do GTB (pumagtb_gauges.py;
   pumaGauges em cockpit.ts serve os dois Onça). Corsário GSi (Corsa GSi): exterior novo (tools/ref/corsa_sprites.py: lateral branca espelhada,
   frente e traseira vermelhas convertidas pelo brilho), capas (corsa_photos.py), cabine (corsa_cockpit2.py) e quadro das
-  fotos reais (corsa_gauges.py, aceso em âmbar). Os demais (ZR1, Patrol, Vectra, Kadett, Uno) ficam como estão
+  fotos reais (corsa_gauges.py, aceso em âmbar). Patrulha 9C (Caprice 9C1): exterior novo (tools/ref/patrol_sprites2.py, giroflex da lateral só com a ponta vermelha) e cabine
+  com velocímetro digital turquesa (patrol_cockpit2.py, patrolCluster). Os demais (ZR1, Vectra, Kadett, Uno) ficam como estão
   até a arte nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
   Na dúvida, perguntar.
 

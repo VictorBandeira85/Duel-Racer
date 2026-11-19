@@ -327,7 +327,7 @@ export const CARS: CarSpec[] = [
       glass: [0.42, 0.24, 0.66, 0.24, 0.76, 0.18, 0.36, 0.18],
       wheels: [0.18, 0.76], shoulder: 0.15,
     },
-    rear: { h: 0.78, roof: 0.6, lights: 'rect', wing: 0, glow: { dots: [[0.17, 0.6], [0.83, 0.6]] } },
+    rear: { h: 0.781, roof: 0.6, lights: 'rect', wing: 0, glow: { dots: [[0.094, 0.546], [0.27, 0.546], [0.73, 0.546], [0.906, 0.546]] } },
   },
   {
     // Diablo SV da polícia: adversária nos eventos de classe S da carreira e pilotável no Arcade
@@ -382,7 +382,7 @@ const LAMPS: Record<string, LampDef> = {
   'br-voyage': { head: [0.16, 0.556, 0.06], sigRear: [0.035, 0.5, 0.108, 0.625], sigFront: [0.035, 0.492, 0.069, 0.614] }, // Voyage LS 1986 (voyage_sprites.py)
   'br-voyagesport': { head: [0.17, 0.548, 0.06], sigRear: [0.243, 0.462, 0.289, 0.517], sigFront: [0.029, 0.488, 0.079, 0.607] }, // Voyage Sport 1992 (voyagesport_sprites.py)
   'br-santana': { head: [0.107, 0.562, 0.05], sigRear: [0.034, 0.461, 0.107, 0.567], sigFront: [0.048, 0.697, 0.166, 0.74] }, // Santana GLS 1990 (santana_sprites.py)
-  patrol: { head: [0.145, 0.53, 0.07], sigRear: [0.035, 0.503, 0.26, 0.568], sigRed: true, sigFront: [0.05, 0.6, 0.24, 0.645] },
+  patrol: { head: [0.147, 0.593, 0.045], sigRear: [0.02, 0.5, 0.13, 0.6], sigRed: true, sigFront: [0.036, 0.558, 0.091, 0.642] }, // Caprice 9C1 novo (patrol_sprites2.py)
 };
 
 // Medido carro por carro na arte lateral (recortes da frente e da traseira ampliados 4-16x, com grade de
@@ -398,7 +398,7 @@ const SIDE_LAMPS: Record<string, SideLamp> = {
   countach: { head: [0.106, 0.342], tail: [0.97, 0.4], pop: true },
   nsx: { head: [0.082, 0.365], tail: [0.975, 0.38], pop: true },
   viper: { head: [0.075, 0.54], tail: [0.975, 0.53] },
-  patrol: { head: [0.04, 0.58], tail: [0.97, 0.55] },
+  patrol: { head: [0.05, 0.636], tail: [0.958, 0.533] },
   'br-vectra': { head: [0.045, 0.54], tail: [0.97, 0.42] },
   'br-uno': { head: [0.04, 0.55], tail: [0.975, 0.46] },
   'br-golgti': { head: [0.033, 0.593], tail: [0.98, 0.6] },
@@ -436,7 +436,7 @@ const WHEELS: Record<string, number[][]> = {
   'diablo': [[0.2389, 0.7114, 0.0582], [0.827, 0.6918, 0.0582]], // lateral com a frente à esquerda
   'f40': [[0.2438, 0.7212, 0.0611], [0.8122, 0.7189, 0.0611]],
   'nsx': [[0.2078, 0.7277, 0.0547], [0.7779, 0.726, 0.0547]],
-  'patrol': [[0.188, 0.794, 0.07], [0.739, 0.798, 0.068]],
+  'patrol': [[0.2108, 0.7864, 0.039], [0.7723, 0.7864, 0.039]], // aro de aço medido na arte (raio 62 px)
   'patrolsv': [[0.2388, 0.7332, 0.0582], [0.8272, 0.7151, 0.0582]],
   'testarossa': [[0.2295, 0.7131, 0.0556], [0.803, 0.715, 0.0556]],
   'viper': [[0.1981, 0.7627, 0.059], [0.7611, 0.7624, 0.059]],
@@ -450,7 +450,7 @@ const PLATE_BOX: Record<string, number[]> = {
   'br-corsa': [93, 138, 166, 162, 260, 249], 'br-uno': [70, 81, 118, 100, 189, 157], 'br-passat': [99, 104, 161, 122, 260, 198],
   'br-vectra': [40, 52, 73, 62, 113, 79], 'br-pumagtb': [100, 121, 162, 141, 260, 165],
   '959': [93, 122, 169, 142, 260, 179], countach: [109, 82, 151, 100, 260, 141], diablo: [185, 136, 245, 156, 430, 220],
-  f40: [80, 66, 121, 78, 200, 112], nsx: [78, 85, 122, 102, 200, 133], patrol: [84, 82, 116, 96, 200, 155],
+  f40: [80, 66, 121, 78, 200, 112], nsx: [78, 85, 122, 102, 200, 133], patrol: [108, 110, 152, 130, 260, 203],
   patrolsv: [185, 146, 245, 166, 430, 230], testarossa: [116, 103, 161, 125, 275, 162], viper: [103, 76, 133, 91, 237, 155],
   zr1: [80, 63, 121, 78, 200, 125],
 };

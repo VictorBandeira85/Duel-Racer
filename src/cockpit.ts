@@ -197,16 +197,60 @@ const COCKPIT_ART: Record<string, CockpitArt> = {
     } },
 };
 
-// Viatura: painel de sedã com hodômetro e indicador da alavanca funcionando
+// Patrulha 9C (Caprice 9C1): interior novo do Victor (tools/ref/patrol_cockpit2.py: painel, porta e retrovisor da
+// arte, volante de dois raios recortado, retrovisor interno fora, forro desenhado) e o quadro do Caprice 94-96:
+// velocímetro DIGITAL turquesa no meio (velocidade em sete segmentos e hodômetro) e quatro relógios pequenos com
+// ponteiro laranja (combustível, pressão do óleo, temperatura da água e voltímetro). À noite tudo acende no mesmo
+// turquesa do visor (números mais fortes, halo turquesa nos relógios); os ponteiros seguem laranja.
+const PT_TEAL = '#43e6ee', PT_TEAL_OFF = '#0e2a2e';
+function seg7Box(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, d: number | null, on: string, off: string) {
+  const t = Math.max(0.8, w * 0.2), m = h / 2;
+  const segs = [[x + t, y, w - 2 * t, t], [x + w - t, y + t, t, m - 1.5 * t], [x + w - t, y + m + t / 2, t, m - 1.5 * t], [x + t, y + h - t, w - 2 * t, t], [x, y + m + t / 2, t, m - 1.5 * t], [x, y + t, t, m - 1.5 * t], [x + t, y + m - t / 2, w - 2 * t, t]];
+  const map = ['1111110', '0110000', '1101101', '1111001', '0110011', '1011011', '1011111', '1110000', '1111111', '1111011'];
+  segs.forEach(([sx, sy, sw, sh], k) => {
+    c.fillStyle = d !== null && map[d][k] === '1' ? on : off;
+    c.fillRect(sx, sy, sw, sh);
+  });
+}
+const PT_GAUGES: [number, number][] = [[106.25, 56.61], [106.25, 73.84], [167.73, 56.61], [167.73, 73.84]];
+function patrolCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
+  const X = (x: number) => ox + VG_X(x), Y = (y: number) => ART_TOP + VG_Y(y);
+  const k = r.def ? Math.min(1, cabinDark(r) / 0.6) : 0;
+  const on = k > 0.3 ? '#8ffcff' : PT_TEAL;
+  // velocidade: três algarismos de sete segmentos alinhados à direita, "km/h" ao lado
+  const v = Math.min(999, Math.round(r.speed * KMH));
+  const sv = String(v);
+  const dw = 5.2, dh = 9.5, gap = 1.6;
+  for (let i = 0; i < 3; i++) {
+    const ch = sv[sv.length - 1 - i];
+    seg7Box(c, X(146.6 - (i + 1) * (dw + gap) + gap), Y(51.4), dw, dh * 128 / 124, ch === undefined ? null : Number(ch), on, PT_TEAL_OFF);
+  }
+  pix(c, 'km/h', X(150.8), Y(59.6), on, 0.4);
+  // hodômetro
+  const km = r.track ? Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600) : 0;
+  pix(c, String(Math.floor(31421 + km) % 1000000).padStart(6, '0'), X(137.6), Y(67.3), on, 0.5);
+  // ponteiros laranja dos relógios pequenos (vazio a 217°, cheio a 336°, passando pelo alto)
+  const off = r.rpm < 0.05, motor = !off || r.state === 'drive';
+  const vals = [clamp(gauges.fuel, 0, 1), motor ? clamp((gauges.oil - 0.2) / 0.6, 0, 1) : 0, clamp((gauges.water - 0.15) / 0.75, 0, 1), motor ? clamp(0.45 + (gauges.volt - 0.55) * 3, 0, 1) : 0.3];
+  const tip = needleTip;
+  needleTip = 0.3;
+  PT_GAUGES.forEach(([gx, gy], i) => fineNeedle(c, X(gx), Y(gy), 6.2, (217 + 119 * vals[i]) * VG_DEG, 0.8, '#ff9a2a', '#1a1a1c', 0.9, 0.8));
+  needleTip = tip;
+  if (k > 0.02) { // luz turquesa do quadro aceso
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    drawGlow(c, X(138), Y(60), 22, 12, '67,230,238', 0.12 * k, GLOW_STOPS);
+    for (const [gx, gy] of PT_GAUGES) drawGlow(c, X(gx + 2), Y(gy - 3), 9, 6, '67,230,238', 0.08 * k, GLOW_STOPS);
+    c.restore();
+  }
+}
 COCKPIT_ART.patrol = {
   dash: cp('patrol-dash'), top: cp('patrol-top'), wheel: cp('patrol-wheel'),
-  glass: { at: [26, 102] }, // retrovisor completado (tools/qa/mirror_complete.py)
-  pivot: [128.2, 103.1], wheelTop: 5, speedMax: 240, needle: '#ff2a1a', hub: '#1a1a1c', aux: [],
-  // redesenhados nítidos sobre a arte (reduzida, ela borra); escala como na arte: do 0 (≈ 148°)
-  // ao fim (≈ 30°), 242° de abertura, números em pixel inteiro
-  tach: { x: 87, y: 65, r: 26.5, cut: 20, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6, a0: 2.6, sweep: 4.22, labelScale: 1 },
-  speed: { x: 179, y: 65, r: 25.5, cut: 20, max: 240, labels: [0, 40, 80, 120, 160, 200, 240], tick: 10, red: 999, a0: 2.55, sweep: 4.25, labelScale: 1 },
-  odo: { x: 118, y: 43, w: 32, h: 11 }, prnd: { x: 118, y: 59, w: 32, h: 8 },
+  glass: { at: [36, 121], thr: 256 }, // retrovisor externo da arte (vidro transparente)
+  pivot: [128, 104], wheelTop: 4, wheelDx: 2, wheelDy: 3.4, speedMax: 240, tachReal: true,
+  needle: '#ff9a2a', hub: '#1a1a1c', aux: [], tells: null,
+  glow: '67,230,238', glowK: 0.5,
+  extra: patrolCluster,
 };
 
 // Toro V12 (Diablo): interior novo do Victor (com e sem volante, tools/ref/diablo_cockpit.py) e o
@@ -3018,7 +3062,7 @@ function defaultTells(art: CockpitArt): [number, number] | null {
 // pequeno e microfone na face do console.
 interface CopGear { radar: [number, number]; ctrl: [number, number, number]; mic: [number, number, number] /* x, y do gancho, comprimento do fio */; k: number /* tamanho */ }
 const COP_GEAR: Record<string, CopGear> = {
-  patrol: { radar: [182, 0], ctrl: [258, 2, 44], mic: [246, 58, 30], k: 1.45 },
+  patrol: { radar: [184, 14], ctrl: [252, 14, 44], mic: [236, 62, 30], k: 1.3 },
   'patrol-sv': { radar: [186, -6], ctrl: [244, -5, 34], mic: [318, 66, 22], k: 1.25 },
 };
 function copGear(c0: CanvasRenderingContext2D, ox0: number, r: Race, g: CopGear, dk: number) {

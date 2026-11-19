@@ -5,6 +5,7 @@
 // - Câmbio (gearbox.ts): cada marcha e o diferencial mais curtos ou mais longos, com a velocidade de cada
 //   marcha no corte, o gráfico giro x velocidade e o efeito medido na física (0-100, 0-160, máxima).
 // A tela de preparação (careerScreens.ts) monta o ShopCtx e repassa desenho, toque, teclas e foco.
+import { dynoArt } from './workshop';
 import { setEngine, setEngineProfile, starterSound } from './audio';
 import type { CarSpec } from './cars';
 import { KMH } from './config';
@@ -113,6 +114,7 @@ export function drawDyno(c: CanvasRenderingContext2D, ctx: ShopCtx) {
   const viewDiff = bkey(ctx.view) !== bkey(ctx.cur);
   const seen = viewDiff ? runFor(ctx, ctx.view, bkey(ctx.view)) : null;
   kicker(c, 'DINAMÔMETRO', x + 4, 20, RED, '#fff');
+  dynoArt(c, x + 318, 0, 30); // console do dinamômetro no canto
   headline(c, ctx.car.name.toUpperCase(), x + 70, 21, 6, INK);
   // eixos: giro embaixo (x1000 rpm); cv à esquerda, kgfm à direita
   const pr = chartRect();

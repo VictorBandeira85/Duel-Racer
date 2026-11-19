@@ -30,6 +30,7 @@ import { drawUsedSide, forgetCar } from './usedcars';
 import { buildSummary, driverBuild, driverCar, eventExtras, prizeOf, rematchCount, rematchEvent, rematchOpen, spend, wearOf, type CareerEvent, type Defect } from './career';
 import { arcadeBuildOf, arcadePrepped, arcadeTuned, setArcadePart } from './arcadeprep';
 import { arcadeGearing, gearingKey, isStock, realTop, setArcadeGearing, type Gearing } from './gearbox';
+import { workshopScene } from './workshop';
 import { closeShop, drawDyno, drawGears, drawShopTags, keyShop, openDyno, openGears, shop, shopFocus, shopTags, tapShop, type ShopCtx } from './shop';
 import { drawHealthChips, drawService, healthOf, serviceButtons, shownHealth, svc, tapService } from './upkeep';
 import { healthKey, type Health } from './wear';
@@ -335,6 +336,7 @@ export function drawGarage(c: CanvasRenderingContext2D, s: AppState) {
     const spin = sw.roll ? (sw.roll * ph.w) / (0.058 * 182) : undefined;
     // carro usado: riscos, amassados, trinca e fumaça dos defeitos ainda não consertados
     const wear = wearOf(cs, sw.car.id);
+    workshopScene(c, ph, 182 / 4.3, ph.y + 60, 'garage'); // oficina atrás do carro (carro ~4,3 m = 182 px)
     if (wear.length) drawUsedSide(c, ph.x + 8 + sw.dx * ph.w, ph.y + 68, 182, shown, paintHex(sw.car.id), wear, s.t, spin);
     else drawCarSide(c, ph.x + 8 + sw.dx * ph.w, ph.y + 68, 182, shown, paintHex(sw.car.id), spin);
   }, ['#4a4238', '#a89a86']);
@@ -620,7 +622,8 @@ function drawPrep(c: CanvasRenderingContext2D, s: AppState, car: CarSpec) {
   const ph: Rect = { x: x + 4, y: 35, w: 198, h: 59 };
   const many = !!(ui.demo || ui.arc); // Arcade e catálogo: ◀ ▶ para o carro anterior/próximo do filtro
   photo(c, ph, () => {
-    // só a lateral, grande (altura, rodas e o que mais vier aparecem melhor)
+    // só a lateral, grande (altura, rodas e o que mais vier aparecem melhor); a oficina atrás
+    workshopScene(c, ph, (many ? 168 : 190) / 4.3, ph.y + 49, 'prep');
     if (many) drawCarSide(c, ph.x + 15, ph.y + 56, 168, view, paintHex(car.id));
     else drawCarSide(c, ph.x + 4, ph.y + 56, 190, view, paintHex(car.id));
   }, ['#4a4238', '#a89a86']);

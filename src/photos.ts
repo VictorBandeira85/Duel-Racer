@@ -104,6 +104,12 @@ export const PS_PHOTOS: Photo[] = ([
   { src: ph('ps-historia'), kicker: 'HISTÓRIA', kc: '#1a6a2a', title: 'A ERA GTS', sub: 'De 1983 a 1986, a evolução do esportivo da Ipê', inside: ['Do 1.6 ao motor 1.8', 'Bancos de concha listrados', 'A faixa que virou marca'], box: [8, 8, 552, 307] },
   { src: ph('ps-emblema'), kicker: 'USADOS', kc: '#1a1614', title: 'GTS DE GARAGEM', sub: 'Como achar um Passeio 1.8 inteiro e original', inside: ['Lanterna e emblemas certos', 'Ferrugem: onde olhar', 'Quanto pagar hoje'], box: [90, 20, 470, 240] },
 ] as Photo[]).filter((p) => !!p.src);
+// Corsário GSi (Corsa GSi): tools/ref/corsa_photos.py
+export const CS_PHOTOS: Photo[] = ([
+  { src: ph('cs-pista'), kicker: 'TESTE', kc: '#d01f26', title: 'CORSÁRIO GSi', sub: 'O pequeno de 16 válvulas encara a curva no autódromo', inside: ['1.6 16v de 108 cv', '0 a 100 em 9,5 s', 'Freios ABS de série'], box: [150, 66, 450, 280] },
+  { src: ph('cs-raiox'), kicker: 'RAIO-X', kc: '#1a1614', title: 'POR DENTRO DO GSi', sub: 'O hatch esportivo peça por peça', inside: ['Motor 16v transversal', 'Suspensão rebaixada', 'Bancos com abas laterais'], box: [105, 35, 494, 280] },
+  { src: ph('cs-motor'), kicker: 'MECÂNICA', kc: '#1e4fb8', title: '16 VÁLVULAS', sub: 'O motor que fez do compacto um esportivo', inside: ['Coletor de quatro dutos', 'Injeção multiponto', 'Giro lá em cima: 7.000 rpm'], box: [40, 10, 520, 305] },
+] as Photo[]).filter((p) => !!p.src);
 // Onça GTB (Puma GTB S2): tools/ref/pumagtb_photos.py
 export const PB_PHOTOS: Photo[] = ([
   { src: ph('pb-ponte'), kicker: 'GRANDES BRASILEIROS', kc: '#d01f26', title: 'ONÇA GTB S2', sub: 'O esportivo grande de seis cilindros que fez história no Brasil', inside: ['4.1 de seis em linha', 'Conforto de viagem', '0 a 100 em 10,4 s'], box: [14, 12, 545, 302] },
@@ -144,7 +150,7 @@ export const PC_PHOTOS: Photo[] = [
   { src: ph('pc-kitturbo'), kicker: 'PREPARAÇÃO', kc: '#d01f26', title: 'KIT TURBO', sub: 'Peça por peça, o que vai no seu motor', inside: ['Downpipe de 2,5 ou 3,5 pol', 'Qual turbina escolher', 'Monte o seu na oficina'], box: [10, 5, 550, 310] },
   { src: ph('pc-coletor'), kicker: 'PREPARAÇÃO', kc: '#1a1614', title: 'ADMISSÃO DE CORRIDA', sub: 'Coletor de dutos longos e pressão de sobra', inside: ['Turbo ou supercharger?', 'Polia menor, mais pressão', 'Visite a oficina'], box: [95, 40, 465, 280] },
 ].filter((p) => !!p.src);
-export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...VG_PHOTOS, ...VS_PHOTOS, ...SN_PHOTOS, ...PS_PHOTOS, ...PG_PHOTOS, ...PB_PHOTOS, ...P9_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
+export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...VG_PHOTOS, ...VS_PHOTOS, ...SN_PHOTOS, ...PS_PHOTOS, ...PG_PHOTOS, ...PB_PHOTOS, ...CS_PHOTOS, ...P9_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
 
 // Enquadramento: a foto cobre o quadro e a caixa do carro (p.box) fica inteira e centrada na área
 // livre (sem a faixa vermelha de baixo, 'bottom' px), com uma aproximação lenta (u: 0..1) que nunca

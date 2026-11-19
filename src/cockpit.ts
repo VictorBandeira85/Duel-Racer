@@ -89,6 +89,7 @@ interface CockpitArt {
   faces?: { src: string; src2?: string; x: number; y: number; w: number; h: number }[]; // fundos dos mostradores em alta resolução (src2: versão feita para RES 2)
   glow?: string; // cor (r,g,b) da iluminação noturna do quadro
   under?: (c: CanvasRenderingContext2D, ox: number, r: Race) => void; // fundo do quadro, antes dos mostradores
+  copGear?: CopGear; // viatura: equipamentos da polícia na cabine (copGear)
   extra?: (c: CanvasRenderingContext2D, ox: number, r: Race) => void; // detalhes próprios (hodômetros, luzes-espia, submostradores)
 }
 
@@ -1912,9 +1913,13 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   }
   instrumentGlow(c, ox, art, dk / 0.6);
   // detector de radar (com as luzes do pisca dos lados); cada cabine pode pô-lo num lugar livre
-  const [rx, ry] = art.radar ?? [206, 22];
-  rect(c, ox + rx, ART_TOP + ry, 30, 6, '#0c0c0e');
-  radarLeds(c, ox + rx + 2, ART_TOP + ry + 1, 26, r.radar);
+  const gear = COP_GEAR[r.car.id];
+  if (gear) copGear(c, ox, r, gear, dk); // viatura: radar de velocidade da polícia no lugar do detector
+  else {
+    const [rx, ry] = art.radar ?? [206, 22];
+    rect(c, ox + rx, ART_TOP + ry, 30, 6, '#0c0c0e');
+    radarLeds(c, ox + rx + 2, ART_TOP + ry + 1, 26, r.radar);
+  }
   // luz verde da seta no quadro (as cabines com luz-espia própria desenham a delas)
   if (art.turnDot) turnDot(c, ox, art.turnDot, r.signal);
   else if (art.tells !== null) {
@@ -3000,6 +3005,88 @@ function defaultTells(art: CockpitArt): [number, number] | null {
   const a = art.tach, b = art.speed;
   if (!a || !b) return null;
   return [(a.x + b.x) / 2, Math.max(a.y, b.y) + Math.max(a.r, b.r) * 0.55];
+}
+
+// ---------- equipamentos das viaturas ----------
+// Cada viatura com cabine leva o que a polícia do modelo usava, desenhado sobre a arte em pixels do painel:
+// - radar de velocidade da polícia (caixa sobre o painel, duas janelas de LED vermelho: TARGET = o carro da
+//   frente na mesma mão, PATROL = a própria viatura), no lugar do detector de radar dos outros carros
+// - controle do giroflex e da sirene (caixa com teclas; as do giroflex piscam azul e vermelho)
+// - microfone do rádio pendurado no gancho, com o fio em espiral
+// A Patrulha 9C (Caprice 9C1 americano) tem tudo isso sobre o painel, como nas viaturas dos EUA dos anos 90;
+// o Toro V12 Polícia (Diablo da polícia italiana) tem cabine apertada: radar no alto do painel, controle
+// pequeno e microfone na face do console.
+interface CopGear { radar: [number, number]; ctrl: [number, number, number]; mic: [number, number, number] /* x, y do gancho, comprimento do fio */; k: number /* tamanho */ }
+const COP_GEAR: Record<string, CopGear> = {
+  patrol: { radar: [182, 0], ctrl: [258, 2, 44], mic: [246, 58, 30], k: 1.45 },
+  'patrol-sv': { radar: [186, -6], ctrl: [244, -5, 34], mic: [318, 66, 22], k: 1.25 },
+};
+function copGear(c0: CanvasRenderingContext2D, ox0: number, r: Race, g: CopGear, dk: number) {
+  const now = performance.now();
+  // cada peça é desenhada na escala k a partir do próprio canto (pixels maiores, legíveis no celular)
+  let c = c0, ox = ox0, T = ART_TOP;
+  const at = (x: number, y: number, f: () => void) => {
+    c0.save();
+    c0.translate(ox0 + x, ART_TOP + y);
+    c0.scale(g.k, g.k);
+    c = c0; ox = -x; T = -y;
+    f();
+    c0.restore();
+  };
+  const lit = (col: string) => (dk > 0.3 ? col : shade(col, -0.15));
+  // radar da polícia: caixa preta com borda cinza, duas janelas de LED e as etiquetas
+  const [rx, ry] = g.radar;
+  at(rx, ry, () => {
+  rect(c, ox + rx - 1, T + ry - 1, 42, 14, '#3a3a40');
+  rect(c, ox + rx, T + ry, 40, 12, '#101012');
+  rect(c, ox + rx, T + ry + 12, 40, 1, '#000');
+  let target = 0;
+  for (const t of r.traffic) {
+    const dz = t.z - r.playerZ;
+    if (t.speed > 0 && dz > 0 && dz < 60000 && (!target || t.speed * KMH > 0)) { target = Math.round(t.speed * KMH); break; }
+  }
+  for (const [i, v, lab] of [[0, target, 'ALVO'], [1, Math.round(r.speed * KMH), 'VTR']] as [number, number, string][]) {
+    const x = ox + rx + 2 + i * 19;
+    rect(c, x, T + ry + 2, 17, 6, '#2a0806');
+    pix(c, String(v).padStart(3, ' ').slice(-3), x + 8.5, T + ry + 5, lit('#ff3a20'), 0.5);
+    pix(c, lab, x + 8.5, T + ry + 10, '#9a9aa2', 0.5);
+  }
+  });
+  // controle do giroflex e da sirene: caixa com o visor vermelho e duas fileiras de teclas
+  const [cx, cy, cw] = g.ctrl;
+  at(cx, cy, () => {
+  const ch = Math.round(cw * 0.36);
+  rect(c, ox + cx - 1, T + cy - 1, cw + 2, ch + 2, '#3a3a40');
+  rect(c, ox + cx, T + cy, cw, ch, '#141416');
+  rect(c, ox + cx + cw * 0.3, T + cy + 1.5, cw * 0.4, 2.5, '#300806');
+  pix(c, 'SIRENE', ox + cx + cw / 2, T + cy + 2.8, lit('#ff4a2a'), 0.4);
+  const blink = Math.floor(now / 180) % 2;
+  const keys = Math.max(4, Math.floor(cw / 6));
+  for (let row = 0; row < 2; row++)
+    for (let k = 0; k < keys; k++) {
+      const kx = ox + cx + 2 + k * ((cw - 4) / keys), ky = T + cy + 5.5 + row * 4;
+      const kwid = (cw - 4) / keys - 1;
+      let col = '#cfcfd4';
+      if (row === 0 && k === 0) col = blink ? '#ff3a30' : '#5a1410'; // giroflex: vermelho e azul alternados
+      if (row === 0 && k === 1) col = blink ? '#28308a' : '#4a7cff';
+      if (row === 1 && k === keys - 1) col = '#ffb020';               // sirene armada
+      rect(c, kx, ky, kwid, 3, '#000');
+      rect(c, kx, ky, kwid, 2.5, dk > 0.3 && col === '#cfcfd4' ? '#6a6a72' : col);
+    }
+  });
+  // microfone do rádio: gancho, corpo preto com a tecla e o fio em espiral descendo
+  const [mx, my, len] = g.mic;
+  at(mx, my, () => {
+  rect(c, ox + mx - 1, T + my - 2, 6, 2, '#5a5a62');
+  rect(c, ox + mx, T + my, 4, 9, '#1a1a1e');
+  rect(c, ox + mx, T + my, 1, 9, '#3c3c44');
+  rect(c, ox + mx + 4, T + my + 3, 1, 3, '#2a2a30');
+  c.fillStyle = '#121214';
+  for (let i = 0; i < len; i += 1.5) {
+    const wob = Math.sin(i * 1.4) * 1.6;
+    c.fillRect(ox + mx + 1.5 + wob + i * 0.12, T + my + 9 + i, 1.5, 1.2);
+  }
+  });
 }
 
 function radarLeds(c: CanvasRenderingContext2D, x: number, y: number, w: number, level: number) {

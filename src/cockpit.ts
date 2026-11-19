@@ -943,7 +943,8 @@ interface PumaCfg {
   lamp: Record<string, number[]>; speed: number[]; tach: number[];
   speedA: (kmh: number) => number; tachA: (k: number) => number; smalls: [number[], (r: Race, motor: boolean) => number][];
   needles: [string, string]; rest: number; maxKmh: number;
-  glow?: string; drumLit?: string; // cor do halo e dos tambores com o quadro aceso (padrão: verde-menta dos Onça)
+  glow?: string; drumLit?: string; needleK?: number; smallK?: number; // comprimento dos ponteiros (fração do raio; padrão dos Onça)
+  // cor do halo e dos tambores com o quadro aceso (padrão: verde-menta dos Onça)
 }
 const pgPw = (pts: [number, number][], v: number) => { // escala em trechos (valor, graus)
   let i = 0;
@@ -1015,13 +1016,13 @@ function pumaGauges(P: PumaCfg) {
     const tip = needleTip;
     needleTip = 0.25;
     const motor = !off || r.state === 'drive';
-    for (const [g, f] of P.smalls) fineNeedle(c, X(g[0]), Y(g[1]), g[2] * 0.56, f(r, motor) * VG_DEG, 0.8, art.needle, art.hub, g[2] * 0.1, g[2] * 0.12);
+    for (const [g, f] of P.smalls) fineNeedle(c, X(g[0]), Y(g[1]), g[2] * (P.smallK ?? 0.56), f(r, motor) * VG_DEG, 0.8, art.needle, art.hub, g[2] * 0.1, g[2] * 0.12);
     needleTip = tip;
     // velocímetro (descansa onde o real descansa) e conta-giros (giro de verdade do motor do carro)
-    needle(c, X(sx) - 0.5, Y(sy) - 0.5, sr * 0.62 + 2, P.speedA(Math.min(P.maxKmh, Math.max(art.speedRest ?? P.rest, r.speed * KMH))) * VG_DEG, art);
+    needle(c, X(sx) - 0.5, Y(sy) - 0.5, P.needleK ? sr * P.needleK : sr * 0.62 + 2, P.speedA(Math.min(P.maxKmh, Math.max(art.speedRest ?? P.rest, r.speed * KMH))) * VG_DEG, art);
     let red = r.car.engine ? redlines.get(r.car.id) : 5600; // foto da revista: carro sem ficha
     if (!red) redlines.set(r.car.id, red = engineSpec(r.car.engine, r.car.id).redline);
-    needle(c, X(P.tach[0]) - 0.5, Y(P.tach[1]) - 0.5, P.tach[2] * 0.62 + 2, P.tachA((Math.min(1, r.rpm) * red * (r.car.soundMods?.rev ?? 1)) / 1000) * VG_DEG, art);
+    needle(c, X(P.tach[0]) - 0.5, Y(P.tach[1]) - 0.5, P.needleK ? P.tach[2] * P.needleK : P.tach[2] * 0.62 + 2, P.tachA((Math.min(1, r.rpm) * red * (r.car.soundMods?.rev ?? 1)) / 1000) * VG_DEG, art);
     if (k > 0.02) { // halo verde suave do quadro aceso
       c.save();
       c.globalCompositeOperation = 'lighter';
@@ -1241,7 +1242,7 @@ const GSI = pumaGauges({
     [[91.14, 101.62, 8.4], () => 205 + 130 * clamp(gauges.fuel, -0.03, 1.03)],
     [[171.32, 101.62, 8.4], () => 205 + (clamp(50 + ((gauges.water - 0.3) / 0.25) * 40, 46, 134) - 50) * (130 / 80)],
   ],
-  needles: ['#ece2c8', '#ffb050'], rest: 18, maxKmh: 226, glow: '255,160,60', drumLit: '#ffbe70',
+  needles: ['#ece2c8', '#ffb050'], rest: 18, maxKmh: 226, needleK: 0.9, smallK: 0.78, // ponta até as marcações, como no Corsa real glow: '255,160,60', drumLit: '#ffbe70',
 });
 COCKPIT_ART['br-corsa'] = {
   dash: cp('br-corsa-dash'), top: cp('br-corsa-top'), wheel: cp('br-corsa-wheel'),

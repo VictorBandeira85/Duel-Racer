@@ -135,7 +135,7 @@ def glass_mask(nw):
     # cantos arredondados) é janela; o contorno escuro da moldura fica
     near = cv2.dilate(frame.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
     g |= house & ~mir & ~near
-    halo = house & near & ~frame & ~mir    # vira o contorno escuro da moldura
+    halo = house & near & ~frame & ~mir & ~poly((H, W), CORNER)    # vira o contorno escuro da moldura
     g &= ~poly((H, W), CORNER)   # a chapa do canto é sólida inteira
     return g | mir, mir, halo
 
@@ -227,12 +227,16 @@ def clean(nw):
     edge = zone & (yy >= ln[xx] - 3)
     out[edge] = (14, 12, 16)
     out[zone & (yy >= ln[xx] - 5) & (yy < ln[xx] - 3)] = (78, 76, 86)
-    # chapa do canto: preto da borracha da janela, com um filete claro na borda de cima; o vermelho da arte por cima
+    # chapa do canto (pé do retrovisor até a soleira): lataria VERMELHA lisa, do vermelho do braço do retrovisor,
+    # clara no alto e escura embaixo, com o contorno escuro de 2 px na volta; sem as manchas pretas da arte
     cm = poly((H, W), CORNER)
-    keep = (nw[..., 0].astype(int) > nw[..., 1].astype(int) + 50) & (nw[..., 0] > 80) & (nw[..., 1] < 110)
-    out[cm & ~keep] = (24, 21, 27)
-    edge = cm & ~(cv2.erode(cm.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0) & ~keep
-    out[edge] = (58, 54, 64)
+    ys_c = np.nonzero(cm.any(axis=1))[0]
+    t = np.clip((yy - ys_c.min()) / max(1, ys_c.max() - ys_c.min()), 0, 1)[..., None]
+    top_c, mid_c, bot_c = np.array([222, 34, 30]), np.array([186, 18, 16]), np.array([120, 10, 10])
+    col = np.where(t < 0.5, top_c * (1 - t * 2) + mid_c * (t * 2), mid_c * (2 - t * 2) + bot_c * (t * 2 - 1))
+    out[cm] = col[cm].astype(np.uint8)
+    edge = cm & ~(cv2.erode(cm.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0)
+    out[edge] = (20, 9, 11)
     # miolo dos mostradores: fundo preto liso (o aro da arte fica)
     for cx, cy, r in DIALS:
         out[np.hypot(xx - cx, yy - cy) <= r + 0.5] = FACE

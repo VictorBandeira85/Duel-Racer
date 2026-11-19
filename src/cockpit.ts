@@ -1249,7 +1249,7 @@ COCKPIT_ART['br-corsa'] = {
   dashMask: cp('br-corsa-dash-mask'), topMask: cp('br-corsa-top-mask'),
   glass: { at: [75, 147], thr: 256 }, // retrovisor esquerdo (vidro transparente)
   pivot: [128, 104], wheelTop: 4, wheelDx: 2, wheelDy: 14.8,
-  pod: { x: 262, y: 50, r: 7.5, face: 'black', bezel: 'chrome', lit: 'yellow' }, radar: [214, 46],
+  pod: { x: 262, y: 50, r: 7.5, face: 'black', bezel: 'chrome', lit: 'yellow' }, radar: [214, 57],
   speedMax: 220, speedRest: 18, tachReal: true,
   needle: '#ece2c8', needleW: 1.1, needleTail: 2.2, needleFine: true, needleTip: 0.3, hub: '#1c1c1e', hubR: 1.6,
   faces: [{ src: CS_FACE, x: GSI.PL.x, y: GSI.PL.y, w: GSI.PL.w, h: GSI.PL.h }],
@@ -1962,8 +1962,7 @@ function drawCockpitArt(c: CanvasRenderingContext2D, r: Race, dt: number, art: C
   if (gear) copGear(c, ox, r, gear, dk); // viatura: radar de velocidade da polícia no lugar do detector
   else {
     const [rx, ry] = art.radar ?? [206, 22];
-    rect(c, ox + rx, ART_TOP + ry, 30, 6, '#0c0c0e');
-    radarLeds(c, ox + rx + 2, ART_TOP + ry + 1, 26, r.radar);
+    radarDetector(c, ox + rx, ART_TOP + ry, 30, r.radar, dk);
   }
   // luz verde da seta no quadro (as cabines com luz-espia própria desenham a delas)
   if (art.turnDot) turnDot(c, ox, art.turnDot, r.signal);
@@ -3066,71 +3065,80 @@ const COP_GEAR: Record<string, CopGear> = {
   patrol: { radar: [184, 14], ctrl: [252, 14, 44], mic: [236, 62, 30], k: 1.3 },
   'patrol-sv': { radar: [186, -6], ctrl: [244, -5, 34], mic: [318, 66, 22], k: 1.25 },
 };
-function copGear(c0: CanvasRenderingContext2D, ox0: number, r: Race, g: CopGear, dk: number) {
+const GEAR_PNG = import.meta.glob('./assets/copgear/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+const gearImg = (n: string) => faceImg(GEAR_PNG[`./assets/copgear/${n}.png`]);
+// peça da arte (tools/ref/copgear_art.py) desenhada com o canto em (x, y) e largura w; f desenha por cima em
+// pixels da própria imagem
+function gearPiece(c: CanvasRenderingContext2D, n: string, x: number, y: number, w: number, dk: number, f?: (c: CanvasRenderingContext2D) => void) {
+  const im = gearImg(n);
+  if (!im) return;
+  const s = w / im.naturalWidth;
+  c.save();
+  c.translate(x, y);
+  c.scale(s, s);
+  const sm = c.imageSmoothingEnabled;
+  c.imageSmoothingEnabled = true;
+  c.drawImage(im, 0, 0);
+  c.imageSmoothingEnabled = sm;
+  if (dk > 0.05) { // cabine escura: a peça escurece junto (o que acende é desenhado depois, por cima)
+    c.globalCompositeOperation = 'source-atop';
+    c.fillStyle = `rgba(4,6,14,${Math.min(0.55, dk * 0.6)})`;
+    c.fillRect(0, 0, im.naturalWidth, im.naturalHeight);
+    c.globalCompositeOperation = 'source-over';
+  }
+  f?.(c);
+  c.restore();
+}
+// casas dos algarismos nas duas janelas do radar (pixels de radar.png): ALVO à esquerda, VTR à direita
+const RADAR_CELLS = [[14, 22, 29, 37], [53, 61, 68, 76]];
+function copGear(c: CanvasRenderingContext2D, ox: number, r: Race, g: CopGear, dk: number) {
   const now = performance.now();
-  // cada peça é desenhada na escala k a partir do próprio canto (pixels maiores, legíveis no celular)
-  let c = c0, ox = ox0, T = ART_TOP;
-  const at = (x: number, y: number, f: () => void) => {
-    c0.save();
-    c0.translate(ox0 + x, ART_TOP + y);
-    c0.scale(g.k, g.k);
-    c = c0; ox = -x; T = -y;
-    f();
-    c0.restore();
-  };
-  const lit = (col: string) => (dk > 0.3 ? col : shade(col, -0.15));
-  // radar da polícia: caixa preta com borda cinza, duas janelas de LED e as etiquetas
-  const [rx, ry] = g.radar;
-  at(rx, ry, () => {
-  rect(c, ox + rx - 1, T + ry - 1, 42, 14, '#3a3a40');
-  rect(c, ox + rx, T + ry, 40, 12, '#101012');
-  rect(c, ox + rx, T + ry + 12, 40, 1, '#000');
+  const T = ART_TOP;
   let target = 0;
   for (const t of r.traffic) {
     const dz = t.z - r.playerZ;
-    if (t.speed > 0 && dz > 0 && dz < 60000 && (!target || t.speed * KMH > 0)) { target = Math.round(t.speed * KMH); break; }
+    if (t.speed > 0 && dz > 0 && dz < 60000) { target = Math.round(t.speed * KMH); break; }
   }
-  for (const [i, v, lab] of [[0, target, 'ALVO'], [1, Math.round(r.speed * KMH), 'VTR']] as [number, number, string][]) {
-    const x = ox + rx + 2 + i * 19;
-    rect(c, x, T + ry + 2, 17, 6, '#2a0806');
-    pix(c, String(v).padStart(3, ' ').slice(-3), x + 8.5, T + ry + 5, lit('#ff3a20'), 0.5);
-    pix(c, lab, x + 8.5, T + ry + 10, '#9a9aa2', 0.5);
-  }
+  // radar da polícia: duas janelas de LED vermelho (velocidade do carro da frente e da viatura)
+  const [rx, ry] = g.radar;
+  gearPiece(c, 'radar', ox + rx, T + ry, 52 * g.k / 1.3, dk, (c) => {
+    [target, Math.round(r.speed * KMH)].forEach((v, i) => {
+      const sv = String(Math.min(9999, v));
+      RADAR_CELLS[i].forEach((x, k) => {
+        const ch = sv[sv.length - 4 + k];
+        rect(c, x - 0.5, 18.5, 6, 9, '#2a0705');
+        seg7Box(c, x, 19, 5, 8, ch === undefined || (ch === '0' && v === 0 && k < 3) ? null : Number(ch), '#ff3a1c', '#3c0a07');
+      });
+    });
   });
-  // controle do giroflex e da sirene: caixa com o visor vermelho e duas fileiras de teclas
+  // controle do giroflex e da sirene: as teclas do giroflex (vermelha e azul) piscam alternadas
   const [cx, cy, cw] = g.ctrl;
-  at(cx, cy, () => {
-  const ch = Math.round(cw * 0.36);
-  rect(c, ox + cx - 1, T + cy - 1, cw + 2, ch + 2, '#3a3a40');
-  rect(c, ox + cx, T + cy, cw, ch, '#141416');
-  rect(c, ox + cx + cw * 0.3, T + cy + 1.5, cw * 0.4, 2.5, '#300806');
-  pix(c, 'SIRENE', ox + cx + cw / 2, T + cy + 2.8, lit('#ff4a2a'), 0.4);
   const blink = Math.floor(now / 180) % 2;
-  const keys = Math.max(4, Math.floor(cw / 6));
-  for (let row = 0; row < 2; row++)
-    for (let k = 0; k < keys; k++) {
-      const kx = ox + cx + 2 + k * ((cw - 4) / keys), ky = T + cy + 5.5 + row * 4;
-      const kwid = (cw - 4) / keys - 1;
-      let col = '#cfcfd4';
-      if (row === 0 && k === 0) col = blink ? '#ff3a30' : '#5a1410'; // giroflex: vermelho e azul alternados
-      if (row === 0 && k === 1) col = blink ? '#28308a' : '#4a7cff';
-      if (row === 1 && k === keys - 1) col = '#ffb020';               // sirene armada
-      rect(c, kx, ky, kwid, 3, '#000');
-      rect(c, kx, ky, kwid, 2.5, dk > 0.3 && col === '#cfcfd4' ? '#6a6a72' : col);
-    }
+  gearPiece(c, 'sirene', ox + cx, T + cy, cw * g.k * 1.05, dk, (c) => {
+    c.fillStyle = 'rgba(0,0,0,0.6)';
+    if (blink) c.fillRect(13, 23, 8, 6); else c.fillRect(13, 31, 8, 7);
+    c.globalCompositeOperation = 'lighter';
+    c.fillStyle = blink ? 'rgba(40,70,255,0.35)' : 'rgba(255,40,30,0.35)';
+    if (blink) c.fillRect(13, 31, 8, 7); else c.fillRect(13, 23, 8, 6);
+    c.globalCompositeOperation = 'source-over';
   });
-  // microfone do rádio: gancho, corpo preto com a tecla e o fio em espiral descendo
+  // microfone do rádio pendurado no gancho, com o fio em espiral
   const [mx, my, len] = g.mic;
-  at(mx, my, () => {
-  rect(c, ox + mx - 1, T + my - 2, 6, 2, '#5a5a62');
-  rect(c, ox + mx, T + my, 4, 9, '#1a1a1e');
-  rect(c, ox + mx, T + my, 1, 9, '#3c3c44');
-  rect(c, ox + mx + 4, T + my + 3, 1, 3, '#2a2a30');
-  c.fillStyle = '#121214';
-  for (let i = 0; i < len; i += 1.5) {
-    const wob = Math.sin(i * 1.4) * 1.6;
-    c.fillRect(ox + mx + 1.5 + wob + i * 0.12, T + my + 9 + i, 1.5, 1.2);
-  }
+  gearPiece(c, 'microfone', ox + mx - 2, T + my - 4, (12 + len * 0.15) * g.k, dk);
+}
+
+// detector de radar (radar.png dos outros carros): ventosa no para-brisa, corpo apoiado no painel e a
+// fileira de luzes acendendo com a proximidade do radar; (x, y) = canto da antiga faixa de luzes, w = largura
+const DET_LEDS = [14, 26, 37, 48, 59];
+function radarDetector(c: CanvasRenderingContext2D, x: number, y: number, w: number, level: number, dk: number) {
+  const s = w / 80;
+  gearPiece(c, 'detector', x, y + 7 - 76 * s, w, dk, (c) => {
+    const blink = level >= 1 && Math.floor(performance.now() / 150) % 2;
+    DET_LEDS.forEach((lx, i) => {
+      const on = level > i / 5 && !blink;
+      if (!on) { c.fillStyle = 'rgba(0,0,0,0.72)'; c.fillRect(lx, 62, 7, 4); }
+      else { c.globalCompositeOperation = 'lighter'; c.fillStyle = 'rgba(255,255,255,0.25)'; c.fillRect(lx, 62, 7, 4); c.globalCompositeOperation = 'source-over'; }
+    });
   });
 }
 

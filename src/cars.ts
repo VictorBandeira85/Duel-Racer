@@ -1027,6 +1027,25 @@ function drawCopBar(c: CanvasRenderingContext2D, x: number, y: number, w: number
   } else {
     const bw = Math.max(4, w * 0.4), bh = Math.max(2, Math.round(w * 0.05));
     const y0 = Math.round(y - h - bh * 0.55);
+    // barra da arte (src/assets/copgear/giroflex-tras/frente.png): metade acesa e a outra apagada
+    const art = barArt(look.front ? 'giroflex-frente' : 'giroflex-tras', on ? (blink ? 1 : 2) : 0);
+    if (art && bw >= 12) {
+      const ah = bw * art.height / art.width;
+      const ay = y - h + bh * 0.45 - ah;
+      c.drawImage(art, x - bw / 2, ay, bw, ah);
+      if (on) {
+        const k = cols[blink ? 0 : 1], lx = x + (blink ? -bw * 0.28 : bw * 0.28), ly = ay + ah * 0.35;
+        const g = c.createRadialGradient(lx, ly, 0, lx, ly, Math.max(4, w * 0.22));
+        g.addColorStop(0, k === 'blue' ? 'rgba(90,130,255,0.5)' : 'rgba(255,60,40,0.5)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        c.save();
+        c.globalCompositeOperation = 'lighter';
+        c.fillStyle = g;
+        c.fillRect(lx - w * 0.22, ly - w * 0.22, w * 0.44, w * 0.44);
+        c.restore();
+      }
+      return;
+    }
     c.fillStyle = '#18181c';
     c.fillRect(Math.round(x - bw / 2), y0 + bh - Math.max(1, Math.round(bh * 0.3)), Math.round(bw), Math.max(1, Math.round(bh * 0.3)));
     const half = Math.round(bw / 2) - 1;
@@ -1051,6 +1070,30 @@ function drawCopBar(c: CanvasRenderingContext2D, x: number, y: number, w: number
   }
 }
 const isMotoModel = (m: string) => m.startsWith('moto-');
+// variantes da barra (0 = apagada, 1 = metade esquerda acesa, 2 = direita), feitas uma vez da arte
+const BAR_PNG = import.meta.glob('./assets/copgear/giroflex-*.png', { eager: true, import: 'default' }) as Record<string, string>;
+const barImgs = new Map<string, HTMLImageElement>();
+const barCache = new Map<string, HTMLCanvasElement>();
+function barArt(n: string, state: number) {
+  const key = n + state;
+  const hit = barCache.get(key);
+  if (hit) return hit;
+  let im = barImgs.get(n);
+  if (!im) { im = new Image(); im.src = BAR_PNG[`./assets/copgear/${n}.png`]; barImgs.set(n, im); }
+  if (!im.complete || !im.naturalWidth) return null;
+  const cv = document.createElement('canvas');
+  cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+  const g = cv.getContext('2d')!;
+  g.drawImage(im, 0, 0);
+  g.globalCompositeOperation = 'source-atop';
+  g.fillStyle = 'rgba(8,8,14,0.6)';
+  const W = cv.width, H = cv.height * 0.72; // só as lentes (os pés ficam como estão)
+  if (state !== 1) g.fillRect(0, 0, W * 0.44, H);
+  if (state !== 2) g.fillRect(W * 0.56, 0, W * 0.44, H);
+  barCache.set(key, cv);
+  return cv;
+}
+
 
 // a última chamada de drawCar usou a arte (e não o desenho de reserva): as marcas de batida são
 // medidas na arte e só entram quando ela já carregou

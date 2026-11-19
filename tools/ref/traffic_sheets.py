@@ -25,6 +25,7 @@ W = 160
 # caixas (pixels do sprite) que nunca entram na máscara: peças vermelhas que não são lataria
 EXCL = {
     ('jipe', 'rear'): [(10, 89, 26, 113), (134, 89, 151, 113)],  # lanternas (encostam na lataria)
+    ('sedan90', 'rear'): [(6, 63, 154, 80)],  # lanterna em faixa inteira
     ('corcel', 'rear'): [(55, 71, 105, 85)],  # faixa da lanterna que atravessa a tampa
 }
 EXCL_BIG = {'bau': [(0, 0, 999, 12)]}  # luzes vermelhas do alto do baú, acima da cabine
@@ -34,7 +35,7 @@ EXCL_BIG = {'bau': [(0, 0, 999, 12)]}  # luzes vermelhas do alto do baú, acima 
 # da caixa inteira, menos as caixas de EXCL
 SIMPLE = {('jipe', 'rear'): (0, 74, 160, 134)}
 # saia vermelha embaixo do para-choque, mais escura que a lataria: entra pelo vermelho da caixa
-ADD = {('delrey', 'front'): (0, 98, 160, 128), ('delrey', 'rear'): (0, 100, 160, 134), ('corcel', 'rear'): (0, 95, 160, 126),
+ADD = {('fusca', 'front'): (0, 118, 160, 150), ('fusca', 'rear'): (0, 125, 160, 155), ('delrey', 'front'): (0, 98, 160, 128), ('delrey', 'rear'): (0, 100, 160, 134), ('corcel', 'rear'): (0, 95, 160, 126),
        ('saveiro', 'front'): (0, 70, 160, 98)}
 
 

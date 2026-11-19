@@ -938,7 +938,7 @@ function lampSpots(w: number, look: CarLook): { h: number; dots: number[][] } {
 
 const TRAFFIC_PLATE: Record<string, number[]> = { // como PLATE_BOX, nos sprites do trânsito (medido nos PNG)
   sedan: [62, 68, 98, 78, 160, 122], hatch: [61, 65, 100, 78, 160, 126], pickup: [65, 99, 96, 110, 160, 130], // arte do Victor (tools/ref/traffic_art.py)
-  van: [66, 103, 95, 112, 160, 132], truck: [66, 135, 95, 144, 160, 168], fusca: [67, 71, 94, 80, 160, 100], kombi: [66, 105, 95, 114, 160, 132], suv: [66, 71, 95, 80, 160, 120], sedan90: [66, 61, 95, 70, 160, 90], police: [68, 65, 90, 77, 160, 124],
+  van: [66, 140, 95, 153, 160, 175], truck: [66, 135, 95, 144, 160, 168], fusca: [63, 96, 98, 110, 160, 165], kombi: [63, 113, 97, 127, 160, 173], suv: [65, 119, 95, 131, 160, 159], sedan90: [63, 100, 97, 112, 160, 136], police: [68, 65, 90, 77, 160, 124],
   // motos (tools/ref/motos.py): placa pequena embaixo da lanterna
   'moto-custom': [32, 94, 52, 106, 83, 133], 'moto-sport': [26, 65, 43, 75, 70, 121], 'moto-pop': [29, 84, 44, 95, 74, 129],
   'moto-cop': [36, 93, 56, 105, 92, 138], 'moto-copf': [36, 93, 56, 105, 92, 138], // BMW da polícia (classe A)
@@ -955,8 +955,11 @@ const TRAFFIC_PLATE: Record<string, number[]> = { // como PLATE_BOX, nos sprites
 };
 const TRAFFIC_GLOW: Record<string, { dots?: number[][]; head?: number[] /* farol esquerdo na frente (u, f) */; lw?: number; sig?: number[]; sigFront?: number[] /* pisca esquerdo (u, f) */; siren?: number[][]; sirenFront?: number[][]; sirenColors?: string[]; sirenColorsFront?: string[] }> = {
   sedan: { dots: [[0.15, 0.59], [0.85, 0.59]], head: [0.21, 0.57] }, hatch: { dots: [[0.17, 0.59], [0.83, 0.59]], head: [0.19, 0.555] },
-  pickup: { dots: [[0.07, 0.54], [0.93, 0.54]], head: [0.13, 0.535] }, van: { dots: [[0.06, 0.7], [0.94, 0.7]] },
-  fusca: { dots: [[0.09, 0.56], [0.91, 0.56]] }, kombi: { dots: [[0.09, 0.66], [0.91, 0.66]] }, suv: { dots: [[0.07, 0.6], [0.93, 0.6]] }, sedan90: { dots: [[0.15, 0.6], [0.85, 0.6]] },
+  pickup: { dots: [[0.07, 0.54], [0.93, 0.54]], head: [0.13, 0.535] }, van: { dots: [[0.079, 0.609], [0.921, 0.609]], lw: 0.075, head: [0.2, 0.62], sig: [0.08, 0.539], sigFront: [0.181, 0.691] },
+  fusca: { dots: [[0.138, 0.624], [0.862, 0.624]], lw: 0.081, head: [0.152, 0.749], sig: [0.137, 0.564], sigFront: [0.157, 0.448] },
+  kombi: { dots: [[0.147, 0.703], [0.853, 0.703]], lw: 0.062, head: [0.2, 0.57], sig: [0.146, 0.642], sigFront: [0.172, 0.491] },
+  suv: { dots: [[0.075, 0.557], [0.925, 0.557]], lw: 0.094, head: [0.176, 0.545], sig: [0.078, 0.48], sigFront: [0.163, 0.622] },
+  sedan90: { dots: [[0.1, 0.52], [0.9, 0.52]], lw: 0.075, head: [0.178, 0.57], sig: [0.089, 0.537], sigFront: [0.071, 0.564] }, // (segunda leva da arte do Victor, traffic_sheets.py)
   truck: { dots: [[0.08, 0.79], [0.92, 0.79]] },
   // caminhões (tools/ref/truck_art.py, medidos nos PNG): lanterna vermelha de cada lado (dots, lw), farol
   // esquerdo (head) e piscas âmbar de trás e da frente; o Kenworth (americano) pisca na lanterna vermelha de fora

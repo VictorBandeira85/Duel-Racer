@@ -37,10 +37,10 @@ WTOP, WROWS = 4, 210
 RIM_OUT = (734.0, 510.0, 247.0, 230.0)
 RIM_IN = (734.0, 510.0, 222.0, 205.0)
 HUB = (735.0, 517.0, 68.0)
-SPOKES = [
-    [(552, 458), (600, 461), (690, 468), (692, 526), (640, 521), (600, 507), (552, 503)],
-    [(1470 - x, y) for x, y in [(552, 458), (600, 461), (690, 468), (692, 526), (640, 521), (600, 507), (552, 503)]],
-    [(698, 572), (774, 572), (770, 640), (760, 690), (768, 718), (702, 718), (710, 690), (700, 640)],
+SPOKES = [   # medidos de novo na arte com volante (a versão anterior cortava as bordas dos raios)
+    [(548, 456), (610, 462), (680, 470), (690, 472), (692, 530), (670, 526), (610, 512), (548, 508)],
+    [(1470 - x, y) for x, y in [(548, 456), (610, 462), (680, 470), (690, 472), (692, 530), (670, 526), (610, 512), (548, 508)]],
+    [(696, 566), (776, 566), (770, 640), (768, 700), (784, 712), (786, 732), (686, 732), (688, 712), (702, 700), (700, 640)],
 ]
 EMB = (735.0, 512.0, 36.0)
 PILLAR_R = [(393, 0), (400, 50), (412, 100), (424, 150), (436, 200), (446, 250), (452, 290)]
@@ -136,7 +136,15 @@ def glass_mask(nw):
     near = cv2.dilate(frame.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
     g |= house & ~mir & ~near
     halo = house & near & ~frame & ~mir & ~poly((H, W), CORNER)    # vira o contorno escuro da moldura
-    g &= ~poly((H, W), CORNER)   # a chapa do canto é sólida inteira
+    # canto atrás do retrovisor: como na arte, o pé vermelho do retrovisor (e o contorno escuro) fica sólido e
+    # o asfalto visto entre ele e a coluna é vidro
+    cm = poly((H, W), CORNER)
+    a3 = nw.astype(int)
+    solid = ((a3[..., 0] > a3[..., 1] + 50) & (a3[..., 0] > 80)) | (a3.mean(axis=2) < 55)
+    solid = cv2.morphologyEx(solid.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8)) > 0
+    yl = (a3[..., 0] > 150) & (a3[..., 1] > 100) & (a3[..., 2] < 90)
+    g[cm] = ~solid[cm] | yl[cm]
+    g |= cv2.dilate((yl & (xx > 250) & (xx < 330) & (yy > 230) & (yy < 300)).astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
     return g | mir, mir, halo
 
 
@@ -227,16 +235,6 @@ def clean(nw):
     edge = zone & (yy >= ln[xx] - 3)
     out[edge] = (14, 12, 16)
     out[zone & (yy >= ln[xx] - 5) & (yy < ln[xx] - 3)] = (78, 76, 86)
-    # chapa do canto (pé do retrovisor até a soleira): lataria VERMELHA lisa, do vermelho do braço do retrovisor,
-    # clara no alto e escura embaixo, com o contorno escuro de 2 px na volta; sem as manchas pretas da arte
-    cm = poly((H, W), CORNER)
-    ys_c = np.nonzero(cm.any(axis=1))[0]
-    t = np.clip((yy - ys_c.min()) / max(1, ys_c.max() - ys_c.min()), 0, 1)[..., None]
-    top_c, mid_c, bot_c = np.array([222, 34, 30]), np.array([186, 18, 16]), np.array([120, 10, 10])
-    col = np.where(t < 0.5, top_c * (1 - t * 2) + mid_c * (t * 2), mid_c * (2 - t * 2) + bot_c * (t * 2 - 1))
-    out[cm] = col[cm].astype(np.uint8)
-    edge = cm & ~(cv2.erode(cm.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0)
-    out[edge] = (20, 9, 11)
     # miolo dos mostradores: fundo preto liso (o aro da arte fica)
     for cx, cy, r in DIALS:
         out[np.hypot(xx - cx, yy - cy) <= r + 0.5] = FACE
@@ -267,17 +265,26 @@ def sample(img, xs, ys):
     return img[yi][:, xi]
 
 
-def wheel_mask(ww):
+def wheel_mask(ww, nw=None):
+    """volante = o que muda entre a arte COM e a SEM volante (alinhadas), dentro da elipse de fora do aro;
+    os furos dos raios (onde se vê o painel) ficam vazados. Sem a arte sem volante, as elipses e polígonos"""
     H, W = ww.shape[:2]
     y4, x4 = np.mgrid[0:H, 0:W]
-    ell = lambda e: ((x4 - e[0]) / e[2]) ** 2 + ((y4 - e[1]) / e[3]) ** 2 <= 1
-    outer, inner = ell(RIM_OUT), ell(RIM_IN)
+    ell = lambda e: ((x4 - e[0]) / e[2]) ** 2 + ((y4 - e[1]) / e[3]) ** 2 <= 1  # noqa: E731
+    outer = ell((RIM_OUT[0], RIM_OUT[1], RIM_OUT[2] + 6, RIM_OUT[3] + 6))
+    inner = ell(RIM_IN)
     sp = np.zeros((H, W), np.uint8)
     for p in SPOKES:
         cv2.fillPoly(sp, [np.array(p, np.int32)], 1)
     hub = np.hypot(x4 - HUB[0], y4 - HUB[1]) <= HUB[2] - 3
-    return outer & (~inner | (sp > 0) | hub)
-
+    base = ell(RIM_OUT) & (~inner | (sp > 0) | hub)
+    if nw is not None:   # borda fina dos raios e do aro: o que muda entre as duas artes, colado na peça
+        n = nw if nw.shape == ww.shape else np.pad(nw, ((0, H - nw.shape[0]), (0, W - nw.shape[1]), (0, 0)), mode='edge')
+        d = np.abs(ww.astype(int) - n.astype(int)).sum(axis=2) > 60
+        near = cv2.dilate(base.astype(np.uint8), np.ones((9, 9), np.uint8)) > 0
+        base |= d & near & outer
+        base = cv2.morphologyEx(base.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8)) > 0
+    return base & outer
 
 def shift_mirror(nw, A, mir):
     """moldura esquerda do retrovisor externo andando para dentro (ver o cabeçalho)"""
@@ -347,7 +354,7 @@ def main():
         print(name, 'máscara de pintura', int(m.sum()))
 
     # volante (arte com volante)
-    wheel = wheel_mask(ww)
+    wheel = wheel_mask(ww, np.array(Image.open(os.path.join(d, 'cockdash.png')).convert('RGB')))
     if dbg:
         v = ww.copy()
         v[~wheel] = (v[~wheel] * 0.35 + np.array([0, 160, 0]) * 0.65).astype(np.uint8)

@@ -49,6 +49,7 @@ DOOR = [(0, 0), (206, 0), (260, 140), (321, 300), (344, 360), (349, 374), (0, 43
 HOUSING = [(56, 262), (66, 244), (86, 235), (245, 235), (262, 247), (285, 280), (300, 305), (318, 314), (318, 332), (292, 346),
            (258, 372), (242, 385), (82, 385), (62, 374), (55, 352)]
 MIRROR_SEED = (160, 310)
+CORNER = [(268, 284), (316, 280), (330, 318), (349, 374), (244, 388), (254, 330)]   # canto da janela atrás do pé do retrovisor
 MIR_Y = (230, 390)
 MIR_SRC, MIR_DST, MIR_W = 52, 124, 98   # emenda em x 222, onde a moldura tem a mesma altura da coluna 150 copiada
 MIR_MID, MIR_KY = 310.0, 1.0
@@ -102,6 +103,18 @@ def glass_mask(nw):
     ws = (yy >= roof[xx]) & (yy < top[xx]) & (xx >= left[yy])
     house = poly((H, W), HOUSING)
     door = poly((H, W), DOOR) & ~house
+    # pé do retrovisor (a chapa vermelha que desce até a soleira) com o contorno escuro: fica sólido
+    a_ = nw.astype(int)
+    sail = (a_[..., 0] > a_[..., 1] + 50) & (a_[..., 0] > 80) & (xx < 330) & (yy > 280) & (yy < 390)
+    sail = cv2.morphologyEx(sail.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+    sail = cv2.dilate(sail, np.ones((5, 5), np.uint8)) > 0
+    # o canto da janela entre o retrovisor e a coluna, do braço até a soleira, é a chapa do pé do retrovisor
+    # (sólida: o retrovisor não fica solto no vidro)
+    door &= ~sail & ~poly((H, W), CORNER)
+    # risco amarelo da estrada desenhado entre o retrovisor e a coluna: vidro
+    yel = (a_[..., 0] > 160) & (a_[..., 1] > 110) & (a_[..., 2] < 90) & (xx > 255) & (xx < 330) & (yy > 230) & (yy < 300)
+    yel = cv2.dilate(yel.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
+    door |= yel & ~poly((H, W), CORNER)
     # vidro do retrovisor externo: o miolo dentro da moldura vermelha (fecho convexo, a vista tem vermelho)
     hsvf = cv2.cvtColor(nw, cv2.COLOR_RGB2HSV_FULL).astype(int)
     hue = hsvf[..., 0] * 360 / 256
@@ -123,6 +136,7 @@ def glass_mask(nw):
     near = cv2.dilate(frame.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
     g |= house & ~mir & ~near
     halo = house & near & ~frame & ~mir    # vira o contorno escuro da moldura
+    g &= ~poly((H, W), CORNER)   # a chapa do canto é sólida inteira
     return g | mir, mir, halo
 
 
@@ -213,6 +227,12 @@ def clean(nw):
     edge = zone & (yy >= ln[xx] - 3)
     out[edge] = (14, 12, 16)
     out[zone & (yy >= ln[xx] - 5) & (yy < ln[xx] - 3)] = (78, 76, 86)
+    # chapa do canto: preto da borracha da janela, com um filete claro na borda de cima; o vermelho da arte por cima
+    cm = poly((H, W), CORNER)
+    keep = (nw[..., 0].astype(int) > nw[..., 1].astype(int) + 50) & (nw[..., 0] > 80) & (nw[..., 1] < 110)
+    out[cm & ~keep] = (24, 21, 27)
+    edge = cm & ~(cv2.erode(cm.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0) & ~keep
+    out[edge] = (58, 54, 64)
     # miolo dos mostradores: fundo preto liso (o aro da arte fica)
     for cx, cy, r in DIALS:
         out[np.hypot(xx - cx, yy - cy) <= r + 0.5] = FACE

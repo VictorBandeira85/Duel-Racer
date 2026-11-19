@@ -879,30 +879,6 @@ COCKPIT_ART['959'] = {
 };
 queueMicrotask(() => faceImg(SB_FACE)); // a foto da revista (interiorPhoto) precisa do fundo do quadro já carregado
 
-// Onça GTB: mostradores pretos com números âmbar e ponteiros laranja — velocímetro 20-220 com
-// hodômetro e parcial, conta-giros 0-7 (faixa vermelha a partir de 5, do seis-cilindros 4.1),
-// combustível no pequeno da esquerda (o da direita, atrás do aro, é o da arte) e, no console (tela larga), pressão
-// do óleo, temperatura do óleo, voltímetro e relógio
-const GTB_INK = '#ffb43a';
-COCKPIT_ART['br-pumagtb'] = {
-  dash: cp('br-pumagtb-dash'), top: cp('br-pumagtb-top'), wheel: cp('br-pumagtb-wheel'),
-  glass: { at: [17, 104] }, // retrovisor completado (tools/qa/mirror_complete.py)
-  pivot: [127, 128.3], speedMax: 220, needle: '#ff8c1a', needleW: 1.5, needleTail: 3, hub: '#141416', radar: [206, 4],
-  speed: { x: 98, y: 65.5, r: 25.5, max: 220, labels: [20, 60, 100, 140, 180, 220], minor: [40, 80, 120, 160, 200], tick: 10, red: 999, labelScale: 0.7, ink: GTB_INK, bg: '#0c0c0e', boldTicks: true },
-  tach: { x: 171.5, y: 65.5, r: 27, max: 7, labels: [0, 1, 2, 3, 4, 5, 6, 7], tick: 0.25, red: 5, labelScale: 0.7, redLabels: false, ink: GTB_INK, bg: '#0c0c0e', redInk: '#e8301a', redW: 2, boldTicks: true },
-  aux: [
-    { x: 52, y: 75.5, r: 10.5, kind: 'single', show: ['fuel'], icon: 'fuel' },
-    { x: 272.5, y: 65.5, r: 16.5, kind: 'single', show: ['oil'], icon: 'oil', labels: ['0', '5', '10'] },
-    { x: 322.5, y: 65.5, r: 16.5, kind: 'single', show: ['oiltemp'], icon: 'temp', labels: ['50', '100', '150'] },
-    { x: 373, y: 65.5, r: 16.5, kind: 'single', show: ['volt'], icon: 'volt', labels: ['8', '12', '16'] },
-    { x: 422, y: 65.5, r: 16.5, kind: 'clock' },
-  ],
-  extra: (c, ox, r) => {
-    odometer(c, ox, r, { x: 92, y: 57.5, w: 12, h: 3.5 }, 228, 6, 0.5);
-    odometer(c, ox, r, { x: 94, y: 70.5, w: 8, h: 3.5 }, 21.0, 4, 0.5, true);
-  },
-};
-
 // Onça GTE (Puma GTE 1976): interior novo do Victor (tools/ref/onca_gte_cockpit2.py, no molde do Passeio: painel
 // da arte SEM volante, volante esportivo de três raios da arte com volante centrado entre os dois mostradores
 // grandes, buzina com a logo da Onça, vidros e limpadores recortados, retrovisor interno fora, retrovisor
@@ -916,105 +892,121 @@ COCKPIT_ART['br-pumagtb'] = {
 // lanterna (lente verde entre os dois). À noite, como na foto do quadro real aceso, o fundo continua preto e
 // acendem números, marcações e ícones em verde-menta claro, com um halo verde suave (br-pumagte-cluster-lit
 // por cima do apagado, na medida do escuro da cabine), e os ponteiros acendem vermelhos.
-const PG = { x: VG_X(76), y: VG_Y(38), w: (252 * 464) / 460, h: (58 * 128) / 124 }; // placa dos mostradores (onca_gte_gauges.py: 76, 38, 252 x 58)
-const PG_FACE = cp('br-pumagte-cluster'), PG_LIT = cp('br-pumagte-cluster-lit'), PG_LAMPS = cp('br-pumagte-lamps');
-// luzes-espia (centro e lado da casa, pixels do painel; onca_gte_gauges.py imprime)
-const PG_LAMP = {
-  beam: [85.73, 73.77, 6.35], fog: [90.59, 80.44, 6.35], turn: [95.45, 84.88, 5.37], batt: [139.16, 73.5, 6.35], oil: [149.37, 84.88, 5.13], park: [128, 46.2, 4.2],
-} as const;
-// mostradores (centro e raio do fundo, pixels do painel) e escalas em graus, como no fundo desenhado
-const PG_SPEED = [100.8, 66.83, 24.3], PG_TACH = [155.2, 66.83, 24.3];
-const PG_OILP = [194.64, 54.4, 12.1], PG_OILT = [230.68, 56.73, 15.5], PG_TEMP = [270.8, 56.73, 15.5], PG_FUEL = [310.92, 56.73, 15.5];
+// quadro dos Onça (GTE e GTB, o mesmo estilo VDO): placa do fundo desenhado, luzes-espia, escalas dos ponteiros
+interface PumaCfg {
+  id: string; plate: [number, number, number, number]; face: string; lit: string; lamps: string;
+  lamp: Record<string, number[]>; speed: number[]; tach: number[];
+  speedA: (kmh: number) => number; tachA: (k: number) => number; smalls: [number[], (r: Race, motor: boolean) => number][];
+  needles: [string, string]; rest: number; maxKmh: number;
+}
 const pgPw = (pts: [number, number][], v: number) => { // escala em trechos (valor, graus)
   let i = 0;
   while (i < pts.length - 2 && v > pts[i + 1][0]) i++;
   const [v0, a0] = pts[i], [v1, a1] = pts[i + 1];
   return a0 + ((a1 - a0) * (v - v0)) / (v1 - v0);
 };
-const pgTachA = (k: number) => (k <= 1 ? 181 + 30.5 * Math.max(-0.1, k) : 211.5 + 43.6 * (Math.min(6.25, k) - 1));
-function pumaUnder(c: CanvasRenderingContext2D, ox: number, r: Race) {
-  if (!r.def) { // foto da revista (sem corrida): o fundo do quadro entra aqui
-    const im = faceImg(PG_FACE);
-    if (im) c.drawImage(im, ox + PG.x, ART_TOP + PG.y, PG.w, PG.h);
-  }
-}
-function pumaCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
-  const art = COCKPIT_ART['br-pumagte'];
-  const X = (x: number) => ox + VG_X(x), Y = (y: number) => ART_TOP + VG_Y(y); // medidas do painel -> tela
-  const k = r.def ? Math.min(1, cabinDark(r) / 0.6) : 0;
-  // ponteiros: brancos de dia, vermelhos acesos à noite (foto do quadro real aceso)
-  art.needle = k > 0.5 ? '#ff4636' : '#eeeae0';
-  art.hub = k > 0.5 ? '#1c1414' : '#2c2c30';
-  const sm = c.imageSmoothingEnabled;
-  c.imageSmoothingEnabled = true;
-  if (k > 0.02) {
-    const im = faceImg(PG_LIT);
-    if (im) {
-      c.globalAlpha = k;
-      c.drawImage(im, ox + PG.x, ART_TOP + PG.y, PG.w, PG.h);
-      c.globalAlpha = 1;
+const LAMP_RGB: Record<string, string> = { beam: '90,150,255', batt: '255,60,40', oil: '255,60,40' };
+function pumaGauges(P: PumaCfg) {
+  const [px, py, pw, ph] = P.plate;
+  const PL = { x: VG_X(px), y: VG_Y(py), w: (pw * 464) / 460, h: (ph * 128) / 124 };
+  const under = (c: CanvasRenderingContext2D, ox: number, r: Race) => {
+    if (!r.def) { // foto da revista (sem corrida): o fundo do quadro entra aqui
+      const im = faceImg(P.face);
+      if (im) c.drawImage(im, ox + PL.x, ART_TOP + PL.y, PL.w, PL.h);
     }
-  }
-  // luzes-espia (apagadas no fundo): no velocímetro farol alto (azul, à noite), farol de neblina (verde, na
-  // neblina) e a seta (verde, com o relé; pisca-alerta na batida); no conta-giros bateria (motor parado) e óleo
-  // (motor parado ou batido); entre os dois a lanterna (verde, à noite e no fim de tarde)
-  const off = r.rpm < 0.05, crash = r.state === 'crash', hurt = (r.damage ?? 0) > 0.6 || crash;
-  const on: Record<keyof typeof PG_LAMP, boolean> = {
-    beam: !!r.def?.night, fog: r.def?.weather === 'fog', turn: (r.signal !== 0 || crash) && blinkOn(), batt: off, oil: off || hurt,
-    park: !!(r.def?.night || r.def?.dusk),
   };
-  const lamps = Object.values(on).some(Boolean) ? faceImg(PG_LAMPS) : null;
-  if (lamps) {
-    const kx = lamps.naturalWidth / 252, ky = lamps.naturalHeight / 58;
-    for (const [n, [x, y, s]] of Object.entries(PG_LAMP)) {
-      if (!on[n as keyof typeof PG_LAMP]) continue;
-      const x0 = x - s / 2, y0 = y - (s / 2) * PIX_Y, h = s * PIX_Y;
-      c.drawImage(lamps, (x0 - 76) * kx, (y0 - 38) * ky, s * kx, h * ky, X(x0), Y(y0), X(x0 + s) - X(x0), Y(y0 + h) - Y(y0));
+  const extra = (c: CanvasRenderingContext2D, ox: number, r: Race) => {
+    const art = COCKPIT_ART[P.id];
+    const X = (x: number) => ox + VG_X(x), Y = (y: number) => ART_TOP + VG_Y(y); // medidas do painel -> tela
+    const k = r.def ? Math.min(1, cabinDark(r) / 0.6) : 0;
+    art.needle = k > 0.5 ? P.needles[1] : P.needles[0];
+    art.hub = k > 0.5 ? '#1c1414' : '#2c2c30';
+    const sm = c.imageSmoothingEnabled;
+    c.imageSmoothingEnabled = true;
+    if (k > 0.02) {
+      const im = faceImg(P.lit);
+      if (im) {
+        c.globalAlpha = k;
+        c.drawImage(im, ox + PL.x, ART_TOP + PL.y, PL.w, PL.h);
+        c.globalAlpha = 1;
+      }
     }
-    c.save();
-    c.globalCompositeOperation = 'lighter';
-    for (const [n, [x, y, s]] of Object.entries(PG_LAMP)) {
-      if (!on[n as keyof typeof PG_LAMP]) continue;
-      const rgb = n === 'beam' ? '90,150,255' : n === 'batt' || n === 'oil' ? '255,60,40' : '70,240,90';
-      drawGlow(c, X(x), Y(y), s * 0.9, s * 0.9, rgb, 0.35, GLOW_STOPS);
+    // luzes-espia (apagadas no fundo): farol alto (à noite), neblina, seta (com o relé; pisca-alerta na batida),
+    // bateria (motor parado), óleo (motor parado ou batido) e a lanterna (à noite e no fim de tarde)
+    const off = r.rpm < 0.05, crash = r.state === 'crash', hurt = (r.damage ?? 0) > 0.6 || crash;
+    const on: Record<string, boolean> = {
+      beam: !!r.def?.night, fog: r.def?.weather === 'fog', turn: (r.signal !== 0 || crash) && blinkOn(), batt: off, oil: off || hurt,
+      park: !!(r.def?.night || r.def?.dusk),
+    };
+    const names = Object.keys(P.lamp).filter((n) => on[n]);
+    const lamps = names.length ? faceImg(P.lamps) : null;
+    if (lamps) {
+      const kx = lamps.naturalWidth / pw, ky = lamps.naturalHeight / ph;
+      for (const n of names) {
+        const [x, y, sz] = P.lamp[n];
+        const x0 = x - sz / 2, y0 = y - (sz / 2) * PIX_Y, h = sz * PIX_Y;
+        c.drawImage(lamps, (x0 - px) * kx, (y0 - py) * ky, sz * kx, h * ky, X(x0), Y(y0), X(x0 + sz) - X(x0), Y(y0 + h) - Y(y0));
+      }
+      c.save();
+      c.globalCompositeOperation = 'lighter';
+      for (const n of names) {
+        const [x, y, sz] = P.lamp[n];
+        drawGlow(c, X(x), Y(y), sz * 0.9, sz * 0.9, LAMP_RGB[n] ?? '70,240,90', 0.35, GLOW_STOPS);
+      }
+      c.restore();
     }
-    c.restore();
-  }
-  c.imageSmoothingEnabled = sm;
-  // tambores do hodômetro (cinco) e do parcial (quatro, com décimos: o último é claro de algarismo escuro)
-  const km = r.track ? Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600) : 0;
-  const [sx, sy, sr] = PG_SPEED;
-  const drums = (v: number, n: number, cy: number, last: boolean) => {
-    const s = String(Math.floor(v) % 10 ** n).padStart(n, '0');
-    for (let i = 0; i < n; i++) pix(c, s[i], X(sx + (i - (n - 1) / 2) * 0.115 * sr), Y(sy + cy * sr * PIX_Y), last && i === n - 1 ? '#18181a' : k > 0.3 ? '#8ef0bc' : '#e2e0d8', 0.45);
+    c.imageSmoothingEnabled = sm;
+    // tambores do hodômetro (cinco) e do parcial (quatro, com décimos: o último é claro de algarismo escuro)
+    const km = r.track ? Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600) : 0;
+    const [sx, sy, sr] = P.speed;
+    const drums = (v: number, n: number, cy: number, last: boolean) => {
+      const s = String(Math.floor(v) % 10 ** n).padStart(n, '0');
+      for (let i = 0; i < n; i++) pix(c, s[i], X(sx + (i - (n - 1) / 2) * 0.115 * sr), Y(sy + cy * sr * PIX_Y), last && i === n - 1 ? '#18181a' : k > 0.3 ? '#8ef0bc' : '#e2e0d8', sr < 22 ? 0.4 : 0.45);
+    };
+    drums(16380 + km, 5, -0.24, false);
+    drums((281.7 + km) * 10, 4, 0.22, true);
+    // ponteiros dos pequenos: afinados, eixo no centro com o disco escuro embaixo
+    const tip = needleTip;
+    needleTip = 0.25;
+    const motor = !off || r.state === 'drive';
+    for (const [g, f] of P.smalls) fineNeedle(c, X(g[0]), Y(g[1]), g[2] * 0.56, f(r, motor) * VG_DEG, 0.8, art.needle, art.hub, g[2] * 0.1, g[2] * 0.12);
+    needleTip = tip;
+    // velocímetro (descansa onde o real descansa) e conta-giros (giro de verdade do motor do carro)
+    needle(c, X(sx) - 0.5, Y(sy) - 0.5, sr * 0.62 + 2, P.speedA(Math.min(P.maxKmh, Math.max(art.speedRest ?? P.rest, r.speed * KMH))) * VG_DEG, art);
+    let red = r.car.engine ? redlines.get(r.car.id) : 5600; // foto da revista: carro sem ficha
+    if (!red) redlines.set(r.car.id, red = engineSpec(r.car.engine, r.car.id).redline);
+    needle(c, X(P.tach[0]) - 0.5, Y(P.tach[1]) - 0.5, P.tach[2] * 0.62 + 2, P.tachA((Math.min(1, r.rpm) * red * (r.car.soundMods?.rev ?? 1)) / 1000) * VG_DEG, art);
+    if (k > 0.02) { // halo verde suave do quadro aceso
+      c.save();
+      c.globalCompositeOperation = 'lighter';
+      for (const [gx, gy, gr] of [P.speed, P.tach, ...P.smalls.map((q) => q[0])]) drawGlow(c, X(gx), Y(gy), gr * 1.25, gr * 1.25, '80,230,150', 0.05 * k, GLOW_STOPS);
+      c.restore();
+    }
   };
-  drums(16380 + km, 5, -0.24, false);
-  drums((281.7 + km) * 10, 4, 0.22, true);
-  // ponteiros dos pequenos: brancos, afinados, eixo no centro com o disco escuro embaixo
-  const tip = needleTip;
-  needleTip = 0.25;
-  const small = (g: number[], a: number) => fineNeedle(c, X(g[0]), Y(g[1]), g[2] * 0.56, a * VG_DEG, 0.8, art.needle, art.hub, g[2] * 0.1, g[2] * 0.12);
-  const motor = !off || r.state === 'drive';
-  small(PG_OILP, pgPw([[0, 210], [3, 270], [5, 330]], motor ? clamp(1 + ((gauges.oil - 0.3) / 0.35) * 3.5, 0, 5.3) : 0)); // kg/cm²
-  small(PG_OILT, pgPw([[40, 214], [100, 277], [120, 318], [130, 338]], clamp(50 + ((gauges.oiltemp - 0.25) / 0.35) * 45, 36, 132))); // °C
-  small(PG_TEMP, pgPw([[40, 210], [90, 270], [130, 330]], clamp(40 + ((gauges.water - 0.3) / 0.25) * 45, 36, 133))); // °C do motor (a ar)
-  small(PG_FUEL, 206 + 128 * clamp(gauges.fuel, -0.03, 1.03));
-  needleTip = tip;
-  // velocímetro (descansa no 20, como na foto) e conta-giros (giro de verdade do motor do carro)
-  needle(c, X(sx) - 0.5, Y(sy) - 0.5, sr * 0.62 + 2, (180 + (Math.min(212, Math.max(art.speedRest ?? 18, r.speed * KMH)) - 20) * 1.5) * VG_DEG, art);
-  let red = r.car.engine ? redlines.get(r.car.id) : 5600; // foto da revista: carro sem ficha
-  if (!red) redlines.set(r.car.id, red = engineSpec(r.car.engine, r.car.id).redline);
-  needle(c, X(PG_TACH[0]) - 0.5, Y(PG_TACH[1]) - 0.5, PG_TACH[2] * 0.62 + 2, pgTachA((Math.min(1, r.rpm) * red * (r.car.soundMods?.rev ?? 1)) / 1000) * VG_DEG, art);
-  // halo verde suave do quadro aceso
-  if (k > 0.02) {
-    c.save();
-    c.globalCompositeOperation = 'lighter';
-    for (const [gx, gy, gr] of [PG_SPEED, PG_TACH, PG_OILP, PG_OILT, PG_TEMP, PG_FUEL]) drawGlow(c, X(gx), Y(gy), gr * 1.25, gr * 1.25, '80,230,150', 0.05 * k, GLOW_STOPS);
-    c.restore();
-  }
+  return { PL, under, extra };
 }
+// Onça GTE: luzes-espia e mostradores (onca_gte_gauges.py imprime)
+const PG_FACE = cp('br-pumagte-cluster');
+const pgOil = (r: Race, m: boolean) => pgPw([[0, 210], [3, 270], [5, 330]], m ? clamp(1 + ((gauges.oil - 0.3) / 0.35) * 3.5, 0, 5.3) : 0); // kg/cm²
+const pgWater = () => pgPw([[40, 210], [90, 270], [130, 330]], clamp(40 + ((gauges.water - 0.3) / 0.25) * 45, 36, 133)); // °C
+const pgFuel = () => 206 + 128 * clamp(gauges.fuel, -0.03, 1.03);
+const GTE = pumaGauges({
+  id: 'br-pumagte', plate: [76, 38, 252, 58], face: PG_FACE, lit: cp('br-pumagte-cluster-lit'), lamps: cp('br-pumagte-lamps'),
+  lamp: { beam: [85.73, 73.77, 6.35], fog: [90.59, 80.44, 6.35], turn: [95.45, 84.88, 5.37], batt: [139.16, 73.5, 6.35], oil: [149.37, 84.88, 5.13], park: [128, 46.2, 4.2] },
+  speed: [100.8, 66.83, 24.3], tach: [155.2, 66.83, 24.3],
+  speedA: (v) => 180 + (Math.min(212, v) - 20) * 1.5,
+  tachA: (k) => (k <= 1 ? 181 + 30.5 * Math.max(-0.1, k) : 211.5 + 43.6 * (Math.min(6.25, k) - 1)),
+  smalls: [
+    [[194.64, 54.4, 12.1], pgOil],
+    [[230.68, 56.73, 15.5], () => pgPw([[40, 214], [100, 277], [120, 318], [130, 338]], clamp(50 + ((gauges.oiltemp - 0.25) / 0.35) * 45, 36, 132))],
+    [[270.8, 56.73, 15.5], pgWater],
+    [[310.92, 56.73, 15.5], pgFuel],
+  ],
+  needles: ['#eeeae0', '#ff4636'], rest: 18, maxKmh: 212,
+});
+const PG = GTE.PL;
 COCKPIT_ART['br-pumagte'] = {
-  tells: null, // seta no velocímetro (pumaCluster)
+  tells: null, // seta no velocímetro (pumaGauges)
   dash: cp('br-pumagte-dash'), top: cp('br-pumagte-top'), wheel: cp('br-pumagte-wheel'),
   dashMask: cp('br-pumagte-dash-mask'), topMask: cp('br-pumagte-top-mask'),
   glass: { at: [39, 113], thr: 256 }, // retrovisor esquerdo (completado em onca_gte_cockpit2.py, vidro transparente)
@@ -1027,9 +1019,48 @@ COCKPIT_ART['br-pumagte'] = {
   faces: [{ src: PG_FACE, x: PG.x, y: PG.y, w: PG.w, h: PG.h }],
   glow: '80,230,150', glowK: 0.45,
   aux: [],
-  under: pumaUnder, extra: pumaCluster,
+  under: GTE.under, extra: GTE.extra,
 };
 queueMicrotask(() => faceImg(PG_FACE)); // a foto da revista (interiorPhoto) precisa do fundo do quadro já carregado
+
+// Onça GTB (Puma GTB S2): interior novo do Victor (tools/ref/pumagtb_cockpit.py, no molde da GTE: painel da arte SEM
+// volante, volante de três raios da arte com volante, buzina com a logo da Onça, vidros e limpadores recortados,
+// retrovisor interno fora, forro desenhado, retrovisor esquerdo completado, capô, coluna e retrovisor na cor do
+// carro) e o quadro no estilo da GTE com as escalas da foto do quadro real do GTB (tools/ref/pumagtb_gauges.py):
+// velocímetro 20-220 (80 às 12h, 1,42° por km/h) com hodômetro e parcial, conta-giros 10-60 "x100 RPM" (0 às 8h,
+// 45° por mil), filetes do verde ao vermelho no fim dos dois, e combustível, temperatura da água, pressão do óleo e
+// voltímetro no painel. Ponteiros vermelho-alaranjados em barra sobre o disco escuro, como na foto; à noite o
+// quadro acende em verde-menta, como na GTE.
+const PB_FACE = cp('br-pumagtb-cluster');
+const GTB = pumaGauges({
+  id: 'br-pumagtb', plate: [82, 46, 248, 52], face: PB_FACE, lit: cp('br-pumagtb-cluster-lit'), lamps: cp('br-pumagtb-lamps'),
+  lamp: { turn: [96.5, 80.51, 4.94], beam: [159.91, 86.81, 5.33], batt: [149.27, 80.06, 5.33], oil: [154.19, 85.01, 4.55] },
+  speed: [105.56, 71.5, 19.7], tach: [160.3, 71.5, 19.7],
+  speedA: (v) => 270 + (Math.min(232, v) - 80) * 1.42,
+  tachA: (k) => 150 + 45 * clamp(k, -0.1, 6.3),
+  smalls: [
+    [[226.26, 73.05, 10.9], pgFuel],
+    [[255.5, 73.05, 10.9], pgWater],
+    [[285.42, 73.05, 10.9], pgOil],
+    [[314.32, 73.05, 10.9], () => pgPw([[8, 210], [12, 270], [16, 330]], clamp(13.4 + (gauges.volt - 0.55) * 10, 7.6, 16.4))],
+  ],
+  needles: ['#ff6a2a', '#ff4636'], rest: 0, maxKmh: 232,
+});
+COCKPIT_ART['br-pumagtb'] = {
+  tells: null, // seta no velocímetro (pumaGauges)
+  dash: cp('br-pumagtb-dash'), top: cp('br-pumagtb-top'), wheel: cp('br-pumagtb-wheel'),
+  dashMask: cp('br-pumagtb-dash-mask'), topMask: cp('br-pumagtb-top-mask'),
+  glass: { at: [64, 113], thr: 256 }, // retrovisor esquerdo (completado em pumagtb_cockpit.py, vidro transparente)
+  pivot: [128, 104], wheelTop: 4, wheelDx: 2, wheelDy: 14.7,
+  pod: { x: 262, y: 30, r: 7.5, face: 'black', bezel: 'chrome', lit: 'white' }, radar: [190, 29], // copos e radar sobre o painel
+  speedMax: 220, speedRest: 0, tachReal: true,
+  needle: '#ff6a2a', needleW: 1.1, needleTail: 3.0, needleFine: true, needleTip: 0.7, hubUnder: true, hub: '#2c2c30', hubR: 2.2,
+  faces: [{ src: PB_FACE, x: GTB.PL.x, y: GTB.PL.y, w: GTB.PL.w, h: GTB.PL.h }],
+  glow: '80,230,150', glowK: 0.45,
+  aux: [],
+  under: GTB.under, extra: GTB.extra,
+};
+queueMicrotask(() => faceImg(PB_FACE));
 
 // Cadete GSi: quadro digital "LCD Electronics" como o de verdade — à esquerda quatro barras em
 // cunha (pressão do óleo, bateria, temperatura da água, combustível) com os ícones vermelhos;

@@ -86,6 +86,12 @@ export const DEV_POS: Record<string, DevPos[]> = {
     { id: 'painel', name: TOP, x: 24, y: 38, s: 0.65, mount: 'top' },
     { id: 'esquerda', name: SIDE, x: 25, y: 64, s: 0.55, dir: 'v', mount: 'face' }, // acima das teclas, à esquerda do volante
   ],
+  // Onça GTB: copos sobre o painel à direita do quadro; aparelhos ao lado do volante (à esquerda, acima da saída
+  // de ar) ou sobre o painel
+  'br-pumagtb': [
+    { id: 'painel', name: TOP, x: 222, y: 31, s: 0.7, mount: 'top' },
+    { id: 'esquerda', name: SIDE, x: 30, y: 60, s: 0.55, dir: 'v', mount: 'face' },
+  ],
   // Fúria TR: relógios auxiliares na face à direita do quadro (266 a 320); face lisa abaixo deles
   testarossa: [
     { id: 'console', name: CONSOLE, x: 290, y: 77, s: 0.8, mount: 'face' },

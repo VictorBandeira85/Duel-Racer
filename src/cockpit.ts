@@ -898,6 +898,7 @@ interface PumaCfg {
   lamp: Record<string, number[]>; speed: number[]; tach: number[];
   speedA: (kmh: number) => number; tachA: (k: number) => number; smalls: [number[], (r: Race, motor: boolean) => number][];
   needles: [string, string]; rest: number; maxKmh: number;
+  glow?: string; drumLit?: string; // cor do halo e dos tambores com o quadro aceso (padrão: verde-menta dos Onça)
 }
 const pgPw = (pts: [number, number][], v: number) => { // escala em trechos (valor, graus)
   let i = 0;
@@ -961,7 +962,7 @@ function pumaGauges(P: PumaCfg) {
     const [sx, sy, sr] = P.speed;
     const drums = (v: number, n: number, cy: number, last: boolean) => {
       const s = String(Math.floor(v) % 10 ** n).padStart(n, '0');
-      for (let i = 0; i < n; i++) pix(c, s[i], X(sx + (i - (n - 1) / 2) * 0.115 * sr), Y(sy + cy * sr * PIX_Y), last && i === n - 1 ? '#18181a' : k > 0.3 ? '#8ef0bc' : '#e2e0d8', sr < 22 ? 0.4 : 0.45);
+      for (let i = 0; i < n; i++) pix(c, s[i], X(sx + (i - (n - 1) / 2) * 0.115 * sr), Y(sy + cy * sr * PIX_Y), last && i === n - 1 ? '#18181a' : k > 0.3 ? P.drumLit ?? '#8ef0bc' : '#e2e0d8', sr < 22 ? 0.4 : 0.45);
     };
     drums(16380 + km, 5, -0.24, false);
     drums((281.7 + km) * 10, 4, 0.22, true);
@@ -979,7 +980,7 @@ function pumaGauges(P: PumaCfg) {
     if (k > 0.02) { // halo verde suave do quadro aceso
       c.save();
       c.globalCompositeOperation = 'lighter';
-      for (const [gx, gy, gr] of [P.speed, P.tach, ...P.smalls.map((q) => q[0])]) drawGlow(c, X(gx), Y(gy), gr * 1.25, gr * 1.25, '80,230,150', 0.05 * k, GLOW_STOPS);
+      for (const [gx, gy, gr] of [P.speed, P.tach, ...P.smalls.map((q) => q[0])]) drawGlow(c, X(gx), Y(gy), gr * 1.25, gr * 1.25, P.glow ?? '80,230,150', 0.05 * k, GLOW_STOPS);
       c.restore();
     }
   };
@@ -1179,39 +1180,38 @@ COCKPIT_ART['br-uno'] = {
 
 // Corsário GSi: conta-giros 0-7 e velocímetro 20-220 grandes, combustível e água pequenos nas
 // pontas; no alto do console o visor laranja com a hora, a temperatura e a data de verdade
+// Corsário GSi (Corsa GSi): interior novo do Victor (tools/ref/corsa_cockpit2.py: painel, forro e portas da arte
+// SEM volante, volante de três raios da arte com volante e o emblema da Vanguarda na buzina, retrovisor interno e
+// limpadores fora, vidros recortados) e o quadro das FOTOS DO QUADRO REAL (tools/ref/corsa_gauges.py): conta-giros
+// 0-7 e velocímetro 20-220 no mesmo arco de 270°, marcações finas por fora e números por dentro, hodômetro e
+// parcial, combustível e temperatura pequenos; ponteiros creme afinados; à noite acende em âmbar.
+const CS_FACE = cp('br-corsa-cluster');
+const GSI = pumaGauges({
+  id: 'br-corsa', plate: [80, 62, 106, 51], face: CS_FACE, lit: cp('br-corsa-cluster-lit'), lamps: cp('br-corsa-lamps'),
+  lamp: { batt: [88.56, 83.82, 4.76], oil: [174.7, 83.82, 4.08] },
+  speed: [147, 83.82, 17.1], tach: [113.18, 83.82, 17.1],
+  speedA: (v) => 135 + (Math.min(226, v) - 20) * 1.35,
+  tachA: (k) => 135 + (270 / 7) * clamp(k, -0.05, 7.2),
+  smalls: [
+    [[91.14, 101.62, 8.4], () => 205 + 130 * clamp(gauges.fuel, -0.03, 1.03)],
+    [[171.32, 101.62, 8.4], () => 205 + (clamp(50 + ((gauges.water - 0.3) / 0.25) * 40, 46, 134) - 50) * (130 / 80)],
+  ],
+  needles: ['#ece2c8', '#ffb050'], rest: 18, maxKmh: 226, glow: '255,160,60', drumLit: '#ffbe70',
+});
 COCKPIT_ART['br-corsa'] = {
   dash: cp('br-corsa-dash'), top: cp('br-corsa-top'), wheel: cp('br-corsa-wheel'),
-  pivot: [127.9, 104.1], speedMax: 220, needle: '#f2f2f2', needleW: 1.5, needleTail: 3, hub: '#161618', radar: [206, 4],
-  glass: { at: [20, 106] },
-  tach: { x: 113.6, y: 59.9, r: 18.5, max: 7, labels: [0, 1, 2, 3, 4, 5, 6, 7], tick: 0.5, boldTicks: true, red: 6.2, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, redLabels: false, redW: 1.5, bg: '#0e0f11' },
-  speed: { x: 155.5, y: 59.9, r: 18.5, max: 220, labels: [20, 60, 100, 140, 180, 220], tick: 10, boldTicks: true, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, bg: '#0e0f11' },
-  aux: [
-    { x: 84.2, y: 75.7, r: 9, kind: 'single', show: ['fuel'], icon: 'fuel', labels: ['0', '1/2', '1'] },
-    { x: 184, y: 75.7, r: 9, kind: 'single', show: ['water'], icon: 'temp', labels: ['50', '90', '130'] },
-  ],
-  extra: (c, ox, r) => {
-    odometer(c, ox, r, { x: 150, y: 70.5, w: 11, h: 3 }, 7908, 6, 0.5); // na boca de baixo do mostrador, abaixo do 20 e do 220
-    // luzes-espia: bateria (vermelha) e óleo (âmbar) à esquerda do conta-giros, freio à
-    // direita do velocímetro; apagadas ficam escuras na cor
-    // bateria só em acidente (batida ou lataria muito amassada); freio = freio de mão puxado,
-    // parado na blitz da polícia
-    const lamp = (x: number, w: number, on: boolean, lit: string, off: string) => {
-      rect(c, ox + x, ART_TOP + 56, w, 4, on ? lit : off);
-      if (on) rect(c, ox + x + 0.5, ART_TOP + 56.5, w - 1, 0.5, '#ffd8c8');
-    };
-    const wreck = r.state === 'crash' || r.damage > 0.6;
-    lamp(80.5, 3.5, wreck, '#ff3020', '#3a0e0c');
-    lamp(85, 5.5, gauges.oil < 0.36 || wreck, '#ffb020', '#3a2a0c');
-    lamp(178.5, 6, r.state === 'ticket', '#ff3020', '#3a0e0c');
-    // visor do console: hora e temperatura em cima, data embaixo (laranja, como o do carro)
-    const now = new Date();
-    const p2 = (n: number) => String(n).padStart(2, '0');
-    const T = ART_TOP;
-    pix(c, `${p2(now.getHours())}:${p2(now.getMinutes())} 25°`, ox + 277.8, T + 39, '#ff8a20', 1);
-    pix(c, `${p2(now.getDate())}.${p2(now.getMonth() + 1)}.${p2(now.getFullYear() % 100)}`, ox + 277.8, T + 46, '#ff8a20', 1);
-    void r;
-  },
+  dashMask: cp('br-corsa-dash-mask'), topMask: cp('br-corsa-top-mask'),
+  glass: { at: [75, 147], thr: 256 }, // retrovisor esquerdo (vidro transparente)
+  pivot: [128, 104], wheelTop: 4, wheelDx: 2, wheelDy: 14.8,
+  pod: { x: 262, y: 50, r: 7.5, face: 'black', bezel: 'chrome', lit: 'yellow' }, radar: [214, 46],
+  speedMax: 220, speedRest: 18, tachReal: true,
+  needle: '#ece2c8', needleW: 1.1, needleTail: 2.2, needleFine: true, needleTip: 0.3, hub: '#1c1c1e', hubR: 1.6,
+  faces: [{ src: CS_FACE, x: GSI.PL.x, y: GSI.PL.y, w: GSI.PL.w, h: GSI.PL.h }],
+  glow: '255,160,60', glowK: 0.45,
+  aux: [],
+  under: GSI.under, extra: GSI.extra,
 };
+queueMicrotask(() => faceImg(CS_FACE));
 
 // Passeio GTS (Passat GTS Pointer 1985): interior novo do Victor (tools/ref/passat_cockpit2.py, no molde do
 // Savana: painel da arte sem volante, volante de quatro raios da arte com volante e centrado no quadro,

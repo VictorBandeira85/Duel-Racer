@@ -22,7 +22,9 @@
   sem volante, volante da com volante, logo da Onça na buzina) e quadro da foto do carro real (onca_gte_gauges.py). Onça GTB (Puma GTB S2): exterior novo (tools/ref/pumagtb_sprites.py: lateral prata, frente vermelha e traseira
   branca convertidas pelo brilho), capas (pumagtb_photos.py), cabine (pumagtb_cockpit.py: painel da arte sem volante,
   volante da com volante, forro desenhado) e quadro no estilo da GTE com as escalas da foto do GTB (pumagtb_gauges.py;
-  pumaGauges em cockpit.ts serve os dois Onça). Os demais (ZR1, Patrol, Vectra, Kadett, Corsa, Uno) ficam como estão
+  pumaGauges em cockpit.ts serve os dois Onça). Corsário GSi (Corsa GSi): exterior novo (tools/ref/corsa_sprites.py: lateral branca espelhada,
+  frente e traseira vermelhas convertidas pelo brilho), capas (corsa_photos.py), cabine (corsa_cockpit2.py) e quadro das
+  fotos reais (corsa_gauges.py, aceso em âmbar). Os demais (ZR1, Patrol, Vectra, Kadett, Uno) ficam como estão
   até a arte nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
   Na dúvida, perguntar.
 

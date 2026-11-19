@@ -58,11 +58,12 @@ export function copW(unit: PerfClass | undefined, front = true) {
 // como desenhar a viatura (drawCar): sprites da polícia (C e S) ou o carro do jogo / a moto em branco com
 // o giroflex por cima (cop)
 export function copLook(unit: PerfClass | undefined, base: Partial<CarLook>): CarLook {
-  if (unit === 'S') return { color: '#fff', police: true, sv: true, ...base };
-  if (unit === 'A') return { color: '#fff', model: 'moto-cop', ...base };
+  // plotagem Duel Racer: cada classe na sua cor (livery)
+  if (unit === 'S') return { color: '#fff', police: true, sv: true, livery: true, ...base };
+  if (unit === 'A') return { color: '#fff', model: 'moto-cop', livery: true, ...base };
   const id = COP_CAR[unit ?? 'C'], car = id ? CARS.find((c) => c.id === id) : undefined;
-  if (car?.rear) return { color: '#f2f2f2', rear: car.rear, paint: '#f2f2f2', cop: true, driver: 'man', ...base };
-  return { color: '#fff', police: true, ...base };
+  if (car?.rear) return { color: '#f2f2f2', rear: car.rear, paint: '#f2f2f2', cop: true, driver: 'man', livery: true, ...base };
+  return { color: '#fff', police: true, livery: true, ...base };
 }
 const TRUCK_KG = 9000;
 // vácuo (draftAhead): alcance em segmentos (~35 m), quanto do arrasto some colado num caminhão e

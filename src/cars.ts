@@ -54,6 +54,7 @@ export interface RearDef {
   frontUpMask?: string;
   // pinturas com arte própria (decalques na cor certa): cor da paleta -> sprites
   variants?: Record<string, { img?: string; frontImg?: string }>;
+  livery?: { img?: string; frontImg?: string }; // plotagem da polícia (<arte>-rear/front-liv.png, tools/ref/cop_livery.py)
   lamps?: LampDef;
   plate?: number[]; // retângulo da placa no sprite da traseira (frações), ver plates.ts
 }
@@ -472,6 +473,7 @@ for (const car of CARS) {
   car.rear.frontMask = png(`${k}-front-mask`);
   car.rear.frontUpImg = png(`${k}-front-up`);
   car.rear.frontUpMask = png(`${k}-front-up-mask`);
+  if (png(`${k}-rear-liv`)) car.rear.livery = { img: png(`${k}-rear-liv`), frontImg: png(`${k}-front-liv`) };
   car.rear.lamps = LAMPS[k];
   car.sideLamp = SIDE_LAMPS[k];
   if (PLATE_BOX[k]) car.rear.plate = frac(PLATE_BOX[k]);
@@ -765,6 +767,7 @@ export interface CarLook {
   police?: boolean;
   siren?: boolean;
   sv?: boolean; // polícia: a Diablo SV em vez do sedã
+  livery?: boolean; // plotagem Duel Racer da polícia, na cor da classe (tools/ref/cop_livery.py)
   cop?: boolean; // viatura feita de um carro do jogo ou da moto: giroflex desenhado por cima (race.ts copLook)
   brake?: boolean;
   night?: boolean;
@@ -857,7 +860,7 @@ function driverPost(url: string, id: DriverId | null, tag: string, night?: boole
 
 function drawTrafficSprite(c: CanvasRenderingContext2D, x: number, y: number, w: number, look: CarLook, model: string): boolean {
   const view = look.front ? 'front' : 'rear';
-  const img = tpng(`${model}-${view}`);
+  const img = (look.livery && tpng(`${model}-${view}-liv`)) || tpng(`${model}-${view}`);
   const aspect = img && spriteAspect(img);
   if (!img || !aspect) return false;
   const h = w * aspect;
@@ -1148,7 +1151,7 @@ export function drawCar(c: CanvasRenderingContext2D, x: number, y: number, w: nu
   }
   // trânsito e polícia: sprites em pixel art (o desenho por código fica de reserva)
   if (!look.rear && (look.police || look.model) && drawTrafficSprite(c, x, y, w, look, look.police ? (look.sv ? 'policesv' : 'police') : look.model!)) { artDrawn = true; return; }
-  const variant = look.paint ? look.rear?.variants?.[look.paint] : undefined;
+  const variant = look.livery && look.rear?.livery?.img ? look.rear.livery : look.paint ? look.rear?.variants?.[look.paint] : undefined;
   const tint = (mask?: string) => (look.paint && mask && !variant ? { mask, color: look.paint } : undefined);
   const frontImg = variant?.frontImg ?? look.rear?.frontImg;
   if (look.front && look.rear && frontImg) {

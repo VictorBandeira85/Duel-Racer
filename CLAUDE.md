@@ -106,6 +106,12 @@
   ficam com a própria foto desfocada. Nunca usar foco fixo.
 - Ao adicionar fotos, conferir todas as capas novas com print (`node tools/covers_check.cjs <pasta>`, com o vite rodando) antes de publicar.
 
+## Polícia
+- Plotagem Duel Racer (`tools/ref/cop_livery.py`): cada classe na cor de CLASS_COLOR (D azul, C verde, B amarelo,
+  A laranja, S magenta), em cima branco, embaixo a cor e filete quadriculado na divisa (a S toda na cor). Grava
+  `<sprite>-liv.png` ao lado da arte (as police-*.png originais ficam); `livery: true` em copLook (race.ts).
+  Viatura nova de outra classe: uma linha em JOBS e rodar o script.
+
 ## Carros novos
 - A vista lateral de todo carro fica com a **frente para a esquerda** (como os demais). Se a arte vier
   virada para a direita, espelhar a lateral e a máscara e espelhar as rodas em `WHEELS` (x -> 1 - x).

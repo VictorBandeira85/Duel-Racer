@@ -35,12 +35,15 @@ const FLASH_T = 2.2; // s do pedido de passagem: sobe o farol, pisca três vezes
 // (Santana, a viatura clássica), C a Patrulha 9C, B o Kaze NX (provisório), A a BMW da polícia (moto-cop;
 // com a policial: moto-copf), S o Toro V12 SV. Máxima, aceleração (unidades/s²) e o motor de cada uma
 // grip: aderência lateral da viatura (g), para ela reduzir nas curvas como um carro de verdade
+// acc = aceleração no zero (cai com a velocidade até zerar na máxima), tirada do 0-100 do carro de
+// verdade: a0 = -ln(1 - 100/máx) * máx / t0-100 (km/h/s) / KMH. Savana 2.0 175 km/h e 0-100 em 11 s,
+// Caprice 9C1 215 km/h e 8 s, NSX 270 e 5,7 s, BMW da polícia 220 e 4 s, Diablo SV 300 e 4 s
 export const COP_UNIT: Record<PerfClass, { kmh: number; acc: number; engine: string; grip: number; brake: number }> = {
-  D: { kmh: 190, acc: 1000, engine: '4 cil.', grip: 0.78, brake: 0.85 },
-  C: { kmh: 245, acc: 1300, engine: 'V8 16v', grip: 0.82, brake: 0.88 },
-  B: { kmh: 270, acc: 1800, engine: 'V6 24v', grip: 0.92, brake: 0.95 },
-  A: { kmh: 280, acc: 2200, engine: '4 cil.|moto-sport', grip: 0.9, brake: 0.95 },
-  S: { kmh: 300, acc: 2300, engine: 'V12 48v', grip: 0.98, brake: 1.0 },
+  D: { kmh: 175, acc: 540, engine: '4 cil.', grip: 0.78, brake: 0.85 },
+  C: { kmh: 215, acc: 670, engine: 'V8 16v', grip: 0.82, brake: 0.88 },
+  B: { kmh: 270, acc: 875, engine: 'V6 24v', grip: 0.92, brake: 0.95 },
+  A: { kmh: 220, acc: 1330, engine: '4 cil.|moto-sport', grip: 0.9, brake: 0.95 },
+  S: { kmh: 300, acc: 1215, engine: 'V12 48v', grip: 0.98, brake: 1.0 },
 };
 const COP_CAR: Partial<Record<PerfClass, string>> = { D: 'br-santana', B: 'kaze-nx' };
 // ronco da viatura: o do carro do jogo quando ela é um deles
@@ -2152,7 +2155,7 @@ export class Race {
               this.caughtKmh = Math.round(b.max * KMH);
               p.state = 'chase';
               p.chaseT = 0;
-              p.speed = this.speed * 0.55; // arranca já atrás do jogador
+              p.speed = 0; // arranca parada, do lado da blitz
               this.say('BLITZ!');
             } else p.state = 'done';
           }
@@ -2165,7 +2168,7 @@ export class Race {
             this.caughtKmh = Math.round(this.speed * KMH); // velocidade da infração (vale para a multa)
             p.state = 'chase';
             p.chaseT = 0;
-            p.speed = this.speed * 0.45; // saindo do esconderijo
+            p.speed = 0; // sai parada do esconderijo (antes já saía a 45% da velocidade do jogador)
             this.say('POLÍCIA!');
           } else p.state = 'done';
         }
@@ -2180,7 +2183,7 @@ export class Race {
         // procurado (multas e fugas de antes): a viatura acelera mais, chega mais perto e encosta antes
         const ag = this.copHeat();
         const cu = COP_UNIT[p.unit ?? 'C'];
-        const copMax = (cu.kmh / KMH) * (1 + 0.05 * ag);
+        const copMax = cu.kmh / KMH; // a máxima do carro, sem bônus (procurado muda a tática, não o motor)
         const ph = copW(p.unit) / 2;
         const gapNow = pz - p.z;
         // reforço que saiu do ponto à frente: entra na pista devagar e fecha a linha do jogador; se ele
@@ -2200,7 +2203,7 @@ export class Race {
         // curvas: a viatura reduz antes e contorna no limite da aderência dela (antes fazia as curvas
         // sem tirar o pé); procurado, arrisca um pouco mais
         const target = Math.min(copMax, this.speed + 2500 + 1500 * ag, this.copCorner(p, cu, 0.9 + 0.05 * ag));
-        const acc = cu.acc * (1 + 0.6 * ag) * Math.max(0.15, 1 - p.speed / copMax);
+        const acc = cu.acc * Math.max(0.04, 1 - p.speed / copMax);
         // linha: longe, a mais livre do trânsito (ultrapassa pela faixa que estiver vazia) cortando por
         // dentro das curvas; perto, atrás do jogador pelo lado mais livre, e emparelhando cola nele
         const far = clamp((gapNow - 6 * SEG_LEN) / (20 * SEG_LEN), 0, 1);
@@ -2234,7 +2237,7 @@ export class Race {
         else p.fleeT = Math.max(0, (p.fleeT ?? 0) - dt * 0.5);
         if (!p.called && !p.backup && p.fleeT > 3.5 - 1.5 * ag) {
           p.called = true;
-          if (this.backups < 2 && this.rand() < 0.5 + 0.5 * ag) this.callBackup(p);
+          if (this.backups < 2 && this.rand() < 0.75 + 0.25 * ag) this.callBackup(p); // fugiu: o rádio chama o próximo posto
         }
         // helicóptero vendo o carro: a viatura não perde o jogador e ele pede reforço à frente de tempos em tempos
         const eye = !!this.heli?.sees;
@@ -2243,10 +2246,15 @@ export class Race {
           this.callBackup(p);
         }
         // longe demais por alguns segundos (ou sumiu de vista de vez): desiste
-        if (!eye && gap > 110 * SEG_LEN * (1 + 0.3 * ag)) p.lostT = (p.lostT ?? 0) + dt;
+        // (~400 m: o jogador sumiu na frente; antes desistia a ~150 m, ainda acelerando)
+        if (!eye && gap > 290 * SEG_LEN * (1 + 0.3 * ag) && !(p.backup && p.chaseT < 12)) p.lostT = (p.lostT ?? 0) + dt;
         else p.lostT = Math.max(0, (p.lostT ?? 0) - dt);
-        if (this.state === 'drive' && p.chaseT > 4 - 2 * ag && gap < SEG_LEN * (2 + ag)) this.startPullover(p);
-        else if (!eye && ((p.lostT ?? 0) > 3 + 2 * ag || gap > 240 * SEG_LEN || p.chaseT > (this.heliUsed ? 75 : 45))) this.copGiveUp(p);
+        // abordagem: só quando o jogador para ou anda devagar com a viatura colada (antes bastava ela
+        // chegar a ~3 m, mesmo a 200 km/h)
+        const slow = this.speed * KMH < 50; // (depois de bater o carro volta devagar: pego também)
+        if (this.state === 'drive' && p.chaseT > 2 && Math.abs(gap) < SEG_LEN * 4 && slow) this.startPullover(p);
+        // desiste quando perde o jogador de vista; colada nele não desiste por tempo
+        else if (!eye && !(p.backup && p.chaseT < 12) && ((p.lostT ?? 0) > 4 + 2 * ag || gap > 520 * SEG_LEN || (gap > 40 * SEG_LEN && p.chaseT > (this.heliUsed ? 75 : 45)))) this.copGiveUp(p);
       } else if (p.state === 'pull') {
         siren = true;
         p.chaseT += dt;
@@ -2269,7 +2277,8 @@ export class Race {
       } else if (p.state === 'stopped') {
         if (p.chaseT < RADAR_ALERT_T) this.radar = 1;
       } else if (p.state === 'leaving') {
-        p.speed = Math.min(9000, p.speed + 2500 * dt);
+        const lu = COP_UNIT[p.unit ?? 'C'];
+        p.speed = Math.min(Math.min(9000, lu.kmh / KMH), p.speed + lu.acc * Math.max(0.04, 1 - p.speed / (lu.kmh / KMH)) * dt);
         p.z += p.speed * dt;
         p.x += clamp(laneCenter(this.track, this.track.lanes - 1) - p.x, -dt * 1500, dt * 1500);
         this.copTraffic(p, dt);
@@ -2456,7 +2465,7 @@ export class Race {
     }
     // de trás, pela faixa da direita (a do sentido), fora de vista e mais rápida que o jogador
     this.police.push({
-      spotZ: -1, z: pz - 75 * SEG_LEN, x: laneCenter(this.track, this.track.lanes - 1), speed: Math.max(this.speed, from.speed) * 1.05,
+      spotZ: -1, z: pz - 180 * SEG_LEN, x: laneCenter(this.track, this.track.lanes - 1), speed: Math.min(COP_UNIT[from.unit ?? 'C'].kmh / KMH, Math.max(this.speed, from.speed)),
       state: 'chase', chaseT: 0, sv: from.sv, unit: from.unit, backup: true, called: true,
     });
     this.say('REFORÇO A CAMINHO!', 2.2);

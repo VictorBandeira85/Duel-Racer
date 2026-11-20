@@ -21,7 +21,7 @@
   cenário, branco da lateral como cor de fábrica, frente e traseira turquesa convertidas pelo brilho); cabine nova (tools/ref/onca_gte_cockpit2.py: painel da arte
   sem volante, volante da com volante, logo da Onça na buzina) e quadro da foto do carro real (onca_gte_gauges.py). Onça GTB (Puma GTB S2): exterior novo (tools/ref/pumagtb_sprites.py: lateral prata, frente vermelha e traseira
   branca convertidas pelo brilho), capas (pumagtb_photos.py), cabine (pumagtb_cockpit.py: painel da arte sem volante,
-  volante da com volante, forro desenhado) e quadro no estilo da GTE com as escalas da foto do GTB (pumagtb_gauges.py;
+  volante da com volante, forro desenhado; depois dele rodar pumagtb_mirror_base.py: retrovisor apoiado na porta) e quadro no estilo da GTE com as escalas da foto do GTB (pumagtb_gauges.py;
   pumaGauges em cockpit.ts serve os dois Onça). Corsário GSi (Corsa GSi): exterior novo (tools/ref/corsa_sprites.py: lateral branca espelhada,
   frente e traseira vermelhas convertidas pelo brilho), capas (corsa_photos.py), cabine (corsa_cockpit2.py) e quadro das
   fotos reais (corsa_gauges.py, aceso em âmbar). Patrulha 9C (Caprice 9C1): exterior novo (tools/ref/patrol_sprites2.py, giroflex da lateral só com a ponta vermelha) e cabine
@@ -111,6 +111,10 @@
   A laranja, S magenta), em cima branco, embaixo a cor e filete quadriculado na divisa (a S toda na cor). Grava
   `<sprite>-liv.png` ao lado da arte (as police-*.png originais ficam); `livery: true` em copLook (race.ts).
   Viatura nova de outra classe: uma linha em JOBS e rodar o script.
+- Perseguição realista (race.ts): viaturas com a máxima e o 0-100 do carro de verdade (COP_UNIT), saem paradas
+  do esconderijo/blitz, sem bônus de motor por estar procurado; abordagem só com o jogador devagar (<50 km/h)
+  perto da viatura; fugiu = rádio chama reforço (posto à frente ou viatura de trás, longe e fora de vista).
+  Conferir com script que mede velocidade e distância das viaturas (parado, fugindo e freando).
 
 ## Carros novos
 - A vista lateral de todo carro fica com a **frente para a esquerda** (como os demais). Se a arte vier

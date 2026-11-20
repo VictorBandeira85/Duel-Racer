@@ -32,8 +32,8 @@ export const HELI_W = 7000; // diâmetro do rotor (~11 m)
 const HELI_H = HELI_W * 0.56;
 // à frente do jogador e a altura dele: a profundidade do jogo é comprimida e a faixa de céu entre o
 // horizonte e o teto da cabine é estreita (~28 px no Toro V12): medido no print para ele caber nela
-const HOLD_DZ = 175 * SEG_LEN;
-const HOLD_ALT = 2450;
+const HOLD_DZ = 110 * SEG_LEN; // (era 175: longe demais, virava um ponto no horizonte)
+const HOLD_ALT = 3200; // ~110 segmentos à frente e alto: aparece no céu, acima das árvores (antes parecia pousado no asfalto)
 const SIGHT = 320 * SEG_LEN; // além disso (para trás) ele já não vê o carro
 const HELI_MAX = 265 / KMH; // ~265 km/h: um esportivo de pé no fundo consegue deixá-lo para trás
 const M_LON = KMH / 3.6, M_LAT = 1.8 / CAR_W;

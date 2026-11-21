@@ -220,19 +220,23 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
     // diferencial autoblocante: a roda aliviada deixa de girar em falso (dianteiro e turbo forte patinam
     // menos) e o carro sai da curva acelerando com mais aderência
     { id: 'diferencial', name: 'Diferencial', parts: [ORIGINAL('Aberto'),
-      { id: 'esportivo', name: 'Autoblocante esportivo', note: 'patina menos, sai melhor', cost: 0.04, lsd: 0.5 },
-      { id: 'corrida', name: 'Autoblocante de corrida', note: 'quase não patina', cost: 0.07, lsd: 1 }] },
+      // (aberto, a roda mais aliviada limita a força das duas: o autoblocante aproveita as duas rodas na largada,
+      // e acelerando na curva a de fora empurra: mais tração e mais aderência na saída)
+      { id: 'esportivo', name: 'Autoblocante esportivo', note: '+10% largada, +4% curva', cost: 0.04, lsd: 0.5, traction: 1.1, grip: 1.04, handling: 1.03 },
+      { id: 'corrida', name: 'Autoblocante de corrida', note: '+20% largada, +7% curva', cost: 0.07, lsd: 1, traction: 1.2, grip: 1.07, handling: 1.05 }] },
     { id: 'freios', name: 'Freios', parts: [ORIGINAL(),
       { id: 'esportivo', name: 'Discos ventilados', note: '+10,5% freio', cost: 0.04, brake: 1.105 },
       { id: 'corrida', name: 'Discos de corrida', note: '+21% freio', cost: 0.08, brake: 1.21 }] },
     // alívio de peso em etapas (cada uma inclui as anteriores); id 'bancos' e 'concha' mantidos por causa dos saves
     { id: 'bancos', name: 'Alívio de peso', parts: [ORIGINAL(),
-      { id: 'entretenimento', name: 'Retirar entretenimento', note: '-1,5% peso', cost: 0.01, mass: 0.985 },
-      { id: 'forros', name: 'Forros de porta', note: '-3% peso', cost: 0.02, mass: 0.97 },
-      { id: 'acabamentos', name: 'Acabamentos', note: '-4,5% peso', cost: 0.03, mass: 0.955 },
-      { id: 'concha', name: 'Bancos de corrida', note: '-6,5% peso', cost: 0.05, mass: 0.935 },
-      { id: 'estrutura', name: 'Estrutura', note: '-9% peso', cost: 0.07, mass: 0.91 },
-      { id: 'corrida', name: 'Alívio de corrida', note: '-12% peso', cost: 0.1, mass: 0.88 }] },
+      // (peso menor: acelera mais, freia em menos espaço, contorna mais rápido e muda de direção mais
+      // fácil; o efeito na aderência vem em applyBuild)
+      { id: 'entretenimento', name: 'Retirar entretenimento', note: '-2% peso', cost: 0.01, mass: 0.98 },
+      { id: 'forros', name: 'Forros de porta', note: '-4% peso', cost: 0.02, mass: 0.96 },
+      { id: 'acabamentos', name: 'Acabamentos', note: '-6% peso', cost: 0.03, mass: 0.94 },
+      { id: 'concha', name: 'Bancos de corrida', note: '-9% peso', cost: 0.05, mass: 0.91 },
+      { id: 'estrutura', name: 'Estrutura', note: '-13% peso', cost: 0.07, mass: 0.87 },
+      { id: 'corrida', name: 'Alívio de corrida', note: '-18% peso', cost: 0.1, mass: 0.82 }] },
     // controle de largada (3-step): o jogador escolhe o giro em que o carro segura parado (2.500 a 6.000 rpm,
     // os que ficam abaixo do corte); comprado uma vez, mudar o giro não cobra de novo
     { id: 'largada', name: 'Controle de largada', parts: [ORIGINAL('Sem 3-step'), ...launchSteps(car).map((rpm): Part => ({ id: `r${rpm}`, name: `${rpm.toLocaleString('pt-BR')} rpm`, note: '3-step', cost: 0.02, launch: rpm / redlineOf(car), rpm }))] },
@@ -296,6 +300,16 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
       for (const k of ['rasp', 'pops', 'cam', 'intake', 'whine', 'spool', 'blower', 'fbAdd', 'burble', 'crackle'] as const) if (m[k]) snd[k] = (snd[k] ?? 0) + m[k]!;
       if (m.turbo) snd.turbo = true;
     }
+  }
+  // carro mais leve: o pneu trabalha menos carregado (rende mais por quilo), freia em menos espaço e
+  // muda de direção com menos inércia (antes o alívio só mexia na aceleração e quase não se sentia)
+  if (mass < 1) {
+    grip *= mass ** -0.35;
+    brake *= mass ** -0.45;
+    handling *= mass ** -0.6;
+    // a tração da ficha é calibrada pelo 0-100 do carro de série (já traz o peso dele): mais leve, o
+    // mesmo motor leva menos massa e a arrancada melhora junto (antes travava no limite antigo)
+    traction *= mass ** -0.85;
   }
   const bi = forced === 'turbo' ? boostInfo(car, build) : null;
   if (bi) {

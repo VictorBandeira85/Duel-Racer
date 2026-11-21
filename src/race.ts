@@ -1332,7 +1332,8 @@ export class Race {
   // tração integral bem menos
   private launchK() {
     const cvkg = Number(this.car.power.replace(/\D/g, '')) / this.car.mass;
-    return clamp(0.25 + (cvkg - 0.06) / 0.25, 0.3, 1) * (this.car.drive === 'integral' ? 0.45 : this.car.drive === 'dianteira' ? 0.7 : 1);
+    // (autoblocante: as duas rodas puxam juntas e a largada patina bem menos)
+    return clamp(0.25 + (cvkg - 0.06) / 0.25, 0.3, 1) * (this.car.drive === 'integral' ? 0.45 : this.car.drive === 'dianteira' ? 0.7 : 1) * (1 - 0.4 * (this.car.lsd ?? 0));
   }
   // largou com o motor embaixo (sem acelerar na contagem): até o giro subir, ele quase afoga
   private bog() {

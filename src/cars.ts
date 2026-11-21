@@ -374,7 +374,7 @@ const LAMPS: Record<string, LampDef> = {
   'br-passat': { head: [0.111, 0.567, 0.046], sigRear: [0.026, 0.509, 0.149, 0.565], sigFront: [0.07, 0.783, 0.207, 0.835] }, // Passat GTS Pointer (passat_sprites2.py)
   'br-corsa': { head: [0.17, 0.639, 0.06], sigRear: [0.038, 0.555, 0.107, 0.592], sigFront: [0.075, 0.615, 0.11, 0.655] }, // Corsa GSi (corsa_sprites.py)
   'br-uno': { head: [0.19, 0.55, 0.06], sigRear: [0.065, 0.46, 0.18, 0.535], sigFront: [0.075, 0.51, 0.105, 0.6] },
-  'br-kadett': { head: [0.2, 0.52, 0.06], sigRear: [0.07, 0.46, 0.15, 0.54], sigFront: [0.05, 0.46, 0.11, 0.58] },
+  'br-kadett': { head: [0.2015, 0.614, 0.049], sigRear: [0.0625, 0.495, 0.148, 0.549], sigFront: [0.077, 0.562, 0.119, 0.655] }, // Kadett GSi (kadett_sprites.py)
   'br-pumagte': { head: [0.131, 0.533, 0.055], sigRear: [0.115, 0.523, 0.175, 0.621], sigRed: true, sigFront: [0.253, 0.639, 0.025] }, // Puma GTE 1974 (pumagte_sprites2.py)
   'br-pumagtb': { head: [0.13, 0.586, 0.042], sigRear: [0.027, 0.451, 0.21, 0.596], sigRed: true, sigFront: [0.11, 0.785, 0.21, 0.825] }, // Puma GTB S2 (pumagtb_sprites.py)
   'br-golgti': { head: [0.18, 0.57, 0.06], sigRear: [0.015, 0.574, 0.23, 0.617], sigFront: [0.025, 0.515, 0.085, 0.62] }, // Gol GTI 1993 (golgti_sprites.py)
@@ -404,7 +404,7 @@ const SIDE_LAMPS: Record<string, SideLamp> = {
   'br-vectra': { head: [0.045, 0.54], tail: [0.97, 0.42] },
   'br-uno': { head: [0.04, 0.55], tail: [0.975, 0.46] },
   'br-golgti': { head: [0.033, 0.593], tail: [0.98, 0.6] },
-  'br-kadett': { head: [0.04, 0.54], tail: [0.975, 0.45] },
+  'br-kadett': { head: [0.0365, 0.601], tail: [0.976, 0.513] },
   'br-corsa': { head: [0.037, 0.593], tail: [0.968, 0.53] },
   'br-monza': { head: [0.035, 0.537], tail: [0.975, 0.5] },
   'br-monzacoupe': { head: [0.03, 0.54], tail: [0.98, 0.52] },
@@ -424,7 +424,7 @@ const WHEELS: Record<string, number[][]> = {
   'br-passat': [[0.1932, 0.7917, 0.0516], [0.7831, 0.7943, 0.051]], // Passat GTS Pointer (passat_sprites2.py)
   'br-corsa': [[0.1735, 0.8218, 0.0614], [0.8528, 0.8221, 0.0617]], // Corsa GSi (corsa_sprites.py, wheel_fit.py)
   'br-uno': [[0.196, 0.788, 0.061], [0.847, 0.788, 0.062]],
-  'br-kadett': [[0.192, 0.775, 0.081], [0.807, 0.775, 0.081]],
+  'br-kadett': [[0.2013, 0.8115, 0.0541], [0.8208, 0.8119, 0.0548]], // arte nova (kadett_sprites.py)
   'br-pumagte': [[0.2093, 0.7416, 0.0558], [0.7541, 0.7378, 0.0558]], // Puma GTE 1974 (pumagte_sprites2.py)
   'br-pumagtb': [[0.21, 0.7477, 0.0586], [0.7689, 0.7418, 0.0599]], // Puma GTB S2 (pumagtb_sprites.py)
   'br-golgti': [[0.1921, 0.8185, 0.0574], [0.8187, 0.8149, 0.0574]],
@@ -448,7 +448,7 @@ const WHEELS: Record<string, number[][]> = {
 // Onde fica a placa na traseira de cada carro: [x0, y0, x1, y1] em pixels do sprite e o
 // tamanho dele (largura, altura); vira frações ao carregar
 const PLATE_BOX: Record<string, number[]> = {
-  'br-monza': [100, 104, 160, 124, 260, 182], 'br-monzacoupe': [101, 97, 161, 117, 260, 196], 'br-voyage': [98, 101, 162, 120, 260, 192], 'br-voyagesport': [98, 97, 162, 116, 260, 196], 'br-santana': [99, 83, 161, 100, 260, 176], 'br-golgti': [76, 111, 124, 124, 200, 188], 'br-kadett': [31, 30, 62, 40, 93, 70], 'br-pumagte': [99, 106, 160, 129, 260, 173],
+  'br-monza': [100, 104, 160, 124, 260, 182], 'br-monzacoupe': [101, 97, 161, 117, 260, 196], 'br-voyage': [98, 101, 162, 120, 260, 192], 'br-voyagesport': [98, 97, 162, 116, 260, 196], 'br-santana': [99, 83, 161, 100, 260, 176], 'br-golgti': [76, 111, 124, 124, 200, 188], 'br-kadett': [94, 128, 167, 152, 260, 231], 'br-pumagte': [99, 106, 160, 129, 260, 173],
   'br-corsa': [93, 138, 166, 162, 260, 249], 'br-uno': [70, 81, 118, 100, 189, 157], 'br-passat': [99, 104, 161, 122, 260, 198],
   'br-vectra': [40, 52, 73, 62, 113, 79], 'br-pumagtb': [100, 121, 162, 141, 260, 165],
   '959': [93, 122, 169, 142, 260, 179], countach: [109, 82, 151, 100, 260, 141], diablo: [185, 136, 245, 156, 430, 220],

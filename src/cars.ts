@@ -377,7 +377,7 @@ const LAMPS: Record<string, LampDef> = {
   'br-kadett': { head: [0.2, 0.52, 0.06], sigRear: [0.07, 0.46, 0.15, 0.54], sigFront: [0.05, 0.46, 0.11, 0.58] },
   'br-pumagte': { head: [0.131, 0.533, 0.055], sigRear: [0.115, 0.523, 0.175, 0.621], sigRed: true, sigFront: [0.253, 0.639, 0.025] }, // Puma GTE 1974 (pumagte_sprites2.py)
   'br-pumagtb': { head: [0.13, 0.586, 0.042], sigRear: [0.027, 0.451, 0.21, 0.596], sigRed: true, sigFront: [0.11, 0.785, 0.21, 0.825] }, // Puma GTB S2 (pumagtb_sprites.py)
-  'br-golgti': { head: [0.18, 0.57, 0.06], sigRear: [0.015, 0.574, 0.09, 0.617], sigFront: [0.025, 0.515, 0.085, 0.62] }, // Gol GTI 1993 (golgti_sprites.py)
+  'br-golgti': { head: [0.18, 0.57, 0.06], sigRear: [0.015, 0.574, 0.23, 0.617], sigFront: [0.025, 0.515, 0.085, 0.62] }, // Gol GTI 1993 (golgti_sprites.py)
   'br-vectra': { head: [0.21, 0.56, 0.05], sigRear: [0.06, 0.44, 0.135, 0.49], sigFront: [0.075, 0.515, 0.13, 0.6] },
   'br-monza': { head: [0.196, 0.583, 0.06], sigRear: [0.122, 0.558, 0.199, 0.625], sigFront: [0.035, 0.498, 0.09, 0.647] }, // Monza S/R 1987 (monza_sprites.py)
   'br-monzacoupe': { head: [0.186, 0.565, 0.06], sigRear: [0.034, 0.487, 0.12, 0.551], sigFront: [0.04, 0.502, 0.086, 0.623] }, // Monza Classic SE (monzasedan_sprites.py)

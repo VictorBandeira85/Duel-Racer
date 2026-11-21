@@ -26,7 +26,8 @@
   frente e traseira vermelhas convertidas pelo brilho), capas (corsa_photos.py), cabine (corsa_cockpit2.py) e quadro das
   fotos reais (corsa_gauges.py, aceso em âmbar). Patrulha 9C (Caprice 9C1): exterior novo (tools/ref/patrol_sprites2.py, giroflex da lateral só com a ponta vermelha) e cabine
   com velocímetro digital turquesa (patrol_cockpit2.py, patrolCluster). Cadete GSi (Kadett GSi 2.0): exterior novo branco (tools/ref/kadett_sprites.py: "CHEVROLET" da tampa sai)
-  e capas (kadett_photos.py: kd-revista, kd-praia, kd-duelo). Os demais (ZR1, Vectra, Uno) ficam como estão
+  e capas (kadett_photos.py: kd-revista, kd-praia, kd-duelo); cabine nova (kadett_cockpit.py: painel da arte sem volante,
+  volante da com volante, vidros pelo magenta) com o quadro digital da foto do carro real (kadettCluster). Os demais (ZR1, Vectra, Uno) ficam como estão
   até a arte nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
   Na dúvida, perguntar.
 

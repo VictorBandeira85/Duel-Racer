@@ -1,7 +1,7 @@
-"""Toro V12 (Diablo) e as viaturas SV: na arte o lado direito das lanternas veio copiado sem espelhar (âmbar
-por fora, vermelha por dentro); o esquerdo está certo (vermelha por fora, âmbar do pisca por dentro). Troca
-as duas lentes redondas do lado direito de lugar (cada uma mantém o próprio brilho), deixando as duas
-âmbar por dentro, e o pisca (sigRear de diablo/patrolsv em cars.ts) acende nelas.
+"""Toro V12 (Diablo) e as viaturas SV: no Diablo de verdade a lente âmbar do pisca é a de FORA. Na arte o
+lado direito está certo (âmbar por fora) e o esquerdo veio copiado sem espelhar (vermelha por fora, âmbar
+por dentro). Troca as duas lentes redondas do lado esquerdo de lugar (cada uma mantém o próprio brilho):
+as duas âmbar ficam por fora, e o pisca (sigRear de diablo/patrolsv em cars.ts) acende nelas.
 Uso: python3 tools/ref/diablo_rear_lamps.py
 """
 import os
@@ -19,15 +19,15 @@ for name, dy in [('cars/diablo-rear', 0), ('cars/diablo-rear-mask', 0), ('cars/p
     mode = im.mode
     a = np.array(im)
     cy = 96.5 + dy
-    c1, c2 = 350.0, 384.0  # vermelha (dentro) e âmbar (fora) do lado direito
+    c1, c2 = 44.0, 79.0  # lado esquerdo: vermelha (fora) e âmbar (dentro)
     yy, xx = np.mgrid[0:a.shape[0], 0:a.shape[1]]
     m1 = (xx - c1) ** 2 + (yy - cy) ** 2 <= R * R
     m2 = (xx - c2) ** 2 + (yy - cy) ** 2 <= R * R
     d = int(c2 - c1)
     b = a.copy()
     ys, xs = np.nonzero(m1)
-    b[ys, xs] = a[ys, xs + d]   # âmbar vem para dentro
+    b[ys, xs] = a[ys, xs + d]   # âmbar vai para fora
     ys, xs = np.nonzero(m2)
-    b[ys, xs] = a[ys, xs - d]   # vermelha vai para fora
+    b[ys, xs] = a[ys, xs - d]   # vermelha vem para dentro
     Image.fromarray(b, mode).save(p, optimize=True)
     print(name)

@@ -1093,13 +1093,13 @@ queueMicrotask(() => faceImg(PB_FACE));
 const KAD = { on: '#ecd27a', off: '#2a2614', bg: '#15130b', red: '#d8301e', icon: '#ffe6c0', dim: '#c8b468' };
 const KADB = { x0: 65.3, y0: 72.5, x1: 163, y1: 112.5 }; // miolo do LCD (coordenadas da arte)
 function kadIcon(c: CanvasRenderingContext2D, x: number, y: number, k: number) {
-  // pictogramas de 0,5 px dentro da caixa vermelha (x, y = canto da caixa 5 x 4,5)
+  // pictogramas em meio pixel dentro da caixa vermelha 5 x 5 (x, y = canto da caixa)
   const p = (dx: number, dy: number, w: number, h: number) => c.fillRect(x + dx, y + dy, w, h);
   c.fillStyle = KAD.icon;
-  if (k === 0) { p(1, 2, 2.5, 1.5); p(3.5, 1.5, 0.5, 0.5); p(0.5, 1.5, 0.5, 0.5); p(4, 3, 0.5, 0.5); }           // almotolia
-  else if (k === 1) { p(1, 1.5, 3, 2); p(1.5, 1, 0.5, 0.5); p(3, 1, 0.5, 0.5); }                                // bateria
-  else if (k === 2) { p(2.25, 0.5, 0.5, 2.5); p(1.75, 3, 1.5, 1); p(1, 3.5, 3, 0.5); }                         // termômetro na água
-  else { p(1, 1, 2, 3); p(1.5, 1.5, 1, 0.5); p(3, 1.5, 0.5, 2); p(3.5, 1, 0.5, 0.5); }                        // bomba
+  if (k === 0) { p(1, 2.5, 2.5, 1.5); p(1.5, 2, 1, 0.5); p(0.5, 2, 0.5, 0.5); p(3.5, 2.5, 0.5, 0.5); p(4, 3, 0.5, 0.5); }   // almotolia com bico e gota
+  else if (k === 1) { p(0.5, 1.5, 4, 2.5); p(1, 1, 0.5, 0.5); p(3.5, 1, 0.5, 0.5); }                                        // bateria com os bornes
+  else if (k === 2) { p(2.25, 0.5, 0.5, 2.5); p(1.75, 3, 1.5, 0.5); p(0.5, 4, 1, 0.5); p(2, 4, 1, 0.5); p(3.5, 4, 1, 0.5); } // termômetro e as ondas
+  else { p(1, 1, 2, 3.5); p(3, 1.5, 0.5, 2.5); p(3.5, 1, 0.5, 0.5); c.fillStyle = KAD.red; p(1.5, 1.5, 1, 1); }                                    // bomba com a mangueira
 }
 function kadettCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   const T = ART_TOP;
@@ -1111,20 +1111,24 @@ function kadettCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   for (const [x0, x1] of [[B.x0 + 0.5, 88.5], [97, 130], [139, B.x1 - 0.5]]) rect(c, X(x0), Y(74.5), x1 - x0, 28, KAD.bg);
   // barras em cunha
   const bars: [number, boolean][] = [[gauges.oil, false], [gauges.volt, false], [gauges.water, gauges.water > 0.8], [gauges.fuel, gauges.fuel < 0.68]];
-  const rows = [77.6, 83.1, 90.7, 97.7];
+  // grade de meio pixel (rect() arredonda para o pixel inteiro e as barras grudavam umas nas outras)
+  const h2 = (v: number) => Math.round(v * 2) / 2;
+  const fr = (x: number, y: number, w: number, h: number, col: string) => { c.fillStyle = col; c.fillRect(h2(x), h2(y), h2(w), h2(h)); };
+  const rows = [78, 83.5, 91, 98];
   bars.forEach(([v, warn], i) => {
     const cy = rows[i];
-    rect(c, X(66.5), Y(cy - 2.25), 5, 4.5, warn ? '#ff4a26' : KAD.red);
-    kadIcon(c, X(66.5), Y(cy - 2.25), i);
-    const n = 11;
+    fr(X(66), Y(cy - 2.5), 5, 5, warn ? '#ff4a26' : KAD.red);
+    kadIcon(c, h2(X(66)), h2(Y(cy - 2.5)), i);
+    // cunha: 10 barras de 1 px com 0,5 px de vão, cada uma meio pixel mais alta que a anterior
+    const n = 10;
     for (let k = 0; k < n; k++) {
-      const h = 1.5 + (k / (n - 1)) * 3;
-      rect(c, X(72.5 + k * 1.45), Y(cy + 2 - h), 0.85, h, k < Math.round(clamp(v, 0, 1) * n) ? KAD.on : KAD.off);
+      const h = 1 + k * 0.5;
+      fr(X(72.5 + k * 1.5), Y(cy + 2.5 - h), 1, h, k < Math.round(clamp(v, 0, 1) * n) ? KAD.on : KAD.off);
     }
   });
-  pix(c, '9', X(75.5), Y(87.2), KAD.dim, 0.35);
-  pix(c, '12', X(80.5), Y(87.2), KAD.dim, 0.35);
-  pix(c, '15', X(86), Y(87.2), KAD.dim, 0.35);
+  pix(c, '9', X(76), Y(87.6), KAD.dim, 0.35);
+  pix(c, '12', X(81.3), Y(87.6), KAD.dim, 0.35);
+  pix(c, '15', X(86.5), Y(87.6), KAD.dim, 0.35);
   // velocidade: três dígitos grandes inclinados
   const sv = String(Math.min(999, Math.round(kmh)));
   c.save();

@@ -3078,16 +3078,30 @@ function gearPiece(c: CanvasRenderingContext2D, n: string, x: number, y: number,
   c.scale(s, s);
   const sm = c.imageSmoothingEnabled;
   c.imageSmoothingEnabled = true;
-  c.drawImage(im, 0, 0);
+  // cabine escura: a peça escurece junto (o que acende é desenhado depois, por cima). O escurecimento
+  // é feito numa cópia só da peça: 'source-atop' direto na tela pintava o retângulo inteiro (quadrado
+  // cinza em volta do detector à noite)
+  c.drawImage(dk > 0.05 ? gearDark(n, im, Math.min(0.55, dk * 0.6)) : im, 0, 0);
   c.imageSmoothingEnabled = sm;
-  if (dk > 0.05) { // cabine escura: a peça escurece junto (o que acende é desenhado depois, por cima)
-    c.globalCompositeOperation = 'source-atop';
-    c.fillStyle = `rgba(4,6,14,${Math.min(0.55, dk * 0.6)})`;
-    c.fillRect(0, 0, im.naturalWidth, im.naturalHeight);
-    c.globalCompositeOperation = 'source-over';
-  }
   f?.(c);
   c.restore();
+}
+const gearDarkCache = new Map<string, HTMLCanvasElement>();
+function gearDark(n: string, im: HTMLImageElement, a: number) {
+  const q = Math.round(a * 20) / 20, key = n + q;
+  let cv = gearDarkCache.get(key);
+  if (!cv) {
+    cv = document.createElement('canvas');
+    cv.width = im.naturalWidth;
+    cv.height = im.naturalHeight;
+    const g = cv.getContext('2d')!;
+    g.drawImage(im, 0, 0);
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = `rgba(4,6,14,${q})`;
+    g.fillRect(0, 0, cv.width, cv.height);
+    gearDarkCache.set(key, cv);
+  }
+  return cv;
 }
 // casas dos algarismos nas duas janelas do radar (pixels de radar.png): ALVO à esquerda, VTR à direita
 const RADAR_CELLS = [[14, 22, 29, 37], [53, 61, 68, 76]];

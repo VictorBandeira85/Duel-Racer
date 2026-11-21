@@ -44,7 +44,8 @@ const heliAfter = (r: Race) => 16 - 6 * r.copHeat();
 export function heliStep(r: Race, h: Heli | null, dt: number): Heli | null {
   const chasing = r.police.some((p) => p.state === 'chase' || p.state === 'pull' || p.state === 'stopped');
   if (!h) {
-    const long = r.state === 'drive' && !r.heliUsed && r.police.some((p) => p.state === 'chase' && !p.block && p.chaseT > heliAfter(r));
+    // só as polícias das classes A e S (as de alto nível) têm helicóptero
+    const long = r.state === 'drive' && !r.heliUsed && r.police.some((p) => p.state === 'chase' && !p.block && (p.unit === 'A' || p.unit === 'S') && p.chaseT > heliAfter(r));
     if (!long) {
       heliSound(null);
       return null;
@@ -89,7 +90,7 @@ export function heliStep(r: Race, h: Heli | null, dt: number): Heli | null {
     heliSound(null);
     return null;
   }
-  heliSound({ dz: h.dz * M_LON, dx: (h.x - r.x) * M_LAT, up: h.alt / 600, tunnel: r.inTunnel, k: h.fade });
+  heliSound({ dz: h.dz * M_LON, dx: (h.x - r.x) * M_LAT, up: h.alt * M_LON, tunnel: r.inTunnel, k: h.fade });
   return h;
 }
 
@@ -329,11 +330,11 @@ export function heliSound(s: { dz: number; dx: number; up: number; tunnel: numbe
     lfoG.gain.value = -0.48;
     lfo.connect(lfoG).connect(am.gain);
     const thump = ctx.createOscillator();
-    thump.frequency.value = 58;
+    thump.frequency.value = 96; // batida das pás (58 Hz não saía no alto-falante do celular)
     const thG = ctx.createGain();
-    thG.gain.value = 0.25;
+    thG.gain.value = 0.32;
     const thL = ctx.createGain();
-    thL.gain.value = -0.25;
+    thL.gain.value = -0.32;
     lfo.connect(thL).connect(thG.gain);
     const whine = ctx.createOscillator();
     whine.type = 'triangle';
@@ -355,8 +356,9 @@ export function heliSound(s: { dz: number; dx: number; up: number; tunnel: numbe
   }
   const d = Math.hypot(s.dz, s.dx, s.up);
   const muff = 1 - 0.75 * Math.min(1, s.tunnel);
-  const gain = (0.11 / (1 + (d / 55) ** 2)) * muff * s.k;
-  const cut = (260 + 900 / (1 + d / 40)) * (1 - 0.5 * Math.min(1, s.tunnel));
+  // helicóptero a ~150 m é alto (passa por cima do ronco); antes ficava a ~1% e sumia
+  const gain = (0.42 / (1 + (d / 140) ** 2)) * muff * s.k;
+  const cut = (520 + 1100 / (1 + d / 60)) * (1 - 0.5 * Math.min(1, s.tunnel));
   const pn = Math.max(-0.8, Math.min(0.8, (s.dx / Math.max(1, d)) * 1.4));
   if (!Number.isFinite(gain + cut + pn)) return;
   rotor.gain.gain.setTargetAtTime(gain, t, 0.12);

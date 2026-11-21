@@ -191,19 +191,30 @@ function drawArt(g: CanvasRenderingContext2D, w: number, h: number, f: number, n
     g.fillRect(0, 0, w, h);
     g.globalCompositeOperation = 'source-over';
   }
-  // pás do rotor principal girando, a partir da cabeça do rotor
+  // pás do rotor principal girando (três, como no Esquilo de verdade, para nunca sumirem todas de pé), a
+  // partir da cabeça do rotor; o disco borrado vem por cima em rotorDisc
   const P = night ? PAL.night : PAL.day;
-  const a = (f / ROTOR_FRAMES) * Math.PI;
-  const cx = w / 2, cy = y0 + ah * 0.035;
+  const cx = w / 2, cy = y0 + ah * HUB_Y;
   g.strokeStyle = P.blade;
-  g.lineWidth = Math.max(1, h * 0.05);
-  g.lineCap = 'butt';
+  g.lineWidth = Math.max(1.5, h * 0.06);
+  g.lineCap = 'round';
   g.beginPath();
-  for (const sg of [1, -1]) {
+  for (let i = 0; i < 3; i++) {
+    const a = (f / ROTOR_FRAMES) * (Math.PI * 2 / 3) + (i * Math.PI * 2) / 3;
     g.moveTo(cx, cy);
-    g.lineTo(cx + sg * Math.cos(a) * w * 0.5, cy + sg * Math.sin(a) * h * 0.07);
+    g.lineTo(cx + Math.cos(a) * w * 0.5, cy + Math.sin(a) * h * 0.06);
   }
   g.stroke();
+}
+const HUB_Y = 0.035; // cabeça do rotor na altura da arte
+// disco do rotor girando (semitransparente, desenhado direto na tela: o sprite nítido não guarda meio-tom)
+function rotorDisc(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, night: boolean, k: number) {
+  if (w < 6) return;
+  const cy = y - h + h * (0.06 + 0.92 * HUB_Y);
+  c.fillStyle = night ? `rgba(20,22,28,${(0.3 * k).toFixed(3)})` : `rgba(48,52,60,${(0.26 * k).toFixed(3)})`;
+  c.beginPath();
+  c.ellipse(x, cy, w * 0.5, Math.max(1, h * 0.06), 0, 0, Math.PI * 2);
+  c.fill();
 }
 
 // rotor: ~22 voltas por segundo vistas como 4 quadros (efeito estroboscópico de rotor de verdade)
@@ -235,6 +246,7 @@ export function heliDraw(c: CanvasRenderingContext2D, r: Race, K: number, s: Seg
   c.globalAlpha = ga * h.fade;
   const art = artReady('rear');
   drawCrisp(c, `heli${f}${night ? 'n' : ''}${art ? 'a' : ''}`, x, y, w, art ? w * ART_H : hh, (g, W, H) => (art ? drawArt(g, W, H, f, night, 'rear') : drawBody(g, W, H, f, night)), 64, tint);
+  if (art) rotorDisc(c, x, y, w, w * ART_H, night, 1);
   c.globalAlpha = ga;
   shot = { x, y, w, h: art ? w * ART_H : hh };
 }
@@ -330,6 +342,7 @@ export function heliMirror(c: CanvasRenderingContext2D, r: Race, cx: number, hz:
   c.globalAlpha = ga * h.fade;
   const art = artReady('front');
   drawCrisp(c, `helif${fr}${night ? 'n' : ''}${art ? 'a' : ''}`, x, y, w, art ? w * ART_H : hh, (g, W, H) => (art ? drawArt(g, W, H, fr, night, 'front') : drawBody(g, W, H, fr, night)), 64);
+  if (art) rotorDisc(c, x, y, w, w * ART_H, night, 1);
   c.globalAlpha = ga;
 }
 

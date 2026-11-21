@@ -140,6 +140,10 @@
   `shrink` de `tools/ref/monza_sprites.py`: cor do miolo de cada bloco + paleta curta, em tamanho maior
   (lateral 400, frente/traseira 260). Comparar lado a lado com o Viper antes de publicar.
 
+- Cabines: a arte é reduzida pela cor do miolo de cada bloco + paleta curta (`tools/ref/cockpit_reduce.py`: core()
+  na hora de amostrar e palette() ao gravar), nunca pegando um pixel só (chuvisco). Feito no Cadete e no Vetor;
+  nos outros, quando a arte original estiver à mão.
+
 ## Rodas, troca de carro e preparação
 - Freios: o de série é "meio ruim" (BRAKE_STOCK em race.ts sobre o brakeG de cada carro) e esquenta em freadas
   fortes seguidas (brakeHeat/brakeFade); só a vaga Freios melhora (força e aquecimento). Pneus e alívio de peso

@@ -23,6 +23,7 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(__file__))
 import brand_badges  # noqa: E402
+from cockpit_reduce import core, palette  # noqa: E402
 
 ID = 'br-vectra'
 S = 0.25   # a arte é mais aberta (volante e retrovisor maiores na imagem): escala menor que a dos outros
@@ -183,9 +184,10 @@ def main():
     global Y0D
     Y0D += UP
     xs, ys = grid(Y0D, ROWS)
-    d_rgb, d_al = sample(nw, xs, ys), sample(A, xs, ys)
+    nwc = core(nw, PXW)
+    d_rgb, d_al = sample(nwc, xs, ys), sample(A, xs, ys)
     xs, yt = grid(Y0D - EXT * PXH, EXT)
-    t_rgb, t_al = sample(nw, xs, yt), sample(A, xs, yt)
+    t_rgb, t_al = sample(nwc, xs, yt), sample(A, xs, yt)
     st_al = np.concatenate([t_al, d_al], axis=0)
     st_rgb = np.concatenate([t_rgb, d_rgb], axis=0)
     n, lab, stt, _ = cv2.connectedComponentsWithStats(st_al.astype(np.uint8), connectivity=8)
@@ -200,7 +202,7 @@ def main():
     t_al, d_al = st_al[:EXT], st_al[EXT:]
     t_rgb, d_rgb = st_rgb[:EXT], st_rgb[EXT:]
     for name, rgb, a_ in (('dash', d_rgb, d_al), ('top', t_rgb, t_al)):
-        Image.fromarray(np.dstack([rgb, a_.astype(np.uint8) * 255]), 'RGBA').save(os.path.join(out, f'{ID}-{name}.png'), optimize=True)
+        Image.fromarray(palette(np.dstack([rgb, a_.astype(np.uint8) * 255])), 'RGBA').save(os.path.join(out, f'{ID}-{name}.png'), optimize=True)
     wheel = wheel_mask(ww)
     if dbg:
         v = ww.copy(); v[~wheel] = (v[~wheel] * 0.35 + np.array([0, 160, 0]) * 0.65).astype(np.uint8)
@@ -209,7 +211,7 @@ def main():
     top = WHEEL_C[1] - RIM_OUT[3] - 4
     xs = WHEEL_C[0] + (np.arange(256) + 0.5 - 128) * PXW
     ys = top + (np.arange(WROWS) + 0.5) * PXH
-    w_rgb, w_al = sample(ww, xs, ys), sample(wheel, xs, ys) & (ys < ww.shape[0])[:, None]
+    w_rgb, w_al = sample(core(ww, PXW), xs, ys), sample(wheel, xs, ys) & (ys < ww.shape[0])[:, None]
     wimg = np.dstack([w_rgb, w_al.astype(np.uint8) * 255])
     piv_y = (WHEEL_C[1] - top) / PXH
     hub = (128 + (EMB[0] - WHEEL_C[0]) * S, piv_y + (EMB[1] - WHEEL_C[1]) / PXH)
@@ -220,6 +222,7 @@ def main():
     wimg[e <= core_r, :3] = (22, 20, 26)
     wimg[(e <= core_r) & (e > core_r - 1.1), :3] = (padc * 1.2).clip(0, 255).astype(np.uint8)
     brand_badges.stamp(wimg, None, 'vanguarda', (round(hub[0]), round(hub[1]), 8, 0))
+    wimg = palette(wimg, 64)
     Image.fromarray(wimg, 'RGBA').save(os.path.join(out, f'{ID}-wheel.png'), optimize=True)
     nat = lambda p: (round(PIV_N[0] + (p[0] - PIV_X) * S, 2), round((p[1] - Y0D) / PXH, 2))  # noqa: E731
     wr = (WHEEL_C[1] - Y0D) / PXH

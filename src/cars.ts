@@ -382,7 +382,7 @@ const LAMPS: Record<string, LampDef> = {
   'br-monza': { head: [0.196, 0.583, 0.06], sigRear: [0.122, 0.558, 0.199, 0.625], sigFront: [0.035, 0.498, 0.09, 0.647] }, // Monza S/R 1987 (monza_sprites.py)
   'br-monzacoupe': { head: [0.186, 0.565, 0.06], sigRear: [0.034, 0.487, 0.12, 0.551], sigFront: [0.04, 0.502, 0.086, 0.623] }, // Monza Classic SE (monzasedan_sprites.py)
   'br-voyage': { head: [0.16, 0.556, 0.06], sigRear: [0.035, 0.5, 0.108, 0.625], sigFront: [0.035, 0.492, 0.069, 0.614] }, // Voyage LS 1986 (voyage_sprites.py)
-  'br-voyagesport': { head: [0.17, 0.548, 0.06], sigRear: [0.031, 0.462, 0.17, 0.517], sigFront: [0.029, 0.488, 0.079, 0.607] }, // Voyage Sport 1992 (voyagesport_sprites.py)
+  'br-voyagesport': { head: [0.17, 0.548, 0.06], sigRear: [0.035, 0.462, 0.238, 0.517], sigFront: [0.029, 0.488, 0.079, 0.607] }, // Voyage Sport 1992 (voyagesport_sprites.py)
   'br-santana': { head: [0.107, 0.562, 0.05], sigRear: [0.034, 0.461, 0.107, 0.567], sigFront: [0.048, 0.697, 0.166, 0.74] }, // Santana GLS 1990 (santana_sprites.py)
   patrol: { head: [0.147, 0.593, 0.045], sigRear: [0.02, 0.5, 0.13, 0.6], sigRed: true, sigFront: [0.036, 0.558, 0.091, 0.642] }, // Caprice 9C1 novo (patrol_sprites2.py)
 };

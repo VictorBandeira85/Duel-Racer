@@ -27,7 +27,7 @@ S = 0.38
 PXW, PXH = 1 / S, (1 / S) / (8 / 7)
 PIV_X = 605.0
 WHEEL_C = (549.5, 533.0)
-Y0D = 245.0
+Y0D = 305.0   # câmera mais baixa (pedido do Victor): mais do painel de baixo, menos forro
 PIV_N = (128.0, 104.0)
 ROWS, EXT, PAD = 124, 76, 102
 WROWS = 230
@@ -42,6 +42,8 @@ STALK = (800, 101, 872, 114)         # haste no forro
 WIPER_BAND = (380, 286, 1320, 358)   # faixa dos limpadores
 LCD = (440, 412, 697, 504)           # miolo do LCD (vira preto liso)
 LCD_COL = (14, 10, 8)
+CHECK = (838, 430, 928, 443)          # visor âmbar do check control no alto do console (o jogo desenha)
+CLOCK = (859, 481, 904, 496)          # relógio digital do console (o jogo desenha a hora certa)
 
 
 def magenta(nw):
@@ -89,6 +91,8 @@ def clean(nw):
         out[y, x0:x1] = np.median(nw[y, 910:945], axis=0).astype(np.uint8)
     x0, y0, x1, y1 = LCD
     out[y0:y1, x0:x1] = LCD_COL
+    for (x0, y0, x1, y1), col in ((CHECK, (40, 18, 6)), (CLOCK, (16, 22, 10))):
+        out[y0:y1, x0:x1] = col
     return out
 
 
@@ -179,6 +183,7 @@ def main():
     print('pivô do volante na arte do volante (linha)', round(piv_y, 2), 'wheelDx', round((WHEEL_C[0] - PIV_X) * S, 2))
     print('centro do aro no painel (linha esticada)', nat(WHEEL_C))
     print('LCD', nat(LCD[:2]), nat(LCD[2:]))
+    print('check', nat(CHECK[:2]), nat(CHECK[2:]), 'relógio', nat(CLOCK[:2]), nat(CLOCK[2:]))
     gl = (PIV_N[0] + (MIRROR_SEED[0] - PIV_X) * S, (MIRROR_SEED[1] - Y0D) / PXH)
     print('vidro do retrovisor (empilhado, com PAD)', (round(PAD + gl[0]), round(EXT + gl[1])))
 

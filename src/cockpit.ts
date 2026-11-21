@@ -1091,7 +1091,8 @@ queueMicrotask(() => faceImg(PB_FACE));
 // em arco grosso segmentado (do 5 embaixo à esquerda ao 70 em cima, números por fora, "min-1 x100");
 // hodômetro e parcial embaixo, fora das janelas. Amarelo-creme sobre o fundo escuro, de dia e de noite.
 const KAD = { on: '#ecd27a', off: '#2a2614', bg: '#15130b', red: '#d8301e', icon: '#ffe6c0', dim: '#c8b468' };
-const KADB = { x0: 65.3, y0: 72.5, x1: 163, y1: 112.5 }; // miolo do LCD (coordenadas da arte)
+const KADB = { x0: 65.3, y0: 72.5, x1: 163, y1: 112.5 }; // miolo do LCD (coordenadas da arte com a câmera antiga)
+const KDY = -26.9; // câmera mais baixa (kadett_cockpit.py Y0D 305): tudo sobe 26,9 linhas
 function kadIcon(c: CanvasRenderingContext2D, x: number, y: number, k: number) {
   // pictogramas em meio pixel dentro da caixa vermelha 5 x 5 (x, y = canto da caixa)
   const p = (dx: number, dy: number, w: number, h: number) => c.fillRect(x + dx, y + dy, w, h);
@@ -1106,7 +1107,7 @@ function kadettCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   const kmh = r.speed * KMH;
   const rpm = clamp(r.rpm, 0, 1);
   const B = KADB;
-  const X = (v: number) => ox + v, Y = (v: number) => T + v;
+  const X = (v: number) => ox + v, Y = (v: number) => T + v + KDY;
   // as três janelas
   for (const [x0, x1] of [[B.x0 + 0.5, 88.5], [97, 130], [139, B.x1 - 0.5]]) rect(c, X(x0), Y(74.5), x1 - x0, 28, KAD.bg);
   // barras em cunha
@@ -1162,13 +1163,27 @@ function kadettCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   }
   pix(c, 'min-1', X(156.5), Y(96.3), KAD.dim, 0.25);
   pix(c, 'x100', X(157), Y(99), KAD.dim, 0.25);
+  // console: visor âmbar do check control (pictogramas apagados; acendem nos avisos) e o relógio digital
+  const hf = (x: number, y: number, w: number, h: number, col: string) => { c.fillStyle = col; c.fillRect(Math.round(x * 2) / 2, Math.round(y * 2) / 2, Math.round(w * 2) / 2, Math.round(h * 2) / 2); };
+  hf(ox + 216.5, T + 56, 34, 6, '#3a1806');
+  const warn = [gauges.fuel < 0.68, gauges.water > 0.8, r.damage > 0.6, gauges.oil < 0.15, r.state === 'ticket'];
+  warn.forEach((on, i) => {
+    const x = ox + 218.5 + i * 6.5;
+    hf(x, T + 57, 5, 4, on ? '#ffa020' : '#5a2a0c');
+    hf(x + 1.5, T + 58, 2, 2, on ? '#fff0c0' : '#6e3812');
+  });
+  hf(ox + 224.5, T + 79, 17, 6.5, '#121a08');
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0'), mm = String(now.getMinutes()).padStart(2, '0');
+  [hh[0], hh[1], mm[0], mm[1]].forEach((d, i) => seg7Box(c, ox + 225.5 + i * 3.8 + (i > 1 ? 1.4 : 0), T + 79.6, 2.8, 5.2, Number(d), '#d8f040', '#1e2a0c'));
+  if (now.getSeconds() % 2) { hf(ox + 233.1, T + 81, 0.5, 0.5, '#d8f040'); hf(ox + 233.1, T + 83, 0.5, 0.5, '#d8f040'); }
 }
 COCKPIT_ART['br-kadett'] = {
-  tells: [134.5, 105], // setas: na faixa de baixo, entre a parcial e o conta-giros
+  tells: [134.5, 78.1], // setas: na faixa de baixo, entre a parcial e o conta-giros
   dash: cp('br-kadett-dash'), top: cp('br-kadett-top'), wheel: cp('br-kadett-wheel'),
-  glass: { at: [57, 141], thr: 256 }, // retrovisor esquerdo (vidro transparente)
-  pivot: [128, 104], wheelTop: -21.49, wheelDx: -21.09, wheelDy: 25.11,
-  speedMax: 220, needle: '#ffb428', hub: '#202022', radar: [190, 40], aux: [],
+  glass: { at: [57, 115], thr: 256 }, // retrovisor esquerdo (vidro transparente)
+  pivot: [128, 104], wheelTop: -21.49, wheelDx: -21.09, wheelDy: -1.79,
+  speedMax: 220, needle: '#ffb428', hub: '#202022', radar: [190, 13], aux: [],
   extra: (c, ox, r) => kadettCluster(c, ox, r),
 };
 

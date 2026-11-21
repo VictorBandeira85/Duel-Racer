@@ -28,7 +28,7 @@
   com velocímetro digital turquesa (patrol_cockpit2.py, patrolCluster). Cadete GSi (Kadett GSi 2.0): exterior novo branco (tools/ref/kadett_sprites.py: "CHEVROLET" da tampa sai)
   e capas (kadett_photos.py: kd-revista, kd-praia, kd-duelo); cabine nova (kadett_cockpit.py: painel da arte sem volante,
   volante da com volante, vidros pelo magenta) com o quadro digital da foto do carro real (kadettCluster). Vetor GSi (Vectra GSi 2.0 16v): exterior novo branco com cenário (tools/ref/vectra_sprites.py) e capas
-  (vectra_photos.py: vt-estrada, vt-motor, vt-folheto); cabine nova (2ª arte do Victor; vectra_cockpit.py, escala 0,29; depois rodar edge_build.py br-vectra L 10 0.27)
+  (vectra_photos.py: vt-estrada, vt-motor, vt-folheto); cabine nova (3ª arte do Victor, vidros em magenta, alça do teto removida; vectra_cockpit.py, escala 0,29; depois rodar edge_build.py br-vectra L 10 0.27)
   com o quadro da foto do carro real (vectra_gauges.py, pumaGauges). Os demais (ZR1, Uno) ficam como estão
   até a arte nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
   Na dúvida, perguntar.

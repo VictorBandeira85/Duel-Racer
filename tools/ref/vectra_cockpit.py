@@ -10,7 +10,8 @@ cenário pelos vidros), no molde do Corsário (corsa_cockpit2.py) e do Cadete (k
 - quadro: o miolo dos quatro mostradores vira preto liso (fica o recorte do painel); o quadro da FOTO do carro
   real (vectra_gauges.py) cobre tudo
 - buzina: a gravata vira botão liso com o emblema da Vanguarda
-O volante fica centrado no quadro (x 860), como no carro. Acima da arte (o topo da cabine passa do alto da
+O volante fica à esquerda do centro da tela, como na arte. 3ª arte: vidros em magenta (corte direto pela cor); a
+alça do teto e a haste do retrovisor interno viram forro. Acima da arte (o topo da cabine passa do alto da
 imagem) a linha de cima continua deslocada na inclinação da coluna A.
 Uso: python3 tools/ref/vectra_cockpit.py <pasta com cockwheel.png e cockdash.png> <src/assets/cockpit>  (DBG=<pasta>)
 """
@@ -82,55 +83,55 @@ def dash_line(nw):
     return d
 
 
+def magenta(nw):
+    """vidros da arte em magenta (3ª arte): os blocos grandes de magenta e a franja rosada encostada"""
+    a = nw.astype(int)
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    m = (r - g > 90) & (b - g > 90) & (r > 170) & (b > 170)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(m.astype(np.uint8), connectivity=4)
+    m = np.isin(lab, [i for i in range(1, n) if st[i, cv2.CC_STAT_AREA] > 3000])
+    fringe = (r - g > 40) & (b - g > 40) & (r > 110) & (b > 110)
+    near = cv2.dilate(m.astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
+    return m | (near & fringe)
+
+
+IMIR = (995, 84, 1320, 198)      # retrovisor interno (vira vidro: o jogo desenha o dele)
+STALK = (1108, 62, 1202, 86)     # haste do retrovisor interno no forro
+HANDLE = (340, 2, 536, 80)       # alça do teto (sai: vira forro)
+
+
 def glass_mask(nw):
     H, W = nw.shape[:2]
-    sc = scene_mask(nw)
-    yy, xx = np.mgrid[0:H, 0:W]
-    dl = dash_line(nw)
-    wind = (xx > WIND_X(yy)) & (yy < dl[xx])
-    # janela da porta: à esquerda da coluna, acima da porta
-    house = cv2.fillPoly(np.zeros((H, W), np.uint8), [np.array(HOUSING, np.int32)], 1) > 0
-    win = (xx < PILLAR_L(yy) - 2) & (yy < DOOR_Y(xx)) & ~house
-    # vidro do retrovisor esquerdo (o cenário dentro da moldura escura)
-    n, lab = cv2.connectedComponents((sc & house).astype(np.uint8), connectivity=8)
+    g = magenta(nw)
+    x0, y0, x1, y1 = IMIR
+    g[y0:y1, x0:x1] = True
+    n, lab = cv2.connectedComponents(g.astype(np.uint8), connectivity=4)
     mir = lab == lab[MIRROR_SEED[1], MIRROR_SEED[0]]
-    ys, xs = np.nonzero(mir)
-    hull = cv2.convexHull(np.stack([xs, ys], 1).astype(np.int32))
-    mir = cv2.fillPoly(np.zeros((H, W), np.uint8), [hull], 1) > 0
-    frame = house & ~mir & ~sc        # moldura do retrovisor fica
-    # rente à linha do painel: o que ainda é cenário (pé da grade, mato, céu) também é vidro
-    band = (xx > WIND_X(yy)) & (yy >= dl[xx] - 2) & (yy < dl[xx] + 3)
-    a = nw.astype(int)
-    leafy = sc | (a[..., 1] > a[..., 0] + 5) | (a[..., 2] > a[..., 0] + 25)   # mato escuro e céu, que a coluna (cinza-roxo) não tem
-    pil = (xx > WIND_X(yy) - 45) & (xx <= WIND_X(yy) + 45) & (yy < dl[xx]) & leafy   # dos dois lados da borda da coluna A
-    pl = PILLAR_L(yy)
-    pil |= (xx > pl - 60) & (xx < pl + 8) & (yy < DOOR_Y(xx)) & leafy & ~house
-    pil |= (xx > WIND_X(yy)) & (xx < 560) & (yy < 335) & (leafy | ((a[..., 0] > a[..., 1] + 30) & (a[..., 0] > 110)))               # canto de baixo do para-brisa junto da coluna
-    green = (a[..., 1] > a[..., 0] + 12) | ((a[..., 2] > a[..., 0] + 40) & (a[..., 2] > 110))
-    frame &= ~green                                                          # mato e céu em volta da carcaça do retrovisor são janela
-    pil |= house & green & ~mir & (yy < DOOR_Y(xx))
-    g = (wind | win | mir | (band & sc) | pil) & ~frame
-    g = cv2.morphologyEx(g.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8)) > 0
-    # postes da grade em pé sobre o painel (estreitos): saem numa abertura horizontal
-    near = (xx > WIND_X(yy) + 20) & (yy >= dl[xx] - 25) & (yy < dl[xx] + 6)
-    op = ~g & near
-    wide = cv2.morphologyEx(op.astype(np.uint8), cv2.MORPH_OPEN, np.ones((1, 41), np.uint8)) > 0
-    g |= op & ~wide
-    # limpador e friso finos deitados sobre o painel (menos de 9 linhas de altura): também saem
-    op = ~g & (xx > WIND_X(yy) + 20) & (yy >= dl[xx] - 25) & (yy < dl[xx] + 10)
-    tall = cv2.morphologyEx(op.astype(np.uint8), cv2.MORPH_OPEN, np.ones((9, 1), np.uint8)) > 0
-    tall |= (cv2.dilate(tall.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0) & op & (yy >= dl[xx] + 4)
-    g |= op & ~tall & (yy < dl[xx] + 6)
-    # ilhas opacas pequenas no vidro (folhas escuras, poste) somem
-    n, lab, st, _ = cv2.connectedComponentsWithStats(((xx > WIND_X(yy)) & (yy < dl[xx]) & ~g).astype(np.uint8), connectivity=8)
+    # ilhas opacas pequenas soltas no vidro somem
+    n, lab, st, _ = cv2.connectedComponentsWithStats((~g).astype(np.uint8), connectivity=8)
     for i in range(1, n):
-        if st[i, cv2.CC_STAT_AREA] < 400:
+        if st[i, cv2.CC_STAT_AREA] < 300:
             g[lab == i] = True
     return g, mir
 
 
+def fill_rows(out, nw, box, lx, rx):
+    """apaga uma peça do forro: cada linha vira a passagem da cor do forro à esquerda para a da direita"""
+    x0, y0, x1, y1 = box
+    mg = magenta(nw)
+    l = r = None
+    for y in range(y0, y1):
+        ls, rs = nw[y, lx[0]:lx[1]][~mg[y, lx[0]:lx[1]]], nw[y, rx[0]:rx[1]][~mg[y, rx[0]:rx[1]]]
+        l = np.median(ls, axis=0) if len(ls) > 2 else l       # (vidro ao lado: fica a cor da linha de cima)
+        r = np.median(rs, axis=0) if len(rs) > 2 else r
+        t = np.linspace(0, 1, x1 - x0)[:, None]
+        out[y, x0:x1] = (l * (1 - t) + r * t).astype(np.uint8)
+
+
 def clean(nw):
     out = nw.copy()
+    fill_rows(out, nw, HANDLE, (326, 338), (538, 550))
+    fill_rows(out, nw, STALK, (1094, 1104), (1206, 1216))
     m = cv2.fillPoly(np.zeros(nw.shape[:2], np.uint8), [np.array(CLUSTER, np.int32)], 1) > 0
     lum = nw.astype(int).mean(axis=2)
     # mostradores: o que é claro (números, marcas, ponteiros) e colorido (laranja, vermelho) dentro da moldura

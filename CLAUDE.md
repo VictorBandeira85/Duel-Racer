@@ -142,7 +142,9 @@
 
 - Cabines: a arte é reduzida pela cor do miolo de cada bloco + paleta curta (`tools/ref/cockpit_reduce.py`: core()
   na hora de amostrar e palette() ao gravar), nunca pegando um pixel só (chuvisco). Feito no Cadete e no Vetor;
-  nos outros, quando a arte original estiver à mão.
+  nos outros a arte original não existe mais: as cabines prontas passaram por `tools/ref/cockpit_despeckle.py`
+  (pixel solto em área lisa vira a mediana dos vizinhos + paleta curta). Ao regerar uma cabine pelo script dela,
+  rodar o despeckle de novo.
 
 ## Rodas, troca de carro e preparação
 - Freios: o de série é "meio ruim" (BRAKE_STOCK em race.ts sobre o brakeG de cada carro) e esquenta em freadas

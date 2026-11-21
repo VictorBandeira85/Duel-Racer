@@ -1084,52 +1084,83 @@ COCKPIT_ART['br-pumagtb'] = {
 };
 queueMicrotask(() => faceImg(PB_FACE));
 
-// Cadete GSi: quadro digital "LCD Electronics" como o da foto do carro de verdade (o miolo do LCD da arte
-// nova fica preto liso, tools/ref/kadett_cockpit.py) — à esquerda quatro barras em cunha (pressão do óleo,
-// bateria, temperatura da água, combustível) com os ícones vermelhos; no meio a velocidade em três dígitos
-// grandes, hodômetro e parcial; à direita o conta-giros em arco segmentado (×100 rpm, 5 a 70) com os números
-// por dentro. Amarelo-claro sobre preto, como na foto (o LCD é aceso de dia e de noite).
-const KAD = { on: '#f2da7c', off: '#262010', red: '#ff4a26', redOff: '#341008', icon: '#e8402a', dim: '#d8c070' };
+// Cadete GSi: quadro digital "LCD Electronics" copiando a FOTO do Kadett GSi real (o miolo do LCD da arte nova
+// fica preto liso, tools/ref/kadett_cockpit.py): três janelas separadas — à esquerda quatro barras em cunha
+// (óleo, bateria com a escala 9 12 15, água, combustível), cada uma com o ícone claro na caixinha vermelha; no
+// meio a velocidade em três dígitos grandes inclinados, "km/h" e "LCD ELECTRONICS"; à direita o conta-giros
+// em arco grosso segmentado (do 5 embaixo à esquerda ao 70 em cima, números por fora, "min-1 x100");
+// hodômetro e parcial embaixo, fora das janelas. Amarelo-creme sobre o fundo escuro, de dia e de noite.
+const KAD = { on: '#ecd27a', off: '#2a2614', bg: '#15130b', red: '#d8301e', icon: '#ffe6c0', dim: '#c8b468' };
 const KADB = { x0: 65.3, y0: 72.5, x1: 163, y1: 112.5 }; // miolo do LCD (coordenadas da arte)
+function kadIcon(c: CanvasRenderingContext2D, x: number, y: number, k: number) {
+  // pictogramas de 0,5 px dentro da caixa vermelha (x, y = canto da caixa 5 x 4,5)
+  const p = (dx: number, dy: number, w: number, h: number) => c.fillRect(x + dx, y + dy, w, h);
+  c.fillStyle = KAD.icon;
+  if (k === 0) { p(1, 2, 2.5, 1.5); p(3.5, 1.5, 0.5, 0.5); p(0.5, 1.5, 0.5, 0.5); p(4, 3, 0.5, 0.5); }           // almotolia
+  else if (k === 1) { p(1, 1.5, 3, 2); p(1.5, 1, 0.5, 0.5); p(3, 1, 0.5, 0.5); }                                // bateria
+  else if (k === 2) { p(2.25, 0.5, 0.5, 2.5); p(1.75, 3, 1.5, 1); p(1, 3.5, 3, 0.5); }                         // termômetro na água
+  else { p(1, 1, 2, 3); p(1.5, 1.5, 1, 0.5); p(3, 1.5, 0.5, 2); p(3.5, 1, 0.5, 0.5); }                        // bomba
+}
 function kadettCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
   const T = ART_TOP;
   const kmh = r.speed * KMH;
   const rpm = clamp(r.rpm, 0, 1);
   const B = KADB;
-  // barras em cunha: cada segmento um pouco mais alto que o anterior
+  const X = (v: number) => ox + v, Y = (v: number) => T + v;
+  // as três janelas
+  for (const [x0, x1] of [[B.x0 + 0.5, 88.5], [97, 130], [139, B.x1 - 0.5]]) rect(c, X(x0), Y(74.5), x1 - x0, 28, KAD.bg);
+  // barras em cunha
   const bars: [number, boolean][] = [[gauges.oil, false], [gauges.volt, false], [gauges.water, gauges.water > 0.8], [gauges.fuel, gauges.fuel < 0.68]];
+  const rows = [77.6, 83.1, 90.7, 97.7];
   bars.forEach(([v, warn], i) => {
-    const y = T + B.y0 + 2.5 + i * 7.6;
-    rect(c, ox + B.x0 + 2, y + 1.5, 2.5, 2.5, warn ? '#ff6040' : KAD.icon);
-    const n = 16;
+    const cy = rows[i];
+    rect(c, X(66.5), Y(cy - 2.25), 5, 4.5, warn ? '#ff4a26' : KAD.red);
+    kadIcon(c, X(66.5), Y(cy - 2.25), i);
+    const n = 11;
     for (let k = 0; k < n; k++) {
-      const h = 1.2 + (k / (n - 1)) * 3.3;
-      rect(c, ox + B.x0 + 6.5 + k * 1.6, y + 4.5 - h, 1, h, k < Math.round(clamp(v, 0, 1) * n) ? (warn && k < 4 ? KAD.red : KAD.on) : KAD.off);
+      const h = 1.5 + (k / (n - 1)) * 3;
+      rect(c, X(72.5 + k * 1.45), Y(cy + 2 - h), 0.85, h, k < Math.round(clamp(v, 0, 1) * n) ? KAD.on : KAD.off);
     }
   });
-  // velocidade: três dígitos de 7 segmentos, "km/h" ao lado
+  pix(c, '9', X(75.5), Y(87.2), KAD.dim, 0.35);
+  pix(c, '12', X(80.5), Y(87.2), KAD.dim, 0.35);
+  pix(c, '15', X(86), Y(87.2), KAD.dim, 0.35);
+  // velocidade: três dígitos grandes inclinados
   const sv = String(Math.min(999, Math.round(kmh)));
+  c.save();
+  c.translate(X(103.4), Y(76.9));
+  c.transform(1, 0, -0.12, 1, 0, 0);
   for (let i = 0; i < 3; i++) {
     const ch = sv[sv.length - 3 + i];
-    seg7Box(c, ox + B.x0 + 37 + i * 7.2, T + B.y0 + 3.5, 5.6, 11, ch === undefined ? null : Number(ch), KAD.on, KAD.off);
+    seg7Box(c, 1.3 + i * 7, 0, 5.8, 10.7, ch === undefined ? null : Number(ch), KAD.on, KAD.off);
   }
-  pix(c, 'km/h', ox + B.x0 + 63, T + B.y0 + 12.5, KAD.dim, 0.4);
-  pix(c, 'LCD', ox + B.x0 + 50, T + B.y0 + 19.5, '#7a6a30', 0.4);
-  // hodômetro e parcial
+  c.restore();
+  pix(c, 'km/h', X(126.4), Y(89.2), KAD.dim, 0.3);
+  pix(c, 'LCD ELECTRONICS', X(113.6), Y(93), KAD.dim, 0.25);
+  // hodômetro e parcial (fora das janelas)
   const km = Math.max(0, ((r.playerZ - r.track.startZ) * KMH) / 3600);
-  pix(c, String(Math.floor(805 + km)).padStart(6, '0'), ox + B.x0 + 45, T + B.y0 + 26, KAD.on, 0.4);
-  pix(c, ((14.5 + km) % 1000).toFixed(1), ox + B.x0 + 62, T + B.y0 + 26, KAD.on, 0.4);
-  // conta-giros em arco (centro embaixo à direita, do 5 à esquerda ao 70 em cima), números por dentro
-  const arc = { x: B.x1 - 3.5, y: B.y1 - 6.5, r0: 17, r1: 22.5, a0: Math.PI, a1: Math.PI * 1.5, n: 22 };
-  drawArc(c, ox, arc, 0.04 + rpm * 0.86, (f) => (f < 0.86 ? [KAD.on, KAD.off] : [KAD.red, KAD.redOff]));
-  for (const v of [5, 10, 20, 30, 40, 50, 60, 70]) {
-    const a = arc.a0 + ((arc.a1 - arc.a0) * v) / 70;
-    pix(c, String(v), ox + arc.x + 1 + Math.cos(a) * 12.5, T + arc.y + Math.sin(a) * 12 * PIX_Y, KAD.dim, 0.35);
+  pix(c, String(Math.floor(805 + km)).padStart(6, '0'), X(104), Y(105), KAD.on, 0.4);
+  pix(c, ((14.5 + km) % 1000).toFixed(1), X(119.5), Y(105), KAD.on, 0.4);
+  // conta-giros: arco elíptico grosso, centro embaixo à direita
+  const cx = X(161.8), cy = Y(100), n = 22, lit = Math.round((0.04 + rpm * 0.86) * n);
+  const pt = (a: number, rx: number, ry: number): [number, number] => [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry];
+  for (let i = 0; i < n; i++) {
+    const a0 = Math.PI + (i / n) * Math.PI / 2 + 0.006, a1 = Math.PI + ((i + 1) / n) * Math.PI / 2 - 0.012;
+    c.fillStyle = i < lit ? (i / n > 0.86 ? '#ff6a3a' : KAD.on) : KAD.off;
+    c.beginPath();
+    c.moveTo(...pt(a0, 19.5, 16)); c.lineTo(...pt(a1, 19.5, 16)); c.lineTo(...pt(a1, 15, 12.3)); c.lineTo(...pt(a0, 15, 12.3));
+    c.fill();
   }
-  pix(c, 'x100', ox + arc.x - 4, T + arc.y - 1, KAD.dim, 0.35);
+  for (const v of [5, 10, 20, 30, 40, 50, 60, 70]) {
+    const a = Math.PI + (v / 70) * Math.PI / 2;
+    const [lx, ly] = pt(a, 22.3, 18.6);
+    pix(c, String(v), lx + (v < 30 ? 0 : 0.5), ly, KAD.dim, 0.3);
+  }
+  pix(c, 'min-1', X(156.5), Y(96.3), KAD.dim, 0.25);
+  pix(c, 'x100', X(157), Y(99), KAD.dim, 0.25);
 }
 COCKPIT_ART['br-kadett'] = {
-  tells: [114, 103], // setas do quadro: embaixo, no meio do LCD
+  tells: [134.5, 105], // setas: na faixa de baixo, entre a parcial e o conta-giros
   dash: cp('br-kadett-dash'), top: cp('br-kadett-top'), wheel: cp('br-kadett-wheel'),
   glass: { at: [57, 141], thr: 256 }, // retrovisor esquerdo (vidro transparente)
   pivot: [128, 104], wheelTop: -21.49, wheelDx: -21.09, wheelDy: 25.11,

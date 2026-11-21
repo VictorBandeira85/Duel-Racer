@@ -33,7 +33,7 @@ const HELI_H = HELI_W * 0.56;
 // à frente do jogador e a altura dele: a profundidade do jogo é comprimida e a faixa de céu entre o
 // horizonte e o teto da cabine é estreita (~28 px no Toro V12): medido no print para ele caber nela
 const HOLD_DZ = 110 * SEG_LEN; // (era 175: longe demais, virava um ponto no horizonte)
-const HOLD_ALT = 3200; // ~110 segmentos à frente e alto: aparece no céu, acima das árvores (antes parecia pousado no asfalto)
+const HOLD_ALT = 2500; // ~110 segmentos à frente e alto: aparece no céu, acima das árvores (antes parecia pousado no asfalto)
 const SIGHT = 320 * SEG_LEN; // além disso (para trás) ele já não vê o carro
 const HELI_MAX = 265 / KMH; // ~265 km/h: um esportivo de pé no fundo consegue deixá-lo para trás
 const M_LON = KMH / 3.6, M_LAT = 1.8 / CAR_W;
@@ -168,6 +168,44 @@ function drawBody(g: CanvasRenderingContext2D, w: number, h: number, f: number, 
   box(0.47, 0.07, 0.53, 0.13, P.hub);
 }
 
+// arte do Victor (tools/ref/heli_art.py): de trás (no céu à frente do carro) e de frente (no retrovisor),
+// sem as pás do rotor principal, que giram por cima a partir da cabeça do rotor (alto da arte)
+import heliRearPng from './assets/heli/heli-rear.png';
+import heliFrontPng from './assets/heli/heli-front.png';
+const HELI_IMG: Record<'rear' | 'front', HTMLImageElement> = { rear: new Image(), front: new Image() };
+HELI_IMG.rear.src = heliRearPng;
+HELI_IMG.front.src = heliFrontPng;
+const artReady = (v: 'rear' | 'front') => HELI_IMG[v].complete && HELI_IMG[v].naturalWidth > 0;
+// caixa da arte: a largura do disco do rotor e 0,75 dela de altura (a arte, mais alta que larga, ocupa 92% da
+// altura; antes, na caixa achatada do desenho por código, ficava miúda no céu), cabeça do rotor no alto
+const ART_H = 0.75;
+function drawArt(g: CanvasRenderingContext2D, w: number, h: number, f: number, night: boolean, v: 'rear' | 'front') {
+  const im = HELI_IMG[v];
+  const ah = h * 0.92, aw = (ah * im.naturalWidth) / im.naturalHeight;
+  const x0 = (w - aw) / 2, y0 = h * 0.06;
+  g.imageSmoothingEnabled = true;
+  g.drawImage(im, x0, y0, aw, ah);
+  if (night) { // à noite escurece junto com o resto (as luzes vêm em heliLights)
+    g.globalCompositeOperation = 'source-atop';
+    g.fillStyle = 'rgba(8,12,28,0.6)';
+    g.fillRect(0, 0, w, h);
+    g.globalCompositeOperation = 'source-over';
+  }
+  // pás do rotor principal girando, a partir da cabeça do rotor
+  const P = night ? PAL.night : PAL.day;
+  const a = (f / ROTOR_FRAMES) * Math.PI;
+  const cx = w / 2, cy = y0 + ah * 0.035;
+  g.strokeStyle = P.blade;
+  g.lineWidth = Math.max(1, h * 0.05);
+  g.lineCap = 'butt';
+  g.beginPath();
+  for (const sg of [1, -1]) {
+    g.moveTo(cx, cy);
+    g.lineTo(cx + sg * Math.cos(a) * w * 0.5, cy + sg * Math.sin(a) * h * 0.07);
+  }
+  g.stroke();
+}
+
 // rotor: ~22 voltas por segundo vistas como 4 quadros (efeito estroboscópico de rotor de verdade)
 const frameNow = () => Math.floor(performance.now() / 34) % ROTOR_FRAMES;
 
@@ -195,9 +233,10 @@ export function heliDraw(c: CanvasRenderingContext2D, r: Race, K: number, s: Seg
   const f = frameNow();
   const ga = c.globalAlpha;
   c.globalAlpha = ga * h.fade;
-  drawCrisp(c, `heli${f}${night ? 'n' : ''}`, x, y, w, hh, (g, W, H) => drawBody(g, W, H, f, night), 64, tint);
+  const art = artReady('rear');
+  drawCrisp(c, `heli${f}${night ? 'n' : ''}${art ? 'a' : ''}`, x, y, w, art ? w * ART_H : hh, (g, W, H) => (art ? drawArt(g, W, H, f, night, 'rear') : drawBody(g, W, H, f, night)), 64, tint);
   c.globalAlpha = ga;
-  shot = { x, y, w, h: hh };
+  shot = { x, y, w, h: art ? w * ART_H : hh };
 }
 
 // sombra no asfalto de dia (o sol à frente e baixo: a sombra cai entre ele e o carro, mais perto) e,
@@ -289,7 +328,8 @@ export function heliMirror(c: CanvasRenderingContext2D, r: Race, cx: number, hz:
   const fr = frameNow();
   const ga = c.globalAlpha;
   c.globalAlpha = ga * h.fade;
-  drawCrisp(c, `heli${fr}${night ? 'n' : ''}`, x, y, w, hh, (g, W, H) => drawBody(g, W, H, fr, night), 64);
+  const art = artReady('front');
+  drawCrisp(c, `helif${fr}${night ? 'n' : ''}${art ? 'a' : ''}`, x, y, w, art ? w * ART_H : hh, (g, W, H) => (art ? drawArt(g, W, H, fr, night, 'front') : drawBody(g, W, H, fr, night)), 64);
   c.globalAlpha = ga;
 }
 

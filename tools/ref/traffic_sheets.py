@@ -19,8 +19,8 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from truck_art import OUT, body_width, boxes, lamps, palette, plate, red_mask, reduce, views  # noqa: E402
 
-BIG = {'bau', 'rodoviario', 'micro', 'leito', 'schoolbus'}
-NOPAINT = {'rodoviario', 'micro', 'leito', 'schoolbus'}
+BIG = {'bau', 'rodoviario', 'micro', 'leito', 'schoolbus', 'busalp', 'scania113'}
+NOPAINT = {'rodoviario', 'micro', 'leito', 'schoolbus', 'busalp'}
 W = 160
 # caixas (pixels do sprite) que nunca entram na máscara: peças vermelhas que não são lataria
 EXCL = {
@@ -28,7 +28,7 @@ EXCL = {
     ('sedan90', 'rear'): [(6, 63, 154, 80)],  # lanterna em faixa inteira
     ('corcel', 'rear'): [(55, 71, 105, 85)],  # faixa da lanterna que atravessa a tampa
 }
-EXCL_BIG = {'bau': [(0, 0, 999, 12)]}  # luzes vermelhas do alto do baú, acima da cabine
+EXCL_BIG = {'bau': [(0, 0, 999, 12)], 'scania113': [(0, 0, 999, 14)]}  # luzes vermelhas do alto do baú, acima da cabine
 
 
 # vistas em que a lataria vem em pedacinhos (jipe de trás: estepe e dobradiças cortam tudo): o vermelho

@@ -84,32 +84,34 @@ const BOXY = new Set<string>(['van', 'kombi', 'pickup', 'suv', 'ranger', 'cherok
 export type TrafficModel = 'sedan' | 'hatch' | 'pickup' | 'van' | 'truck' | 'fusca' | 'kombi' | 'suv' | 'sedan90' | NewCar | TruckModel | MotoModel;
 // carros da segunda leva de arte do Victor (tools/ref/traffic_sheets.py): picape média, sedã alemão, utilitário
 // esportivo, hatch dos anos 90, popular dos anos 70, jipe de lona, picape grande, picape pequena, peruas e hatch
-type NewCar = 'ranger' | 'mb190' | 'cherokee' | 'golf' | 'f147' | 'jipe' | 'f1000' | 'pampa' | 'belina' | 'caravan' | 'gol' | 'elba' | 'voyage' | 'saveiro' | 'delrey' | 'corcel' | 'volvo240';
+type NewCar = 'ranger' | 'mb190' | 'cherokee' | 'golf' | 'f147' | 'jipe' | 'f1000' | 'pampa' | 'belina' | 'caravan' | 'gol' | 'elba' | 'voyage' | 'saveiro' | 'delrey' | 'corcel' | 'volvo240' | 'marajo';
 // Caminhões (arte do Victor, tools/ref/truck_art.py): Kenworth W900 graneleiro (deserto, cânion), F-4000
 // boiadeiro (fazenda, savana, interior), Ford Cargo baú e VW 7.90 baú (cidade, interior), Mercedes L-1113
 // basculante (interior, polo industrial, serra) e Volvo N10 tanque (industrial, cidade, deserto)
-export type TruckModel = 'kenworth' | 'f4000' | 'cargo' | 'mb1113' | 'vw790' | 'volvon10' | 'bau' | BusModel;
+export type TruckModel = 'kenworth' | 'f4000' | 'cargo' | 'mb1113' | 'vw790' | 'volvon10' | 'bau' | 'scania113' | BusModel;
 // Ônibus (arte do Victor, tools/ref/traffic_sheets.py): rodoviário e leito nas estradas, micro na cidade
 // e no interior; entram no lugar de parte dos caminhões (BUS_SHARE)
-export type BusModel = 'rodoviario' | 'leito' | 'micro' | 'schoolbus';
+export type BusModel = 'rodoviario' | 'leito' | 'micro' | 'schoolbus' | 'busalp';
 const BUS_ANY: BusModel[] = ['rodoviario', 'rodoviario', 'leito'];
 const BUS_THEMES: Partial<Record<ThemeId, BusModel[]>> = {
-  desert: ['schoolbus', 'schoolbus', 'rodoviario'], canyon: ['schoolbus'],
+  desert: ['schoolbus', 'schoolbus', 'rodoviario'], canyon: ['schoolbus'], alpine: ['busalp'], alpinesnow: ['busalp'], // Setra de turismo nos Alpes
   city: ['micro', 'micro', 'rodoviario'], industrial: ['micro', 'rodoviario'], farm: ['micro', 'rodoviario', 'leito'], forest: ['micro', 'rodoviario', 'leito'],
 };
 const BUS_SHARE = 0.3;
 const TRUCK_THEMES: Partial<Record<ThemeId, TruckModel[]>> = {
   desert: ['kenworth', 'kenworth', 'volvon10'], canyon: ['kenworth'],
-  farm: ['f4000', 'f4000', 'mb1113', 'cargo', 'vw790'], savanna: ['f4000'],
-  forest: ['f4000', 'cargo', 'mb1113', 'vw790'], autumn: ['f4000', 'cargo', 'mb1113', 'vw790'], jungle: ['f4000', 'mb1113', 'cargo', 'vw790'],
-  city: ['cargo', 'vw790', 'volvon10', 'bau', 'bau'], industrial: ['mb1113', 'volvon10', 'bau'], mountain: ['mb1113', 'mb1113', 'cargo', 'bau'],
+  farm: ['f4000', 'f4000', 'mb1113', 'cargo', 'vw790', 'scania113'], savanna: ['f4000', 'scania113'],
+  forest: ['f4000', 'cargo', 'mb1113', 'vw790', 'scania113'], autumn: ['f4000', 'cargo', 'mb1113', 'vw790', 'scania113'], jungle: ['f4000', 'mb1113', 'cargo', 'vw790', 'scania113'],
+  city: ['cargo', 'vw790', 'volvon10', 'bau', 'bau'], industrial: ['mb1113', 'volvon10', 'bau', 'scania113'], mountain: ['mb1113', 'mb1113', 'cargo', 'bau', 'scania113'],
+  // Scania 113H com carreta baú: todas as estradas brasileiras
+  coast: ['scania113', 'cargo', 'vw790', 'mb1113', 'bau'],
 };
-const TRUCK_ANY: TruckModel[] = ['cargo', 'vw790', 'mb1113', 'volvon10', 'bau']; // cenários sem lista (litoral, praia, neve)
+const TRUCK_ANY: TruckModel[] = ['cargo', 'vw790', 'mb1113', 'volvon10', 'bau', 'scania113']; // cenários sem lista (litoral, praia, neve)
 // largura de cada PNG (traseira, frente) em px; a carroceria da vista mais larga tem 160 px = TRUCK_W, os
 // retrovisores passam disso (o sprite é desenhado mais largo na mesma proporção)
 const TRUCK_PX: Record<TruckModel, [number, number]> = {
   kenworth: [151, 160], f4000: [172, 174], cargo: [152, 189], mb1113: [164, 167], vw790: [156, 188], volvon10: [151, 160],
-  bau: [149, 165], rodoviario: [160, 174], micro: [160, 177], leito: [157, 183], schoolbus: [152, 172],
+  bau: [149, 165], rodoviario: [160, 174], micro: [160, 177], leito: [157, 183], schoolbus: [152, 172], busalp: [160, 176], scania113: [148, 167],
 };
 // Motos (arte do Victor, tools/ref/motos.py): custom estradeira no deserto/cânion/fazenda/savana,
 // esportiva carenada nas estradas rápidas (litoral, serra), popular de motoboy na cidade e no interior
@@ -140,7 +142,7 @@ const laneOff = (c: TrafficCar) => (!c.car && isMoto(c.model) ? Math.sign(c.base
 // = hatch; Monza = sedan; Fusca e Kombi; Taurus/Accord = sedan90; utilitários)
 const CAR_MODELS: TrafficModel[] = ['sedan', 'sedan', 'hatch', 'hatch', 'hatch', 'pickup', 'van', 'fusca', 'kombi', 'suv', 'sedan90', 'sedan90',
   'gol', 'gol', 'elba', 'f147', 'f147', 'pampa', 'belina', 'caravan', 'golf', 'mb190', 'ranger', 'cherokee', 'jipe', 'f1000',
-  'voyage', 'voyage', 'saveiro', 'delrey', 'corcel', 'volvo240', 'volvo240', 'volvo240'];
+  'voyage', 'voyage', 'saveiro', 'delrey', 'corcel', 'volvo240', 'volvo240', 'volvo240', 'marajo', 'marajo'];
 // Carros do jogo no meio do trânsito: quanto mais caro, mais raro (como na rua). Peso de cada
 // classe no sorteio; GAME_SHARE = fração dos carros (fora caminhões) que são modelos do jogo.
 // modelo do trânsito que também é carro do jogo: no sorteio, sai o carro do jogo no lugar dele (pedido do
@@ -802,6 +804,7 @@ export class Race {
     if (!c.truck && !c.car) c.car = twinCar(c.model, r());
     // Volvo 240 só nos Alpes e na serra (nos outros mapas vira outro carro do sorteio)
     if (c.model === 'volvo240' && !['alpine', 'alpinesnow', 'mountain', 'snow'].includes(this.def.theme)) c.model = 'sedan90';
+    if (c.model === 'marajo' && ['alpine', 'alpinesnow', 'desert', 'canyon'].includes(this.def.theme)) c.model = 'sedan90'; // perua brasileira: interior e cidade
     if (c.car) {
       // metade na cor de fábrica, o resto numa cor qualquer da paleta
       c.color = r() < 0.5 ? c.car.color : PAINTS[Math.floor(r() * PAINTS.length)].hex;

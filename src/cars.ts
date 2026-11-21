@@ -956,6 +956,7 @@ const TRAFFIC_PLATE: Record<string, number[]> = { // como PLATE_BOX, nos sprites
   belina: [64, 88, 97, 99, 160, 148], caravan: [65, 103, 97, 115, 160, 137], gol: [62, 77, 99, 88, 160, 141], elba: [63, 88, 99, 100, 160, 153],
   voyage: [63, 77, 98, 90, 160, 139], saveiro: [62, 109, 99, 122, 160, 142], delrey: [65, 100, 97, 113, 160, 134], corcel: [63, 99, 97, 111, 160, 126],
   volvo240: [62, 77, 98, 86, 160, 141], schoolbus: [63, 108, 91, 117, 152, 171],
+  marajo: [60, 78, 100, 91, 160, 137], busalp: [48, 137, 112, 157, 160, 200], scania113: [60, 165, 88, 175, 148, 213],
 };
 const TRAFFIC_GLOW: Record<string, { dots?: number[][]; head?: number[] /* farol esquerdo na frente (u, f) */; lw?: number; sig?: number[]; sigFront?: number[] /* pisca esquerdo (u, f) */; siren?: number[][]; sirenFront?: number[][]; sirenColors?: string[]; sirenColorsFront?: string[] }> = {
   sedan: { dots: [[0.15, 0.59], [0.85, 0.59]], head: [0.21, 0.57] }, hatch: { dots: [[0.17, 0.59], [0.83, 0.59]], head: [0.19, 0.555] },
@@ -995,6 +996,9 @@ const TRAFFIC_GLOW: Record<string, { dots?: number[][]; head?: number[] /* farol
   delrey: { dots: [[0.15, 0.64], [0.85, 0.64]], lw: 0.2, head: [0.169, 0.58], sig: [0.152, 0.534], sigFront: [0.06, 0.58] },
   volvo240: { dots: [[0.084, 0.62], [0.916, 0.62]], lw: 0.088, head: [0.187, 0.545], sig: [0.092, 0.465], sigFront: [0.075, 0.611] },
   schoolbus: { dots: [[0.254, 0.529], [0.746, 0.529]], lw: 0.066, head: [0.2, 0.79], sig: [0.172, 0.529], sigFront: [0.08, 0.6] },
+  marajo: { dots: [[0.1, 0.6], [0.9, 0.6]], lw: 0.13, head: [0.19, 0.59], sig: [0.1, 0.55], sigFront: [0.067, 0.6] },
+  busalp: { dots: [[0.09, 0.66], [0.91, 0.66]], lw: 0.1, head: [0.22, 0.74], sig: [0.08, 0.6], sigFront: [0.086, 0.757] },
+  scania113: { dots: [[0.16, 0.75], [0.84, 0.75]], lw: 0.2, head: [0.16, 0.73], sig: [0.1, 0.75], sigFront: [0.07, 0.73] },
   corcel: { dots: [[0.2, 0.6], [0.8, 0.6]], lw: 0.2, head: [0.15, 0.594], sig: [0.092, 0.619], sigFront: [0.044, 0.6] },
   // motos (tools/ref/motos.py): uma lanterna no meio, farol no meio (a esportiva tem dois), piscas da arte
   'moto-custom': { dots: [[0.505, 0.655]], lw: 0.19, head: [0.496, 0.421], sig: [0.28, 0.655], sigFront: [0.295, 0.533] },

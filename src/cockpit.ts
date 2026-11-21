@@ -1297,6 +1297,37 @@ const VTG = pumaGauges({
   ],
   needles: ['#f4f4f0', '#ffb050'], rest: 0, maxKmh: 246, needleK: 0.74, smallK: 0.8, glow: '255,160,60', drumLit: '#ffbe70',
 });
+// visor do console (temperatura, ventilação e relógio): a arte reduzida virava mancha; o jogo desenha as três
+// janelas no lugar delas, fundo oliva aceso e algarismos amarelos como no carro real
+function vectraLcd(c: CanvasRenderingContext2D, ox: number, r: Race) {
+  const T = ART_TOP + 3.2;
+  ox += 3.2;
+  const hf = (x: number, y: number, w: number, h: number, col: string) => { c.fillStyle = col; c.fillRect(ox + Math.round(x * 2) / 2, T + Math.round(y * 2) / 2, Math.round(w * 2) / 2, Math.round(h * 2) / 2); };
+  const BG = '#5a6a12', ON = '#eef23a', BOX = '#1e2028';
+  // algarismos do visor em grade de 3 x 5 pixels inteiros (fino demais vira borrão)
+  const digit = (x: number, y: number, d: string) => {
+    const g = VT_LCD_FONT[Number(d)];
+    for (let k = 0; k < 15; k++) if (g[k] === '1') hf(x + (k % 3), y + Math.floor(k / 3), 1, 1, ON);
+  };
+  hf(293, 81.5, 20.5, 31, BG); // as três janelas: temperatura, ventilação e relógio
+  hf(293, 90.5, 20.5, 0.5, '#24262c'); hf(293, 101.5, 20.5, 0.5, '#24262c');
+  const temp = String(r.def && cabinDark(r) > 0.3 ? 19 : 25);
+  digit(295, 83.5, temp[0]); digit(299, 83.5, temp[1]);
+  hf(303, 83.5, 1, 1, ON); // °
+  hf(305, 83.5, 3, 1, ON); hf(305, 83.5, 1, 5, ON); hf(305, 87.5, 3, 1, ON); // C
+  // ventilação: quadro escuro com o pictograma (saídas do para-brisa, do rosto e dos pés)
+  hf(296.5, 92, 12.5, 8.5, BOX);
+  hf(297.5, 93, 1.5, 0.5, ON); hf(301, 93, 2.5, 0.5, ON); hf(306, 93, 1.5, 0.5, ON);
+  hf(297.5, 95, 1, 0.5, ON); hf(300, 95, 4, 0.5, ON); hf(307, 95, 1, 0.5, ON);
+  hf(297.5, 97, 0.5, 0.5, ON); hf(300.5, 96.5, 3.5, 0.5, ON); hf(302, 96.5, 0.5, 2.5, ON);
+  hf(297.5, 99, 1.5, 0.5, ON); hf(305.5, 99, 1.5, 0.5, ON);
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0'), mm = String(now.getMinutes()).padStart(2, '0');
+  digit(294.5, 104.5, hh[0]); digit(298.5, 104.5, hh[1]); digit(304.5, 104.5, mm[0]); digit(308.5, 104.5, mm[1]);
+  if (now.getSeconds() % 2) { hf(302, 105.5, 1, 1, ON); hf(302, 107.5, 1, 1, ON); }
+}
+const VT_LCD_FONT = ['111101101101111', '010110010010111', '111001111100111', '111001111001111', '101101111001001',
+  '111100111001111', '111100111101111', '111001001001001', '111101111101111', '111101111001111'];
 COCKPIT_ART['br-vectra'] = {
   dash: cp('br-vectra-dash'), top: cp('br-vectra-top'), wheel: cp('br-vectra-wheel'),
   glass: { at: [53, 117], thr: 256 }, // retrovisor esquerdo (vidro transparente)
@@ -1307,7 +1338,7 @@ COCKPIT_ART['br-vectra'] = {
   faces: [{ src: VT_FACE, x: VTG.PL.x, y: VTG.PL.y, w: VTG.PL.w, h: VTG.PL.h }],
   glow: '255,160,60', glowK: 0.45,
   aux: [],
-  under: VTG.under, extra: VTG.extra,
+  under: VTG.under, extra: (c, ox, r) => { VTG.extra?.(c, ox, r); vectraLcd(c, ox, r); },
 };
 queueMicrotask(() => faceImg(VT_FACE));
 

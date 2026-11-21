@@ -1929,8 +1929,9 @@ export class Race {
       // elástico: na frente, o rival alivia (os mais fracos aliviam mais, dando chance de
       // recuperar depois de uma batida); atrás, acelera um pouco
       const skill = this.aiSkill ?? this.course.rivalSkill;
-      const floor = clamp(0.85 - (1 - skill) * 1.6, 0.62, 0.85);
-      target = max * skill * clamp(1 - gap * 0.0025, floor, 1.06);
+      // (bem mais leve que antes: ele não fica esperando o jogador chegar para só então passar o trânsito)
+      const floor = clamp(0.93 - (1 - skill) * 0.8, 0.82, 0.93);
+      target = max * skill * clamp(1 - gap * 0.0012, floor, 1.06);
       // limite de curva igual ao do jogador: olha as próximas curvas e alivia antes de
       // entrar (o agressivo vai mais perto do limite, o cauteloso com folga)
       if (r.style === 'agressivo') target *= sharp ? 1 : 1.015;
@@ -1996,8 +1997,8 @@ export class Race {
         // (e aí sai sem esperar ninguém abrir caminho)
         if (lanes === 2 && lx < 0 && Math.abs(r.x - lx) > LANE_W / 2) score = pass2.need && pass2.ok ? 10 : -1;
         const playerLane = Math.abs(this.x - lx) < LANE_W / 2;
-        // o agressivo fecha a faixa do jogador quando ele vem colado atrás
-        if (r.style === 'agressivo' && gap > 0.5 && gap < 7 && playerLane) score += 1.5;
+        // (não fecha mais a faixa do jogador que vem colado atrás: virava freada na cara dele)
+        if (gap > 0.5 && gap < 7 && playerLane) score -= 0.5;
         // jogador logo à frente: não fica preso atrás dele, prepara a ultrapassagem pelo lado
         // (a partir da distância em que ele passaria a seguir o jogador, senão ficaria preso no vácuo)
         if (gap < -0.5 && gap > -pullOut) score += playerLane ? -2 : 0.6;
@@ -2028,7 +2029,8 @@ export class Race {
       } else if (r.pendX === undefined) r.targetX = bestX;
       // faixa toda fechada: alivia (na mão dupla quem cuida disso é o seguir o carro da frente,
       // a uma distância de onde dá para sair e ultrapassar assim que abrir)
-      if (bestScore < 1 && lanes !== 2) target = Math.min(target, max * 0.35);
+      // (sem a freada para 35% de antes: quem segura é o "segue quem está na frente" lá embaixo, que freia
+      // só o necessário para ficar a uma distância segura)
     }
     // na contramão com alguém vindo de frente perto: volta já para a própria faixa (sem esperar
     // o pisca) e alivia; se a faixa dele estiver ocupada ao lado, freia forte para se encaixar
@@ -2055,7 +2057,7 @@ export class Race {
       if (r.sigT <= 0 || r.mistake > 0) {
         r.targetX = r.pendX;
         r.pendX = undefined;
-      } else if (this.laneTTC(r.targetX) < 1) target = Math.min(target, max * 0.5); // esperando o aviso: não encosta em ninguém
+      } // (esperando o aviso: quem segura é o "segue quem está na frente"; antes caía para 50% de uma vez)
     }
     // desliga o pisca ao terminar a troca de faixa
     if (r.signal && r.pendX === undefined && Math.abs(r.targetX - r.x) < 120) r.signal = 0;
@@ -2091,7 +2093,9 @@ export class Race {
     {
       const half = CAR_W / 2;
       // o que o freio dele faz de verdade (mesma conta do freio lá embaixo), com folga
-      const aB = toGame(G * this.rivalCar.brakeG * BRAKE_BOOST * this.surface(this.rivalCar) * aeroMul(this.rivalCar, r.speed)) * 0.6;
+      // jogador colado atrás: começa a aliviar mais cedo (freia com metade da força), sem pisar de uma vez
+      const tail = this.state === 'drive' && gap > 0 && gap < 8 && Math.abs(this.x - r.x) < CAR_W;
+      const aB = toGame(G * this.rivalCar.brakeG * BRAKE_BOOST * this.surface(this.rivalCar) * aeroMul(this.rivalCar, r.speed)) * (tail ? 0.3 : 0.6);
       const lo = Math.min(r.x, r.targetX) - half, hi = Math.max(r.x, r.targetX) + half;
       const follow = (z: number, x: number, w: number, speed: number) => {
         const dz = z - r.z;

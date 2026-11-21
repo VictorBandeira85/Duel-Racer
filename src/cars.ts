@@ -374,7 +374,7 @@ const LAMPS: Record<string, LampDef> = {
   'br-corsa': { head: [0.17, 0.639, 0.06], sigRear: [0.038, 0.555, 0.107, 0.592], sigFront: [0.075, 0.615, 0.11, 0.655] }, // Corsa GSi (corsa_sprites.py)
   'br-uno': { head: [0.19, 0.55, 0.06], sigRear: [0.065, 0.46, 0.18, 0.535], sigFront: [0.075, 0.51, 0.105, 0.6] },
   'br-kadett': { head: [0.2, 0.52, 0.06], sigRear: [0.07, 0.46, 0.15, 0.54], sigFront: [0.05, 0.46, 0.11, 0.58] },
-  'br-pumagte': { head: [0.131, 0.533, 0.055], sigRear: [0.264, 0.523, 0.317, 0.621], sigFront: [0.253, 0.639, 0.025] }, // Puma GTE 1974 (pumagte_sprites2.py)
+  'br-pumagte': { head: [0.131, 0.533, 0.055], sigRear: [0.115, 0.523, 0.175, 0.621], sigRed: true, sigFront: [0.253, 0.639, 0.025] }, // Puma GTE 1974 (pumagte_sprites2.py)
   'br-pumagtb': { head: [0.13, 0.586, 0.042], sigRear: [0.027, 0.451, 0.21, 0.596], sigRed: true, sigFront: [0.11, 0.785, 0.21, 0.825] }, // Puma GTB S2 (pumagtb_sprites.py)
   'br-golgti': { head: [0.18, 0.57, 0.06], sigRear: [0.03, 0.585, 0.09, 0.665], sigFront: [0.025, 0.515, 0.085, 0.62] }, // Gol GTI 1993 (golgti_sprites.py)
   'br-vectra': { head: [0.21, 0.56, 0.05], sigRear: [0.06, 0.44, 0.135, 0.49], sigFront: [0.075, 0.515, 0.13, 0.6] },

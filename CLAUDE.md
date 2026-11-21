@@ -191,6 +191,10 @@
 4. Depois de mexer em `src/*.ts`, se o teste der igual ao anterior, reiniciar o vite (cache).
 
 ## Lições (erros que já aconteceram — não repetir)
+- Lanternas traseiras dos sprites: nada aceso na arte (miolo amarelo/branco de lâmpada, lente de ré cor de
+  pêssego): o jogo acende pisca/freio por cima. Pisca (`sigRear`) na ponta de fora da lanterna; luz de ré
+  apagada (clara, ou fumê quando a lanterna real é fumê, como no Voyage Sport). Conferir todas com a folha de
+  traseiras (pisca e pontos de luz marcados) e corrigir como `tools/ref/rear_lamps_unlit.py`.
 - Recorte de cabine: tons azulados/cinzentos de peças (molduras, colunas, borracha) passam por vidro;
   marcar as peças à mão (polígono ou varredura por linha a partir do friso) em vez de confiar só na cor.
 - Janela da porta: só até a borda do retrovisor; base do retrovisor e coluna ficam sólidas.

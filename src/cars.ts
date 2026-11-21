@@ -94,6 +94,7 @@ export interface CarSpec {
   icEff?: number; // intercooler do kit: fração do calor do turbo que ele tira em alta rotação
   pods?: ('boost' | 'oil' | 'fuel')[]; // relógios auxiliares na cabine, conforme as peças instaladas
   prep?: number; // multiplicador de potência das peças (1 = original): tração dianteira preparada patina mais
+  brakeFade?: number; // quanto o freio perde esquentando (1 = de série; a preparação de freio diminui)
   lsd?: number; // diferencial autoblocante da preparação (0 aberto, 0,5 esportivo, 1 de corrida): patina menos e sai melhor da curva
   carb?: boolean; // alimentação por carburador (escala do relógio de combustível)
   soundMods?: import('./tuning').SoundMods; // mudanças no ronco pelas peças instaladas
@@ -361,8 +362,8 @@ export const DEALER_CARS = CARS.filter((c) => !c.arcadeOnly);
 const VARIANT_PAINT: Record<string, string> = { nero: 'Deep Black', rosso: 'Rosso Lucido', blu: 'Blu Le Mans', verde: 'Verde Ithaca', giallo: 'Giallo' };
 
 const LAMPS: Record<string, LampDef> = {
-  diablo: { pop: [0.14, 0.485, 0.3, 0.6], sigRear: [0.106, 0.43, 0.04], sigFront: [0.113, 0.7, 0.175, 0.75] },
-  patrolsv: { pop: [0.14, 0.495, 0.3, 0.608], podColor: '#1c1c1e', sigRear: [0.106, 0.458, 0.04], sigFront: [0.113, 0.706, 0.175, 0.755] }, // Diablo novo + giroflex (patrolsv_sprites.py)
+  diablo: { pop: [0.14, 0.485, 0.3, 0.6], sigRear: [0.184, 0.437, 0.04], sigFront: [0.113, 0.7, 0.175, 0.75] },
+  patrolsv: { pop: [0.14, 0.495, 0.3, 0.608], podColor: '#1c1c1e', sigRear: [0.184, 0.461, 0.04], sigFront: [0.113, 0.706, 0.175, 0.755] }, // Diablo novo + giroflex (patrolsv_sprites.py)
   f40: { head: [0.195, 0.613, 0.03], sigRear: [0.138, 0.446, 0.04], sigFront: [0.105, 0.595, 0.165, 0.649] },
   zr1: { pop: [0.105, 0.385, 0.29, 0.505], sigRear: [0.135, 0.39, 0.045], sigRed: true, sigFront: [0.03, 0.66, 0.07, 0.73] },
   testarossa: { pop: [0.067, 0.424, 0.256, 0.534], popLit: [0.126, 0.472], sigRear: [0.08, 0.42, 0.182, 0.556], sigFront: [0.061, 0.636, 0.228, 0.686] },

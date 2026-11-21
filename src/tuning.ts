@@ -21,6 +21,7 @@ export interface Part {
   cost: number; // fração do preço do carro (0 = original)
   power?: number; // multiplicador de potência
   grip?: number; brake?: number; handling?: number; traction?: number; // multiplicadores
+  fade?: number; // quanto o freio perde esquentando (1 = o de série)
   mass?: number; // multiplicador do peso (bancos concha tiram peso)
   drop?: number; // quanto a carroceria desce (fração da altura livre): 0,2 esportiva, 0,35 corrida
   forced?: 'turbo' | 'super';
@@ -212,8 +213,8 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
       { id: 'semabafador', name: 'Sem abafadores', note: '+7% cv, rouco e alto', cost: 0.04, power: 1.07, sound: { drive: 1.4, vol: 1.18, rasp: 0.05, low: 1.18, bass: 1.45, mid: 1.28, resShift: 0.94, fbAdd: 0.1, pipe: 0.88, pops: 0.35, burble: 0.2, crackle: 0.25 } },
       { id: 'corrida', name: 'Sem restrições (corrida)', note: '+9% cv, bruto, estouros', cost: 0.06, power: 1.09, sound: { drive: 1.55, vol: 1.25, rasp: 0.07, low: 1.25, bass: 1.6, mid: 1.38, resShift: 0.92, fbAdd: 0.15, pipe: 0.8, pops: 0.7, burble: 0.45, crackle: 0.6, cabinOpen: 1.05 } }] },
     { id: 'pneus', name: 'Pneus', parts: [ORIGINAL(),
-      { id: 'esportivo', name: 'Esportivo de rua', note: '+9% curva, +15% largada', cost: 0.03, grip: 1.09, brake: 1.06, traction: 1.15, handling: 1.045 },
-      { id: 'semislick', name: 'Semi slick', note: '+18% curva, +35% largada', cost: 0.07, grip: 1.18, brake: 1.12, traction: 1.35, handling: 1.075 }] },
+      { id: 'esportivo', name: 'Esportivo de rua', note: '+9% curva, +15% largada', cost: 0.03, grip: 1.09, traction: 1.15, handling: 1.045 },
+      { id: 'semislick', name: 'Semi slick', note: '+18% curva, +35% largada', cost: 0.07, grip: 1.18, traction: 1.35, handling: 1.075 }] },
     { id: 'suspensao', name: 'Suspensão', parts: [ORIGINAL(),
       { id: 'esportiva', name: 'Esportiva', note: '-20% altura', cost: 0.04, drop: 0.2, grip: 1.06, handling: 1.075 },
       { id: 'corrida', name: 'De corrida', note: '-35% altura', cost: 0.08, drop: 0.35, grip: 1.105, handling: 1.135 }] },
@@ -225,8 +226,10 @@ export function slotsFor(car: CarSpec, build?: Build): Slot[] {
       { id: 'esportivo', name: 'Autoblocante esportivo', note: '+10% largada, +4% curva', cost: 0.04, lsd: 0.5, traction: 1.1, grip: 1.04, handling: 1.03 },
       { id: 'corrida', name: 'Autoblocante de corrida', note: '+20% largada, +7% curva', cost: 0.07, lsd: 1, traction: 1.2, grip: 1.07, handling: 1.05 }] },
     { id: 'freios', name: 'Freios', parts: [ORIGINAL(),
-      { id: 'esportivo', name: 'Discos ventilados', note: '+10,5% freio', cost: 0.04, brake: 1.105 },
-      { id: 'corrida', name: 'Discos de corrida', note: '+21% freio', cost: 0.08, brake: 1.21 }] },
+      // freio de série é "meio ruim" (race.ts BRAKE_STOCK) e esquenta nas freadas seguidas (fade); só a
+      // preparação de freio melhora a força e o aquecimento
+      { id: 'esportivo', name: 'Discos ventilados', note: '+25% freio, esquenta menos', cost: 0.04, brake: 1.25, fade: 0.45 },
+      { id: 'corrida', name: 'Discos de corrida', note: '+45% freio, quase não esquenta', cost: 0.08, brake: 1.45, fade: 0.12 }] },
     // alívio de peso em etapas (cada uma inclui as anteriores); id 'bancos' e 'concha' mantidos por causa dos saves
     { id: 'bancos', name: 'Alívio de peso', parts: [ORIGINAL(),
       // (peso menor: acelera mais, freia em menos espaço, contorna mais rápido e muda de direção mais
@@ -273,7 +276,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
   let power = 1, grip = 1, brake = 1, handling = 1, traction = 1, drop = 0, mass = 1, boost = 0, launchCap: number | undefined, launchRpm: number | undefined, spool: [number, number] | undefined;
   let forced: 'turbo' | 'super' | undefined;
   let wheel: string | undefined;
-  let lsd = 0;
+  let lsd = 0, fade = 1;
   const snd: SoundMods = {};
   for (const sl of slotsFor(car, build)) { // só as vagas que valem com a indução instalada
     const p = partOf(car, sl.id, build[sl.id]);
@@ -284,6 +287,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     brake *= p.brake ?? 1;
     handling *= p.handling ?? 1;
     traction *= p.traction ?? 1;
+    if (p.fade !== undefined) fade = Math.min(fade, p.fade);
     mass *= p.mass ?? 1;
     drop = Math.max(drop, p.drop ?? 0);
     forced = p.forced ?? forced;
@@ -301,11 +305,10 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
       if (m.turbo) snd.turbo = true;
     }
   }
-  // carro mais leve: o pneu trabalha menos carregado (rende mais por quilo), freia em menos espaço e
+  // carro mais leve: o pneu trabalha menos carregado (rende mais por quilo) e
   // muda de direção com menos inércia (antes o alívio só mexia na aceleração e quase não se sentia)
   if (mass < 1) {
     grip *= mass ** -0.35;
-    brake *= mass ** -0.45;
     handling *= mass ** -0.6;
     // a tração da ficha é calibrada pelo 0-100 do carro de série (já traz o peso dele): mais leve, o
     // mesmo motor leva menos massa e a arrancada melhora junto (antes travava no limite antigo)
@@ -337,6 +340,7 @@ export function applyBuild(car: CarSpec, build: Build | undefined): CarSpec {
     carb: carbWith(car, build),
     prep: power,
     lsd: lsd || undefined,
+    brakeFade: fade,
     launchCap,
     launchRpm,
     // aparelhos na cabine: pressão escolhida no wastegate (carburado) ou boost controller (injeção) e o

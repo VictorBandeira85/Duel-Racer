@@ -29,6 +29,10 @@ const TRAFFIC_KG = 1300;
 const M_LON = KMH / 3.6; // unidades do mundo -> metros, no sentido da pista (sirenes)
 const M_LAT = 1.8 / CAR_W; // e de lado (o carro tem 1,8 m)
 const BRAKE_BOOST = 1.2; // freios 20% mais fortes que a ficha (pedido de jogabilidade)
+// o jogador: freio de série "meio ruim" (cada carro com a força do sistema dele, brakeG da ficha: tambor atrás
+// nos populares, discos nos esportivos) e que esquenta em freadas fortes seguidas; só a preparação de freio
+// melhora (tuning.ts: força e brakeFade). O rival segue com BRAKE_BOOST
+const BRAKE_STOCK = 0.88;
 const SIGNAL_LEAD = 0.8; // s de pisca antes de trocar de faixa (mão dupla)
 const FLASH_T = 2.2; // s do pedido de passagem: sobe o farol, pisca três vezes, abaixa
 // viatura de cada classe (a do carro do jogador, ou a da região na carreira se for mais alta): D o Savana GLS
@@ -941,7 +945,7 @@ export class Race {
     if (driving && this.speed > 0 && this.pitStop) {
       const toPump = this.track.finishZ + 6 * SEG_LEN - this.playerZ;
       const vEnd = 18 / KMH;
-      const dec = toGame(G * this.car.brakeG * BRAKE_BOOST) * 0.55; // freada firme (a real é menor que a nominal), sem travar
+      const dec = toGame(G * this.car.brakeG * BRAKE_STOCK) * 0.55; // freada firme (a real é menor que a nominal), sem travar
       if (toPump > 0 && toPump < this.track.finishZ - this.track.startZ && (this.speed * this.speed - vEnd * vEnd) / (2 * dec) >= toPump - SEG_LEN) {
         this.throttle = false;
         this.gasPedal = 0;
@@ -1076,8 +1080,13 @@ export class Race {
     if (this.braking) {
       if (this.state === 'crash') { /* a batida desacelera em updateCrash (arrastando) */ }
       else if (pulling) this.speed -= max * 0.17 * dt;
-      else this.speed -= toGame(G * this.car.brakeG * BRAKE_BOOST * surf * aero * (1 - this.air * 0.5)) * this.brakePedal * dt; // freio parcial = freada parcial
+      else {
+        this.speed -= toGame(G * this.car.brakeG * BRAKE_STOCK * this.brakeFadeMul() * surf * aero * (1 - this.air * 0.5)) * this.brakePedal * dt; // freio parcial = freada parcial
+        // esquenta com a força da freada e a velocidade (energia dissipada)
+        this.brakeHeat = Math.min(1.5, this.brakeHeat + this.brakePedal * (this.speed / max) * dt * 0.22);
+      }
     }
+    this.brakeHeat = Math.max(0, this.brakeHeat - dt * (0.05 + 0.1 * (this.speed / max))); // esfria (mais rápido andando)
     // acima do corte de giro (reduziu marcha ou embalou na descida): o motor segura
     const limMax = gearMax * cut * (1 + (this.gear === this.car.gears.length - 1 ? this.pt.over : 0));
     if (this.speed > limMax) this.speed -= (this.speed - limMax) * (slope < -0.05 ? 0.4 : 1.5) * dt;
@@ -1328,6 +1337,11 @@ export class Race {
     setSteam(this.smoke);
   }
 
+  brakeHeat = 0; // 0 frio, 1 quente (depois de várias freadas fortes seguidas)
+  // freio esquentado perde força (fade): o de série perde até ~30%; preparado, bem menos
+  private brakeFadeMul() {
+    return 1 - 0.3 * (this.car.brakeFade ?? 1) * clamp(this.brakeHeat - 0.45, 0, 1);
+  }
   // quanto o carro tende a patinar na largada: potência por peso (os fracos quase não patinam),
   // tração integral bem menos
   private launchK() {

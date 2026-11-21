@@ -5,7 +5,7 @@
   vidros dos carros sempre cor de vidro. Só marcas e logos fictícias (src/assets/brands.json).
 
 ## Escopo
-- **Só mexer nos carros que o Victor já mandou atualizados**: Toro V12 (Diablo) e a viatura SV,
+- **Só mexer nos carros que o Victor já mandou atualizados**: Toro V12 (Diablo) e a viatura SV (lanternas: depois dos sprites rodar diablo_rear_lamps.py, âmbar do pisca por dentro),
   Fúria TR, Fúria F4 (cabine nova: tools/ref/f40_cockpit2.py, painel da arte sem volante, volante da com volante, com o quadro Veglia e a luz verde de antes por decisão do Victor), Kaze NX, Serpe V10, Gaúcho GTI, Ímola S/R (hatch), Ímola Classic Coupé, Jornada LS
   Jornada Sport (Voyage Sport 1992: voyagesport_*.py; depois do voyagesport_sprites.py rodar voyagesport_reverse.py: luz de ré apagada) e Savana GLS (Santana GLS 1990: santana_*.py;
   depois do santana_sprites.py rodar santana_rear_panel.py e santana_side_lamp.py)
@@ -137,6 +137,9 @@
   (lateral 400, frente/traseira 260). Comparar lado a lado com o Viper antes de publicar.
 
 ## Rodas, troca de carro e preparação
+- Freios: o de série é "meio ruim" (BRAKE_STOCK em race.ts sobre o brakeG de cada carro) e esquenta em freadas
+  fortes seguidas (brakeHeat/brakeFade); só a vaga Freios melhora (força e aquecimento). Pneus e alívio de peso
+  não mexem no freio (pedido do Victor). O rival segue com BRAKE_BOOST.
 - Rodas da lateral (`WHEELS` em cars.ts): sempre medir com `python3 tools/qa/wheel_fit.py <arte>` e
   conferir com `--sheet` (roda girada em 4 ângulos); o raio é o do aro, não o do pneu.
 - Troca de carro animada: `src/carswap.ts` (`carSwap(slot, carro, t)` dentro da foto). Tela nova com

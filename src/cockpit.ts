@@ -1330,6 +1330,7 @@ const VT_LCD_FONT = ['111101101101111', '010110010010111', '111001111100111', '1
   '111100111001111', '111100111101111', '111001001001001', '111101111101111', '111101111001111'];
 COCKPIT_ART['br-vectra'] = {
   dash: cp('br-vectra-dash'), top: cp('br-vectra-top'), wheel: cp('br-vectra-wheel'),
+  dashMask: cp('br-vectra-dash-mask'), topMask: cp('br-vectra-top-mask'), // carcaça do retrovisor na cor do carro
   glass: { at: [53, 117], thr: 256 }, // retrovisor esquerdo (vidro transparente)
   pivot: [128, 104], wheelTop: -17.83, wheelDx: 24.07, wheelDy: -0.68,
   radar: [205, 26],

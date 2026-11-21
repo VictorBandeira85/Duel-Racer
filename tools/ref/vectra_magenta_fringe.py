@@ -8,7 +8,9 @@ for n in ('dash', 'top', 'wheel'):
     f = f'src/assets/cockpit/br-vectra-{n}.png'
     a = np.array(Image.open(f).convert('RGBA'))
     i = a.astype(int)
-    pink = (i[..., 0] > i[..., 1] + 25) & (i[..., 2] > i[..., 1] + 25) & (i[..., 3] > 0)
+    lo = np.minimum(i[..., 0], i[..., 2])
+    pink = ((i[..., 0] > i[..., 1] + 25) & (i[..., 2] > i[..., 1] + 25)
+            | (lo >= 8) & (i[..., 1] * 2.5 < lo)) & (i[..., 3] > 0)   # e a franja escura (roxo quase preto)
     good = ~pink & (i[..., 3] > 200)
     h, w = pink.shape
     out = a.copy()

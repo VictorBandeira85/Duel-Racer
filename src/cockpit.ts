@@ -1271,21 +1271,21 @@ queueMicrotask(() => faceImg(CS_FACE));
 // em barra com o disco escuro grande por cima; aceso em âmbar
 const VT_FACE = cp('br-vectra-cluster');
 const VTG = pumaGauges({
-  id: 'br-vectra', plate: [80, 35, 110, 41], face: VT_FACE, lit: cp('br-vectra-cluster-lit'), lamps: cp('br-vectra-lamps'),
-  lamp: { batt: [92.1, 71.6, 3.2], oil: [133.5, 71.6, 6.8] },
-  speed: [137, 57, 19.5], tach: [105.5, 57, 16.5],
+  id: 'br-vectra', plate: [83, 35, 110, 41], face: VT_FACE, lit: cp('br-vectra-cluster-lit'), lamps: cp('br-vectra-lamps'),
+  lamp: { batt: [95.1, 71.6, 3.2], oil: [136.5, 71.6, 6.8] },
+  speed: [140, 57, 19.5], tach: [108.5, 57, 16.5],
   speedA: (v) => 180 + (Math.min(246, v) - 20) * 0.877,
   tachA: (k) => 178 + 16.25 * clamp(k, -0.1, 8.2),
   smalls: [
-    [[170, 58, 8.5], () => 180 + (clamp(50 + ((gauges.water - 0.3) / 0.25) * 40, 46, 134) - 50) * (90 / 80)],
-    [[183.4, 58, 8.5], () => 186 + 66 * clamp(gauges.fuel, -0.03, 1.03)],
+    [[173, 58, 8.5], () => 180 + (clamp(50 + ((gauges.water - 0.3) / 0.25) * 40, 46, 134) - 50) * (90 / 80)],
+    [[186.4, 58, 8.5], () => 186 + 66 * clamp(gauges.fuel, -0.03, 1.03)],
   ],
   needles: ['#f4f4f0', '#ffb050'], rest: 0, maxKmh: 246, needleK: 0.74, smallK: 0.8, glow: '255,160,60', drumLit: '#ffbe70',
 });
 COCKPIT_ART['br-vectra'] = {
   dash: cp('br-vectra-dash'), top: cp('br-vectra-top'), wheel: cp('br-vectra-wheel'),
-  glass: { at: [60, 113], thr: 256 }, // retrovisor esquerdo (vidro transparente)
-  pivot: [128, 104], wheelTop: -19.14, wheelDx: 7, wheelDy: -10.51,
+  glass: { at: [62, 113], thr: 256 }, // retrovisor esquerdo (vidro transparente)
+  pivot: [128, 104], wheelTop: -19.14, wheelDx: 10, wheelDy: -10.51,
   radar: [205, 26],
   speedMax: 240, speedRest: 0, tachReal: true,
   needle: '#f4f4f0', needleW: 1.4, needleTail: 2.0, hub: '#2a2a30', hubR: 2.6,

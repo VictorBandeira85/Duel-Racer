@@ -24,13 +24,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import onca_gte_gauges as G  # noqa: E402
 from PIL import Image, ImageDraw  # noqa: E402
 
-G.X0, G.Y0, G.X1, G.Y1 = 80.0, 35.0, 190.0, 76.0
+G.X0, G.Y0, G.X1, G.Y1 = 83.0, 35.0, 193.0, 76.0
 G.W, G.H = int(round((G.X1 - G.X0) * G.K)), int(round((G.Y1 - G.Y0) * G.K))
 G.KO = 8
-TACH = dict(x=105.5, y=57.0, R=16.5)
-SPEED = dict(x=137.0, y=57.0, R=19.5)
-TEMP = dict(x=170.0, y=58.0, R=8.5)
-FUEL = dict(x=183.4, y=58.0, R=8.5)
+TACH = dict(x=108.5, y=57.0, R=16.5)
+SPEED = dict(x=140.0, y=57.0, R=19.5)
+TEMP = dict(x=173.0, y=58.0, R=8.5)
+FUEL = dict(x=186.4, y=58.0, R=8.5)
 tach_a = lambda k: 178.0 + k * 16.25
 speed_a = lambda v: 180.0 + (v - 20) * 0.877
 temp_a = lambda t: 180.0 + (t - 50) * 90.0 / 80      # 50 °C frio (9h) a 130 °C quente (12h)
@@ -39,7 +39,7 @@ DAY = dict(G.DAY, face=(38, 40, 46), ink=(238, 238, 236), red=(220, 40, 30), ico
 LIT = dict(G.LIT, face=(16, 14, 14), ink=(255, 170, 72), dim=(220, 130, 50), red=(255, 70, 40), icon_off=(64, 44, 24), drum=(10, 9, 8), white=(150, 110, 60))
 BLUE = (60, 150, 230)
 ROW_Y = 71.6
-LAMP_X = [84.5, 88.3, 92.1, 95.9, 99.7, 103.5, 107.3, 115.0, 133.5, 147.0, 158.0, 165.5, 173.0, 180.5]
+LAMP_X = [87.5, 91.3, 95.1, 98.9, 102.7, 106.5, 110.3, 118.0, 136.5, 150.0, 161.0, 168.5, 176.0, 183.5]
 LAMPS = [('batt', 2), ('oil', 8)]  # índice em LAMP_X
 
 

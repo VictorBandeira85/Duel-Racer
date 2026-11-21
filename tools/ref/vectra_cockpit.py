@@ -27,7 +27,7 @@ import brand_badges  # noqa: E402
 ID = 'br-vectra'
 S = 0.25   # a arte é mais aberta (volante e retrovisor maiores na imagem): escala menor que a dos outros
 PXW, PXH = 1 / S, (1 / S) / (8 / 7)
-PIV_X = 832.0   # retrovisor esquerdo dentro da tela de celular; volante 7 px à direita do centro
+PIV_X = 820.0   # retrovisor esquerdo inteiro na tela de celular; as bordas que a arte não cobre são construídas (edge_build)
 WHEEL_C = (860.0, 467.0)
 Y0D = 150.0
 PIV_N = (128.0, 104.0)
@@ -72,7 +72,12 @@ def dash_line(nw):
             if col[k:k + 7].sum() >= 6:
                 d[x] = 175 + k
                 break
-    return np.array([np.median(d[max(0, x - 20):x + 21]) for x in range(W)])
+    d = np.array([np.median(d[max(0, x - 20):x + 21]) for x in range(W)])
+    # linha lisa (a borda do painel é uma curva suave): polinômio de 3º grau à direita da coluna A
+    xs = np.arange(560, W)
+    cf = np.polyfit(xs, d[560:], 3)
+    d[560:] = np.polyval(cf, xs)
+    return d
 
 
 def glass_mask(nw):
@@ -92,14 +97,19 @@ def glass_mask(nw):
     mir = cv2.fillPoly(np.zeros((H, W), np.uint8), [hull], 1) > 0
     frame = house & ~mir & ~sc        # moldura do retrovisor fica
     # rente à linha do painel: o que ainda é cenário (pé da grade, mato, céu) também é vidro
-    band = (xx > WIND_X(yy)) & (yy >= dl[xx] - 2) & (yy < dl[xx] + 8)
+    band = (xx > WIND_X(yy)) & (yy >= dl[xx] - 2) & (yy < dl[xx] + 3)
     g = (wind | win | mir | (band & sc)) & ~frame
     g = cv2.morphologyEx(g.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8)) > 0
     # postes da grade em pé sobre o painel (estreitos): saem numa abertura horizontal
-    near = (xx > WIND_X(yy) + 20) & (yy >= dl[xx] - 25) & (yy < dl[xx] + 14)
+    near = (xx > WIND_X(yy) + 20) & (yy >= dl[xx] - 25) & (yy < dl[xx] + 6)
     op = ~g & near
     wide = cv2.morphologyEx(op.astype(np.uint8), cv2.MORPH_OPEN, np.ones((1, 41), np.uint8)) > 0
     g |= op & ~wide
+    # limpador e friso finos deitados sobre o painel (menos de 9 linhas de altura): também saem
+    op = ~g & (xx > WIND_X(yy) + 20) & (yy >= dl[xx] - 25) & (yy < dl[xx] + 10)
+    tall = cv2.morphologyEx(op.astype(np.uint8), cv2.MORPH_OPEN, np.ones((9, 1), np.uint8)) > 0
+    tall |= (cv2.dilate(tall.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0) & op & (yy >= dl[xx] + 4)
+    g |= op & ~tall & (yy < dl[xx] + 6)
     # ilhas opacas pequenas no vidro (folhas escuras, poste) somem
     n, lab, st, _ = cv2.connectedComponentsWithStats(((xx > WIND_X(yy)) & (yy < dl[xx]) & ~g).astype(np.uint8), connectivity=8)
     for i in range(1, n):

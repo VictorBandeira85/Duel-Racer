@@ -278,31 +278,6 @@ COCKPIT_ART.diablo = {
   },
 };
 
-// Vectra GSi: quadro como o de verdade — conta-giros 0-8 ("ELECTRONIC", faixa vermelha a partir de
-// 6,8) e velocímetro 20-240 varrendo 270° (do 0 embaixo à esquerda até embaixo à direita, como
-// os números da arte), hodômetro e parcial abaixo do eixo, ponteiros brancos; à direita
-// temperatura da água, combustível, pressão do óleo e voltímetro
-COCKPIT_ART['br-vectra'] = {
-  tells: [115, 44],
-  glass: { at: [20, 96], thr: 40 },
-  dash: cp('br-vectra-dash'), top: cp('br-vectra-top'), wheel: cp('br-vectra-wheel'),
-  pivot: [128, 103.6], speedMax: 240, needle: '#f2f2f2', hub: '#1a1a1c', radar: [206, 4],
-  tach: { x: 89.5, y: 65.5, r: 21.5, max: 8, labels: [0, 1, 2, 3, 4, 5, 6, 7, 8], tick: 0.5, red: 6.8, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7, redLabels: false },
-  speed: { x: 140, y: 64, r: 23.5, max: 240, labels: [20, 60, 100, 140, 180, 220], minor: [40, 80, 160, 200, 240], nudge: { 100: [-0.5, 0.5], 140: [0.5, 0.5] }, tick: 10, red: 999, a0: Math.PI * 0.75, sweep: Math.PI * 1.5, labelScale: 0.7 },
-  aux: [
-    { x: 178.5, y: 55.5, r: 5.5, kind: 'single', show: ['water'], icon: 'temp' },
-    { x: 196.5, y: 58, r: 6, kind: 'single', show: ['fuel'], icon: 'fuel' },
-    { x: 178.5, y: 74.5, r: 6, kind: 'single', show: ['oil'], icon: 'oil' },
-    { x: 197, y: 75.5, r: 6, kind: 'single', show: ['volt'], icon: 'volt' },
-  ],
-  extra: (c, ox, r) => {
-    // a marca vermelha do marcador de combustível da arte (fora do lugar do mostrador novo)
-    c.fillStyle = '#121214';
-    c.fillRect(ox + 192, ART_TOP + 47, 6, 4);
-    odometer(c, ox, r, { x: 134, y: 70, w: 12, h: 3.5 }, 157774, 6, 0.5);
-    odometer(c, ox, r, { x: 136, y: 75, w: 8, h: 3.5 }, 202.4, 4, 0.5, true);
-  },
-};
 
 // Gaúcho GTI (Gol GTI 1993): interior novo do Victor (tools/ref/gol_cockpit2.py: painel da arte sem
 // volante, volante da arte com volante ampliado e centrado no quadro) e o quadro VDO da foto do carro
@@ -1253,6 +1228,38 @@ COCKPIT_ART['br-corsa'] = {
   under: GSI.under, extra: GSI.extra,
 };
 queueMicrotask(() => faceImg(CS_FACE));
+
+// Vetor GSi (Vectra GSi 2.0 16v): interior novo do Victor (tools/ref/vectra_cockpit.py: painel da arte sem
+// volante, volante da com volante, emblema da Vanguarda na buzina) e o quadro da FOTO do carro real
+// (tools/ref/vectra_gauges.py, cobre os quatro mostradores redondos da arte): conta-giros 0-8, velocímetro
+// 20-240 com hodômetro, temperatura e combustível no nicho da direita, luzes-espia embaixo; ponteiros brancos
+// em barra com o disco escuro grande por cima; aceso em âmbar
+const VT_FACE = cp('br-vectra-cluster');
+const VTG = pumaGauges({
+  id: 'br-vectra', plate: [80, 35, 110, 41], face: VT_FACE, lit: cp('br-vectra-cluster-lit'), lamps: cp('br-vectra-lamps'),
+  lamp: { batt: [92.1, 71.6, 3.2], oil: [133.5, 71.6, 6.8] },
+  speed: [137, 57, 19.5], tach: [105.5, 57, 16.5],
+  speedA: (v) => 180 + (Math.min(246, v) - 20) * 0.877,
+  tachA: (k) => 178 + 16.25 * clamp(k, -0.1, 8.2),
+  smalls: [
+    [[170, 58, 8.5], () => 180 + (clamp(50 + ((gauges.water - 0.3) / 0.25) * 40, 46, 134) - 50) * (90 / 80)],
+    [[183.4, 58, 8.5], () => 186 + 66 * clamp(gauges.fuel, -0.03, 1.03)],
+  ],
+  needles: ['#f4f4f0', '#ffb050'], rest: 0, maxKmh: 246, needleK: 0.74, smallK: 0.8, glow: '255,160,60', drumLit: '#ffbe70',
+});
+COCKPIT_ART['br-vectra'] = {
+  dash: cp('br-vectra-dash'), top: cp('br-vectra-top'), wheel: cp('br-vectra-wheel'),
+  glass: { at: [60, 113], thr: 256 }, // retrovisor esquerdo (vidro transparente)
+  pivot: [128, 104], wheelTop: -19.14, wheelDx: 7, wheelDy: -10.51,
+  radar: [205, 26],
+  speedMax: 240, speedRest: 0, tachReal: true,
+  needle: '#f4f4f0', needleW: 1.4, needleTail: 2.0, hub: '#2a2a30', hubR: 2.6,
+  faces: [{ src: VT_FACE, x: VTG.PL.x, y: VTG.PL.y, w: VTG.PL.w, h: VTG.PL.h }],
+  glow: '255,160,60', glowK: 0.45,
+  aux: [],
+  under: VTG.under, extra: VTG.extra,
+};
+queueMicrotask(() => faceImg(VT_FACE));
 
 // Passeio GTS (Passat GTS Pointer 1985): interior novo do Victor (tools/ref/passat_cockpit2.py, no molde do
 // Savana: painel da arte sem volante, volante de quatro raios da arte com volante e centrado no quadro,

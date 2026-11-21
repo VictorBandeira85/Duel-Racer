@@ -110,6 +110,12 @@ export const CS_PHOTOS: Photo[] = ([
   { src: ph('cs-raiox'), kicker: 'RAIO-X', kc: '#1a1614', title: 'POR DENTRO DO GSi', sub: 'O hatch esportivo peça por peça', inside: ['Motor 16v transversal', 'Suspensão rebaixada', 'Bancos com abas laterais'], box: [105, 35, 494, 280] },
   { src: ph('cs-motor'), kicker: 'MECÂNICA', kc: '#1e4fb8', title: '16 VÁLVULAS', sub: 'O motor que fez do compacto um esportivo', inside: ['Coletor de quatro dutos', 'Injeção multiponto', 'Giro lá em cima: 7.000 rpm'], box: [40, 10, 520, 305] },
 ] as Photo[]).filter((p) => !!p.src);
+// Vetor GSi (Vectra GSi): tools/ref/vectra_photos.py
+export const VT_PHOTOS: Photo[] = ([
+  { src: ph('vt-estrada'), kicker: 'TESTE', kc: '#d01f26', title: 'VETOR GSi', sub: 'O sedã de 2 litros e 16 válvulas que virou referência entre os médios', inside: ['2.0 16v de 150 cv', '0 a 100 em 8,9 s', 'Teto solar e ABS'], box: [40, 70, 520, 286] },
+  { src: ph('vt-motor'), kicker: 'MECÂNICA', kc: '#1a1614', title: '16 VÁLVULAS', sub: 'Duplo comando no cabeçote e injeção sequencial debaixo do capô', inside: ['Injeção SFI', 'Corte a 6.800 rpm', 'Manutenção da correia'], box: [10, 10, 550, 305] },
+  { src: ph('vt-folheto'), kicker: 'ANÚNCIO', kc: '#1e4fb8', title: 'Cx 0,29', sub: 'Um dos sedãs mais aerodinâmicos da categoria, com injeção e freios ABS', inside: ['Injeção multiponto', 'Freios ABS', 'Coeficiente aerodinâmico 0,29'], box: [8, 42, 552, 302] },
+] as Photo[]).filter((p) => !!p.src);
 // Cadete GSi (Kadett GSi): tools/ref/kadett_photos.py
 export const KD_PHOTOS: Photo[] = ([
   { src: ph('kd-revista'), kicker: 'TESTE', kc: '#d01f26', title: 'CADETE GSi', sub: 'O hatch de 2 litros com injeção multiponto espirra água na pista molhada', inside: ['2.0 de 121 cv', '0 a 100 em 9,6 s', 'Teto solar e bancos esportivos'], box: [62, 27, 502, 268] },
@@ -156,7 +162,7 @@ export const PC_PHOTOS: Photo[] = [
   { src: ph('pc-kitturbo'), kicker: 'PREPARAÇÃO', kc: '#d01f26', title: 'KIT TURBO', sub: 'Peça por peça, o que vai no seu motor', inside: ['Downpipe de 2,5 ou 3,5 pol', 'Qual turbina escolher', 'Monte o seu na oficina'], box: [10, 5, 550, 310] },
   { src: ph('pc-coletor'), kicker: 'PREPARAÇÃO', kc: '#1a1614', title: 'ADMISSÃO DE CORRIDA', sub: 'Coletor de dutos longos e pressão de sobra', inside: ['Turbo ou supercharger?', 'Polia menor, mais pressão', 'Visite a oficina'], box: [95, 40, 465, 280] },
 ].filter((p) => !!p.src);
-export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...VG_PHOTOS, ...VS_PHOTOS, ...SN_PHOTOS, ...PS_PHOTOS, ...PG_PHOTOS, ...PB_PHOTOS, ...CS_PHOTOS, ...KD_PHOTOS, ...P9_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
+export const preloadPhotos = () => [...LP5_PHOTOS, ...NX_PHOTOS, ...VP_PHOTOS, ...TR_PHOTOS, ...F4_PHOTOS, ...DIA_PHOTOS, ...GOL_PHOTOS, ...MZ_PHOTOS, ...VG_PHOTOS, ...VS_PHOTOS, ...SN_PHOTOS, ...PS_PHOTOS, ...PG_PHOTOS, ...PB_PHOTOS, ...CS_PHOTOS, ...KD_PHOTOS, ...VT_PHOTOS, ...P9_PHOTOS, ...PC_PHOTOS].forEach((p) => img(p.src));
 
 // Enquadramento: a foto cobre o quadro e a caixa do carro (p.box) fica inteira e centrada na área
 // livre (sem a faixa vermelha de baixo, 'bottom' px), com uma aproximação lenta (u: 0..1) que nunca

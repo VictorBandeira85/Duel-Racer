@@ -26,22 +26,23 @@ import brand_badges  # noqa: E402
 from cockpit_reduce import core, palette  # noqa: E402
 
 ID = 'br-vectra'
-S = 0.25   # a arte é mais aberta (volante e retrovisor maiores na imagem): escala menor que a dos outros
+S = 0.29   # arte nova (2ª): um pouco mais aberta que a dos outros carros
 PXW, PXH = 1 / S, (1 / S) / (8 / 7)
-PIV_X = 820.0   # retrovisor esquerdo inteiro na tela de celular; as bordas que a arte não cobre são construídas (edge_build)
-WHEEL_C = (860.0, 467.0)
-Y0D = 150.0
+PIV_X = 760.0   # retrovisor esquerdo inteiro na tela de celular; as bordas que a arte não cobre são construídas (edge_build)
+WHEEL_C = (843.0, 528.0)
+Y0D = 226.0
 PIV_N = (128.0, 104.0)
 ROWS, EXT, PAD = 124, 76, 102
-WROWS = 190
-RIM_OUT = (860.0, 467.0, 293.0, 293.0)
-RIM_IN = (860.0, 467.0, 242.0, 239.0)
-EMB = (853.0, 482.0, 32.0)
-MIRROR_SEED = (150, 280)
-CLUSTER = [(612, 262), (1100, 262), (1100, 418), (612, 418)]    # moldura do quadro (miolo vira preto)
-WIND_X = lambda y: 455 + (y / 240.0) * 65                         # borda direita da coluna A
-DOOR_Y = lambda x: 375 - x * 0.125                                # borda de cima da porta (janela acima)
-HOUSING = [(28, 178), (150, 166), (314, 170), (332, 300), (334, 348), (268, 348), (40, 332), (24, 262)]
+WROWS = 200
+RIM_OUT = (843.0, 528.0, 260.0, 256.0)
+RIM_IN = (843.0, 528.0, 218.0, 214.0)
+EMB = (842.0, 541.0, 31.0)
+MIRROR_SEED = (150, 350)
+CLUSTER = [(640, 345), (1050, 345), (1050, 488), (640, 488)]    # moldura do quadro (miolo vira preto)
+WIND_X = lambda y: 405 + y * 0.17                                # borda direita da coluna A (medida)
+PILLAR_L = lambda y: 232 + y * 0.34                              # borda esquerda da coluna A
+DOOR_Y = lambda x: 520 - x * 0.27                                # borda de cima da porta (janela acima)
+HOUSING = [(30, 290), (150, 276), (296, 272), (306, 380), (300, 436), (240, 432), (40, 420), (28, 360)]
 
 
 def scene_mask(nw):
@@ -66,12 +67,12 @@ def dash_line(nw):
     lum = a.mean(axis=2)
     dk = (lum < 58) & ~(g > r + 8) & ~((b > r + 30) & (b > 100))
     W = nw.shape[1]
-    d = np.full(W, 210.0)
+    d = np.full(W, 300.0)
     for x in range(W):
-        col = dk[175:330, x]
+        col = dk[240:400, x]
         for k in range(len(col) - 7):
             if col[k:k + 7].sum() >= 6:
-                d[x] = 175 + k
+                d[x] = 240 + k
                 break
     d = np.array([np.median(d[max(0, x - 20):x + 21]) for x in range(W)])
     # linha lisa (a borda do painel é uma curva suave): polinômio de 3º grau à direita da coluna A
@@ -89,7 +90,7 @@ def glass_mask(nw):
     wind = (xx > WIND_X(yy)) & (yy < dl[xx])
     # janela da porta: à esquerda da coluna, acima da porta
     house = cv2.fillPoly(np.zeros((H, W), np.uint8), [np.array(HOUSING, np.int32)], 1) > 0
-    win = (xx < 300 + yy * 0.15) & (yy < DOOR_Y(xx)) & ~house
+    win = (xx < PILLAR_L(yy) - 2) & (yy < DOOR_Y(xx)) & ~house
     # vidro do retrovisor esquerdo (o cenário dentro da moldura escura)
     n, lab = cv2.connectedComponents((sc & house).astype(np.uint8), connectivity=8)
     mir = lab == lab[MIRROR_SEED[1], MIRROR_SEED[0]]
@@ -99,7 +100,16 @@ def glass_mask(nw):
     frame = house & ~mir & ~sc        # moldura do retrovisor fica
     # rente à linha do painel: o que ainda é cenário (pé da grade, mato, céu) também é vidro
     band = (xx > WIND_X(yy)) & (yy >= dl[xx] - 2) & (yy < dl[xx] + 3)
-    g = (wind | win | mir | (band & sc)) & ~frame
+    a = nw.astype(int)
+    leafy = sc | (a[..., 1] > a[..., 0] + 5) | (a[..., 2] > a[..., 0] + 25)   # mato escuro e céu, que a coluna (cinza-roxo) não tem
+    pil = (xx > WIND_X(yy) - 45) & (xx <= WIND_X(yy) + 45) & (yy < dl[xx]) & leafy   # dos dois lados da borda da coluna A
+    pl = PILLAR_L(yy)
+    pil |= (xx > pl - 60) & (xx < pl + 8) & (yy < DOOR_Y(xx)) & leafy & ~house
+    pil |= (xx > WIND_X(yy)) & (xx < 560) & (yy < 335) & (leafy | ((a[..., 0] > a[..., 1] + 30) & (a[..., 0] > 110)))               # canto de baixo do para-brisa junto da coluna
+    green = (a[..., 1] > a[..., 0] + 12) | ((a[..., 2] > a[..., 0] + 40) & (a[..., 2] > 110))
+    frame &= ~green                                                          # mato e céu em volta da carcaça do retrovisor são janela
+    pil |= house & green & ~mir & (yy < DOOR_Y(xx))
+    g = (wind | win | mir | (band & sc) | pil) & ~frame
     g = cv2.morphologyEx(g.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8)) > 0
     # postes da grade em pé sobre o painel (estreitos): saem numa abertura horizontal
     near = (xx > WIND_X(yy) + 20) & (yy >= dl[xx] - 25) & (yy < dl[xx] + 6)
@@ -158,7 +168,7 @@ def wheel_mask(ww):
     ell = lambda e: ((x4 - e[0]) / e[2]) ** 2 + ((y4 - e[1]) / e[3]) ** 2 <= 1  # noqa: E731
     inner = ell(RIM_IN)
     lum = ww.astype(int).mean(axis=2)
-    pad = inner & (y4 > 404) & (lum > 36)
+    pad = inner & (y4 > 470) & (lum > 36)
     pad = cv2.morphologyEx(pad.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
     pad = cv2.morphologyEx(pad, cv2.MORPH_OPEN, np.ones((7, 7), np.uint8))
     n, lab, st, _ = cv2.connectedComponentsWithStats(pad, connectivity=4)
@@ -206,7 +216,7 @@ def main():
     wheel = wheel_mask(ww)
     if dbg:
         v = ww.copy(); v[~wheel] = (v[~wheel] * 0.35 + np.array([0, 160, 0]) * 0.65).astype(np.uint8)
-        Image.fromarray(v[160:780, 550:1170]).save(os.path.join(dbg, 'wheel-mask.png'))
+        Image.fromarray(v[260:800, 570:1120]).save(os.path.join(dbg, 'wheel-mask.png'))
     Y0D -= UP
     top = WHEEL_C[1] - RIM_OUT[3] - 4
     xs = WHEEL_C[0] + (np.arange(256) + 0.5 - 128) * PXW

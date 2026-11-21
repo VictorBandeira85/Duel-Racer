@@ -128,7 +128,9 @@ function paintImage(src: string, paint: Paint): HTMLCanvasElement | null {
     // proporcional ao tom médio: o que é mais escuro que ele (frisos, vincos, sombra) escurece
     // na mesma proporção na cor nova (num carro preto, a diferença absoluta é mínima e os frisos
     // sumiriam), com expoente para não realçar o chuvisco; o mais claro sobe até o branco
-    const nl = l < base ? tl * (l / base) ** 0.6 : tl + ((l - base) * (1 - tl)) / (1 - base);
+    // (carro de fábrica branco: o tom médio fica perto de 1 e qualquer brilho virava faixa branca na cor
+    // nova; a subida dos claros é limitada a 2,2x a diferença da arte)
+    const nl = l < base ? tl * (l / base) ** 0.6 : tl + (l - base) * Math.min((1 - tl) / (1 - base), 2.2);
     const [r, g, b] = hslToRgb(th, ts, Math.min(0.96, Math.max(0.04, nl)));
     d[i] = r; d[i + 1] = g; d[i + 2] = b;
   }

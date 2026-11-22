@@ -881,6 +881,7 @@ function silberCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
 COCKPIT_ART['959'] = {
   tells: null, // setas desenhadas no conta-giros (silberCluster)
   dash: cp('959-dash'), top: cp('959-top'), wheel: cp('959-wheel'),
+  dashMask: cp('959-dash-mask'), topMask: cp('959-top-mask'), // retrovisor na cor do carro (tools/ref/mirror_masks.py)
   glass: { at: [33, 121], thr: 256 }, // retrovisor esquerdo (completado em silber_cockpit.py, vidro transparente)
   // o volante acompanha o quadro (o painel esticado cai 2 colunas à direita e 3 linhas abaixo) e desce mais 9
   // linhas (posição do banco): o aro emoldura os três mostradores do meio, como na foto, e tapa menos a estrada
@@ -1181,6 +1182,7 @@ function kadettCluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
 COCKPIT_ART['br-kadett'] = {
   tells: [134.5, 78.1], // setas: na faixa de baixo, entre a parcial e o conta-giros
   dash: cp('br-kadett-dash'), top: cp('br-kadett-top'), wheel: cp('br-kadett-wheel'),
+  dashMask: cp('br-kadett-dash-mask'), topMask: cp('br-kadett-top-mask'), // retrovisor na cor do carro (tools/ref/mirror_masks.py)
   glass: { at: [57, 115], thr: 256 }, // retrovisor esquerdo (vidro transparente)
   pivot: [128, 104], wheelTop: -21.49, wheelDx: -21.09, wheelDy: -1.79,
   speedMax: 220, needle: '#ffb428', hub: '#202022', radar: [190, 13], aux: [],
@@ -1505,6 +1507,7 @@ function c4Cluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
 // 0-320 e conta-giros 0-100 (x 100) com faixa vermelha, óleo e água no meio; tudo aceso em laranja
 COCKPIT_ART.testarossa = {
   dash: cp('testarossa-dash'), top: cp('testarossa-top'), wheel: cp('testarossa-wheel'),
+  dashMask: cp('testarossa-dash-mask'), topMask: cp('testarossa-top-mask'), // retrovisor na cor do carro (tools/ref/mirror_masks.py)
   pivot: [128, 105], wheelTop: 12, pod: { x: 271, y: 23, r: 10, face: 'black', bezel: 'black', needle: '#ff8a1c', lit: 'yellow' }, speedMax: 320, needle: '#ff8a1c', needleW: 2.0, needleTail: 6.5, needleFine: true, needleTip: 0.45, hubUnder: true, tachReal: true, hub: '#101011', hubR: 0,
   glass: { at: [12, 96], thr: 256, x0: 3, toEdge: true }, glow: '255,140,40', tells: null,
   faces: [{ src: cp('tr-cluster'), src2: cp('tr-cluster-2x'), x: 63.5, y: 29.5, w: 137, h: 54 }],
@@ -1665,6 +1668,7 @@ function lp5Cluster(c: CanvasRenderingContext2D, ox: number, r: Race) {
 COCKPIT_ART.countach = {
   tells: null, // setas nas caixas de luzes-espia (lp5Cluster)
   dash: cp('countach-dash'), top: cp('countach-top'), wheel: cp('countach-wheel'),
+  dashMask: cp('countach-dash-mask'), topMask: cp('countach-top-mask'), // retrovisor na cor do carro (tools/ref/mirror_masks.py)
   glass: { at: [36, 96], thr: 256 }, // retrovisor esquerdo da arte (vidro transparente, fechado pela carcaça)
   // o volante acompanha o painel esticado (464 x 128): 2 colunas à direita e 2,6 linhas abaixo
   pivot: [129.65, 80.49], wheelTop: 10, wheelDx: 2, wheelDy: 2.6,

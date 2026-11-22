@@ -28,7 +28,7 @@
   com velocímetro digital turquesa (patrol_cockpit2.py, patrolCluster). Cadete GSi (Kadett GSi 2.0): exterior novo branco (tools/ref/kadett_sprites.py: "CHEVROLET" da tampa sai)
   e capas (kadett_photos.py: kd-revista, kd-praia, kd-duelo); cabine nova (kadett_cockpit.py: painel da arte sem volante,
   volante da com volante, vidros pelo magenta) com o quadro digital da foto do carro real (kadettCluster). Vetor GSi (Vectra GSi 2.0 16v): exterior novo branco com cenário (tools/ref/vectra_sprites.py e depois vectra_side_fix.py) e capas
-  (vectra_photos.py: vt-estrada, vt-motor, vt-folheto); cabine nova (3ª arte do Victor, vidros em magenta, alça do teto removida; vectra_cockpit.py, escala 0,29; depois rodar edge_build.py br-vectra L 10 0.27 , vectra_magenta_fringe.py e vectra_mirror_mask.py: carcaça do retrovisor na cor do carro; visor do console desenhado no jogo: vectraLcd)
+  (vectra_photos.py: vt-estrada, vt-motor, vt-folheto); cabine nova (3ª arte do Victor, vidros em magenta, alça do teto removida; vectra_cockpit.py, escala 0,29; depois rodar edge_build.py br-vectra L 10 0.27 , magenta_fringe.py br-vectra e vectra_mirror_mask.py: carcaça do retrovisor na cor do carro; visor do console desenhado no jogo: vectraLcd)
   com o quadro da foto do carro real (vectra_gauges.py, pumaGauges). Os demais (ZR1, Uno) ficam como estão
   até a arte nova chegar, para não haver retrabalho: nada de retoques, retrovisores ou quadros neles.
   Na dúvida, perguntar.
@@ -237,6 +237,10 @@
 - Desempenho à noite: medir com `node tools/qa/draw_cost.cjs <carro> <pista...>` (chamadas, megapixels e
   trocas de canvas por quadro, dia x noite). Efeito novo de luz não pode usar um rascunho por objeto:
   desenhar em lote (atlas, varredura do longe para o perto) como em shadeCars/maskedPools.
+- Retrovisor externo da cor da carroceria (no carro real) entra na máscara de pintura da cabine (`dashMask`/`topMask`):
+  carcaça inteira, contorno incluído, sem pegar porta nem coluna. Cabines sem máscara: `tools/ref/mirror_masks.py`
+  (959, Cadete, Fúria TR, LP5). Conferir repintando de azul. Os de plástico preto (Voyage, Santana, Passat, 9C) ficam.
+  Franja magenta do recorte de vidros em magenta (Cadete, Vetor): `tools/ref/magenta_fringe.py <id>`.
 - Todo carro tem retrovisor do lado do motorista funcionando (vidro com a vista de trás). Se a arte
   não tem, desenhar com `python3 tools/qa/add_mirror.py <cabine> x0 y0 x1 y1 braço_x braço_y #cor` e pôr
   a semente em `glass.at`. Mão inglesa (NSX): o do motorista é o da direita.

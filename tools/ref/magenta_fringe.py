@@ -1,16 +1,23 @@
-"""Vetor GSi: tira a franja magenta (resto do recorte dos vidros da 3ª arte) das bordas da cabine.
-Cada pixel rosado vira a mediana dos vizinhos opacos não rosados (o alfa fica).
-Rodar depois do vectra_cockpit.py e do edge_build.py."""
+"""Tira a franja magenta (resto do recorte dos vidros pintados de magenta na arte) das bordas da cabine:
+só pixels rosados ou roxo-escuros a até 2 px de um vidro (transparência). Cada um vira a mediana dos
+vizinhos opacos não rosados (o alfa fica).
+Uso: python3 tools/ref/magenta_fringe.py br-vectra   (ou br-kadett), depois do script da cabine e do edge_build."""
+import sys
+
+import cv2
 import numpy as np
 from PIL import Image
 
+ID = sys.argv[1] if len(sys.argv) > 1 else 'br-vectra'
 for n in ('dash', 'top', 'wheel'):
-    f = f'src/assets/cockpit/br-vectra-{n}.png'
+    f = f'src/assets/cockpit/{ID}-{n}.png'
     a = np.array(Image.open(f).convert('RGBA'))
     i = a.astype(int)
     lo = np.minimum(i[..., 0], i[..., 2])
     pink = ((i[..., 0] > i[..., 1] + 25) & (i[..., 2] > i[..., 1] + 25)
             | (lo >= 8) & (i[..., 1] * 2.5 < lo)) & (i[..., 3] > 0)   # e a franja escura (roxo quase preto)
+    near = cv2.dilate((i[..., 3] < 255).astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
+    pink &= near
     good = ~pink & (i[..., 3] > 200)
     h, w = pink.shape
     out = a.copy()

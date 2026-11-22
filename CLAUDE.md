@@ -121,6 +121,14 @@
   Conferir com script que mede velocidade e distância das viaturas (parado, fugindo e freando).
 
 ## Carros novos
+- **Retrovisor visto de dentro acompanha a cor da carroceria** quando, no carro real, o retrovisor é da cor
+  da carroceria (regra do Victor): toda cabine nova ou mexida tem a carcaça do retrovisor externo na máscara
+  de pintura (`dashMask`/`topMask` em COCKPIT_ART), inteira e com o contorno, sem pegar porta, coluna nem
+  vidro. Vale também para outras peças da lataria vistas de dentro (borda do capô, soleira, friso da coluna).
+  Retrovisor de plástico preto no carro real (Voyage, Santana, Passat, 9C) fica fora da máscara. Se a cor
+  da arte não for a de fábrica, pôr `cockpitPaint` no carro. Máscara: no script da cabine ou em
+  `tools/ref/mirror_masks.py` (uma linha em JOBS). Conferir com o carro repintado de azul (dia e noite) antes
+  de publicar. Na dúvida sobre a cor do retrovisor do carro real, pesquisar ou perguntar ao Victor.
 - A vista lateral de todo carro fica com a **frente para a esquerda** (como os demais). Se a arte vier
   virada para a direita, espelhar a lateral e a máscara e espelhar as rodas em `WHEELS` (x -> 1 - x).
 - Carro com faróis escamoteáveis: além da frente levantada (front-up), construir a lateral com os faróis
@@ -237,10 +245,7 @@
 - Desempenho à noite: medir com `node tools/qa/draw_cost.cjs <carro> <pista...>` (chamadas, megapixels e
   trocas de canvas por quadro, dia x noite). Efeito novo de luz não pode usar um rascunho por objeto:
   desenhar em lote (atlas, varredura do longe para o perto) como em shadeCars/maskedPools.
-- Retrovisor externo da cor da carroceria (no carro real) entra na máscara de pintura da cabine (`dashMask`/`topMask`):
-  carcaça inteira, contorno incluído, sem pegar porta nem coluna. Cabines sem máscara: `tools/ref/mirror_masks.py`
-  (959, Cadete, Fúria TR, LP5). Conferir repintando de azul. Os de plástico preto (Voyage, Santana, Passat, 9C) ficam.
-  Franja magenta do recorte de vidros em magenta (Cadete, Vetor): `tools/ref/magenta_fringe.py <id>`.
+- Franja magenta do recorte de vidros em magenta (Cadete, Vetor): `tools/ref/magenta_fringe.py <id>`.
 - Todo carro tem retrovisor do lado do motorista funcionando (vidro com a vista de trás). Se a arte
   não tem, desenhar com `python3 tools/qa/add_mirror.py <cabine> x0 y0 x1 y1 braço_x braço_y #cor` e pôr
   a semente em `glass.at`. Mão inglesa (NSX): o do motorista é o da direita.

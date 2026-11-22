@@ -401,7 +401,7 @@ const SIDE_LAMPS: Record<string, SideLamp> = {
   nsx: { head: [0.082, 0.365], tail: [0.975, 0.38], pop: true },
   viper: { head: [0.075, 0.54], tail: [0.975, 0.53] },
   patrol: { head: [0.05, 0.636], tail: [0.958, 0.533] },
-  'br-vectra': { head: [0.051, 0.55], tail: [0.973, 0.502] },
+  'br-vectra': { head: [0.039, 0.549], tail: [0.975, 0.499] }, // vectra_side2.py
   'br-uno': { head: [0.04, 0.55], tail: [0.975, 0.46] },
   'br-golgti': { head: [0.033, 0.593], tail: [0.98, 0.6] },
   'br-kadett': { head: [0.0365, 0.601], tail: [0.976, 0.513] },
@@ -428,7 +428,7 @@ const WHEELS: Record<string, number[][]> = {
   'br-pumagte': [[0.2093, 0.7416, 0.0558], [0.7541, 0.7378, 0.0558]], // Puma GTE 1974 (pumagte_sprites2.py)
   'br-pumagtb': [[0.21, 0.7477, 0.0586], [0.7689, 0.7418, 0.0599]], // Puma GTB S2 (pumagtb_sprites.py)
   'br-golgti': [[0.1921, 0.8185, 0.0574], [0.8187, 0.8149, 0.0574]],
-  'br-vectra': [[0.1902, 0.7938, 0.0501], [0.7763, 0.7909, 0.0509]], // arte nova (vectra_sprites.py)
+  'br-vectra': [[0.1812, 0.788, 0.0509], [0.7762, 0.7861, 0.0519]], // lateral nova em fundo magenta (vectra_side2.py)
   'br-monza': [[0.1775, 0.7779, 0.0502], [0.7859, 0.7771, 0.0502]],
   'br-monzacoupe': [[0.1868, 0.7791, 0.048], [0.7874, 0.7823, 0.048]],
   'br-voyage': [[0.191, 0.7891, 0.0442], [0.7612, 0.7924, 0.0435]],
